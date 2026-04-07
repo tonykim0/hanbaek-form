@@ -25,7 +25,7 @@ const defaultValues: Partial<ContractFormData> = {
   contractDay: todayDay,
   contractTerm: '7',
   // Pre-fill from env vars (set on Vercel)
-  salesCompany: env.VITE_DEFAULT_SALES_COMPANY ?? '한백',
+  salesCompany: env.VITE_DEFAULT_SALES_COMPANY ?? '',
   salesName: env.VITE_DEFAULT_SALES_NAME ?? '',
   salesTel: env.VITE_DEFAULT_SALES_TEL ?? '',
   surveyorCompany: env.VITE_DEFAULT_SURVEYOR_COMPANY ?? '한백',

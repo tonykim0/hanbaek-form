@@ -11,6 +11,12 @@ const todayStr = `${todayYear}년 ${todayMonth}월 ${todayDay}일`;
 
 const env = import.meta.env;
 
+// Korean phone number validator.
+// Matches: 010-1234-5678, 02-1234-5678, 02-123-4567, 031-903-1370, 1533-0702
+//   - 0X-XXX(X)-XXXX  (mobile + landline, 2~3 digit area code)
+//   - 1NNN-NNNN       (4-digit special service numbers)
+const PHONE_RE = /^(0\d{1,2}-\d{3,4}-\d{4}|1[5-9]\d{2}-\d{4})$/;
+
 const defaultValues: Partial<ContractFormData> = {
   contractMonth: todayMonth,
   contractDay: todayDay,
@@ -23,6 +29,23 @@ const defaultValues: Partial<ContractFormData> = {
   surveyorCompany: env.VITE_DEFAULT_SURVEYOR_COMPANY ?? '한백',
   surveyorName: env.VITE_DEFAULT_SURVEYOR_NAME ?? '',
   surveyorTel: env.VITE_DEFAULT_SURVEYOR_TEL ?? '',
+  // 사전 컨설팅 defaults
+  buildingType: 'apartment',
+  installLocation: '',
+  ownership: 'own',
+  ownerRelation: 'self',
+  powerSupply: '',
+  installTypeWall: false,
+  installTypeStand: false,
+  dupFast: false,
+  dupFastQty: '',
+  dupSlow: false,
+  dupSlowQty: '',
+  dupDist: false,
+  dupDistQty: '',
+  dupOutlet: false,
+  dupOutletQty: '',
+  dupKiosk: false,
 };
 
 type StatusKind = 'success' | 'error' | null;
@@ -31,10 +54,17 @@ export default function App() {
   const {
     register,
     handleSubmit,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm<ContractFormData>({ defaultValues });
 
   const [status, setStatus] = useState<{ kind: StatusKind; msg: string } | null>(null);
+
+  // Watch dup checkboxes to enable/disable qty inputs
+  const dupFast = watch('dupFast');
+  const dupSlow = watch('dupSlow');
+  const dupDist = watch('dupDist');
+  const dupOutlet = watch('dupOutlet');
 
   const onSubmit = async (data: ContractFormData) => {
     setStatus(null);
@@ -45,7 +75,7 @@ export default function App() {
       downloadBlob(result.blob, filename);
       setStatus({
         kind: 'success',
-        msg: `생성 완료: ${result.filledCount}개 필드 채움 → ${filename}`,
+        msg: `생성 완료: 텍스트 ${result.filledTextCount}개 + 체크박스 ${result.toggledCheckboxCount}개 → ${filename}`,
       });
       if (result.unmatchedIds.length > 0) {
         console.warn('Unmatched SDT IDs (template drift):', result.unmatchedIds);
@@ -72,6 +102,7 @@ export default function App() {
           onSubmit={handleSubmit(onSubmit)}
           className="space-y-6 bg-white rounded-lg shadow-sm border border-gray-200 p-6"
         >
+          {/* ───────────────── 1. 고객사 정보 ───────────────── */}
           <Section title="1. 고객사 정보">
             <Field label="상호명" required error={errors.custName?.message}>
               <input
@@ -103,7 +134,13 @@ export default function App() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <Field label="대표 전화번호" required error={errors.custTel?.message}>
                 <input
-                  {...register('custTel', { required: '필수' })}
+                  {...register('custTel', {
+                    required: '필수',
+                    pattern: {
+                      value: PHONE_RE,
+                      message: '형식: 010-1234-5678 / 02-1234-5678 / 1533-0702',
+                    },
+                  })}
                   className={inputCls}
                   placeholder="031-903-1370"
                 />
@@ -119,19 +156,13 @@ export default function App() {
             </div>
           </Section>
 
+          {/* ───────────────── 2. 계약 정보 ───────────────── */}
           <Section title="2. 계약 정보">
             <Field label="설치장소 주소">
               <input
                 {...register('installAddr')}
                 className={inputCls}
                 placeholder="고객사 주소와 같으면 비워두세요"
-              />
-            </Field>
-            <Field label="설치 위치 상세">
-              <input
-                {...register('installLocation')}
-                className={inputCls}
-                placeholder="예: 지하주차장 B1"
               />
             </Field>
             <div className="grid grid-cols-2 gap-4">
@@ -174,35 +205,8 @@ export default function App() {
             </Field>
           </Section>
 
-          <Section title="3. 환경공단 신청서 정보">
-            <div className="grid grid-cols-2 gap-4">
-              <Field
-                label="보유 주차면수 (면)"
-                required
-                error={errors.parkingLotCount?.message}
-              >
-                <input
-                  {...register('parkingLotCount', { required: '필수' })}
-                  className={inputCls}
-                  type="number"
-                  placeholder="545"
-                />
-              </Field>
-              <Field label="스마트 충전기 7~11kW 수량">
-                <input
-                  {...register('smartChargerQty')}
-                  className={inputCls}
-                  type="number"
-                  placeholder="비우면 설치수량과 동일"
-                />
-              </Field>
-            </div>
-          </Section>
-
-          <Section title="4. 모집대행사 / 조사자">
-            <p className="text-sm text-gray-500 -mt-1 mb-2">
-              한백 정보가 기본값입니다. 다른 대행사일 경우 수정하세요.
-            </p>
+          {/* ───────────────── 3. 모집대행사 / 조사자 ───────────────── */}
+          <Section title="3. 모집대행사 / 조사자">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <Field label="회사명">
                 <input {...register('salesCompany')} className={inputCls} />
@@ -223,31 +227,98 @@ export default function App() {
             </Field>
           </Section>
 
-          <Section title="5. 관리소장 정보 (선택)">
-            <p className="text-sm text-gray-500 -mt-1 mb-2">
-              의무관리 공동주택 (150세대+ 승강기/중앙난방, 또는 300세대+) 인 경우만 입력하세요.
-            </p>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Field label="단지명">
-                <input
-                  {...register('apartmentName')}
-                  className={inputCls}
-                  placeholder="비우면 상호명 사용"
+          {/* ───────────────── 4. 사전 현장 컨설팅 결과서 ───────────────── */}
+          <Section title="4. 사전 현장 컨설팅 결과서 (별지7호)">
+            <Field
+              label="보유 주차면수 (면)"
+              required
+              error={errors.parkingLotCount?.message}
+            >
+              <input
+                {...register('parkingLotCount', { required: '필수' })}
+                className={inputCls}
+                type="number"
+                placeholder="545"
+              />
+            </Field>
+
+            <RadioField label="건물형태" required>
+              <Radio name="buildingType" value="apartment" register={register} label="아파트" />
+              <Radio name="buildingType" value="commercial" register={register} label="상가" />
+              <Radio name="buildingType" value="etc" register={register} label="기타" />
+            </RadioField>
+
+            <RadioField label="설치위치">
+              <Radio name="installLocation" value="indoor" register={register} label="실내·지하" />
+              <Radio name="installLocation" value="outdoor" register={register} label="실외·노상" />
+            </RadioField>
+
+            <RadioField label="소유여부">
+              <Radio name="ownership" value="own" register={register} label="소유" />
+              <Radio name="ownership" value="rent" register={register} label="임대" />
+            </RadioField>
+
+            <RadioField label="소유주와의 관계">
+              <Radio name="ownerRelation" value="self" register={register} label="본인" />
+              <Radio name="ownerRelation" value="family" register={register} label="가족" />
+              <Radio name="ownerRelation" value="friend" register={register} label="지인" />
+              <Radio name="ownerRelation" value="employee" register={register} label="직원" />
+              <Radio name="ownerRelation" value="none" register={register} label="무관" />
+            </RadioField>
+
+            <RadioField label="전력인입" hint="선택 시 별지7호 5번 (전기수용용량 확인) 자동 체크됨">
+              <Radio name="powerSupply" value="moja" register={register} label="모자분할 (→ 고압 변압기 용량)" />
+              <Radio name="powerSupply" value="hanjeon" register={register} label="한전불입 (→ 저압 계약전력)" />
+            </RadioField>
+
+            <RadioField label="설치타입" hint="중복 선택 가능">
+              <Checkbox register={register} name="installTypeWall" label="벽부형" />
+              <Checkbox register={register} name="installTypeStand" label="스탠드" />
+            </RadioField>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                중복설치 여부 <span className="text-gray-400 font-normal">(미체크 시 "해당사항 없음" 자동 체크)</span>
+              </label>
+              <div className="space-y-2 border border-gray-200 rounded p-3 bg-gray-50">
+                <DupRow
+                  register={register}
+                  checkboxName="dupFast"
+                  qtyName="dupFastQty"
+                  label="급속충전기"
+                  qtyEnabled={dupFast}
                 />
-              </Field>
-              <Field label="관리사무소 전화번호">
-                <input {...register('managerTel')} className={inputCls} />
-              </Field>
-              <Field label="관리소장 성명">
-                <input {...register('managerName')} className={inputCls} />
-              </Field>
-              <Field label="관리소장 생년월일">
-                <input
-                  {...register('managerBirth')}
-                  className={inputCls}
-                  placeholder="YYYY-MM-DD"
+                <DupRow
+                  register={register}
+                  checkboxName="dupSlow"
+                  qtyName="dupSlowQty"
+                  label="완속충전기"
+                  qtyEnabled={dupSlow}
                 />
-              </Field>
+                <DupRow
+                  register={register}
+                  checkboxName="dupDist"
+                  qtyName="dupDistQty"
+                  label="전력분배형 충전기"
+                  qtyEnabled={dupDist}
+                />
+                <DupRow
+                  register={register}
+                  checkboxName="dupOutlet"
+                  qtyName="dupOutletQty"
+                  label="과금형 콘센트"
+                  qtyEnabled={dupOutlet}
+                />
+                <div className="flex items-center gap-2 pt-1">
+                  <input
+                    type="checkbox"
+                    {...register('dupKiosk')}
+                    className="h-4 w-4 text-blue-600 rounded"
+                  />
+                  <span className="text-sm text-gray-700">키오스크</span>
+                  <span className="text-xs text-gray-400">(수량란 없음)</span>
+                </div>
+              </div>
             </div>
           </Section>
 
@@ -277,16 +348,20 @@ export default function App() {
         </form>
 
         <div className="mt-6 p-4 bg-amber-50 border border-amber-200 rounded text-sm text-amber-900">
-          <p className="font-semibold mb-1">⚠️ 워드에서 수동 확인 필요한 항목</p>
+          <p className="font-semibold mb-1">ℹ️ 자동 처리되는 항목 (별지5호)</p>
           <ul className="list-disc ml-5 space-y-1">
-            <li>체크박스 (건물형태, 설치위치, 결제방식 등) — ☐ ↔ ■ 토글</li>
-            <li>중복설치 여부 (별지7호 6번)</li>
-            <li>시설명 (공동주택이면 placeholder 제거)</li>
+            <li>결제방식 → <strong>후불청구(회원결제)</strong> (템플릿 고정)</li>
+            <li>개인정보 수집·이용 동의 → <strong>동의함</strong> (템플릿 고정)</li>
+            <li>개인정보 제3자 위탁·제공 동의 → <strong>동의함</strong> (템플릿 고정)</li>
+          </ul>
+          <p className="mt-3 font-semibold mb-1">⚠️ Word에서 수동 확인 필요</p>
+          <ul className="list-disc ml-5 space-y-1">
+            <li>별지5호 시설 종류 (공동주택/사업장/소상공인/기타) — 단지마다 거의 동일</li>
           </ul>
         </div>
 
         <footer className="mt-6 text-center text-xs text-gray-400">
-          <p>한백 EV Infra Solutions · Internal Tool</p>
+          <p>한백 EV Infra Solutions · Internal Tool · v2</p>
         </footer>
       </div>
     </div>
@@ -326,6 +401,97 @@ function Field({
       </label>
       {children}
       {error && <p className="text-sm text-red-600 mt-1">{error}</p>}
+    </div>
+  );
+}
+
+function RadioField({
+  label,
+  required,
+  hint,
+  children,
+}: {
+  label: string;
+  required?: boolean;
+  hint?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <label className="block text-sm font-medium text-gray-700 mb-1">
+        {label}
+        {required && <span className="text-red-500 ml-1">*</span>}
+      </label>
+      {hint && <p className="text-xs text-gray-500 mb-1">{hint}</p>}
+      <div className="flex flex-wrap gap-x-4 gap-y-1">{children}</div>
+    </div>
+  );
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function Radio({ name, value, register, label }: { name: any; value: string; register: any; label: string }) {
+  return (
+    <label className="flex items-center gap-1.5 text-sm text-gray-700 cursor-pointer">
+      <input
+        type="radio"
+        value={value}
+        {...register(name)}
+        className="h-4 w-4 text-blue-600"
+      />
+      {label}
+    </label>
+  );
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function Checkbox({ register, name, label }: { register: any; name: any; label: string }) {
+  return (
+    <label className="flex items-center gap-1.5 text-sm text-gray-700 cursor-pointer">
+      <input
+        type="checkbox"
+        {...register(name)}
+        className="h-4 w-4 text-blue-600 rounded"
+      />
+      {label}
+    </label>
+  );
+}
+
+function DupRow({
+  register,
+  checkboxName,
+  qtyName,
+  label,
+  qtyEnabled,
+}: {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  register: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  checkboxName: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  qtyName: any;
+  label: string;
+  qtyEnabled: boolean;
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      <input
+        type="checkbox"
+        {...register(checkboxName)}
+        className="h-4 w-4 text-blue-600 rounded"
+      />
+      <span className="text-sm text-gray-700 w-32">{label}</span>
+      <input
+        type="number"
+        min="0"
+        {...register(qtyName)}
+        disabled={!qtyEnabled}
+        placeholder={qtyEnabled ? '수량' : '—'}
+        className={`border border-gray-300 rounded px-2 py-1 w-24 text-sm ${
+          !qtyEnabled ? 'bg-gray-100 text-gray-400' : ''
+        }`}
+      />
+      <span className="text-sm text-gray-500">기</span>
     </div>
   );
 }

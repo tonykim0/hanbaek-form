@@ -6,8 +6,10 @@ import { fillContractTemplate, downloadBlob } from './lib/fillDocx';
 const today = new Date();
 const todayMonth = String(today.getMonth() + 1);
 const todayDay = String(today.getDate());
-const todayYear = today.getFullYear();
-const todayStr = `${todayYear}년 ${todayMonth}월 ${todayDay}일`;
+
+// 연도 옵션 — 디폴트 2026, 앞뒤로 한 해씩
+const YEAR_OPTIONS = ['2025', '2026', '2027'];
+const DEFAULT_YEAR = '2026';
 
 const env = import.meta.env;
 
@@ -18,13 +20,15 @@ const env = import.meta.env;
 const PHONE_RE = /^(0\d{1,2}-\d{3,4}-\d{4}|1[5-9]\d{2}-\d{4})$/;
 
 const defaultValues: Partial<ContractFormData> = {
+  contractYear: DEFAULT_YEAR,
   contractMonth: todayMonth,
   contractDay: todayDay,
   contractTerm: '7',
-  surveyDate: todayStr,
   // Pre-fill from env vars (set on Vercel)
+  salesCompany: env.VITE_DEFAULT_SALES_COMPANY ?? '한백',
   salesName: env.VITE_DEFAULT_SALES_NAME ?? '',
   salesTel: env.VITE_DEFAULT_SALES_TEL ?? '',
+  surveyorCompany: env.VITE_DEFAULT_SURVEYOR_COMPANY ?? '한백',
   surveyorName: env.VITE_DEFAULT_SURVEYOR_NAME ?? '',
   surveyorTel: env.VITE_DEFAULT_SURVEYOR_TEL ?? '',
   // 사전 컨설팅 defaults
@@ -69,7 +73,7 @@ export default function App() {
     try {
       const result = await fillContractTemplate(data);
       const safeName = data.custName.replace(/[^\w가-힣]+/g, '_');
-      const filename = `${todayYear}년_계약서류_${safeName}.docx`;
+      const filename = `${data.contractYear}년_계약서류_${safeName}.docx`;
       downloadBlob(result.blob, filename);
       setStatus({
         kind: 'success',
@@ -180,9 +184,19 @@ export default function App() {
                 </select>
               </Field>
             </div>
-            <Field label="계약일" required>
+            <Field label="계약일 / 조사일" required>
               <div className="flex gap-2 items-center">
-                <span className="text-gray-700">{todayYear}년</span>
+                <select
+                  {...register('contractYear', { required: true })}
+                  className={`${inputCls} w-24`}
+                >
+                  {YEAR_OPTIONS.map((y) => (
+                    <option key={y} value={y}>
+                      {y}
+                    </option>
+                  ))}
+                </select>
+                <span className="text-gray-700">년</span>
                 <input
                   {...register('contractMonth', { required: true })}
                   className={`${inputCls} w-20`}
@@ -203,10 +217,10 @@ export default function App() {
             </Field>
           </Section>
 
-          {/* ───────────────── 3. 모집대행사 / 조사자 ───────────────── */}
-          <Section title="3. 모집대행사 / 조사자">
+          {/* ───────────────── 3. 사전 현장 컨설팅 결과서 ───────────────── */}
+          <Section title="3. 사전 현장 컨설팅 결과서 (별지7호)">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <Field label="회사명">
+              <Field label="모집대행사">
                 <input {...register('salesCompany')} className={inputCls} />
               </Field>
               <Field label="담당자명">
@@ -216,17 +230,7 @@ export default function App() {
                 <input {...register('salesTel')} className={inputCls} />
               </Field>
             </div>
-            <Field label="조사일">
-              <input
-                {...register('surveyDate')}
-                className={inputCls}
-                placeholder={todayStr}
-              />
-            </Field>
-          </Section>
 
-          {/* ───────────────── 4. 사전 현장 컨설팅 결과서 ───────────────── */}
-          <Section title="4. 사전 현장 컨설팅 결과서 (별지7호)">
             <Field
               label="보유 주차면수 (면)"
               required
@@ -265,8 +269,8 @@ export default function App() {
             </RadioField>
 
             <RadioField label="전력인입">
-              <Radio name="powerSupply" value="moja" register={register} label="모자분할)" />
-              <Radio name="powerSupply" value="hanjeon" register={register} label="한전불입)" />
+              <Radio name="powerSupply" value="moja" register={register} label="모자분할" />
+              <Radio name="powerSupply" value="hanjeon" register={register} label="한전불입" />
             </RadioField>
 
             <RadioField label="설치타입" hint="중복 선택 가능">
@@ -344,8 +348,6 @@ export default function App() {
             </button>
           </div>
         </form>
-
-        </div>
 
         <footer className="mt-6 text-center text-xs text-gray-400">
           <p>한백 EV Infra Solutions · Internal Tool · v2</p>

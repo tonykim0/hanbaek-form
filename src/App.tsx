@@ -95,9 +95,6 @@ export default function App() {
       <div className="max-w-3xl mx-auto">
         <header className="mb-6">
           <h1 className="text-3xl font-bold text-gray-900">한백 EV 충전기 계약서 자동생성</h1>
-          <p className="text-gray-600 mt-2">
-            고객 정보를 한 번만 입력하면 6개 문서가 자동으로 채워집니다.
-          </p>
         </header>
 
         <form

@@ -214,12 +214,11 @@ export default function App() {
                 />
                 <span className="text-gray-700">일</span>
               </div>
-              <p className="text-xs text-gray-500 mt-1">계약일과 조사일은 항상 동일하게 입력됩니다.</p>
             </Field>
           </Section>
 
           {/* ───────────────── 3. 사전 현장 컨설팅 결과서 ───────────────── */}
-          <Section title="3. 사전 현장 컨설팅 결과서 (별지7호)">
+          <Section title="3. 사전 현장 컨설팅 결과서">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <Field label="모집대행사">
                 <input {...register('salesCompany')} className={inputCls} />
@@ -241,7 +240,6 @@ export default function App() {
                 {...register('parkingLotCount', { required: '필수' })}
                 className={inputCls}
                 type="number"
-                placeholder="545"
               />
             </Field>
 

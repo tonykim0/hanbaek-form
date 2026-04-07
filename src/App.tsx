@@ -23,10 +23,8 @@ const defaultValues: Partial<ContractFormData> = {
   contractTerm: '7',
   surveyDate: todayStr,
   // Pre-fill from env vars (set on Vercel)
-  salesCompany: env.VITE_DEFAULT_SALES_COMPANY ?? '한백',
   salesName: env.VITE_DEFAULT_SALES_NAME ?? '',
   salesTel: env.VITE_DEFAULT_SALES_TEL ?? '',
-  surveyorCompany: env.VITE_DEFAULT_SURVEYOR_COMPANY ?? '한백',
   surveyorName: env.VITE_DEFAULT_SURVEYOR_NAME ?? '',
   surveyorTel: env.VITE_DEFAULT_SURVEYOR_TEL ?? '',
   // 사전 컨설팅 defaults
@@ -108,7 +106,7 @@ export default function App() {
               <input
                 {...register('custName', { required: '상호명은 필수입니다' })}
                 className={inputCls}
-                placeholder="예: 이스턴시티 관리단"
+                placeholder="예: 주식회사 한백"
               />
             </Field>
             <Field label="사업자등록번호" required error={errors.custBizId?.message}>
@@ -121,14 +119,14 @@ export default function App() {
                   },
                 })}
                 className={inputCls}
-                placeholder="128-80-23680"
+                placeholder="123-45-67890"
               />
             </Field>
             <Field label="주소 (도로명)" required error={errors.custAddr?.message}>
               <input
                 {...register('custAddr', { required: '필수' })}
                 className={inputCls}
-                placeholder="경기도 고양시 일산동구 정발산로 38"
+                placeholder="광주광역시 광산구 비아로 23"
               />
             </Field>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -142,7 +140,7 @@ export default function App() {
                     },
                   })}
                   className={inputCls}
-                  placeholder="031-903-1370"
+                  placeholder="062-954-1122"
                 />
               </Field>
               <Field label="이메일" required error={errors.custEmail?.message}>
@@ -266,9 +264,9 @@ export default function App() {
               <Radio name="ownerRelation" value="none" register={register} label="무관" />
             </RadioField>
 
-            <RadioField label="전력인입" hint="선택 시 별지7호 5번 (전기수용용량 확인) 자동 체크됨">
-              <Radio name="powerSupply" value="moja" register={register} label="모자분할 (→ 고압 변압기 용량)" />
-              <Radio name="powerSupply" value="hanjeon" register={register} label="한전불입 (→ 저압 계약전력)" />
+            <RadioField label="전력인입">
+              <Radio name="powerSupply" value="moja" register={register} label="모자분할)" />
+              <Radio name="powerSupply" value="hanjeon" register={register} label="한전불입)" />
             </RadioField>
 
             <RadioField label="설치타입" hint="중복 선택 가능">
@@ -347,17 +345,6 @@ export default function App() {
           </div>
         </form>
 
-        <div className="mt-6 p-4 bg-amber-50 border border-amber-200 rounded text-sm text-amber-900">
-          <p className="font-semibold mb-1">ℹ️ 자동 처리되는 항목 (별지5호)</p>
-          <ul className="list-disc ml-5 space-y-1">
-            <li>결제방식 → <strong>후불청구(회원결제)</strong> (템플릿 고정)</li>
-            <li>개인정보 수집·이용 동의 → <strong>동의함</strong> (템플릿 고정)</li>
-            <li>개인정보 제3자 위탁·제공 동의 → <strong>동의함</strong> (템플릿 고정)</li>
-          </ul>
-          <p className="mt-3 font-semibold mb-1">⚠️ Word에서 수동 확인 필요</p>
-          <ul className="list-disc ml-5 space-y-1">
-            <li>별지5호 시설 종류 (공동주택/사업장/소상공인/기타) — 단지마다 거의 동일</li>
-          </ul>
         </div>
 
         <footer className="mt-6 text-center text-xs text-gray-400">

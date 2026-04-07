@@ -25,7 +25,7 @@ const defaultValues: Partial<ContractFormData> = {
   contractDay: todayDay,
   contractTerm: '7',
   // Pre-fill from env vars (set on Vercel)
-  salesCompany: env.VITE_DEFAULT_SALES_COMPANY ?? '',
+  salesCompany: env.VITE_DEFAULT_SALES_COMPANY ?? '한백',
   salesName: env.VITE_DEFAULT_SALES_NAME ?? '',
   salesTel: env.VITE_DEFAULT_SALES_TEL ?? '',
   surveyorCompany: env.VITE_DEFAULT_SURVEYOR_COMPANY ?? '한백',
@@ -95,6 +95,9 @@ export default function App() {
       <div className="max-w-3xl mx-auto">
         <header className="mb-6">
           <h1 className="text-3xl font-bold text-gray-900">한백 EV 충전기 계약서 자동생성</h1>
+          <p className="text-gray-600 mt-2">
+            고객 정보를 한 번만 입력하면 6개 문서가 자동으로 채워집니다.
+          </p>
         </header>
 
         <form
@@ -211,11 +214,12 @@ export default function App() {
                 />
                 <span className="text-gray-700">일</span>
               </div>
+              <p className="text-xs text-gray-500 mt-1">계약일과 조사일은 항상 동일하게 입력됩니다.</p>
             </Field>
           </Section>
 
           {/* ───────────────── 3. 사전 현장 컨설팅 결과서 ───────────────── */}
-          <Section title="3. 사전 현장 컨설팅 결과서">
+          <Section title="3. 사전 현장 컨설팅 결과서 (별지7호)">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <Field label="모집대행사">
                 <input {...register('salesCompany')} className={inputCls} />
@@ -243,7 +247,7 @@ export default function App() {
 
             <RadioField label="건물형태" required>
               <Radio name="buildingType" value="apartment" register={register} label="아파트" />
-              <Radio name="buildingType" value="commercial" register={register} label="상가" />
+              <Radio name="buildingType" value="commercial" register={register} label="상업시설" />
               <Radio name="buildingType" value="etc" register={register} label="기타" />
             </RadioField>
 
@@ -345,6 +349,19 @@ export default function App() {
             </button>
           </div>
         </form>
+
+        <div className="mt-6 p-4 bg-amber-50 border border-amber-200 rounded text-sm text-amber-900">
+          <p className="font-semibold mb-1">ℹ️ 자동 처리되는 항목 (별지5호)</p>
+          <ul className="list-disc ml-5 space-y-1">
+            <li>결제방식 → <strong>후불청구(회원결제)</strong> (템플릿 고정)</li>
+            <li>개인정보 수집·이용 동의 → <strong>동의함</strong> (템플릿 고정)</li>
+            <li>개인정보 제3자 위탁·제공 동의 → <strong>동의함</strong> (템플릿 고정)</li>
+          </ul>
+          <p className="mt-3 font-semibold mb-1">⚠️ Word에서 수동 확인 필요</p>
+          <ul className="list-disc ml-5 space-y-1">
+            <li>별지5호 시설 종류 (공동주택/사업장/소상공인/기타) — 단지마다 거의 동일</li>
+          </ul>
+        </div>
 
         <footer className="mt-6 text-center text-xs text-gray-400">
           <p>한백 EV Infra Solutions · Internal Tool · v2</p>

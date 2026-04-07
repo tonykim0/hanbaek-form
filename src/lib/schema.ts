@@ -30,10 +30,11 @@ export interface ContractFormData {
   custTel: string;
   custEmail: string;
 
-  // 2. 계약 정보
+  // 2. 계약 정보 (계약일 = 조사일, 항상 동일)
   installAddr: string;
   installQty: string;
   contractTerm: '7' | '10';
+  contractYear: string;
   contractMonth: string;
   contractDay: string;
 
@@ -44,7 +45,6 @@ export interface ContractFormData {
   surveyorCompany: string;
   surveyorName: string;
   surveyorTel: string;
-  surveyDate: string;
 
   // 4. 사전 현장 컨설팅 결과서 (별지7호)
   parkingLotCount: string;
@@ -203,6 +203,8 @@ export function buildSdtMaps(form: ContractFormData): SdtMaps {
   const installAddr = form.installAddr.trim() || form.custAddr;
   // smart charger qty always equals install qty in v2
   const smartQty = form.installQty;
+  // 계약일 = 조사일 (항상 동일)
+  const surveyDate = `${form.contractYear}년 ${form.contractMonth}월 ${form.contractDay}일`;
 
   // ─── Text fields ───
   const text: Record<string, string> = {
@@ -266,7 +268,7 @@ export function buildSdtMaps(form: ContractFormData): SdtMaps {
     [TEXT_IDS.surveyorCompany]: form.surveyorCompany,
     [TEXT_IDS.surveyorTel]: form.surveyorTel,
     [TEXT_IDS.surveyorName]: form.surveyorName,
-    [TEXT_IDS.surveyDate]: form.surveyDate,
+    [TEXT_IDS.surveyDate]: surveyDate,
 
     // 중복설치 수량 — 체크된 항목만 값, 미체크는 빈 문자열
     [TEXT_IDS.dupFastQty]: form.dupFast ? form.dupFastQty : '',

@@ -141,6 +141,9 @@ const TEXT_IDS = {
   dupSlowQty: '1393619667',
   dupDistQty: '-602881735',
   dupOutletQty: '1226803090',
+  // 시설명 placeholder — 빈 문자열로 클리어
+  facilityName_b5: '-1480913900',
+  facilityName_other: '-561410159',
 } as const;
 
 /** Checkbox SDT ids — set true/false */
@@ -186,6 +189,18 @@ const CB_IDS = {
   dupOutlet: '940579513',
   dupKiosk: '2136826911',
   dupNone: '-1538116413',     // 해당사항 없음 (template default ■)
+
+  // 별지5호 — 설치 희망지 (Row 0): 공동주택/사업장/소상공인/기타
+  b5_loc1_apt: '2085950294',     // 공동주택
+  b5_loc1_biz: '550437745',      // 사업장
+  // (소상공인 868034671 — form 매핑 없음)
+  b5_loc1_etc: '-176436175',     // 기타
+
+  // 별지5호 — 장소 (Row 1): 공동주택/사업장/소상공인/기타
+  b5_loc2_apt: '-322042069',     // 공동주택
+  b5_loc2_biz: '-629096557',     // 사업장
+  // (소상공인 850464996 — form 매핑 없음)
+  b5_loc2_etc: '-697774570',     // 기타
 } as const;
 
 // ─────────────────────────────────────────────
@@ -265,9 +280,9 @@ export function buildSdtMaps(form: ContractFormData): SdtMaps {
     [TEXT_IDS.parkingLotCount_b7]: form.parkingLotCount,
     [TEXT_IDS.installAddr_b7]: installAddr,
 
-    [TEXT_IDS.surveyorCompany]: form.surveyorCompany,
-    [TEXT_IDS.surveyorTel]: form.surveyorTel,
-    [TEXT_IDS.surveyorName]: form.surveyorName,
+    [TEXT_IDS.surveyorCompany]: form.salesCompany,
+    [TEXT_IDS.surveyorTel]: form.salesTel,
+    [TEXT_IDS.surveyorName]: form.salesName,
     [TEXT_IDS.surveyDate]: surveyDate,
 
     // 중복설치 수량 — 체크된 항목만 값, 미체크는 빈 문자열
@@ -275,16 +290,29 @@ export function buildSdtMaps(form: ContractFormData): SdtMaps {
     [TEXT_IDS.dupSlowQty]: form.dupSlow ? form.dupSlowQty : '',
     [TEXT_IDS.dupDistQty]: form.dupDist ? form.dupDistQty : '',
     [TEXT_IDS.dupOutletQty]: form.dupOutlet ? form.dupOutletQty : '',
+
+    // 시설명 placeholder 클리어
+    [TEXT_IDS.facilityName_b5]: '',
+    [TEXT_IDS.facilityName_other]: '',
   };
 
   // ─── Checkboxes ───
   const checkbox: Record<string, boolean> = {
-    // 건물형태 — 라디오
+    // 건물형태 — 라디오 (별지7호)
     [CB_IDS.bldDanok]: false,
     [CB_IDS.bldApt]: form.buildingType === 'apartment',
     [CB_IDS.bldYeonlip]: false,
     [CB_IDS.bldSangga]: form.buildingType === 'commercial',
     [CB_IDS.bldEtc]: form.buildingType === 'etc',
+
+    // 별지5호 — 설치 희망지/장소 cascade from 건물형태
+    // 아파트 → 공동주택, 상업시설 → 사업장, 기타 → 기타
+    [CB_IDS.b5_loc1_apt]: form.buildingType === 'apartment',
+    [CB_IDS.b5_loc1_biz]: form.buildingType === 'commercial',
+    [CB_IDS.b5_loc1_etc]: form.buildingType === 'etc',
+    [CB_IDS.b5_loc2_apt]: form.buildingType === 'apartment',
+    [CB_IDS.b5_loc2_biz]: form.buildingType === 'commercial',
+    [CB_IDS.b5_loc2_etc]: form.buildingType === 'etc',
 
     // 설치위치 — 라디오
     [CB_IDS.locIndoor]: form.installLocation === 'indoor',

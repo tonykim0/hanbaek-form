@@ -214,6 +214,7 @@ export default function App() {
                 />
                 <span className="text-gray-700">일</span>
               </div>
+              <p className="text-xs text-gray-500 mt-1">계약일과 조사일은 항상 동일하게 입력됩니다.</p>
             </Field>
           </Section>
 
@@ -348,6 +349,19 @@ export default function App() {
             </button>
           </div>
         </form>
+
+        <div className="mt-6 p-4 bg-amber-50 border border-amber-200 rounded text-sm text-amber-900">
+          <p className="font-semibold mb-1">ℹ️ 자동 처리되는 항목 (별지5호)</p>
+          <ul className="list-disc ml-5 space-y-1">
+            <li>결제방식 → <strong>후불청구(회원결제)</strong> (템플릿 고정)</li>
+            <li>개인정보 수집·이용 동의 → <strong>동의함</strong> (템플릿 고정)</li>
+            <li>개인정보 제3자 위탁·제공 동의 → <strong>동의함</strong> (템플릿 고정)</li>
+          </ul>
+          <p className="mt-3 font-semibold mb-1">⚠️ Word에서 수동 확인 필요</p>
+          <ul className="list-disc ml-5 space-y-1">
+            <li>별지5호 시설 종류 (공동주택/사업장/소상공인/기타) — 단지마다 거의 동일</li>
+          </ul>
+        </div>
 
         <footer className="mt-6 text-center text-xs text-gray-400">
           <p>한백 EV Infra Solutions · Internal Tool · v2</p>

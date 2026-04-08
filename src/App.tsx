@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
+import { Analytics } from '@vercel/analytics/react';
 import { ContractFormData } from './lib/schema';
 import { fillContractTemplate, downloadBlob } from './lib/fillDocx';
 
@@ -363,6 +364,7 @@ export default function App() {
           <p>한백 EV Infra Solutions · Internal Tool · v2</p>
         </footer>
       </div>
+      <Analytics />
     </div>
   );
 }

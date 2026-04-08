@@ -94,7 +94,7 @@ export default function App() {
     <div className="min-h-screen bg-gray-50 py-8 px-4">
       <div className="max-w-3xl mx-auto">
         <header className="mb-6">
-          <h1 className="text-3xl font-bold text-gray-900">한백 EV 충전기 계약서 자동생성</h1>
+          <h1 className="text-3xl font-bold text-gray-900">플러그링크 계약서 자동생성</h1>
         </header>
 
         <form

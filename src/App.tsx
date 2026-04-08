@@ -214,7 +214,6 @@ export default function App() {
                 />
                 <span className="text-gray-700">일</span>
               </div>
-              <p className="text-xs text-gray-500 mt-1">계약일과 조사일은 항상 동일하게 입력됩니다.</p>
             </Field>
           </Section>
 

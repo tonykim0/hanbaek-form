@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { upload } from '@vercel/blob/client';
 import SalesRepForm from '@/components/SalesRepForm';
 import UploadZone from '@/components/UploadZone';
 import FilePreview from '@/components/FilePreview';
@@ -14,6 +15,7 @@ export default function IntakePage() {
   const [password, setPassword] = useState('');
   const [files, setFiles] = useState<File[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  const [status, setStatus] = useState('');
 
   const canSubmit = name.trim() && company.trim() && password && files.length > 0;
 
@@ -26,21 +28,37 @@ export default function IntakePage() {
     setSubmitting(true);
 
     try {
-      const formData = new FormData();
-      formData.append('salesRepName', name.trim());
-      formData.append('salesRepCompany', company.trim());
-      formData.append('password', password);
-      files.forEach((f) => formData.append('files', f));
-
-      const res = await fetch('/api/intake', {
-        method: 'POST',
-        body: formData,
+      // Step 1: ZIP 파일을 Vercel Blob에 업로드 (4.5MB 제한 우회)
+      setStatus('파일 업로드 중...');
+      const file = files[0]; // ZIP 파일 1개
+      const blob = await upload(file.name, file, {
+        access: 'public',
+        handleUploadUrl: '/api/upload',
       });
 
-      const data: IntakeResponse = await res.json();
+      // Step 2: API에 blob URL + 폼 데이터 전송 (작은 JSON body)
+      setStatus('AI 분류 + 노션 저장 중...');
+      const res = await fetch('/api/intake', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          salesRepName: name.trim(),
+          salesRepCompany: company.trim(),
+          password,
+          blobUrl: blob.url,
+        }),
+      });
+
+      // Vercel 인프라 에러 시 JSON이 아닐 수 있음
+      const text = await res.text();
+      let data: IntakeResponse;
+      try {
+        data = JSON.parse(text);
+      } catch {
+        throw new Error(`서버 오류 (${res.status}): ${text.slice(0, 100)}`);
+      }
 
       if (data.success) {
-        // 완료 데이터를 sessionStorage에 저장 후 라우팅
         sessionStorage.setItem('intake_result', JSON.stringify(data));
         router.push('/intake/complete');
       } else {
@@ -61,6 +79,7 @@ export default function IntakePage() {
       router.push('/intake/error');
     } finally {
       setSubmitting(false);
+      setStatus('');
     }
   };
 
@@ -123,7 +142,7 @@ export default function IntakePage() {
             {submitting ? (
               <span className="flex items-center justify-center gap-2">
                 <Spinner />
-                접수 처리 중...
+                {status || '접수 처리 중...'}
               </span>
             ) : (
               '접수하기'

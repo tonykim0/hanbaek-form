@@ -1,19 +1,19 @@
 /**
  * POST /api/intake
  *
- * multipart/form-data 수신:
+ * JSON body 수신:
  *   - salesRepName: string
  *   - salesRepCompany: string
  *   - password: string   (스팸 차단용 단순 비밀번호)
- *   - files: File[]      (PDF 또는 ZIP)
+ *   - blobUrl: string    (Vercel Blob에 업로드된 ZIP URL)
  *
  * 처리 순서 (HANDOFF.md §9):
  *   1. 인증 + 유효성 검사
- *   2. 파일 정규화 (ZIP → PDF, SHA256 해시)
+ *   2. Blob에서 ZIP 다운로드 → PDF 추출 + 해시
  *   3. Claude Sonnet 4.6 분류 + 메타데이터 추출
  *   4. 노션 entry 생성
  *   5. 노션 파일 첨부
- *   6. 응답 반환
+ *   6. Blob 정리 + 응답 반환
  *
  * 에러 처리 3단계 fallback (HANDOFF.md §10):
  *   1차: Claude 실패 → 메타데이터 없이 entry만 생성
@@ -21,7 +21,8 @@
  *   3차: 전체 실패 → 500 + 에러 코드 반환
  */
 import { NextRequest, NextResponse } from 'next/server';
-import { extractAndHashFiles } from '@/lib/files';
+import { del } from '@vercel/blob';
+import { extractAndHashFromZipBuffer } from '@/lib/files';
 import { classifyAndExtract } from '@/lib/claude';
 import { createNotionEntry, attachFilesToPage } from '@/lib/notion';
 import type { IntakeSuccessResponse, IntakeErrorResponse } from '@/types/intake';
@@ -30,18 +31,23 @@ import type { IntakeSuccessResponse, IntakeErrorResponse } from '@/types/intake'
 export const maxDuration = 60;
 
 export async function POST(request: NextRequest) {
-  // ── 1. multipart 파싱 ──────────────────────────────────────────
-  let formData: FormData;
+  // ── 1. JSON 파싱 ──────────────────────────────────────────────
+  let body: {
+    salesRepName?: string;
+    salesRepCompany?: string;
+    password?: string;
+    blobUrl?: string;
+  };
   try {
-    formData = await request.formData();
+    body = await request.json();
   } catch {
     return error('요청 파싱에 실패했습니다', 'PARSE_ERROR', 400);
   }
 
-  const salesRepName = (formData.get('salesRepName') as string | null)?.trim() ?? '';
-  const salesRepCompany = (formData.get('salesRepCompany') as string | null)?.trim() ?? '';
-  const password = (formData.get('password') as string | null) ?? '';
-  const rawFiles = formData.getAll('files') as File[];
+  const salesRepName = body.salesRepName?.trim() ?? '';
+  const salesRepCompany = body.salesRepCompany?.trim() ?? '';
+  const password = body.password ?? '';
+  const blobUrl = body.blobUrl?.trim() ?? '';
 
   // ── 2. 유효성 검사 ─────────────────────────────────────────────
   if (password !== process.env.INTAKE_PASSWORD) {
@@ -50,17 +56,19 @@ export async function POST(request: NextRequest) {
   if (!salesRepName || !salesRepCompany) {
     return error('영업자 이름과 소속은 필수입니다', 'VALIDATION_ERROR', 400);
   }
-  if (rawFiles.length === 0) {
-    return error('파일을 선택해주세요', 'NO_FILES', 400);
-  }
-  if (rawFiles.some((f) => !f.name.toLowerCase().endsWith('.zip'))) {
-    return error('ZIP 파일만 업로드 가능합니다. 계약서류 전체를 ZIP으로 묶어주세요.', 'INVALID_FORMAT', 400);
+  if (!blobUrl) {
+    return error('파일이 업로드되지 않았습니다', 'NO_FILES', 400);
   }
 
-  // ── 3. 파일 정규화 ─────────────────────────────────────────────
+  // ── 3. Blob에서 ZIP 다운로드 + PDF 추출 ────────────────────────
   let normalizedFiles;
   try {
-    normalizedFiles = await extractAndHashFiles(rawFiles);
+    const zipRes = await fetch(blobUrl);
+    if (!zipRes.ok) {
+      throw new Error(`Blob 다운로드 실패: ${zipRes.status}`);
+    }
+    const zipBuffer = Buffer.from(await zipRes.arrayBuffer());
+    normalizedFiles = await extractAndHashFromZipBuffer(zipBuffer);
   } catch (err) {
     console.error('[intake] 파일 정규화 실패:', err);
     return error('파일 처리에 실패했습니다', 'FILE_ERROR', 500);
@@ -68,7 +76,7 @@ export async function POST(request: NextRequest) {
 
   if (normalizedFiles.length === 0) {
     return error(
-      'PDF 파일을 찾을 수 없습니다. PDF 또는 PDF가 포함된 ZIP을 업로드해주세요.',
+      'PDF 파일을 찾을 수 없습니다. PDF가 포함된 ZIP을 업로드해주세요.',
       'NO_PDF',
       400
     );
@@ -115,7 +123,12 @@ export async function POST(request: NextRequest) {
     classifiedFiles = [];
   }
 
-  // ── 7. 응답 ────────────────────────────────────────────────────
+  // ── 7. Blob 정리 (비동기, 실패해도 무시) ──────────────────────
+  del(blobUrl).catch((err) => {
+    console.warn('[intake] Blob 삭제 실패 (무시):', err);
+  });
+
+  // ── 8. 응답 ────────────────────────────────────────────────────
   const response: IntakeSuccessResponse = {
     success: true,
     intakeId: generateIntakeId(),
@@ -139,7 +152,6 @@ function error(
 
 /**
  * 접수번호 생성: HBPI-XXXX (타임스탬프 기반)
- * 운영 DB에서 *실사관리번호가 자동 채워지면 해당 값으로 교체 가능.
  */
 function generateIntakeId(): string {
   const ts = Date.now().toString(36).toUpperCase().slice(-4);

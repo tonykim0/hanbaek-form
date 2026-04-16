@@ -44,6 +44,13 @@ export async function extractAndHashFiles(files: File[]): Promise<NormalizedFile
   return result;
 }
 
+/**
+ * ZIP Buffer에서 PDF를 추출합니다 (Vercel Blob 경유 업로드용).
+ */
+export async function extractAndHashFromZipBuffer(buffer: Buffer): Promise<NormalizedFile[]> {
+  return extractPDFsFromZip(buffer);
+}
+
 async function extractPDFsFromZip(buffer: Buffer): Promise<NormalizedFile[]> {
   const zip = await JSZip.loadAsync(buffer);
   const pdfs: NormalizedFile[] = [];

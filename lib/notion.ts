@@ -37,7 +37,7 @@ export async function createNotionEntry(
       title: [{ text: { content: metadata?.현장명 ?? '(미확인)' } }],
     },
     // 고정값
-    '*진행상태': { select: { name: '신규생성' } },
+    '*진행상태': { select: { name: '계약완료' } },
     '*사업연도': { select: { name: `${currentYear}년` } },
     // 웹폼 입력값
     '*영업자': { rich_text: [{ text: { content: salesRep.name } }] },

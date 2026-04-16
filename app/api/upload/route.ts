@@ -1,37 +1,34 @@
 /**
  * POST /api/upload
  *
- * Vercel Blob 클라이언트 업로드용 토큰 발급 엔드포인트.
- * 브라우저에서 ZIP 파일을 Vercel Blob에 직접 업로드할 수 있도록
- * 임시 토큰을 생성합니다.
+ * Vercel Blob 클라이언트 업로드용 토큰 발급.
+ * generateClientTokenFromReadWriteToken 방식으로
+ * onUploadCompleted 웹훅 없이 동작합니다.
  */
-import { handleUpload } from '@vercel/blob/client';
+import { generateClientTokenFromReadWriteToken } from '@vercel/blob/client';
 import { NextResponse } from 'next/server';
 
 export async function POST(request: Request) {
-  const body = await request.json();
-
   try {
-    const jsonResponse = await handleUpload({
-      body,
-      request,
-      onBeforeGenerateToken: async () => ({
-        allowedContentTypes: [
-          'application/zip',
-          'application/x-zip-compressed',
-          'application/octet-stream',
-        ],
-        maximumSizeInBytes: 100 * 1024 * 1024, // 100MB
-      }),
-      onUploadCompleted: async () => {
-        // 업로드 완료 후 별도 처리 없음 (intake API에서 처리)
-      },
+    const { pathname } = (await request.json()) as { pathname: string };
+
+    const clientToken = await generateClientTokenFromReadWriteToken({
+      token: process.env.BLOB_READ_WRITE_TOKEN!,
+      pathname,
+      allowedContentTypes: [
+        'application/zip',
+        'application/x-zip-compressed',
+        'application/octet-stream',
+      ],
+      maximumSizeInBytes: 100 * 1024 * 1024, // 100MB
     });
-    return NextResponse.json(jsonResponse);
+
+    return NextResponse.json({ token: clientToken });
   } catch (error) {
+    console.error('[upload] 토큰 생성 실패:', error);
     return NextResponse.json(
       { error: (error as Error).message },
-      { status: 400 }
+      { status: 500 }
     );
   }
 }

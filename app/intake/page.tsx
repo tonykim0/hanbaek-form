@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { upload } from '@vercel/blob/client';
+import { put } from '@vercel/blob/client';
 import SalesRepForm from '@/components/SalesRepForm';
 import UploadZone from '@/components/UploadZone';
 import FilePreview from '@/components/FilePreview';
@@ -29,13 +29,21 @@ export default function IntakePage() {
     setSubmitting(true);
 
     try {
-      // Step 1: ZIP 파일을 Vercel Blob에 업로드 (4.5MB 제한 우회)
+      // Step 1: 토큰 발급 → Vercel Blob 직접 업로드 (4.5MB 제한 우회)
       setPhase('uploading');
       setProgress(0);
-      const file = files[0]; // ZIP 파일 1개
-      const blob = await upload(file.name, file, {
+      const file = files[0];
+      const tokenRes = await fetch('/api/upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pathname: file.name }),
+      });
+      if (!tokenRes.ok) throw new Error('업로드 토큰 발급 실패');
+      const { token } = await tokenRes.json();
+
+      const blob = await put(file.name, file, {
         access: 'public',
-        handleUploadUrl: '/api/upload',
+        token,
         onUploadProgress: ({ percentage }) => {
           setProgress(Math.round(percentage));
         },

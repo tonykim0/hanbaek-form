@@ -64,8 +64,8 @@ ${fileNames.map((n, i) => `${i + 1}. ${n}`).join('\n')}
   "설치위치": "지하 1층 주차장",
   "비고": "특이사항 없음",
   "files": [
-    { "originalName": "원본파일명.pdf", "category": "계약서", "date": "20260410" },
-    { "originalName": "회의록.pdf", "category": "입주자대표회의 회의록", "date": "20260331" }
+    { "originalName": "원본파일명.pdf", "category": "계약서", "date": "20260410", "pages": [1, 2, 3] },
+    { "originalName": "회의록.pdf", "category": "입주자대표회의 회의록", "date": "20260331", "pages": [4, 5] }
   ],
   "confidence": {
     "현장명": 0.97,
@@ -76,5 +76,16 @@ ${fileNames.map((n, i) => `${i + 1}. ${n}`).join('\n')}
 
 추출할 수 없는 필드는 null로 설정하세요.
 CPO가 여러 개인 경우 배열에 모두 포함하세요.
-confidence는 주요 필드(현장명, 계약대수, CPO 등)만 포함해도 됩니다.`;
+confidence는 주요 필드(현장명, 계약대수, CPO 등)만 포함해도 됩니다.
+
+## 중요: 통합 PDF 처리
+파일이 1개인데 여러 종류의 서류가 합쳐져 있으면, files 배열에 서류 종류별로 항목을 나누세요.
+각 항목의 "pages" 필드에 해당 서류가 위치한 페이지 번호 배열(1-based)을 반드시 포함하세요.
+예: 1개 PDF에 계약서(1~3페이지), 합의서(4~5페이지), 건축물대장(6~8페이지)가 있으면:
+"files": [
+  { "originalName": "통합서류.pdf", "category": "계약서", "date": "20260410", "pages": [1,2,3] },
+  { "originalName": "통합서류.pdf", "category": "합의서", "date": "20260410", "pages": [4,5] },
+  { "originalName": "통합서류.pdf", "category": "건축물대장", "date": "20260410", "pages": [6,7,8] }
+]
+파일이 여러 개인 경우에도 pages 필드를 포함하세요 (해당 파일의 전체 페이지).`;
 }

@@ -44,6 +44,7 @@ export interface ClassifiedFileInfo {
   originalName: string;
   category: FileCategory;
   date: string; // YYYYMMDD
+  pages?: number[]; // 통합 PDF 분할용 페이지 번호 (1-based)
 }
 
 // Claude가 반환하는 전체 추출 결과

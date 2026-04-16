@@ -104,14 +104,14 @@ export default function HecPage() {
               <input
                 {...register('custName', { required: '상호명은 필수입니다' })}
                 className={inputCls}
-                placeholder="예: 운암포레스힐2 관리사무소"
+                placeholder="예: OO아파트 관리사무소"
               />
             </Field>
             <Field label="사업자등록증상 대표자" required error={errors.custRepresentative?.message}>
               <input
                 {...register('custRepresentative', { required: '대표자명은 필수입니다' })}
                 className={inputCls}
-                placeholder="예: 이명주"
+                placeholder="예: 홍길동"
               />
             </Field>
             <Field label="사업자등록번호" required error={errors.custBizId?.message}>
@@ -131,7 +131,7 @@ export default function HecPage() {
               <input
                 {...register('custAddr', { required: '필수' })}
                 className={inputCls}
-                placeholder="광주광역시 북구 대자실로 22"
+                placeholder="예: 서울특별시 강남구 테헤란로 1"
               />
             </Field>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -145,7 +145,7 @@ export default function HecPage() {
                     },
                   })}
                   className={inputCls}
-                  placeholder="062-954-1122"
+                  placeholder="02-1234-5678"
                 />
               </Field>
               <Field label="이메일" required error={errors.custEmail?.message}>

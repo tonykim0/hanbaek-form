@@ -12,9 +12,13 @@ export async function POST(request: Request) {
   try {
     const { pathname } = (await request.json()) as { pathname: string };
 
+    // 토큰 유효기간: 10분 (기본값 30초 → 큰 파일 업로드 시 만료 방지)
+    const validUntil = Date.now() + 10 * 60 * 1000;
+
     const clientToken = await generateClientTokenFromReadWriteToken({
       token: process.env.BLOB_READ_WRITE_TOKEN!,
       pathname,
+      validUntil,
       allowedContentTypes: [
         'application/zip',
         'application/x-zip-compressed',

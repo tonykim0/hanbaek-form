@@ -156,7 +156,7 @@ export async function attachFilesToPage(
   return classifiedFiles;
 }
 
-interface UploadItem {
+export interface UploadItem {
   originalName: string;
   category: FileCategory;
   standardName: string;
@@ -166,7 +166,7 @@ interface UploadItem {
 /**
  * 통합 PDF 분할을 포함한 업로드 항목 목록 생성.
  */
-async function buildUploadItems(
+export async function buildUploadItems(
   files: NormalizedFile[],
   metadata: ExtractedMetadata | null,
   today: string
@@ -220,7 +220,7 @@ async function buildUploadItems(
 /**
  * 단일 파일을 Notion에 업로드 + 페이지에 블록 첨부.
  */
-async function uploadAndAttach(
+export async function uploadAndAttach(
   pageId: string,
   buffer: Buffer,
   standardName: string
@@ -286,11 +286,11 @@ function createFileBlock(name: string, fileUploadId: string) {
   };
 }
 
-function sleep(ms: number): Promise<void> {
+export function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function formatToday(): string {
+export function formatToday(): string {
   const d = new Date();
   const mm = String(d.getMonth() + 1).padStart(2, '0');
   const dd = String(d.getDate()).padStart(2, '0');

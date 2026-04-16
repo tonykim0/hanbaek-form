@@ -8,6 +8,22 @@ import UploadZone from '@/components/UploadZone';
 import FilePreview from '@/components/FilePreview';
 import type { IntakeResponse } from '@/types/intake';
 
+interface ProgressState {
+  phase: 'idle' | 'uploading' | 'extracting' | 'classifying' | 'splitting' | 'notion' | 'attaching';
+  message: string;
+  uploadPercent: number;     // 0~100 (uploading 단계)
+  current: number;           // 현재 파일 번호 (attaching 단계)
+  total: number;             // 총 파일 수
+}
+
+const INITIAL_PROGRESS: ProgressState = {
+  phase: 'idle',
+  message: '',
+  uploadPercent: 0,
+  current: 0,
+  total: 0,
+};
+
 export default function IntakePage() {
   const router = useRouter();
   const [name, setName] = useState('');
@@ -15,8 +31,7 @@ export default function IntakePage() {
   const [password, setPassword] = useState('');
   const [files, setFiles] = useState<File[]>([]);
   const [submitting, setSubmitting] = useState(false);
-  const [progress, setProgress] = useState(0);   // 0~100
-  const [phase, setPhase] = useState<'idle' | 'uploading' | 'processing'>('idle');
+  const [progress, setProgress] = useState<ProgressState>(INITIAL_PROGRESS);
 
   const canSubmit = name.trim() && company.trim() && password && files.length > 0;
 
@@ -27,11 +42,10 @@ export default function IntakePage() {
   const handleSubmit = async () => {
     if (!canSubmit || submitting) return;
     setSubmitting(true);
+    setProgress({ ...INITIAL_PROGRESS, phase: 'uploading', message: '파일 업로드 중...' });
 
     try {
-      // Step 1: 토큰 발급 → Vercel Blob 직접 업로드 (4.5MB 제한 우회)
-      setPhase('uploading');
-      setProgress(0);
+      // ── Step 1: Vercel Blob 업로드 ───────────────────────────
       const file = files[0];
       const tokenRes = await fetch('/api/upload', {
         method: 'POST',
@@ -45,13 +59,15 @@ export default function IntakePage() {
         access: 'public',
         token,
         onUploadProgress: ({ percentage }) => {
-          setProgress(Math.round(percentage));
+          setProgress((p) => ({
+            ...p,
+            uploadPercent: Math.round(percentage),
+            message: `파일 업로드 중... ${Math.round(percentage)}%`,
+          }));
         },
       });
 
-      // Step 2: API에 blob URL + 폼 데이터 전송 (작은 JSON body)
-      setPhase('processing');
-      setProgress(0);
+      // ── Step 2: SSE 스트림으로 서버 처리 진행 상황 수신 ──────
       const res = await fetch('/api/intake', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -63,24 +79,85 @@ export default function IntakePage() {
         }),
       });
 
-      // Vercel 인프라 에러 시 JSON이 아닐 수 있음
-      const text = await res.text();
-      let data: IntakeResponse;
-      try {
-        data = JSON.parse(text);
-      } catch {
-        throw new Error(`서버 오류 (${res.status}): ${text.slice(0, 100)}`);
-      }
+      const reader = res.body!.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
 
-      if (data.success) {
-        sessionStorage.setItem('intake_result', JSON.stringify(data));
-        router.push('/intake/complete');
-      } else {
-        sessionStorage.setItem(
-          'intake_error',
-          JSON.stringify({ error: data.error, code: data.code })
-        );
-        router.push('/intake/error');
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() ?? ''; // 마지막 미완성 라인 보존
+
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          const event = JSON.parse(line.slice(6));
+
+          switch (event.phase) {
+            case 'extracting':
+              setProgress((p) => ({
+                ...p,
+                phase: 'extracting',
+                message: event.message,
+                total: event.fileCount ?? p.total,
+              }));
+              break;
+
+            case 'classifying':
+              setProgress((p) => ({
+                ...p,
+                phase: 'classifying',
+                message: event.message,
+              }));
+              break;
+
+            case 'splitting':
+              setProgress((p) => ({
+                ...p,
+                phase: 'splitting',
+                message: event.message,
+                total: event.totalFiles ?? p.total,
+              }));
+              break;
+
+            case 'notion':
+              setProgress((p) => ({
+                ...p,
+                phase: 'notion',
+                message: event.message,
+              }));
+              break;
+
+            case 'attaching':
+              setProgress((p) => ({
+                ...p,
+                phase: 'attaching',
+                message: event.message,
+                current: event.current,
+                total: event.total,
+              }));
+              break;
+
+            case 'done': {
+              const data = event.data as IntakeResponse;
+              if (data.success) {
+                sessionStorage.setItem('intake_result', JSON.stringify(data));
+                router.push('/intake/complete');
+              }
+              return;
+            }
+
+            case 'error':
+              sessionStorage.setItem(
+                'intake_error',
+                JSON.stringify({ error: event.error, code: event.code })
+              );
+              router.push('/intake/error');
+              return;
+          }
+        }
       }
     } catch (err) {
       sessionStorage.setItem(
@@ -93,8 +170,7 @@ export default function IntakePage() {
       router.push('/intake/error');
     } finally {
       setSubmitting(false);
-      setPhase('idle');
-      setProgress(0);
+      setProgress(INITIAL_PROGRESS);
     }
   };
 
@@ -148,30 +224,9 @@ export default function IntakePage() {
             </div>
           </section>
 
-          {/* 접수 버튼 + 진행 상태 */}
+          {/* 접수 버튼 / 진행 상태 */}
           {submitting ? (
-            <div className="space-y-3">
-              <div className="text-sm font-medium text-gray-700 text-center">
-                {phase === 'uploading'
-                  ? `파일 업로드 중... ${progress}%`
-                  : 'AI 분류 + 노션 저장 중...'}
-              </div>
-              <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
-                {phase === 'uploading' ? (
-                  <div
-                    className="bg-blue-600 h-full rounded-full transition-all duration-300"
-                    style={{ width: `${progress}%` }}
-                  />
-                ) : (
-                  <div className="bg-blue-600 h-full rounded-full animate-progress-indeterminate" />
-                )}
-              </div>
-              <p className="text-xs text-gray-400 text-center">
-                {phase === 'uploading'
-                  ? '서버에 파일을 전송하고 있습니다'
-                  : '서류를 분석하고 노션에 저장합니다 (최대 1분)'}
-              </p>
-            </div>
+            <ProgressDisplay progress={progress} />
           ) : (
             <>
               <button
@@ -192,6 +247,102 @@ export default function IntakePage() {
           한백 EV Infra Solutions
         </footer>
       </div>
+    </div>
+  );
+}
+
+// ── 진행 상태 UI ──────────────────────────────────────────────────
+
+function ProgressDisplay({ progress }: { progress: ProgressState }) {
+  const { phase, message, uploadPercent, current, total } = progress;
+
+  // 전체 진행률 계산 (대략적)
+  const overallPercent = (() => {
+    switch (phase) {
+      case 'uploading':   return Math.round(uploadPercent * 0.3);          // 0~30%
+      case 'extracting':  return 32;
+      case 'classifying': return 40;
+      case 'splitting':   return 55;
+      case 'notion':      return 60;
+      case 'attaching':   return total > 0
+        ? 60 + Math.round((current / total) * 38)                         // 60~98%
+        : 65;
+      default: return 0;
+    }
+  })();
+
+  return (
+    <div className="space-y-4">
+      {/* 전체 진행률 바 */}
+      <div>
+        <div className="flex justify-between text-sm mb-1">
+          <span className="font-medium text-gray-700">{message}</span>
+          <span className="text-gray-500">{overallPercent}%</span>
+        </div>
+        <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+          <div
+            className="bg-blue-600 h-full rounded-full transition-all duration-500"
+            style={{ width: `${overallPercent}%` }}
+          />
+        </div>
+      </div>
+
+      {/* 단계별 상세 */}
+      <div className="space-y-1.5">
+        <StepIndicator label="파일 업로드" done={phase !== 'uploading'} active={phase === 'uploading'}
+          detail={phase === 'uploading' ? `${uploadPercent}%` : undefined} />
+        <StepIndicator label="PDF 추출" done={phaseIndex(phase) > 1} active={phase === 'extracting'}
+          detail={total > 0 && phaseIndex(phase) >= 1 ? `${total}개` : undefined} />
+        <StepIndicator label="AI 분류" done={phaseIndex(phase) > 2} active={phase === 'classifying'} />
+        <StepIndicator label="파일 준비" done={phaseIndex(phase) > 3} active={phase === 'splitting'}
+          detail={total > 0 && phaseIndex(phase) >= 3 ? `${total}개 파일` : undefined} />
+        <StepIndicator label="노션 저장" done={phaseIndex(phase) > 4} active={phase === 'notion'} />
+        <StepIndicator label="파일 첨부" done={false} active={phase === 'attaching'}
+          detail={phase === 'attaching' ? `${current}/${total}` : undefined} />
+      </div>
+
+      <p className="text-xs text-gray-400 text-center">
+        최대 1분 소요될 수 있습니다
+      </p>
+    </div>
+  );
+}
+
+function phaseIndex(phase: ProgressState['phase']): number {
+  const order = ['uploading', 'extracting', 'classifying', 'splitting', 'notion', 'attaching'];
+  return order.indexOf(phase);
+}
+
+function StepIndicator({
+  label,
+  done,
+  active,
+  detail,
+}: {
+  label: string;
+  done: boolean;
+  active: boolean;
+  detail?: string;
+}) {
+  return (
+    <div className="flex items-center gap-2 text-sm">
+      <span className="w-5 h-5 flex items-center justify-center flex-shrink-0">
+        {done ? (
+          <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+          </svg>
+        ) : active ? (
+          <span className="w-3 h-3 rounded-full bg-blue-500 animate-pulse" />
+        ) : (
+          <span className="w-3 h-3 rounded-full bg-gray-300" />
+        )}
+      </span>
+      <span className={done ? 'text-gray-400' : active ? 'text-gray-900 font-medium' : 'text-gray-400'}>
+        {label}
+      </span>
+      {detail && (
+        <span className="text-gray-500 text-xs ml-auto">{detail}</span>
+      )}
     </div>
   );
 }

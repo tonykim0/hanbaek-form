@@ -107,7 +107,7 @@ export default function HecPage() {
                 placeholder="예: 운암포레스힐2 관리사무소"
               />
             </Field>
-            <Field label="대표자명" required error={errors.custRepresentative?.message}>
+            <Field label="사업자등록증상 대표자" required error={errors.custRepresentative?.message}>
               <input
                 {...register('custRepresentative', { required: '대표자명은 필수입니다' })}
                 className={inputCls}

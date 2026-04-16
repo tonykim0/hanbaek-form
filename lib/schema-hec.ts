@@ -195,9 +195,9 @@ export function buildHecSdtMaps(form: HecFormData): SdtMaps {
     [TEXT_IDS.parkingLotCount_b7]: form.parkingLotCount,
     [TEXT_IDS.installAddr_b7]: installAddr,
 
-    [TEXT_IDS.surveyorCompany]: form.surveyorCompany || form.salesCompany,
-    [TEXT_IDS.surveyorTel]: form.surveyorTel || form.salesTel,
-    [TEXT_IDS.surveyorName]: form.surveyorName || form.salesName,
+    [TEXT_IDS.surveyorCompany]: form.salesCompany,
+    [TEXT_IDS.surveyorTel]: form.salesTel,
+    [TEXT_IDS.surveyorName]: form.salesName,
     [TEXT_IDS.surveyDate]: surveyDate,
 
     [TEXT_IDS.dupFastQty]: form.dupFast ? form.dupFastQty : '',
@@ -321,8 +321,12 @@ export function buildTextReplacements(form: HecFormData): TextReplacement[] {
 
     // ── 수량공문 ──
     {
+      find: '현대재송동아파트 관리사무소      (인)',
+      replace: `${form.custName}      (인)`,
+    },
+    {
       find: '현대재송동아파트 관리사무소',
-      replace: `${form.custName}`,
+      replace: form.custName,
     },
     {
       find: '2025년 12월 01일',

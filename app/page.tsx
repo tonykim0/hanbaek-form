@@ -1,23 +1,17 @@
+'use client';
+
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { Analytics } from '@vercel/analytics/react';
-import { ContractFormData } from './lib/schema';
-import { fillContractTemplate, downloadBlob } from './lib/fillDocx';
+import { ContractFormData } from '@/lib/schema';
+import { fillContractTemplate, downloadBlob } from '@/lib/fillDocx';
 
 const today = new Date();
 const todayMonth = String(today.getMonth() + 1);
 const todayDay = String(today.getDate());
 
-// 연도 옵션 — 디폴트 2026, 앞뒤로 한 해씩
 const YEAR_OPTIONS = ['2025', '2026', '2027'];
 const DEFAULT_YEAR = '2026';
 
-const env = import.meta.env;
-
-// Korean phone number validator.
-// Matches: 010-1234-5678, 02-1234-5678, 02-123-4567, 031-903-1370, 1533-0702
-//   - 0X-XXX(X)-XXXX  (mobile + landline, 2~3 digit area code)
-//   - 1NNN-NNNN       (4-digit special service numbers)
 const PHONE_RE = /^(0\d{1,2}-\d{3,4}-\d{4}|1[5-9]\d{2}-\d{4})$/;
 
 const defaultValues: Partial<ContractFormData> = {
@@ -25,14 +19,12 @@ const defaultValues: Partial<ContractFormData> = {
   contractMonth: todayMonth,
   contractDay: todayDay,
   contractTerm: '7',
-  // Pre-fill from env vars (set on Vercel)
-  salesCompany: env.VITE_DEFAULT_SALES_COMPANY ?? '한비',
-  salesName: env.VITE_DEFAULT_SALES_NAME ?? '김종혁',
-  salesTel: env.VITE_DEFAULT_SALES_TEL ?? '010-3627-7047',
-  surveyorCompany: env.VITE_DEFAULT_SURVEYOR_COMPANY ?? '한백',
-  surveyorName: env.VITE_DEFAULT_SURVEYOR_NAME ?? '',
-  surveyorTel: env.VITE_DEFAULT_SURVEYOR_TEL ?? '',
-  // 사전 컨설팅 defaults
+  salesCompany: '한비',
+  salesName: '김종혁',
+  salesTel: '010-3627-7047',
+  surveyorCompany: '한백',
+  surveyorName: '',
+  surveyorTel: '',
   buildingType: 'apartment',
   installLocation: '',
   ownership: 'own',
@@ -63,7 +55,6 @@ export default function App() {
 
   const [status, setStatus] = useState<{ kind: StatusKind; msg: string } | null>(null);
 
-  // Watch dup checkboxes to enable/disable qty inputs
   const dupFast = watch('dupFast');
   const dupSlow = watch('dupSlow');
   const dupDist = watch('dupDist');
@@ -215,7 +206,7 @@ export default function App() {
             </Field>
           </Section>
 
-          {/* ───────────────── 3. 사전 현장 컨설팅 결과서 (헤더 숨김) ───────────────── */}
+          {/* ───────────────── 3. 사전 현장 컨설팅 결과서 ───────────────── */}
           <Section title="">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <Field label="외주모집대행사">
@@ -278,7 +269,10 @@ export default function App() {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                중복설치 여부 <span className="text-gray-400 font-normal">(미체크 시 "해당사항 없음" 자동 체크)</span>
+                중복설치 여부{' '}
+                <span className="text-gray-400 font-normal">
+                  (미체크 시 "해당사항 없음" 자동 체크)
+                </span>
               </label>
               <div className="space-y-2 border border-gray-200 rounded p-3 bg-gray-50">
                 <DupRow
@@ -327,9 +321,7 @@ export default function App() {
               {status && (
                 <p
                   className={
-                    status.kind === 'success'
-                      ? 'text-green-700'
-                      : 'text-red-600 font-medium'
+                    status.kind === 'success' ? 'text-green-700' : 'text-red-600 font-medium'
                   }
                 >
                   {status.kind === 'success' ? '✅ ' : '❌ '}
@@ -350,9 +342,15 @@ export default function App() {
         <div className="mt-6 p-4 bg-amber-50 border border-amber-200 rounded text-sm text-amber-900">
           <p className="font-semibold mb-1">ℹ️ 자동 처리되는 항목 (별지5호)</p>
           <ul className="list-disc ml-5 space-y-1">
-            <li>결제방식 → <strong>후불청구(회원결제)</strong> (템플릿 고정)</li>
-            <li>개인정보 수집·이용 동의 → <strong>동의함</strong> (템플릿 고정)</li>
-            <li>개인정보 제3자 위탁·제공 동의 → <strong>동의함</strong> (템플릿 고정)</li>
+            <li>
+              결제방식 → <strong>후불청구(회원결제)</strong> (템플릿 고정)
+            </li>
+            <li>
+              개인정보 수집·이용 동의 → <strong>동의함</strong> (템플릿 고정)
+            </li>
+            <li>
+              개인정보 제3자 위탁·제공 동의 → <strong>동의함</strong> (템플릿 고정)
+            </li>
           </ul>
           <p className="mt-3 font-semibold mb-1">⚠️ Word에서 수동 확인 필요</p>
           <ul className="list-disc ml-5 space-y-1">
@@ -364,7 +362,6 @@ export default function App() {
           <p>한백 EV Infra Solutions · Internal Tool · v2</p>
         </footer>
       </div>
-      <Analytics />
     </div>
   );
 }
@@ -435,12 +432,7 @@ function RadioField({
 function Radio({ name, value, register, label }: { name: any; value: string; register: any; label: string }) {
   return (
     <label className="flex items-center gap-1.5 text-sm text-gray-700 cursor-pointer">
-      <input
-        type="radio"
-        value={value}
-        {...register(name)}
-        className="h-4 w-4 text-blue-600"
-      />
+      <input type="radio" value={value} {...register(name)} className="h-4 w-4 text-blue-600" />
       {label}
     </label>
   );
@@ -450,11 +442,7 @@ function Radio({ name, value, register, label }: { name: any; value: string; reg
 function Checkbox({ register, name, label }: { register: any; name: any; label: string }) {
   return (
     <label className="flex items-center gap-1.5 text-sm text-gray-700 cursor-pointer">
-      <input
-        type="checkbox"
-        {...register(name)}
-        className="h-4 w-4 text-blue-600 rounded"
-      />
+      <input type="checkbox" {...register(name)} className="h-4 w-4 text-blue-600 rounded" />
       {label}
     </label>
   );

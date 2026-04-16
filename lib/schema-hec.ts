@@ -344,10 +344,6 @@ export function buildTextReplacements(form: HecFormData): TextReplacement[] {
       find: 'gs9966@naver.com',
       replace: form.custEmail,
     },
-    {
-      find: '담당자 : 관리소장',
-      replace: `담당자 : ${form.custName}`,
-    },
   ];
 }
 

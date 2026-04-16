@@ -168,7 +168,7 @@ export async function fillContractTemplate(
   form: ContractFormData
 ): Promise<FillResult> {
   // 1. Fetch template
-  const response = await fetch('/template.docx');
+  const response = await fetch('/pluglink/template.docx');
   if (!response.ok) {
     throw new Error(`템플릿 파일을 불러올 수 없습니다 (${response.status})`);
   }

@@ -13,6 +13,7 @@
     "@notionhq/client": "^2.2.15",
     "@vercel/analytics": "^2.0.1",
     "@vercel/blob": "^2.3.3",
+    "@vercel/speed-insights": "^2.0.0",
     "jszip": "^3.10.1",
     "next": "^14.2.29",
     "pdf-lib": "^1.17.1",

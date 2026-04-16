@@ -71,11 +71,7 @@ export async function POST(request: NextRequest) {
         // ── ZIP 다운로드 + PDF 추출 ─────────────────────────────
         send({ phase: 'extracting', message: 'ZIP에서 PDF 추출 중...' });
 
-        const zipRes = await fetch(blobUrl, {
-          headers: {
-            Authorization: `Bearer ${process.env.BLOB_READ_WRITE_TOKEN}`,
-          },
-        });
+        const zipRes = await fetch(blobUrl);
         if (!zipRes.ok) throw new Error(`Blob 다운로드 실패: ${zipRes.status}`);
         const zipBuffer = Buffer.from(await zipRes.arrayBuffer());
         const normalizedFiles = await extractAndHashFromZipBuffer(zipBuffer);

@@ -289,7 +289,7 @@ function fillContractTerm(doc: Document, form: HecFormData): number {
       // Check if this is in the 완속 parking slots context
       if (i + 1 < allTexts.length && (allTexts[i + 1].textContent || '').trim() === '') {
         if (i + 2 < allTexts.length && (allTexts[i + 2].textContent || '').includes(') 면')) {
-          allTexts[i].textContent = `( ${form.parkingSlotsSlow}`;
+          allTexts[i].textContent = `( ${form.installQty}`;
           allTexts[i + 1].textContent = '';
           filled++;
         }

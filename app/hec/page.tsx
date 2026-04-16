@@ -175,7 +175,7 @@ export default function HecPage() {
                 placeholder="고객사 주소와 같으면 비워두세요"
               />
             </Field>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
               <Field label="설치수량 (대)" required error={errors.installQty?.message}>
                 <input
                   {...register('installQty', { required: '필수' })}
@@ -190,15 +190,6 @@ export default function HecPage() {
                   <option value="7">7년</option>
                   <option value="10">10년</option>
                 </select>
-              </Field>
-              <Field label="완속 주차면수" required error={errors.parkingSlotsSlow?.message}>
-                <input
-                  {...register('parkingSlotsSlow', { required: '필수' })}
-                  className={inputCls}
-                  type="number"
-                  min="1"
-                  placeholder="10"
-                />
               </Field>
               <Field label="전기차 등록대수" required error={errors.evCount?.message}>
                 <input

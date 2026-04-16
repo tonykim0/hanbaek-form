@@ -58,7 +58,7 @@ export default function IntakePage() {
       const { token } = await tokenRes.json();
 
       const blob = await put(safeName, file, {
-        access: 'public',
+        access: 'private',
         token,
         onUploadProgress: ({ percentage }) => {
           setProgress((p) => ({

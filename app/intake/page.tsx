@@ -15,7 +15,8 @@ export default function IntakePage() {
   const [password, setPassword] = useState('');
   const [files, setFiles] = useState<File[]>([]);
   const [submitting, setSubmitting] = useState(false);
-  const [status, setStatus] = useState('');
+  const [progress, setProgress] = useState(0);   // 0~100
+  const [phase, setPhase] = useState<'idle' | 'uploading' | 'processing'>('idle');
 
   const canSubmit = name.trim() && company.trim() && password && files.length > 0;
 
@@ -29,15 +30,20 @@ export default function IntakePage() {
 
     try {
       // Step 1: ZIP 파일을 Vercel Blob에 업로드 (4.5MB 제한 우회)
-      setStatus('파일 업로드 중...');
+      setPhase('uploading');
+      setProgress(0);
       const file = files[0]; // ZIP 파일 1개
       const blob = await upload(file.name, file, {
         access: 'public',
         handleUploadUrl: '/api/upload',
+        onUploadProgress: ({ percentage }) => {
+          setProgress(Math.round(percentage));
+        },
       });
 
       // Step 2: API에 blob URL + 폼 데이터 전송 (작은 JSON body)
-      setStatus('AI 분류 + 노션 저장 중...');
+      setPhase('processing');
+      setProgress(0);
       const res = await fetch('/api/intake', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -79,7 +85,8 @@ export default function IntakePage() {
       router.push('/intake/error');
     } finally {
       setSubmitting(false);
-      setStatus('');
+      setPhase('idle');
+      setProgress(0);
     }
   };
 
@@ -133,25 +140,44 @@ export default function IntakePage() {
             </div>
           </section>
 
-          {/* 접수 버튼 */}
-          <button
-            onClick={handleSubmit}
-            disabled={!canSubmit || submitting}
-            className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-semibold py-3 rounded-lg shadow transition"
-          >
-            {submitting ? (
-              <span className="flex items-center justify-center gap-2">
-                <Spinner />
-                {status || '접수 처리 중...'}
-              </span>
-            ) : (
-              '접수하기'
-            )}
-          </button>
-
-          <p className="text-xs text-gray-400 text-center">
-            1~2일 내 한백 담당자가 회신드립니다
-          </p>
+          {/* 접수 버튼 + 진행 상태 */}
+          {submitting ? (
+            <div className="space-y-3">
+              <div className="text-sm font-medium text-gray-700 text-center">
+                {phase === 'uploading'
+                  ? `파일 업로드 중... ${progress}%`
+                  : 'AI 분류 + 노션 저장 중...'}
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+                {phase === 'uploading' ? (
+                  <div
+                    className="bg-blue-600 h-full rounded-full transition-all duration-300"
+                    style={{ width: `${progress}%` }}
+                  />
+                ) : (
+                  <div className="bg-blue-600 h-full rounded-full animate-progress-indeterminate" />
+                )}
+              </div>
+              <p className="text-xs text-gray-400 text-center">
+                {phase === 'uploading'
+                  ? '서버에 파일을 전송하고 있습니다'
+                  : '서류를 분석하고 노션에 저장합니다 (최대 1분)'}
+              </p>
+            </div>
+          ) : (
+            <>
+              <button
+                onClick={handleSubmit}
+                disabled={!canSubmit}
+                className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-semibold py-3 rounded-lg shadow transition"
+              >
+                접수하기
+              </button>
+              <p className="text-xs text-gray-400 text-center">
+                1~2일 내 한백 담당자가 회신드립니다
+              </p>
+            </>
+          )}
         </div>
 
         <footer className="mt-6 text-center text-xs text-gray-400">
@@ -159,30 +185,5 @@ export default function IntakePage() {
         </footer>
       </div>
     </div>
-  );
-}
-
-function Spinner() {
-  return (
-    <svg
-      className="animate-spin h-5 w-5 text-white"
-      xmlns="http://www.w3.org/2000/svg"
-      fill="none"
-      viewBox="0 0 24 24"
-    >
-      <circle
-        className="opacity-25"
-        cx="12"
-        cy="12"
-        r="10"
-        stroke="currentColor"
-        strokeWidth="4"
-      />
-      <path
-        className="opacity-75"
-        fill="currentColor"
-        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-      />
-    </svg>
   );
 }

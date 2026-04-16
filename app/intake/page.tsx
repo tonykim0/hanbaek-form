@@ -47,15 +47,17 @@ export default function IntakePage() {
     try {
       // ── Step 1: Vercel Blob 업로드 ───────────────────────────
       const file = files[0];
+      // Blob 경로는 ASCII로 안전하게 (한글 NFD 파일명 → 400 방지)
+      const safeName = `intake-${Date.now()}.zip`;
       const tokenRes = await fetch('/api/upload', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pathname: file.name }),
+        body: JSON.stringify({ pathname: safeName }),
       });
       if (!tokenRes.ok) throw new Error('업로드 토큰 발급 실패');
       const { token } = await tokenRes.json();
 
-      const blob = await put(file.name, file, {
+      const blob = await put(safeName, file, {
         access: 'public',
         token,
         onUploadProgress: ({ percentage }) => {

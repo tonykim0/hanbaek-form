@@ -321,8 +321,8 @@ export function buildTextReplacements(form: HecFormData): TextReplacement[] {
 
     // ── 수량공문 ──
     {
-      find: '현대재송동아파트 관리사무소      (인)',
-      replace: `${form.custName}      (인)`,
+      find: '현대재송동아파트 관리사무소\u00a0\u00a0\u00a0\u00a0\u00a0 (인)',
+      replace: `${form.custName}\u00a0\u00a0\u00a0\u00a0\u00a0 (인)`,
     },
     {
       find: '현대재송동아파트 관리사무소',
@@ -333,12 +333,12 @@ export function buildTextReplacements(form: HecFormData): TextReplacement[] {
       replace: dateStr,
     },
     {
-      find: '  • 기준 일자 : 2025년 12월 기준',
-      replace: `  • 기준 일자 : ${form.contractYear}년 ${form.contractMonth}월 기준`,
+      find: '\u00a0\u00a0• 기준 일자 : 2025년 12월 기준',
+      replace: `\u00a0\u00a0• 기준 일자 : ${form.contractYear}년 ${form.contractMonth}월 기준`,
     },
     {
-      find: '  • 등록 대수 : 6대',
-      replace: `  • 등록 대수 : ${form.evCount}대`,
+      find: '\u00a0\u00a0• 등록 대수 : 6대',
+      replace: `\u00a0\u00a0• 등록 대수 : ${form.evCount}대`,
     },
     {
       find: 'gs9966@naver.com',

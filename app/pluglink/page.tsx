@@ -16,8 +16,8 @@ const PHONE_RE = /^(0\d{1,2}-\d{3,4}-\d{4}|1[5-9]\d{2}-\d{4})$/;
 
 const defaultValues: Partial<ContractFormData> = {
   contractYear: DEFAULT_YEAR,
-  contractMonth: todayMonth,
-  contractDay: todayDay,
+  contractMonth: '',
+  contractDay: '',
   contractTerm: '7',
   salesCompany: '한비',
   salesName: '김종혁',
@@ -173,10 +173,10 @@ export default function App() {
                 </select>
               </Field>
             </div>
-            <Field label="계약일 / 조사일" required>
+            <Field label="계약일 / 조사일">
               <div className="flex gap-2 items-center">
                 <select
-                  {...register('contractYear', { required: true })}
+                  {...register('contractYear')}
                   className={`${inputCls} w-24`}
                 >
                   {YEAR_OPTIONS.map((y) => (
@@ -187,19 +187,21 @@ export default function App() {
                 </select>
                 <span className="text-gray-700">년</span>
                 <input
-                  {...register('contractMonth', { required: true })}
+                  {...register('contractMonth')}
                   className={`${inputCls} w-20`}
                   type="number"
                   min="1"
                   max="12"
+                  placeholder=""
                 />
                 <span className="text-gray-700">월</span>
                 <input
-                  {...register('contractDay', { required: true })}
+                  {...register('contractDay')}
                   className={`${inputCls} w-20`}
                   type="number"
                   min="1"
                   max="31"
+                  placeholder=""
                 />
                 <span className="text-gray-700">일</span>
               </div>

@@ -16,9 +16,9 @@ const defaultValues: Partial<NiceFormData> = {
   contractMonth: '',
   contractDay: '',
   contractTerm: '10',
-  salesCompany: '',
-  salesName: '',
-  salesTel: '',
+  salesCompany: '한백',
+  salesName: '김정우',
+  salesTel: '010-5343-9983',
   surveyorCompany: '한백',
   surveyorName: '',
   surveyorTel: '',
@@ -157,7 +157,7 @@ export default function NicePage() {
               <input
                 {...register('installAddr')}
                 className={inputCls}
-                placeholder="예: 부산광역시 연제구 거제대로 275 (고객사 주소와 같으면 비워두세요)"
+                placeholder="고객사 주소와 같으면 비워두세요"
               />
             </Field>
             <Field label="상세위치">

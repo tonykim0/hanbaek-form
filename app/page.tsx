@@ -25,6 +25,22 @@ export default function Home() {
             <h2 className="text-lg font-semibold text-gray-900">현대엔지니어링</h2>
             <p className="text-sm text-gray-500 mt-1">현대엔지니어링 운영서비스 계약서류 자동생성</p>
           </Link>
+
+          <Link
+            href="/nice"
+            className="block w-full bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md hover:border-blue-300 transition p-5"
+          >
+            <h2 className="text-lg font-semibold text-gray-900">나이스인프라</h2>
+            <p className="text-sm text-gray-500 mt-1">나이스인프라 계약서류 자동생성</p>
+          </Link>
+
+          <Link
+            href="/sk"
+            className="block w-full bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md hover:border-blue-300 transition p-5"
+          >
+            <h2 className="text-lg font-semibold text-gray-900">SK일렉링크</h2>
+            <p className="text-sm text-gray-500 mt-1">SK일렉링크 계약서류 자동생성</p>
+          </Link>
         </div>
 
         <footer className="mt-8 text-center text-xs text-gray-400">

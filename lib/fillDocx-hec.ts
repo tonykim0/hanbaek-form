@@ -208,12 +208,16 @@ function fillSignatureBlocks(doc: Document, form: HecFormData): number {
     }
 
     // Fill "대표자 : " — the rep name goes into the next run's spaces
+    // (may have bookmarkStart siblings between runs, so walk forward)
     if (content === '대표자 : ') {
       const run = findAncestor(t, 'r');
       if (!run) continue;
-      const nextRun = run.nextElementSibling;
-      if (nextRun) {
-        const nextT = nextRun.getElementsByTagNameNS(W_NS, 't');
+      let sibling: Element | null = run.nextElementSibling;
+      while (sibling && sibling.localName !== 'r') {
+        sibling = sibling.nextElementSibling;
+      }
+      if (sibling) {
+        const nextT = sibling.getElementsByTagNameNS(W_NS, 't');
         if (nextT.length > 0 && (nextT[0].textContent || '').trim() === '') {
           nextT[0].textContent = form.custRepresentative;
           filled++;

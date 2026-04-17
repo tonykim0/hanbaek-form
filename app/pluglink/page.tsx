@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { ContractFormData } from '@/lib/schema';
-import { fillContractTemplate, downloadBlob } from '@/lib/fillDocx';
+import { downloadBlob } from '@/lib/download';
 
 const today = new Date();
 const todayMonth = String(today.getMonth() + 1);
@@ -63,6 +63,7 @@ export default function App() {
   const onSubmit = async (data: ContractFormData) => {
     setStatus(null);
     try {
+      const { fillContractTemplate } = await import('@/lib/fillDocx');
       const result = await fillContractTemplate(data);
       const safeName = data.custName.replace(/[^\w가-힣]+/g, '_');
       const filename = `${data.contractYear}년_계약서류_${safeName}.docx`;

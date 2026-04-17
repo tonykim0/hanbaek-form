@@ -3,8 +3,7 @@
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { SkFormData } from '@/lib/schema-sk';
-import { fillSkTemplate } from '@/lib/fillDocx-sk';
-import { downloadBlob } from '@/lib/fillDocx';
+import { downloadBlob } from '@/lib/download';
 
 const YEAR_OPTIONS = ['2025', '2026', '2027'];
 const DEFAULT_YEAR = '2026';
@@ -61,6 +60,7 @@ export default function SkPage() {
   const onSubmit = async (data: SkFormData) => {
     setStatus(null);
     try {
+      const { fillSkTemplate } = await import('@/lib/fillDocx-sk');
       const result = await fillSkTemplate(data);
       const safeName = data.custName.replace(/[^\w가-힣]+/g, '_');
       const filename = `${data.contractYear}년_계약서류_SK_${safeName}.docx`;

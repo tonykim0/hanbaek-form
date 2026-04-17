@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { put } from '@vercel/blob/client';
 import SalesRepForm from '@/components/SalesRepForm';
 import UploadZone from '@/components/UploadZone';
 import FilePreview from '@/components/FilePreview';
@@ -56,6 +55,7 @@ export default function IntakePage() {
       });
       if (!tokenRes.ok) throw new Error('업로드 토큰 발급 실패');
       const { token } = await tokenRes.json();
+      const { put } = await import('@vercel/blob/client');
 
       const blob = await put(safeName, file, {
         access: 'public',

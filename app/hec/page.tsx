@@ -3,8 +3,7 @@
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { HecFormData } from '@/lib/schema-hec';
-import { fillHecTemplate } from '@/lib/fillDocx-hec';
-import { downloadBlob } from '@/lib/fillDocx';
+import { downloadBlob } from '@/lib/download';
 
 const today = new Date();
 const todayMonth = String(today.getMonth() + 1);
@@ -68,6 +67,7 @@ export default function HecPage() {
   const onSubmit = async (data: HecFormData) => {
     setStatus(null);
     try {
+      const { fillHecTemplate } = await import('@/lib/fillDocx-hec');
       const result = await fillHecTemplate(data);
       const safeName = data.custName.replace(/[^\w가-힣]+/g, '_');
       const filename = `${data.contractYear}년_계약서류_HEC_${safeName}.docx`;

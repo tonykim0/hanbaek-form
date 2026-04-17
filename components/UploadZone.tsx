@@ -1,7 +1,6 @@
 'use client';
 
-import { useCallback } from 'react';
-import { useDropzone } from 'react-dropzone';
+import { useRef, useState } from 'react';
 
 interface UploadZoneProps {
   files: File[];
@@ -9,35 +8,72 @@ interface UploadZoneProps {
 }
 
 export default function UploadZone({ files, onFilesChange }: UploadZoneProps) {
-  const onDrop = useCallback(
-    (accepted: File[]) => {
-      // 기존 파일에 추가 (중복 이름 제거)
-      const existingNames = new Set(files.map((f) => f.name));
-      const newFiles = accepted.filter((f) => !existingNames.has(f.name));
-      onFilesChange([...files, ...newFiles]);
-    },
-    [files, onFilesChange]
-  );
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [isDragActive, setIsDragActive] = useState(false);
 
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop,
-    accept: {
-      'application/zip': ['.zip'],
-      'application/x-zip-compressed': ['.zip'],
-    },
-    multiple: false,
-  });
+  const handleFiles = (selected: FileList | null) => {
+    if (!selected || selected.length === 0) return;
+
+    const accepted = Array.from(selected).filter((file) => (
+      file.name.toLowerCase().endsWith('.zip')
+      || file.type === 'application/zip'
+      || file.type === 'application/x-zip-compressed'
+      || file.type === 'application/octet-stream'
+    ));
+
+    if (accepted.length === 0) return;
+
+    // 이 화면은 ZIP 1개 업로드만 지원하므로 최신 선택 파일로 교체합니다.
+    const nextFile = accepted[accepted.length - 1];
+    if (files[0]?.name === nextFile.name && files[0]?.size === nextFile.size) return;
+    onFilesChange([nextFile]);
+  };
 
   return (
     <div
-      {...getRootProps()}
+      role="button"
+      tabIndex={0}
+      onClick={() => inputRef.current?.click()}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          inputRef.current?.click();
+        }
+      }}
+      onDragEnter={(e) => {
+        e.preventDefault();
+        setIsDragActive(true);
+      }}
+      onDragOver={(e) => {
+        e.preventDefault();
+        setIsDragActive(true);
+      }}
+      onDragLeave={(e) => {
+        e.preventDefault();
+        if (e.currentTarget.contains(e.relatedTarget as Node | null)) return;
+        setIsDragActive(false);
+      }}
+      onDrop={(e) => {
+        e.preventDefault();
+        setIsDragActive(false);
+        handleFiles(e.dataTransfer.files);
+      }}
       className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
         isDragActive
           ? 'border-blue-500 bg-blue-50'
           : 'border-gray-300 hover:border-gray-400 bg-gray-50'
       }`}
     >
-      <input {...getInputProps()} />
+      <input
+        ref={inputRef}
+        type="file"
+        accept=".zip,application/zip,application/x-zip-compressed,application/octet-stream"
+        className="hidden"
+        onChange={(e) => {
+          handleFiles(e.target.files);
+          e.target.value = '';
+        }}
+      />
       <div className="space-y-2">
         <div className="text-4xl text-gray-400">
           {isDragActive ? '\u{1F4E5}' : '\u{1F4C4}'}

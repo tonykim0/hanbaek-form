@@ -3,8 +3,7 @@
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { NiceFormData } from '@/lib/schema-nice';
-import { fillNiceTemplate } from '@/lib/fillDocx-nice';
-import { downloadBlob } from '@/lib/fillDocx';
+import { downloadBlob } from '@/lib/download';
 
 const YEAR_OPTIONS = ['2025', '2026', '2027'];
 const DEFAULT_YEAR = '2026';
@@ -62,6 +61,7 @@ export default function NicePage() {
   const onSubmit = async (data: NiceFormData) => {
     setStatus(null);
     try {
+      const { fillNiceTemplate } = await import('@/lib/fillDocx-nice');
       const result = await fillNiceTemplate(data);
       const safeName = data.custName.replace(/[^\w가-힣]+/g, '_');
       const filename = `${data.contractYear}년_계약서류_NICE_${safeName}.docx`;

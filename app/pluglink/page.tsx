@@ -96,11 +96,11 @@ export default function App() {
         >
           {/* ───────────────── 1. 고객사 정보 ───────────────── */}
           <Section title="1. 고객사 정보">
-            <Field label="상호명" required error={errors.custName?.message}>
+            <Field label="사업자등록증상 법인명 (단체명)" required error={errors.custName?.message}>
               <input
-                {...register('custName', { required: '상호명은 필수입니다' })}
+                {...register('custName', { required: '법인명은 필수입니다' })}
                 className={inputCls}
-                placeholder="예: 주식회사 한백"
+                placeholder="예: OO아파트 입주자대표회의"
               />
             </Field>
             <Field label="사업자등록번호" required error={errors.custBizId?.message}>

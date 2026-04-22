@@ -92,3 +92,36 @@ export interface IntakeErrorResponse {
 }
 
 export type IntakeResponse = IntakeSuccessResponse | IntakeErrorResponse;
+
+export type IntakeProgressPhase =
+  | 'extracting'
+  | 'classifying'
+  | 'splitting'
+  | 'notion'
+  | 'attaching';
+
+export interface IntakeProgressEvent {
+  phase: IntakeProgressPhase;
+  message: string;
+  fileCount?: number;
+  totalFiles?: number;
+  current?: number;
+  total?: number;
+  fileName?: string;
+}
+
+export interface IntakeDoneEvent {
+  phase: 'done';
+  data: IntakeSuccessResponse;
+}
+
+export interface IntakeStreamErrorEvent {
+  phase: 'error';
+  error: string;
+  code: string;
+}
+
+export type IntakeStreamEvent =
+  | IntakeProgressEvent
+  | IntakeDoneEvent
+  | IntakeStreamErrorEvent;

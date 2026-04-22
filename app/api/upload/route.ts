@@ -8,9 +8,27 @@
 import { generateClientTokenFromReadWriteToken } from '@vercel/blob/client';
 import { NextResponse } from 'next/server';
 
+const INTAKE_UPLOAD_PATH_RE = /^intake-\d+\.zip$/;
+
 export async function POST(request: Request) {
   try {
-    const { pathname } = (await request.json()) as { pathname: string };
+    const { pathname, password } = (await request.json()) as {
+      pathname?: string;
+      password?: string;
+    };
+
+    if (password !== process.env.INTAKE_PASSWORD) {
+      return NextResponse.json(
+        { error: '비밀번호가 올바르지 않습니다.' },
+        { status: 401 }
+      );
+    }
+    if (!pathname || !INTAKE_UPLOAD_PATH_RE.test(pathname)) {
+      return NextResponse.json(
+        { error: '업로드 경로가 올바르지 않습니다.' },
+        { status: 400 }
+      );
+    }
 
     // 토큰 유효기간: 10분 (기본값 30초 → 큰 파일 업로드 시 만료 방지)
     const validUntil = Date.now() + 10 * 60 * 1000;

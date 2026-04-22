@@ -10,20 +10,18 @@
  */
 import { NextRequest } from 'next/server';
 import { del } from '@vercel/blob';
-import { createHash } from 'crypto';
-import { extractAndHashFromZipBuffer } from '@/lib/files';
+import { extractAndHashFromZipBuffer, isZipBuffer } from '@/lib/files';
 import { classifyAndExtract } from '@/lib/claude';
 import {
   createNotionEntry,
+  attachUploadItemsToPage,
   buildUploadItems,
-  uploadAndAttach,
-  sleep,
   formatToday,
 } from '@/lib/notion';
-import { buildStandardName } from '@/lib/files';
-import type { IntakeSuccessResponse, ClassifiedFile } from '@/types/intake';
+import type { IntakeSuccessResponse } from '@/types/intake';
 
 export const maxDuration = 60;
+const ALLOWED_BLOB_HOST_RE = /(^|\.)blob\.vercel-storage\.com$/;
 
 export async function POST(request: NextRequest) {
   // ── 1. JSON 파싱 + 유효성 검사 ────────────────────────────────
@@ -53,33 +51,34 @@ export async function POST(request: NextRequest) {
   if (!blobUrl) {
     return errorResponse('파일이 업로드되지 않았습니다', 'NO_FILES');
   }
+  if (!isAllowedBlobUrl(blobUrl)) {
+    return errorResponse('업로드 URL이 올바르지 않습니다', 'INVALID_BLOB_URL');
+  }
 
   // ── 2. SSE 스트리밍 처리 ──────────────────────────────────────
   const encoder = new TextEncoder();
 
   const stream = new ReadableStream({
     async start(controller) {
-      function send(event: Record<string, unknown>) {
+      const send = (event: Record<string, unknown>) => {
         controller.enqueue(
           encoder.encode(`data: ${JSON.stringify(event)}\n\n`)
         );
-      }
+      };
 
       const warnings: string[] = [];
 
       try {
         // ── ZIP 다운로드 + PDF 추출 ─────────────────────────────
         send({ phase: 'extracting', message: 'ZIP에서 PDF 추출 중...' });
-
-        const zipRes = await fetch(blobUrl);
-        if (!zipRes.ok) throw new Error(`Blob 다운로드 실패: ${zipRes.status}`);
-        const zipBuffer = Buffer.from(await zipRes.arrayBuffer());
+        const zipBuffer = await downloadZipBuffer(blobUrl);
+        if (!isZipBuffer(zipBuffer)) {
+          throw new IntakeRouteError('ZIP 파일만 접수할 수 있습니다.', 'INVALID_ZIP');
+        }
         const normalizedFiles = await extractAndHashFromZipBuffer(zipBuffer);
 
         if (normalizedFiles.length === 0) {
-          send({ phase: 'error', error: 'PDF 파일을 찾을 수 없습니다.', code: 'NO_PDF' });
-          controller.close();
-          return;
+          throw new IntakeRouteError('PDF 파일을 찾을 수 없습니다.', 'NO_PDF');
         }
 
         send({
@@ -124,86 +123,55 @@ export async function POST(request: NextRequest) {
         // ── 노션 entry 생성 ─────────────────────────────────────
         send({ phase: 'notion', message: '노션 DB 저장 중...' });
 
-        let page: { id: string; url: string };
         try {
-          page = await createNotionEntry(
+          const page = await createNotionEntry(
             { name: salesRepName, company: salesRepCompany },
             metadata
           );
-        } catch (err) {
-          console.error('[intake] 노션 entry 생성 실패:', err);
-          send({
-            phase: 'error',
-            error: '노션 DB 저장에 실패했습니다. 잠시 후 다시 시도해주세요.',
-            code: 'NOTION_ERROR',
-          });
-          controller.close();
-          return;
-        }
-
-        // ── 파일 첨부 (개별 진행) ───────────────────────────────
-        const classifiedFiles: ClassifiedFile[] = [];
-        const nameCount = new Map<string, number>();
-        const total = uploadItems.length;
-
-        for (let i = 0; i < uploadItems.length; i++) {
-          const item = uploadItems[i];
-          let standardName = item.standardName;
-
-          const count = (nameCount.get(standardName) ?? 0) + 1;
-          nameCount.set(standardName, count);
-          if (count > 1) {
-            standardName = standardName.replace('.pdf', `_${count}.pdf`);
-          }
-
-          send({
-            phase: 'attaching',
-            current: i + 1,
-            total,
-            message: `노션 첨부 중... ${i + 1}/${total}`,
-            fileName: standardName,
-          });
-
-          try {
-            await uploadAndAttach(page.id, item.buffer, standardName);
-            classifiedFiles.push({
-              originalName: item.originalName,
-              category: item.category,
-              date: today,
-              standardName,
-              hash: createHash('sha256').update(item.buffer).digest('hex'),
+          const { classifiedFiles, warnings: attachWarnings } =
+            await attachUploadItemsToPage(page.id, uploadItems, today, {
+              siteName: metadata?.현장명,
+              onProgress: ({ current, total, standardName }) => {
+                send({
+                  phase: 'attaching',
+                  current,
+                  total,
+                  message: `노션 첨부 중... ${current}/${total}`,
+                  fileName: standardName,
+                });
+              },
             });
-          } catch (err) {
-            console.error(`[notion] 파일 첨부 실패 (${standardName}):`, err);
-            warnings.push(`${standardName} 첨부 실패`);
-          }
+          warnings.push(...attachWarnings);
 
-          await sleep(400);
+          // ── 완료 ────────────────────────────────────────────────
+          const response: IntakeSuccessResponse = {
+            success: true,
+            intakeId: generateIntakeId(),
+            notionUrl: page.url,
+            classifiedFiles,
+            warnings,
+          };
+
+          send({ phase: 'done', data: response });
+        } catch (err) {
+          console.error('[intake] 노션 저장/첨부 실패:', err);
+          throw new IntakeRouteError(
+            '노션 DB 저장에 실패했습니다. 잠시 후 다시 시도해주세요.',
+            'NOTION_ERROR'
+          );
         }
-
-        // ── Blob 정리 ───────────────────────────────────────────
-        del(blobUrl).catch(() => {});
-
-        // ── 완료 ────────────────────────────────────────────────
-        const response: IntakeSuccessResponse = {
-          success: true,
-          intakeId: generateIntakeId(),
-          notionUrl: page.url,
-          classifiedFiles,
-          warnings,
-        };
-
-        send({ phase: 'done', data: response });
       } catch (err) {
         console.error('[intake] 처리 실패:', err);
+        const intakeError = toIntakeRouteError(err);
         send({
           phase: 'error',
-          error: err instanceof Error ? err.message : '처리 중 오류가 발생했습니다',
-          code: 'INTERNAL_ERROR',
+          error: intakeError.message,
+          code: intakeError.code,
         });
+      } finally {
+        await deleteBlobQuietly(blobUrl);
+        controller.close();
       }
-
-      controller.close();
     },
   });
 
@@ -231,4 +199,51 @@ function errorResponse(error: string, code: string): Response {
 function generateIntakeId(): string {
   const ts = Date.now().toString(36).toUpperCase().slice(-4);
   return `HBPI-${ts}`;
+}
+
+function isAllowedBlobUrl(blobUrl: string): boolean {
+  try {
+    const url = new URL(blobUrl);
+    return url.protocol === 'https:' && ALLOWED_BLOB_HOST_RE.test(url.hostname);
+  } catch {
+    return false;
+  }
+}
+
+async function downloadZipBuffer(blobUrl: string): Promise<Buffer> {
+  const zipRes = await fetch(blobUrl);
+  if (!zipRes.ok) {
+    throw new IntakeRouteError(
+      `업로드 파일을 불러오지 못했습니다 (${zipRes.status})`,
+      'BLOB_DOWNLOAD_ERROR'
+    );
+  }
+
+  return Buffer.from(await zipRes.arrayBuffer());
+}
+
+async function deleteBlobQuietly(blobUrl: string): Promise<void> {
+  try {
+    await del(blobUrl);
+  } catch {
+    // Blob 정리 실패는 사용자 응답을 깨뜨리지 않도록 무시한다.
+  }
+}
+
+class IntakeRouteError extends Error {
+  constructor(message: string, readonly code: string) {
+    super(message);
+    this.name = 'IntakeRouteError';
+  }
+}
+
+function toIntakeRouteError(error: unknown): IntakeRouteError {
+  if (error instanceof IntakeRouteError) {
+    return error;
+  }
+
+  return new IntakeRouteError(
+    error instanceof Error ? error.message : '처리 중 오류가 발생했습니다',
+    'INTERNAL_ERROR'
+  );
 }

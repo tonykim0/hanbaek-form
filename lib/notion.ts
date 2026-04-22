@@ -6,6 +6,7 @@
  * 서버 사이드 전용.
  */
 import { Client, APIResponseError } from '@notionhq/client';
+import JSZip from 'jszip';
 import type { ExtractedMetadata, ClassifiedFile, ClassifiedFileInfo, FileCategory } from '@/types/intake';
 import type { NormalizedFile } from './files';
 import { buildStandardName } from './files';
@@ -30,7 +31,6 @@ export async function createNotionEntry(
 ): Promise<{ id: string; url: string }> {
   const currentYear = new Date().getFullYear();
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const properties: Record<string, any> = {
     // 필수 title 필드
     '현장명': {
@@ -118,41 +118,9 @@ export async function attachFilesToPage(
   files: NormalizedFile[],
   metadata: ExtractedMetadata | null
 ): Promise<ClassifiedFile[]> {
-  const classifiedFiles: ClassifiedFile[] = [];
-  const nameCount = new Map<string, number>();
   const today = formatToday();
-
-  // 첨부할 항목 목록 생성 (통합 PDF → 분할 항목으로 확장)
   const uploadItems = await buildUploadItems(files, metadata, today);
-
-  for (const item of uploadItems) {
-    let standardName = item.standardName;
-
-    // 중복 네이밍 방지
-    const count = (nameCount.get(standardName) ?? 0) + 1;
-    nameCount.set(standardName, count);
-    if (count > 1) {
-      standardName = standardName.replace('.pdf', `_${count}.pdf`);
-    }
-
-    try {
-      await uploadAndAttach(pageId, item.buffer, standardName);
-
-      classifiedFiles.push({
-        originalName: item.originalName,
-        category: item.category,
-        date: today,
-        standardName,
-        hash: createHash('sha256').update(item.buffer).digest('hex'),
-      });
-    } catch (err) {
-      const code = err instanceof APIResponseError ? err.code : 'unknown';
-      console.error(`[notion] 파일 첨부 실패 (${standardName}) code=${code}:`, err);
-    }
-
-    await sleep(400);
-  }
-
+  const { classifiedFiles } = await attachUploadItemsToPage(pageId, uploadItems, today);
   return classifiedFiles;
 }
 
@@ -161,6 +129,24 @@ export interface UploadItem {
   category: FileCategory;
   standardName: string;
   buffer: Buffer;
+}
+
+export interface AttachmentProgress {
+  current: number;
+  total: number;
+  standardName: string;
+  item: UploadItem;
+}
+
+export interface AttachUploadItemsOptions {
+  onProgress?: (progress: AttachmentProgress) => void;
+  /** 지정 시, 모든 분할 파일을 한 번에 압축한 ZIP을 페이지 상단에 추가로 첨부 */
+  siteName?: string;
+}
+
+export interface AttachUploadItemsResult {
+  classifiedFiles: ClassifiedFile[];
+  warnings: string[];
 }
 
 /**
@@ -217,13 +203,109 @@ export async function buildUploadItems(
   return items;
 }
 
+export async function attachUploadItemsToPage(
+  pageId: string,
+  uploadItems: UploadItem[],
+  today: string,
+  options: AttachUploadItemsOptions = {}
+): Promise<AttachUploadItemsResult> {
+  const classifiedFiles: ClassifiedFile[] = [];
+  const warnings: string[] = [];
+  const nameCount = new Map<string, number>();
+
+  // 개별 파일 이름(중복 시 _2, _3 ...)을 사전 확정 → ZIP 내부/페이지 블록 동일
+  const resolvedItems = uploadItems.map((item) => ({
+    item,
+    uniqueName: createUniqueFileName(item.standardName, nameCount),
+  }));
+
+  const siteName = options.siteName?.trim() ?? '';
+  const shouldBundle = siteName.length > 0 && resolvedItems.length > 1;
+  const totalSteps = resolvedItems.length + (shouldBundle ? 1 : 0);
+  let currentStep = 0;
+
+  // ── 번들 ZIP 먼저 첨부 (페이지 상단 위치) ────────────────────
+  if (shouldBundle) {
+    currentStep++;
+    const zipName = buildBundleZipName(siteName, today);
+
+    options.onProgress?.({
+      current: currentStep,
+      total: totalSteps,
+      standardName: zipName,
+      item: {
+        originalName: zipName,
+        category: '기타',
+        standardName: zipName,
+        buffer: Buffer.alloc(0),
+      },
+    });
+
+    try {
+      const zipBuffer = await buildBundleZip(resolvedItems);
+      await uploadAndAttach(pageId, zipBuffer, zipName, 'application/zip');
+      await sleep(400);
+    } catch (err) {
+      console.error('[notion] 번들 ZIP 첨부 실패:', err);
+      warnings.push(`${zipName} 첨부 실패`);
+    }
+  }
+
+  // ── 개별 파일 첨부 ──────────────────────────────────────────
+  for (const { item, uniqueName } of resolvedItems) {
+    currentStep++;
+
+    options.onProgress?.({
+      current: currentStep,
+      total: totalSteps,
+      standardName: uniqueName,
+      item,
+    });
+
+    try {
+      await uploadAndAttach(pageId, item.buffer, uniqueName);
+      classifiedFiles.push({
+        originalName: item.originalName,
+        category: item.category,
+        date: today,
+        standardName: uniqueName,
+        hash: createHash('sha256').update(item.buffer).digest('hex'),
+      });
+    } catch (err) {
+      const code = err instanceof APIResponseError ? err.code : 'unknown';
+      console.error(`[notion] 파일 첨부 실패 (${uniqueName}) code=${code}:`, err);
+      warnings.push(`${uniqueName} 첨부 실패`);
+    }
+
+    await sleep(400);
+  }
+
+  return { classifiedFiles, warnings };
+}
+
+function buildBundleZipName(siteName: string, date: string): string {
+  const safe = siteName.replace(/[<>:"/\\|?*\x00-\x1f]/g, '_').trim();
+  return `${safe}_전체_${date}.zip`;
+}
+
+async function buildBundleZip(
+  resolvedItems: Array<{ item: UploadItem; uniqueName: string }>
+): Promise<Buffer> {
+  const zip = new JSZip();
+  for (const { item, uniqueName } of resolvedItems) {
+    zip.file(uniqueName, item.buffer);
+  }
+  return zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' });
+}
+
 /**
  * 단일 파일을 Notion에 업로드 + 페이지에 블록 첨부.
  */
 export async function uploadAndAttach(
   pageId: string,
   buffer: Buffer,
-  standardName: string
+  standardName: string,
+  contentType: string = 'application/pdf'
 ): Promise<void> {
   // Step 1: 업로드 세션 생성
   const createRes = await fetch('https://api.notion.com/v1/file_uploads', {
@@ -235,7 +317,7 @@ export async function uploadAndAttach(
     },
     body: JSON.stringify({
       filename: standardName,
-      content_type: 'application/pdf',
+      content_type: contentType,
     }),
   });
   if (!createRes.ok) {
@@ -250,7 +332,7 @@ export async function uploadAndAttach(
     buffer.byteOffset,
     buffer.byteOffset + buffer.byteLength
   ) as ArrayBuffer;
-  formData.append('file', new Blob([ab], { type: 'application/pdf' }), standardName);
+  formData.append('file', new Blob([ab], { type: contentType }), standardName);
 
   const sendRes = await fetch(
     `https://api.notion.com/v1/file_uploads/${fileUpload.id}/send`,
@@ -271,7 +353,6 @@ export async function uploadAndAttach(
   // Step 3: 페이지 블록으로 첨부
   await notion.blocks.children.append({
     block_id: pageId,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     children: [createFileBlock(standardName, fileUpload.id) as any],
   });
 }
@@ -295,4 +376,13 @@ export function formatToday(): string {
   const mm = String(d.getMonth() + 1).padStart(2, '0');
   const dd = String(d.getDate()).padStart(2, '0');
   return `${d.getFullYear()}${mm}${dd}`;
+}
+
+function createUniqueFileName(
+  standardName: string,
+  nameCount: Map<string, number>
+): string {
+  const count = (nameCount.get(standardName) ?? 0) + 1;
+  nameCount.set(standardName, count);
+  return count > 1 ? standardName.replace('.pdf', `_${count}.pdf`) : standardName;
 }

@@ -2,13 +2,30 @@
 
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { NiceFormData } from '@/lib/schema-nice';
+import {
+  Checkbox,
+  contractInputClass,
+  DuplicateInstallFieldset,
+  Field,
+  Radio,
+  RadioField,
+  Section,
+} from '@/components/contracts/FormControls';
+import {
+  ContractPageShell,
+  FormActions,
+  NoticePanel,
+  type SubmitStatus,
+} from '@/components/contracts/PageChrome';
+import {
+  buildContractFilename,
+  DEFAULT_YEAR,
+  formatAdvancedSuccessMessage,
+  PHONE_RE,
+  YEAR_OPTIONS,
+} from '@/lib/contract-form';
 import { downloadBlob } from '@/lib/download';
-
-const YEAR_OPTIONS = ['2025', '2026', '2027'];
-const DEFAULT_YEAR = '2026';
-
-const PHONE_RE = /^(0\d{1,2}-\d{3,4}-\d{4}|1[5-9]\d{2}-\d{4})$/;
+import { NiceFormData } from '@/lib/schema-nice';
 
 const defaultValues: Partial<NiceFormData> = {
   contractYear: DEFAULT_YEAR,
@@ -41,7 +58,7 @@ const defaultValues: Partial<NiceFormData> = {
   installDetailLocation: '',
 };
 
-type StatusKind = 'success' | 'error' | null;
+const inputCls = contractInputClass;
 
 export default function NicePage() {
   const {
@@ -51,7 +68,7 @@ export default function NicePage() {
     formState: { errors, isSubmitting },
   } = useForm<NiceFormData>({ defaultValues });
 
-  const [status, setStatus] = useState<{ kind: StatusKind; msg: string } | null>(null);
+  const [status, setStatus] = useState<SubmitStatus | null>(null);
 
   const dupFast = watch('dupFast');
   const dupSlow = watch('dupSlow');
@@ -63,12 +80,11 @@ export default function NicePage() {
     try {
       const { fillNiceTemplate } = await import('@/lib/fillDocx-nice');
       const result = await fillNiceTemplate(data);
-      const safeName = data.custName.replace(/[^\w가-힣]+/g, '_');
-      const filename = `${data.contractYear}년_계약서류_NICE_${safeName}.docx`;
+      const filename = buildContractFilename(data.contractYear, '계약서류_NICE', data.custName);
       downloadBlob(result.blob, filename);
       setStatus({
         kind: 'success',
-        msg: `생성 완료: SDT ${result.filledSdtText + result.filledSdtCheckbox}개 + 텍스트 ${result.filledTextReplace}개 + 헤더 ${result.filledHeaderCells}개 → ${filename}`,
+        msg: formatAdvancedSuccessMessage(result, filename),
       });
       if (result.unmatchedIds.length > 0) {
         console.warn('Unmatched SDT IDs (template drift):', result.unmatchedIds);
@@ -82,12 +98,7 @@ export default function NicePage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8 px-4">
-      <div className="max-w-3xl mx-auto">
-        <header className="mb-6">
-          <h1 className="text-3xl font-bold text-gray-900">나이스인프라 계약서 자동생성</h1>
-        </header>
-
+    <ContractPageShell title="나이스인프라 계약서 자동생성">
         <form
           onSubmit={handleSubmit(onSubmit)}
           className="space-y-6 bg-white rounded-lg shadow-sm border border-gray-200 p-6"
@@ -279,213 +290,31 @@ export default function NicePage() {
               <Checkbox register={register} name="installTypeStand" label="스탠드" />
             </RadioField>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                중복설치 여부{' '}
-                <span className="text-gray-400 font-normal">
-                  (미체크 시 &quot;해당사항 없음&quot; 자동 체크)
-                </span>
-              </label>
-              <div className="space-y-2 border border-gray-200 rounded p-3 bg-gray-50">
-                <DupRow
-                  register={register}
-                  checkboxName="dupFast"
-                  qtyName="dupFastQty"
-                  label="급속충전기"
-                  qtyEnabled={dupFast}
-                />
-                <DupRow
-                  register={register}
-                  checkboxName="dupSlow"
-                  qtyName="dupSlowQty"
-                  label="완속충전기"
-                  qtyEnabled={dupSlow}
-                />
-                <DupRow
-                  register={register}
-                  checkboxName="dupDist"
-                  qtyName="dupDistQty"
-                  label="전력분배형 충전기"
-                  qtyEnabled={dupDist}
-                />
-                <DupRow
-                  register={register}
-                  checkboxName="dupOutlet"
-                  qtyName="dupOutletQty"
-                  label="과금형 콘센트"
-                  qtyEnabled={dupOutlet}
-                />
-                <div className="flex items-center gap-2 pt-1">
-                  <input
-                    type="checkbox"
-                    {...register('dupKiosk')}
-                    className="h-4 w-4 text-blue-600 rounded"
-                  />
-                  <span className="text-sm text-gray-700">키오스크</span>
-                  <span className="text-xs text-gray-400">(수량란 없음)</span>
-                </div>
-              </div>
-            </div>
+            <DuplicateInstallFieldset
+              register={register}
+              dupFast={dupFast}
+              dupSlow={dupSlow}
+              dupDist={dupDist}
+              dupOutlet={dupOutlet}
+            />
           </Section>
 
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 pt-4 border-t">
-            <div className="text-sm">
-              {status && (
-                <p
-                  className={
-                    status.kind === 'success' ? 'text-green-700' : 'text-red-600 font-medium'
-                  }
-                >
-                  {status.kind === 'success' ? 'V ' : 'X '}
-                  {status.msg}
-                </p>
-              )}
-            </div>
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-semibold px-6 py-3 rounded-lg shadow transition"
-            >
-              {isSubmitting ? '생성 중...' : '계약서 생성 및 다운로드'}
-            </button>
-          </div>
+          <FormActions status={status} isSubmitting={isSubmitting} />
         </form>
 
-        <div className="mt-6 p-4 bg-amber-50 border border-amber-200 rounded text-sm text-amber-900">
-          <p className="font-semibold mb-1">자동 처리 항목</p>
-          <ul className="list-disc ml-5 space-y-1">
-            <li>단가 → <strong>3,600,000원</strong> × 수량 = 계약금액 자동 계산</li>
-            <li>충전기 모델명 → <strong>공란</strong> (Word에서 수동 입력)</li>
-            <li>별지5호 결제방식 → <strong>후불청구(회원결제)</strong> (템플릿 고정)</li>
-            <li>개인정보 수집·이용 동의 → <strong>동의함</strong> (템플릿 고정)</li>
-          </ul>
-        </div>
-
-        <footer className="mt-6 text-center text-xs text-gray-400">
-          <p>한백 EV Infra Solutions · Internal Tool</p>
-        </footer>
-      </div>
-    </div>
-  );
-}
-
-const inputCls =
-  'w-full border border-gray-300 rounded px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent';
-
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <section>
-      {title && (
-        <h2 className="text-lg font-semibold text-gray-800 border-b border-gray-200 pb-2 mb-4">
-          {title}
-        </h2>
-      )}
-      <div className="space-y-3">{children}</div>
-    </section>
-  );
-}
-
-function Field({
-  label,
-  required,
-  error,
-  children,
-}: {
-  label: string;
-  required?: boolean;
-  error?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div>
-      <label className="block text-sm font-medium text-gray-700 mb-1">
-        {label}
-        {required && <span className="text-red-500 ml-1">*</span>}
-      </label>
-      {children}
-      {error && <p className="text-sm text-red-600 mt-1">{error}</p>}
-    </div>
-  );
-}
-
-function RadioField({
-  label,
-  required,
-  hint,
-  children,
-}: {
-  label: string;
-  required?: boolean;
-  hint?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div>
-      <label className="block text-sm font-medium text-gray-700 mb-1">
-        {label}
-        {required && <span className="text-red-500 ml-1">*</span>}
-      </label>
-      {hint && <p className="text-xs text-gray-500 mb-1">{hint}</p>}
-      <div className="flex flex-wrap gap-x-4 gap-y-1">{children}</div>
-    </div>
-  );
-}
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function Radio({ name, value, register, label }: { name: any; value: string; register: any; label: string }) {
-  return (
-    <label className="flex items-center gap-1.5 text-sm text-gray-700 cursor-pointer">
-      <input type="radio" value={value} {...register(name)} className="h-4 w-4 text-blue-600" />
-      {label}
-    </label>
-  );
-}
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function Checkbox({ register, name, label }: { register: any; name: any; label: string }) {
-  return (
-    <label className="flex items-center gap-1.5 text-sm text-gray-700 cursor-pointer">
-      <input type="checkbox" {...register(name)} className="h-4 w-4 text-blue-600 rounded" />
-      {label}
-    </label>
-  );
-}
-
-function DupRow({
-  register,
-  checkboxName,
-  qtyName,
-  label,
-  qtyEnabled,
-}: {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  register: any;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  checkboxName: any;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  qtyName: any;
-  label: string;
-  qtyEnabled: boolean;
-}) {
-  return (
-    <div className="flex items-center gap-2">
-      <input
-        type="checkbox"
-        {...register(checkboxName)}
-        className="h-4 w-4 text-blue-600 rounded"
+      <NoticePanel
+        sections={[
+          {
+            title: '자동 처리 항목',
+            items: [
+              <>단가 → <strong>3,600,000원</strong> × 수량 = 계약금액 자동 계산</>,
+              <>충전기 모델명 → <strong>공란</strong> (Word에서 수동 입력)</>,
+              <>별지5호 결제방식 → <strong>후불청구(회원결제)</strong> (템플릿 고정)</>,
+              <>개인정보 수집·이용 동의 → <strong>동의함</strong> (템플릿 고정)</>,
+            ],
+          },
+        ]}
       />
-      <span className="text-sm text-gray-700 w-32">{label}</span>
-      <input
-        type="number"
-        min="0"
-        {...register(qtyName)}
-        disabled={!qtyEnabled}
-        placeholder={qtyEnabled ? '수량' : '—'}
-        className={`border border-gray-300 rounded px-2 py-1 w-24 text-sm ${
-          !qtyEnabled ? 'bg-gray-100 text-gray-400' : ''
-        }`}
-      />
-      <span className="text-sm text-gray-500">기</span>
-    </div>
+    </ContractPageShell>
   );
 }

@@ -18,7 +18,6 @@ export default function UploadZone({ files, onFilesChange }: UploadZoneProps) {
       file.name.toLowerCase().endsWith('.zip')
       || file.type === 'application/zip'
       || file.type === 'application/x-zip-compressed'
-      || file.type === 'application/octet-stream'
     ));
 
     if (accepted.length === 0) return;
@@ -67,7 +66,7 @@ export default function UploadZone({ files, onFilesChange }: UploadZoneProps) {
       <input
         ref={inputRef}
         type="file"
-        accept=".zip,application/zip,application/x-zip-compressed,application/octet-stream"
+        accept=".zip,application/zip,application/x-zip-compressed"
         className="hidden"
         onChange={(e) => {
           handleFiles(e.target.files);

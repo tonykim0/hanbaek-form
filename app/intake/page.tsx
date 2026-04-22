@@ -1,11 +1,13 @@
 'use client';
 
+import type { Dispatch, SetStateAction } from 'react';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import SalesRepForm from '@/components/SalesRepForm';
 import UploadZone from '@/components/UploadZone';
 import FilePreview from '@/components/FilePreview';
-import type { IntakeResponse } from '@/types/intake';
+import { startIntakeSession, uploadIntakeZip } from '@/lib/intake-client';
+import type { IntakeStreamEvent } from '@/types/intake';
 
 interface ProgressState {
   phase: 'idle' | 'uploading' | 'extracting' | 'classifying' | 'splitting' | 'notion' | 'attaching';
@@ -32,7 +34,11 @@ export default function IntakePage() {
   const [submitting, setSubmitting] = useState(false);
   const [progress, setProgress] = useState<ProgressState>(INITIAL_PROGRESS);
 
-  const canSubmit = name.trim() && company.trim() && password && files.length > 0;
+  const canSubmit =
+    name.trim().length > 0
+    && company.trim().length > 0
+    && password.length > 0
+    && files.length > 0;
 
   const handleRemoveFile = (index: number) => {
     setFiles((prev) => prev.filter((_, i) => i !== index));
@@ -44,123 +50,39 @@ export default function IntakePage() {
     setProgress({ ...INITIAL_PROGRESS, phase: 'uploading', message: '파일 업로드 중...' });
 
     try {
-      // ── Step 1: Vercel Blob 업로드 ───────────────────────────
       const file = files[0];
-      // Blob 경로는 ASCII로 안전하게 (한글 NFD 파일명 → 400 방지)
-      const safeName = `intake-${Date.now()}.zip`;
-      const tokenRes = await fetch('/api/upload', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pathname: safeName }),
-      });
-      if (!tokenRes.ok) throw new Error('업로드 토큰 발급 실패');
-      const { token } = await tokenRes.json();
-      const { put } = await import('@vercel/blob/client');
-
-      const blob = await put(safeName, file, {
-        access: 'public',
-        token,
-        onUploadProgress: ({ percentage }) => {
-          setProgress((p) => ({
-            ...p,
-            uploadPercent: Math.round(percentage),
-            message: `파일 업로드 중... ${Math.round(percentage)}%`,
+      const blobUrl = await uploadIntakeZip({
+        file,
+        password,
+        onProgress: (percentage) => {
+          setProgress((prev) => ({
+            ...prev,
+            uploadPercent: percentage,
+            message: `파일 업로드 중... ${percentage}%`,
           }));
         },
       });
 
-      // ── Step 2: SSE 스트림으로 서버 처리 진행 상황 수신 ──────
-      const res = await fetch('/api/intake', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          salesRepName: name.trim(),
-          salesRepCompany: company.trim(),
-          password,
-          blobUrl: blob.url,
-        }),
-      });
-
-      const reader = res.body!.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop() ?? ''; // 마지막 미완성 라인 보존
-
-        for (const line of lines) {
-          if (!line.startsWith('data: ')) continue;
-          const event = JSON.parse(line.slice(6));
-
-          switch (event.phase) {
-            case 'extracting':
-              setProgress((p) => ({
-                ...p,
-                phase: 'extracting',
-                message: event.message,
-                total: event.fileCount ?? p.total,
-              }));
-              break;
-
-            case 'classifying':
-              setProgress((p) => ({
-                ...p,
-                phase: 'classifying',
-                message: event.message,
-              }));
-              break;
-
-            case 'splitting':
-              setProgress((p) => ({
-                ...p,
-                phase: 'splitting',
-                message: event.message,
-                total: event.totalFiles ?? p.total,
-              }));
-              break;
-
-            case 'notion':
-              setProgress((p) => ({
-                ...p,
-                phase: 'notion',
-                message: event.message,
-              }));
-              break;
-
-            case 'attaching':
-              setProgress((p) => ({
-                ...p,
-                phase: 'attaching',
-                message: event.message,
-                current: event.current,
-                total: event.total,
-              }));
-              break;
-
-            case 'done': {
-              const data = event.data as IntakeResponse;
-              if (data.success) {
-                sessionStorage.setItem('intake_result', JSON.stringify(data));
-                router.push('/intake/complete');
-              }
-              return;
-            }
-
-            case 'error':
-              sessionStorage.setItem(
-                'intake_error',
-                JSON.stringify({ error: event.error, code: event.code })
-              );
-              router.push('/intake/error');
-              return;
+      await startIntakeSession({
+        salesRepName: name.trim(),
+        salesRepCompany: company.trim(),
+        password,
+        blobUrl,
+        onEvent: (event) => {
+          const route = handleIntakeEvent(event, setProgress);
+          if (route === 'complete' && event.phase === 'done') {
+            sessionStorage.setItem('intake_result', JSON.stringify(event.data));
+            router.push('/intake/complete');
           }
-        }
-      }
+          if (route === 'error' && event.phase === 'error') {
+            sessionStorage.setItem(
+              'intake_error',
+              JSON.stringify({ error: event.error, code: event.code })
+            );
+            router.push('/intake/error');
+          }
+        },
+      });
     } catch (err) {
       sessionStorage.setItem(
         'intake_error',
@@ -308,6 +230,63 @@ function ProgressDisplay({ progress }: { progress: ProgressState }) {
       </p>
     </div>
   );
+}
+
+function handleIntakeEvent(
+  event: IntakeStreamEvent,
+  setProgress: Dispatch<SetStateAction<ProgressState>>
+): 'complete' | 'error' | null {
+  switch (event.phase) {
+    case 'extracting':
+      setProgress((prev) => ({
+        ...prev,
+        phase: 'extracting',
+        message: event.message,
+        total: event.fileCount ?? prev.total,
+      }));
+      return null;
+
+    case 'classifying':
+      setProgress((prev) => ({
+        ...prev,
+        phase: 'classifying',
+        message: event.message,
+      }));
+      return null;
+
+    case 'splitting':
+      setProgress((prev) => ({
+        ...prev,
+        phase: 'splitting',
+        message: event.message,
+        total: event.totalFiles ?? prev.total,
+      }));
+      return null;
+
+    case 'notion':
+      setProgress((prev) => ({
+        ...prev,
+        phase: 'notion',
+        message: event.message,
+      }));
+      return null;
+
+    case 'attaching':
+      setProgress((prev) => ({
+        ...prev,
+        phase: 'attaching',
+        message: event.message,
+        current: event.current ?? prev.current,
+        total: event.total ?? prev.total,
+      }));
+      return null;
+
+    case 'done':
+      return 'complete';
+
+    case 'error':
+      return 'error';
+  }
 }
 
 function phaseIndex(phase: ProgressState['phase']): number {

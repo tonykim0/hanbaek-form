@@ -16,6 +16,12 @@ export interface NormalizedFile {
   mimeType: 'application/pdf';
 }
 
+const ZIP_SIGNATURES = [
+  Buffer.from([0x50, 0x4b, 0x03, 0x04]),
+  Buffer.from([0x50, 0x4b, 0x05, 0x06]),
+  Buffer.from([0x50, 0x4b, 0x07, 0x08]),
+];
+
 /**
  * File[] (multipart/form-data)을 받아 PDF 목록으로 정규화.
  * ZIP은 압축 해제하여 내부 PDF만 추출.
@@ -51,7 +57,16 @@ export async function extractAndHashFromZipBuffer(buffer: Buffer): Promise<Norma
   return extractPDFsFromZip(buffer);
 }
 
+export function isZipBuffer(buffer: Buffer): boolean {
+  if (buffer.length < 4) return false;
+  return ZIP_SIGNATURES.some((signature) => buffer.subarray(0, 4).equals(signature));
+}
+
 async function extractPDFsFromZip(buffer: Buffer): Promise<NormalizedFile[]> {
+  if (!isZipBuffer(buffer)) {
+    throw new Error('ZIP 형식이 아닙니다.');
+  }
+
   const zip = await JSZip.loadAsync(buffer);
   const pdfs: NormalizedFile[] = [];
 

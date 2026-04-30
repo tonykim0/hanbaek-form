@@ -28,7 +28,6 @@ export async function POST(request: NextRequest) {
   let body: {
     salesRepName?: string;
     salesRepCompany?: string;
-    password?: string;
     blobUrl?: string;
   };
   try {
@@ -39,12 +38,8 @@ export async function POST(request: NextRequest) {
 
   const salesRepName = body.salesRepName?.trim() ?? '';
   const salesRepCompany = body.salesRepCompany?.trim() ?? '';
-  const password = body.password ?? '';
   const blobUrl = body.blobUrl?.trim() ?? '';
 
-  if (password !== process.env.INTAKE_PASSWORD) {
-    return errorResponse('비밀번호가 올바르지 않습니다', 'AUTH_FAILED');
-  }
   if (!salesRepName || !salesRepCompany) {
     return errorResponse('영업자 이름과 소속은 필수입니다', 'VALIDATION_ERROR');
   }

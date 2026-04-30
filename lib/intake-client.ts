@@ -9,28 +9,25 @@ interface UploadTokenResponse {
 
 interface UploadIntakeZipOptions {
   file: File;
-  password: string;
   onProgress?: (percentage: number) => void;
 }
 
 interface StartIntakeSessionOptions {
   salesRepName: string;
   salesRepCompany: string;
-  password: string;
   blobUrl: string;
   onEvent: (event: IntakeStreamEvent) => void;
 }
 
 export async function uploadIntakeZip({
   file,
-  password,
   onProgress,
 }: UploadIntakeZipOptions): Promise<string> {
   const pathname = createIntakeUploadPath();
   const tokenRes = await fetch('/api/upload', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ pathname, password }),
+    body: JSON.stringify({ pathname }),
   });
   const tokenData = await readJsonSafely<UploadTokenResponse>(tokenRes);
 
@@ -53,7 +50,6 @@ export async function uploadIntakeZip({
 export async function startIntakeSession({
   salesRepName,
   salesRepCompany,
-  password,
   blobUrl,
   onEvent,
 }: StartIntakeSessionOptions): Promise<void> {
@@ -63,7 +59,6 @@ export async function startIntakeSession({
     body: JSON.stringify({
       salesRepName,
       salesRepCompany,
-      password,
       blobUrl,
     }),
   });

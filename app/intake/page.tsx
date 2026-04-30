@@ -29,7 +29,6 @@ export default function IntakePage() {
   const router = useRouter();
   const [name, setName] = useState('');
   const [company, setCompany] = useState('');
-  const [password, setPassword] = useState('');
   const [files, setFiles] = useState<File[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [progress, setProgress] = useState<ProgressState>(INITIAL_PROGRESS);
@@ -37,7 +36,6 @@ export default function IntakePage() {
   const canSubmit =
     name.trim().length > 0
     && company.trim().length > 0
-    && password.length > 0
     && files.length > 0;
 
   const handleRemoveFile = (index: number) => {
@@ -53,7 +51,6 @@ export default function IntakePage() {
       const file = files[0];
       const blobUrl = await uploadIntakeZip({
         file,
-        password,
         onProgress: (percentage) => {
           setProgress((prev) => ({
             ...prev,
@@ -66,7 +63,6 @@ export default function IntakePage() {
       await startIntakeSession({
         salesRepName: name.trim(),
         salesRepCompany: company.trim(),
-        password,
         blobUrl,
         onEvent: (event) => {
           const route = handleIntakeEvent(event, setProgress);
@@ -119,21 +115,6 @@ export default function IntakePage() {
               company={company}
               onNameChange={setName}
               onCompanyChange={setCompany}
-            />
-          </section>
-
-          {/* 비밀번호 */}
-          <section>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              접수 비밀번호 <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="비밀번호 입력"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              required
             />
           </section>
 

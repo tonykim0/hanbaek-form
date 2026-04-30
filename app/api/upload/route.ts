@@ -12,17 +12,10 @@ const INTAKE_UPLOAD_PATH_RE = /^intake-\d+\.zip$/;
 
 export async function POST(request: Request) {
   try {
-    const { pathname, password } = (await request.json()) as {
+    const { pathname } = (await request.json()) as {
       pathname?: string;
-      password?: string;
     };
 
-    if (password !== process.env.INTAKE_PASSWORD) {
-      return NextResponse.json(
-        { error: '비밀번호가 올바르지 않습니다.' },
-        { status: 401 }
-      );
-    }
     if (!pathname || !INTAKE_UPLOAD_PATH_RE.test(pathname)) {
       return NextResponse.json(
         { error: '업로드 경로가 올바르지 않습니다.' },

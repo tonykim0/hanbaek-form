@@ -8,6 +8,7 @@
  */
 import JSZip from 'jszip';
 import { createHash } from 'crypto';
+import { PDFDocument } from 'pdf-lib';
 
 export interface NormalizedFile {
   name: string;
@@ -72,16 +73,31 @@ async function extractPDFsFromZip(buffer: Buffer): Promise<NormalizedFile[]> {
 
   for (const [path, zipFile] of Object.entries(zip.files)) {
     if (zipFile.dir) continue;
-    if (!path.toLowerCase().endsWith('.pdf')) continue;
-    // macOS ZIP의 __MACOSX 메타데이터 항목 제외
     if (path.startsWith('__MACOSX/')) continue;
 
-    const pdfBuffer = await zipFile.async('nodebuffer');
-    // macOS ZIP의 NFD 한글 파일명을 NFC로 정규화
-    const name = (path.split('/').pop() ?? path).normalize('NFC');
+    const lower = path.toLowerCase();
+    const isPdf = lower.endsWith('.pdf');
+    const isPng = lower.endsWith('.png');
+    const isJpg = lower.endsWith('.jpg') || lower.endsWith('.jpeg');
+    if (!isPdf && !isPng && !isJpg) continue;
 
+    const sourceBuffer = await zipFile.async('nodebuffer');
+    const baseName = (path.split('/').pop() ?? path).normalize('NFC');
+
+    if (isPdf) {
+      pdfs.push({
+        name: baseName,
+        buffer: sourceBuffer,
+        hash: sha256(sourceBuffer),
+        mimeType: 'application/pdf',
+      });
+      continue;
+    }
+
+    const pdfBuffer = await imageToPdf(sourceBuffer, isPng ? 'png' : 'jpg');
+    const pdfName = baseName.replace(/\.(png|jpe?g)$/i, '.pdf');
     pdfs.push({
-      name,
+      name: pdfName,
       buffer: pdfBuffer,
       hash: sha256(pdfBuffer),
       mimeType: 'application/pdf',
@@ -89,6 +105,16 @@ async function extractPDFsFromZip(buffer: Buffer): Promise<NormalizedFile[]> {
   }
 
   return pdfs;
+}
+
+async function imageToPdf(imageBuffer: Buffer, kind: 'png' | 'jpg'): Promise<Buffer> {
+  const pdfDoc = await PDFDocument.create();
+  const image = kind === 'png'
+    ? await pdfDoc.embedPng(imageBuffer)
+    : await pdfDoc.embedJpg(imageBuffer);
+  const page = pdfDoc.addPage([image.width, image.height]);
+  page.drawImage(image, { x: 0, y: 0, width: image.width, height: image.height });
+  return Buffer.from(await pdfDoc.save());
 }
 
 function sha256(buffer: Buffer): string {

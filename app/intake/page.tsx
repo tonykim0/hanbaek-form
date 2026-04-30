@@ -139,12 +139,15 @@ export default function IntakePage() {
 
           {/* 파일 업로드 */}
           <section>
-            <div className="flex items-baseline gap-3 mb-3 flex-wrap">
-              <h2 className="text-sm font-semibold text-gray-800">
-                서류 업로드
-              </h2>
+            <h2 className="text-sm font-semibold text-gray-800 mb-2">
+              서류 업로드
+            </h2>
+            <div className="space-y-1 mb-3">
               <p className="text-sm font-medium text-red-600">
                 모든 서류를 하나의 ZIP으로 압축해서 올려주세요. ZIP이 아닌 파일은 받지 않습니다.
+              </p>
+              <p className="text-sm font-medium text-red-600">
+                모든 서류는 스캔본으로 부탁드립니다. 사진촬영본은 무조건 보완요청 드릴 예정이며, 계약서류의 글자가 희미하거나 안 보일 경우에도 보완요청 드릴 예정입니다.
               </p>
             </div>
             <UploadZone files={files} onFilesChange={setFiles} />

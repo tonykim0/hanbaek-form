@@ -139,9 +139,14 @@ export default function IntakePage() {
 
           {/* 파일 업로드 */}
           <section>
-            <h2 className="text-sm font-semibold text-gray-800 mb-3">
-              서류 업로드
-            </h2>
+            <div className="flex items-baseline gap-3 mb-3 flex-wrap">
+              <h2 className="text-sm font-semibold text-gray-800">
+                서류 업로드
+              </h2>
+              <p className="text-sm font-medium text-red-600">
+                모든 서류를 하나의 ZIP으로 압축해서 올려주세요. ZIP이 아닌 파일은 받지 않습니다.
+              </p>
+            </div>
             <UploadZone files={files} onFilesChange={setFiles} />
             <div className="mt-3">
               <FilePreview files={files} onRemove={handleRemoveFile} />

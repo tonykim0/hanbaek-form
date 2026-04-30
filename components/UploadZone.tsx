@@ -90,9 +90,6 @@ export default function UploadZone({ files, onFilesChange }: UploadZoneProps) {
             <p className="text-gray-700 font-medium">
               ZIP 파일을 드래그하거나 클릭하세요
             </p>
-            <p className="text-sm text-gray-500">
-              모든 서류를 하나의 ZIP으로 압축해서 올려주세요. ZIP이 아닌 파일형식은 업로드 되지않습니다.
-            </p>
           </>
         )}
       </div>

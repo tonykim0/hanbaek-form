@@ -146,6 +146,7 @@ export default function IntakePage() {
               <ul className="list-disc pl-5 space-y-2 text-sm font-medium text-amber-800">
                 <li>모든 서류를 하나의 ZIP으로 압축해서 올려주세요. ZIP이 아닌 파일은 받지 않습니다.</li>
                 <li>모든 서류는 스캔본으로 부탁드립니다. 사진촬영본은 무조건 보완요청 드릴 예정이며, 계약서류의 글자가 희미하거나 안 보일 경우에도 보완요청 드릴 예정입니다.</li>
+                <li>한 번에 한 현장 서류만 올려주세요. 여러 현장은 ZIP을 분리해서 각각 접수해주세요.</li>
               </ul>
             </div>
             <UploadZone files={files} onFilesChange={setFiles} />

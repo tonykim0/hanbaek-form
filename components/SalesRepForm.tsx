@@ -51,7 +51,7 @@ export default function SalesRepForm({
           type="text"
           value={name}
           onChange={(e) => onNameChange(e.target.value)}
-          placeholder="홍길동"
+          placeholder=""
           className={inputCls}
           required
         />
@@ -64,7 +64,7 @@ export default function SalesRepForm({
           type="text"
           value={company}
           onChange={(e) => onCompanyChange(e.target.value)}
-          placeholder="에코일렉"
+          placeholder=""
           className={inputCls}
           required
         />

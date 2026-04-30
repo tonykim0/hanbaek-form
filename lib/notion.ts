@@ -26,70 +26,46 @@ export interface SalesRep {
  * 메타데이터가 없어도 생성 가능 (Claude 실패 fallback).
  */
 export async function createNotionEntry(
-  salesRep: SalesRep,
+  _salesRep: SalesRep,
   metadata: ExtractedMetadata | null
 ): Promise<{ id: string; url: string }> {
   const currentYear = new Date().getFullYear();
 
   const properties: Record<string, any> = {
-    // 필수 title 필드
     '현장명': {
       title: [{ text: { content: metadata?.현장명 ?? '(미확인)' } }],
     },
-    // 고정값
-    '*진행상태': { select: { name: '계약완료' } },
+    '영업현황': { select: { name: '계약완료' } },
     '*사업연도': { select: { name: `${currentYear}년` } },
-    // 웹폼 입력값
-    '*영업자': { rich_text: [{ text: { content: salesRep.name } }] },
-    '*영업자(소속)': { rich_text: [{ text: { content: salesRep.company } }] },
   };
 
   if (metadata) {
     if (metadata.주소) {
-      properties['*주소'] = { rich_text: [{ text: { content: metadata.주소 } }] };
-    }
-    if (metadata.우편번호) {
-      properties['*우편번호'] = { rich_text: [{ text: { content: metadata.우편번호 } }] };
-    }
-    if (metadata.소재지) {
-      properties['*소재지'] = { select: { name: metadata.소재지 } };
+      properties['현장주소'] = { rich_text: [{ text: { content: metadata.주소 } }] };
     }
     if (metadata.건축물유형) {
-      properties['*건축물 유형'] = { select: { name: metadata.건축물유형 } };
+      properties['건축물 유형'] = { select: { name: metadata.건축물유형 } };
     }
     if (metadata.CPO && metadata.CPO.length > 0) {
-      properties['*CPO'] = {
-        multi_select: metadata.CPO.map((cpo) => ({ name: cpo })),
-      };
+      properties['운영사'] = { select: { name: metadata.CPO[0] } };
     }
     if (metadata.계약대수 != null) {
-      properties['*계약대수'] = { number: metadata.계약대수 };
+      properties['계약대수'] = { number: metadata.계약대수 };
     }
     if (metadata.총주차면수 != null) {
-      properties['*총 주차면 수'] = { number: metadata.총주차면수 };
+      properties['총 주차면수'] = { number: metadata.총주차면수 };
     }
     if (metadata.전력인입) {
-      properties['*전력인입'] = { select: { name: metadata.전력인입 } };
+      const mapped = mapPowerInletToSujeon(metadata.전력인입);
+      if (mapped) properties['수전방식'] = { select: { name: mapped } };
     }
     if (metadata.현장담당자) {
-      properties['*현장 담당자'] = {
+      properties['현장담당자'] = {
         rich_text: [{ text: { content: metadata.현장담당자 } }],
       };
     }
     if (metadata.현장연락처) {
-      properties['*현장 연락처(유선)'] = {
-        rich_text: [{ text: { content: metadata.현장연락처 } }],
-      };
-    }
-    if (metadata.설치위치) {
-      properties['*설치위치'] = {
-        rich_text: [{ text: { content: metadata.설치위치 } }],
-      };
-    }
-    if (metadata.비고) {
-      properties['비고(특이사항)'] = {
-        rich_text: [{ text: { content: metadata.비고 } }],
-      };
+      properties['현장연락처'] = { phone_number: metadata.현장연락처 };
     }
   }
 
@@ -281,6 +257,15 @@ export async function attachUploadItemsToPage(
   }
 
   return { classifiedFiles, warnings };
+}
+
+function mapPowerInletToSujeon(value: string): string | null {
+  const map: Record<string, string> = {
+    '모자분리': '모자분리',
+    '한전수전': '한전불입',
+    '모자분리 + 한전수전': '한전불입+모자분리',
+  };
+  return map[value] ?? null;
 }
 
 function buildBundleZipName(siteName: string, date: string): string {

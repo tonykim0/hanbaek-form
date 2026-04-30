@@ -165,9 +165,6 @@ export default function IntakePage() {
               >
                 접수하기
               </button>
-              <p className="text-xs text-gray-400 text-center">
-                1~2일 내 한백 담당자가 회신드립니다
-              </p>
             </>
           )}
         </div>

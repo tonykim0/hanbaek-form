@@ -17,26 +17,11 @@ export default function SalesRepForm({
   onNameChange,
   onCompanyChange,
 }: SalesRepFormProps) {
-  // 마운트 시 localStorage에서 복원
   useEffect(() => {
     try {
-      const saved = localStorage.getItem(LS_KEY);
-      if (saved) {
-        const { name: n, company: c } = JSON.parse(saved);
-        if (n) onNameChange(n);
-        if (c) onCompanyChange(c);
-      }
+      localStorage.removeItem(LS_KEY);
     } catch { /* 무시 */ }
-  // 최초 1회만 실행
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  // 값 변경 시 localStorage 저장
-  useEffect(() => {
-    if (name || company) {
-      localStorage.setItem(LS_KEY, JSON.stringify({ name, company }));
-    }
-  }, [name, company]);
 
   const inputCls =
     'w-full border border-gray-300 rounded-lg px-3 py-2.5 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent';
@@ -51,7 +36,7 @@ export default function SalesRepForm({
           type="text"
           value={name}
           onChange={(e) => onNameChange(e.target.value)}
-          placeholder=""
+          placeholder="김정우"
           className={inputCls}
           required
         />
@@ -64,7 +49,7 @@ export default function SalesRepForm({
           type="text"
           value={company}
           onChange={(e) => onCompanyChange(e.target.value)}
-          placeholder=""
+          placeholder="에코일렉"
           className={inputCls}
           required
         />

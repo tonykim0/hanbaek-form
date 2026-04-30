@@ -10,17 +10,23 @@ interface UploadZoneProps {
 export default function UploadZone({ files, onFilesChange }: UploadZoneProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [isDragActive, setIsDragActive] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleFiles = (selected: FileList | null) => {
     if (!selected || selected.length === 0) return;
 
-    const accepted = Array.from(selected).filter((file) => (
+    const all = Array.from(selected);
+    const accepted = all.filter((file) => (
       file.name.toLowerCase().endsWith('.zip')
       || file.type === 'application/zip'
       || file.type === 'application/x-zip-compressed'
     ));
 
-    if (accepted.length === 0) return;
+    if (accepted.length === 0) {
+      setError('ZIP이 아닌 파일형식은 업로드 되지않습니다.');
+      return;
+    }
+    setError(null);
 
     // 이 화면은 ZIP 1개 업로드만 지원하므로 최신 선택 파일로 교체합니다.
     const nextFile = accepted[accepted.length - 1];
@@ -85,11 +91,14 @@ export default function UploadZone({ files, onFilesChange }: UploadZoneProps) {
               ZIP 파일을 드래그하거나 클릭하세요
             </p>
             <p className="text-sm text-gray-500">
-              계약서류 전체를 ZIP으로 묶어서 올려주세요
+              모든 서류를 하나의 ZIP으로 압축해서 올려주세요. ZIP이 아닌 파일형식은 업로드 되지않습니다.
             </p>
           </>
         )}
       </div>
+      {error && (
+        <p className="mt-3 text-sm text-red-600 font-medium">{error}</p>
+      )}
     </div>
   );
 }

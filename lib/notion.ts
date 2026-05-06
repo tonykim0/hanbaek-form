@@ -72,6 +72,12 @@ export async function createNotionEntry(
     if (metadata.현장연락처) {
       properties['현장연락처'] = { phone_number: metadata.현장연락처 };
     }
+    const has설치신청서 = metadata.files.some(
+      (f) => f.category === '전기차충전시설 설치신청서'
+    );
+    if (has설치신청서) {
+      properties['사업구분'] = { select: { name: '환경부' } };
+    }
   }
 
   const page = await notion.pages.create({

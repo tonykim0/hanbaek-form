@@ -26,7 +26,7 @@ export interface SalesRep {
  * 메타데이터가 없어도 생성 가능 (Claude 실패 fallback).
  */
 export async function createNotionEntry(
-  _salesRep: SalesRep,
+  salesRep: SalesRep,
   metadata: ExtractedMetadata | null
 ): Promise<{ id: string; url: string }> {
   const currentYear = new Date().getFullYear();
@@ -37,6 +37,8 @@ export async function createNotionEntry(
     },
     '영업현황': { select: { name: '계약완료' } },
     '*사업연도': { select: { name: `${currentYear}년` } },
+    '접수자': { rich_text: [{ text: { content: salesRep.name } }] },
+    '접수자 소속': { rich_text: [{ text: { content: salesRep.company } }] },
   };
 
   if (metadata) {

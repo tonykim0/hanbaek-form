@@ -54,6 +54,7 @@ export interface ExtractedMetadata {
   우편번호: string | null;
   CPO: CPOName[];
   계약대수: number | null;
+  계약기간: string | null;
   총주차면수: number | null;
   건축물유형: BuildingType | null;
   전력인입: PowerInlet | null;

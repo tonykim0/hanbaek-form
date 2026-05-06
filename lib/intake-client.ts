@@ -73,7 +73,10 @@ export async function startIntakeSession({
 
   while (true) {
     const { done, value } = await reader.read();
-    if (done) break;
+    if (done) {
+      buffer += decoder.decode();
+      break;
+    }
 
     const parsed = parseSseEvents(buffer + decoder.decode(value, { stream: true }));
     buffer = parsed.buffer;

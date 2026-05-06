@@ -52,6 +52,9 @@ export async function createNotionEntry(
     if (metadata.계약대수 != null) {
       properties['계약대수'] = { number: metadata.계약대수 };
     }
+    if (metadata.계약기간) {
+      properties['계약기간'] = { select: { name: metadata.계약기간 } };
+    }
     if (metadata.총주차면수 != null) {
       properties['총 주차면수'] = { number: metadata.총주차면수 };
     }

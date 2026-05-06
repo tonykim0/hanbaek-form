@@ -164,8 +164,8 @@ export async function POST(request: NextRequest) {
           code: intakeError.code,
         });
       } finally {
-        await deleteBlobQuietly(blobUrl);
         controller.close();
+        await deleteBlobQuietly(blobUrl);
       }
     },
   });
@@ -175,6 +175,7 @@ export async function POST(request: NextRequest) {
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache',
       Connection: 'keep-alive',
+      'X-Accel-Buffering': 'no',
     },
   });
 }

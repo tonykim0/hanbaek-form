@@ -61,6 +61,11 @@ export async function POST(request: NextRequest) {
         );
       };
 
+      // CDN/프록시 idle 타임아웃 방지: 8초마다 SSE 코멘트 전송
+      const keepalive = setInterval(() => {
+        try { controller.enqueue(encoder.encode(': keepalive\n\n')); } catch { /* 무시 */ }
+      }, 8000);
+
       const warnings: string[] = [];
 
       try {
@@ -164,6 +169,7 @@ export async function POST(request: NextRequest) {
           code: intakeError.code,
         });
       } finally {
+        clearInterval(keepalive);
         controller.close();
         await deleteBlobQuietly(blobUrl);
       }

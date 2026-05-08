@@ -167,12 +167,15 @@ export async function buildUploadItems(
       });
     } else {
       // 통합 PDF: pages 기반 분할
-      for (const info of matchedInfos) {
+      // 페이지 분리 금지 카테고리는 같은 파일 내 항목들을 하나로 합침
+      const merged = mergeNoSplitCategories(matchedInfos);
+
+      for (const info of merged) {
         let buffer: Buffer;
         if (info.pages && info.pages.length > 0) {
           buffer = await splitPdf(file.buffer, info.pages);
         } else {
-          buffer = file.buffer; // pages 없으면 전체 PDF
+          buffer = file.buffer;
         }
 
         items.push({
@@ -381,4 +384,33 @@ function createUniqueFileName(
   const count = (nameCount.get(standardName) ?? 0) + 1;
   nameCount.set(standardName, count);
   return count > 1 ? standardName.replace('.pdf', `_${count}.pdf`) : standardName;
+}
+
+// 여러 페이지여도 하나의 파일로 유지해야 하는 카테고리
+const NO_SPLIT_CATEGORIES = new Set<string>([
+  '한전 전기요금 청구서',
+  '건축물대장',
+]);
+
+/**
+ * NO_SPLIT_CATEGORIES에 해당하는 항목은 같은 카테고리끼리 pages를 합쳐 1개 항목으로 만든다.
+ */
+function mergeNoSplitCategories(infos: ClassifiedFileInfo[]): ClassifiedFileInfo[] {
+  const result: ClassifiedFileInfo[] = [];
+  const merged = new Map<string, ClassifiedFileInfo>();
+
+  for (const info of infos) {
+    if (!NO_SPLIT_CATEGORIES.has(info.category)) {
+      result.push(info);
+      continue;
+    }
+    const existing = merged.get(info.category);
+    if (!existing) {
+      merged.set(info.category, { ...info, pages: info.pages ? [...info.pages] : [] });
+    } else {
+      if (info.pages) existing.pages = [...(existing.pages ?? []), ...info.pages];
+    }
+  }
+
+  return [...result, ...merged.values()];
 }

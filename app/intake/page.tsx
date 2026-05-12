@@ -95,8 +95,8 @@ export default function IntakePage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8 px-4">
-      <div className="max-w-lg mx-auto">
+    <div className="min-h-screen bg-gray-50 py-8 px-6">
+      <div className="max-w-2xl mx-auto">
         <header className="mb-6">
           <h1 className="text-2xl font-bold text-gray-900">계약서 접수</h1>
           <p className="text-sm text-gray-500 mt-1">

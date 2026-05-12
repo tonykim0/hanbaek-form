@@ -2,8 +2,8 @@ import Link from 'next/link';
 
 export default function Home() {
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4 py-10">
-      <div className="max-w-md w-full">
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center px-6 py-10">
+      <div className="max-w-2xl w-full">
         <header className="text-center mb-8">
           <h1 className="text-2xl font-bold text-gray-900">한백 계약서 자동생성</h1>
         </header>
@@ -13,7 +13,7 @@ export default function Home() {
             계약서 만들기
           </h2>
           <p className="text-xs text-gray-500 mb-3">CPO를 선택해주세요</p>
-          <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-3">
             <Link
               href="/pluglink"
               className="block w-full bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md hover:border-blue-300 transition p-5"

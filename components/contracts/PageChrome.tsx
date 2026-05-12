@@ -22,8 +22,8 @@ export function ContractPageShell({
   footerText?: string;
 }) {
   return (
-    <div className="min-h-screen bg-gray-50 py-8 px-4">
-      <div className="max-w-3xl mx-auto">
+    <div className="min-h-screen bg-gray-50 py-8 px-6">
+      <div className="max-w-5xl mx-auto">
         <header className="mb-6">
           <h1 className="text-3xl font-bold text-gray-900">{title}</h1>
         </header>

@@ -114,6 +114,23 @@ function fillEmptyCell(doc: Document, cell: Element, value: string): boolean {
   return true;
 }
 
+function setParagraphText(para: Element, value: string): void {
+  const texts = para.getElementsByTagNameNS(W_NS, 't');
+  if (texts.length === 0) {
+    const runs = para.getElementsByTagNameNS(W_NS, 'r');
+    if (runs.length === 0) return;
+    const doc = para.ownerDocument!;
+    const tElem = doc.createElementNS(W_NS, 'w:t');
+    tElem.setAttributeNS(XML_NS, 'xml:space', 'preserve');
+    tElem.textContent = value;
+    runs[0].appendChild(tElem);
+    return;
+  }
+  texts[0].textContent = value;
+  texts[0].setAttributeNS(XML_NS, 'xml:space', 'preserve');
+  for (let i = 1; i < texts.length; i++) texts[i].textContent = '';
+}
+
 function fillLabelValueTable(
   doc: Document,
   table: Element,

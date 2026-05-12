@@ -50,7 +50,7 @@ export default function Home() {
               href="/sk-invest"
               className="block w-full bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md hover:border-blue-300 transition p-5"
             >
-              <h3 className="text-lg font-semibold text-gray-900">SK일렉링크 (자체투자)</h3>
+              <h3 className="text-lg font-semibold text-gray-900">SK일렉링크 (자투)</h3>
               <p className="text-sm text-gray-500 mt-1">SK일렉링크 자체투자 계약서류 자동생성</p>
             </Link>
           </div>

@@ -127,7 +127,8 @@ function fillLabelValueTable(
       const labelText = collectText(cells[c]).trim();
       if (labelText in labelMap) {
         const valueCell = cells[c + 1];
-        if (collectText(valueCell).trim()) continue;
+        // \xa0(non-breaking space)도 빈 칸으로 처리
+        if (collectText(valueCell).replace(/[\s ]+/g, '')) continue;
         if (fillEmptyCell(doc, valueCell, labelMap[labelText])) filled++;
       }
     }

@@ -25,6 +25,7 @@ const CHECKED_GLYPH = '\u25A0';   // ■
 const UNCHECKED_GLYPH = '\u2610'; // ☐
 const CHECKED_FONT = '맑은 고딕';
 const UNCHECKED_FONT = 'MS Gothic';
+const FILLED_TEXT_SIZE = '16'; // 8pt in Word half-point units
 
 // ─────────────────────────────────────────────
 // SDT helpers (same as pluglink fillDocx.ts)
@@ -42,6 +43,43 @@ function isCheckboxSdt(sdt: Element): boolean {
   const sdtPrList = sdt.getElementsByTagNameNS(W_NS, 'sdtPr');
   if (sdtPrList.length === 0) return false;
   return sdtPrList[0].getElementsByTagNameNS(W14_NS, 'checkbox').length > 0;
+}
+
+function getDirectChild(parent: Element, localName: string): Element | null {
+  let child = parent.firstElementChild;
+  while (child) {
+    if (child.namespaceURI === W_NS && child.localName === localName) return child;
+    child = child.nextElementSibling;
+  }
+  return null;
+}
+
+function ensureRunProperties(run: Element): Element {
+  const existing = getDirectChild(run, 'rPr');
+  if (existing) return existing;
+  const rPr = run.ownerDocument!.createElementNS(W_NS, 'w:rPr');
+  run.insertBefore(rPr, run.firstChild);
+  return rPr;
+}
+
+function setRunPropertyValue(rPr: Element, localName: string, value: string): void {
+  let prop = getDirectChild(rPr, localName);
+  if (!prop) {
+    prop = rPr.ownerDocument!.createElementNS(W_NS, `w:${localName}`);
+    rPr.appendChild(prop);
+  }
+  prop.setAttributeNS(W_NS, 'w:val', value);
+}
+
+function setFilledTextSize(run: Element): void {
+  const rPr = ensureRunProperties(run);
+  setRunPropertyValue(rPr, 'sz', FILLED_TEXT_SIZE);
+  setRunPropertyValue(rPr, 'szCs', FILLED_TEXT_SIZE);
+}
+
+function setFilledTextSizeForText(text: Element): void {
+  const run = findAncestor(text, 'r');
+  if (run) setFilledTextSize(run);
 }
 
 function fillTextSdt(sdt: Element, value: string): boolean {
@@ -68,9 +106,7 @@ function fillTextSdt(sdt: Element, value: string): boolean {
 
   const runs = content.getElementsByTagNameNS(W_NS, 'r');
   for (let i = 0; i < runs.length; i++) {
-    const rprList = runs[i].getElementsByTagNameNS(W_NS, 'rPr');
-    if (rprList.length === 0) continue;
-    const rpr = rprList[0];
+    const rpr = ensureRunProperties(runs[i]);
     const tagsToRemove = ['i', 'iCs', 'color', 'u', 'rStyle'];
     for (const tag of tagsToRemove) {
       const elems = rpr.getElementsByTagNameNS(W_NS, tag);
@@ -78,6 +114,7 @@ function fillTextSdt(sdt: Element, value: string): boolean {
         elems[0].parentNode?.removeChild(elems[0]);
       }
     }
+    setFilledTextSize(runs[i]);
   }
 
   return true;
@@ -132,6 +169,24 @@ function collectText(node: Element): string {
   return result;
 }
 
+function findRunProperties(node: Element): Element | null {
+  const rPrs = node.getElementsByTagNameNS(W_NS, 'rPr');
+  return rPrs.length > 0 ? rPrs[0] : null;
+}
+
+function appendTextRun(doc: Document, para: Element, value: string, styleSource: Element): void {
+  const run = doc.createElementNS(W_NS, 'w:r');
+  const rPr = findRunProperties(styleSource);
+  if (rPr) run.appendChild(rPr.cloneNode(true));
+  setFilledTextSize(run);
+
+  const tElem = doc.createElementNS(W_NS, 'w:t');
+  tElem.setAttributeNS(XML_NS, 'xml:space', 'preserve');
+  tElem.textContent = value;
+  run.appendChild(tElem);
+  para.appendChild(run);
+}
+
 /**
  * Fill the first table's empty cells based on label text in adjacent cells.
  * The header table has rows like: | 법인명 | (empty) |
@@ -161,12 +216,7 @@ function fillHeaderTable(doc: Document, labelMap: Record<string, string>): numbe
 
         // Insert text into the first paragraph
         const para = valueParagraphs[0];
-        const run = doc.createElementNS(W_NS, 'w:r');
-        const tElem = doc.createElementNS(W_NS, 'w:t');
-        tElem.setAttributeNS(XML_NS, 'xml:space', 'preserve');
-        tElem.textContent = labelMap[labelText];
-        run.appendChild(tElem);
-        para.appendChild(run);
+        appendTextRun(doc, para, labelMap[labelText], cells[c]);
         filled++;
       }
     }
@@ -194,6 +244,7 @@ function fillSignatureBlocks(doc: Document, form: HecFormData): number {
       const tc = findAncestor(t, 'tc');
       if (tc) {
         t.textContent = `주소 : ${form.custAddr}`;
+        setFilledTextSizeForText(t);
         filled++;
       }
     }
@@ -203,6 +254,7 @@ function fillSignatureBlocks(doc: Document, form: HecFormData): number {
       const tc = findAncestor(t, 'tc');
       if (tc) {
         t.textContent = `상호 : ${form.custName}`;
+        setFilledTextSizeForText(t);
         filled++;
       }
     }
@@ -220,6 +272,7 @@ function fillSignatureBlocks(doc: Document, form: HecFormData): number {
         const nextT = sibling.getElementsByTagNameNS(W_NS, 't');
         if (nextT.length > 0 && (nextT[0].textContent || '').trim() === '') {
           nextT[0].textContent = form.custRepresentative;
+          setFilledTextSizeForText(nextT[0]);
           filled++;
         }
       }
@@ -246,7 +299,9 @@ function fillSecondSignatureDate(doc: Document, form: HecFormData): number {
       const nextContent = allTexts[i + 1].textContent || '';
       if (nextContent.includes('월') && nextContent.includes('일')) {
         t.textContent = `${form.contractYear}년`;
+        setFilledTextSizeForText(t);
         allTexts[i + 1].textContent = ` ${form.contractMonth}월 ${form.contractDay}일`;
+        setFilledTextSizeForText(allTexts[i + 1]);
         filled++;
       }
     }
@@ -269,6 +324,7 @@ function fillContractTerm(doc: Document, form: HecFormData): number {
     // Header table contract term row
     if (content === '완속 :  ') {
       allTexts[i].textContent = `완속 : ${form.contractTerm}`;
+      setFilledTextSizeForText(allTexts[i]);
       // Clear the space run and the remaining text
       if (i + 1 < allTexts.length && (allTexts[i + 1].textContent || '').trim() === '') {
         allTexts[i + 1].textContent = '';
@@ -284,6 +340,7 @@ function fillContractTerm(doc: Document, form: HecFormData): number {
       // The term goes into the next run(s) which contain underlined spaces
       if (i + 1 < allTexts.length && (allTexts[i + 1].textContent || '').trim() === '') {
         allTexts[i + 1].textContent = form.contractTerm;
+        setFilledTextSizeForText(allTexts[i + 1]);
       }
       filled++;
     }
@@ -294,6 +351,7 @@ function fillContractTerm(doc: Document, form: HecFormData): number {
       if (i + 1 < allTexts.length && (allTexts[i + 1].textContent || '').trim() === '') {
         if (i + 2 < allTexts.length && (allTexts[i + 2].textContent || '').includes(') 면')) {
           allTexts[i].textContent = `( ${form.installQty}`;
+          setFilledTextSizeForText(allTexts[i]);
           allTexts[i + 1].textContent = '';
           filled++;
         }
@@ -316,6 +374,7 @@ function fillTelEmailLine(doc: Document, form: HecFormData): number {
     const content = allTexts[i].textContent || '';
     if (content.startsWith('TEL : ') && content.includes('E-MAIL : ')) {
       allTexts[i].textContent = `TEL : ${form.custTel}   E-MAIL : `;
+      setFilledTextSizeForText(allTexts[i]);
       filled++;
     }
   }
@@ -424,6 +483,7 @@ export async function fillHecTemplate(form: HecFormData): Promise<FillResult> {
     for (const r of replacements) {
       if (content === r.find) {
         t.textContent = r.replace;
+        setFilledTextSizeForText(t);
         textReplaceFilled++;
         break;
       }

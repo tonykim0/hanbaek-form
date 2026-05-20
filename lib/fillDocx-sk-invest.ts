@@ -19,6 +19,55 @@ const CHECKED_GLYPH = '■';
 const UNCHECKED_GLYPH = '☐';
 const CHECKED_FONT = '맑은 고딕';
 const UNCHECKED_FONT = 'MS Gothic';
+const FILLED_TEXT_SIZE = '16'; // 8pt in Word half-point units
+
+function findAncestor(node: Node, localName: string): Element | null {
+  let current = node.parentNode;
+  while (current) {
+    if (current.nodeType === 1 && (current as Element).localName === localName) {
+      return current as Element;
+    }
+    current = current.parentNode;
+  }
+  return null;
+}
+
+function getDirectChild(parent: Element, localName: string): Element | null {
+  let child = parent.firstElementChild;
+  while (child) {
+    if (child.namespaceURI === W_NS && child.localName === localName) return child;
+    child = child.nextElementSibling;
+  }
+  return null;
+}
+
+function ensureRunProperties(run: Element): Element {
+  const existing = getDirectChild(run, 'rPr');
+  if (existing) return existing;
+  const rPr = run.ownerDocument!.createElementNS(W_NS, 'w:rPr');
+  run.insertBefore(rPr, run.firstChild);
+  return rPr;
+}
+
+function setRunPropertyValue(rPr: Element, localName: string, value: string): void {
+  let prop = getDirectChild(rPr, localName);
+  if (!prop) {
+    prop = rPr.ownerDocument!.createElementNS(W_NS, `w:${localName}`);
+    rPr.appendChild(prop);
+  }
+  prop.setAttributeNS(W_NS, 'w:val', value);
+}
+
+function setFilledTextSize(run: Element): void {
+  const rPr = ensureRunProperties(run);
+  setRunPropertyValue(rPr, 'sz', FILLED_TEXT_SIZE);
+  setRunPropertyValue(rPr, 'szCs', FILLED_TEXT_SIZE);
+}
+
+function setFilledTextSizeForText(text: Element): void {
+  const run = findAncestor(text, 'r');
+  if (run) setFilledTextSize(run);
+}
 
 function getSdtId(sdt: Element): string | null {
   const sdtPrList = sdt.getElementsByTagNameNS(W_NS, 'sdtPr');
@@ -49,12 +98,12 @@ function fillTextSdt(sdt: Element, value: string): boolean {
   for (let i = 1; i < texts.length; i++) texts[i].textContent = '';
   const runs = contents[0].getElementsByTagNameNS(W_NS, 'r');
   for (let i = 0; i < runs.length; i++) {
-    const rprList = runs[i].getElementsByTagNameNS(W_NS, 'rPr');
-    if (rprList.length === 0) continue;
+    const rpr = ensureRunProperties(runs[i]);
     for (const tag of ['i', 'iCs', 'color', 'u', 'rStyle']) {
-      const elems = rprList[0].getElementsByTagNameNS(W_NS, tag);
+      const elems = rpr.getElementsByTagNameNS(W_NS, tag);
       while (elems.length > 0) elems[0].parentNode?.removeChild(elems[0]);
     }
+    setFilledTextSize(runs[i]);
   }
   return true;
 }
@@ -95,6 +144,24 @@ function collectText(node: Element): string {
   return result;
 }
 
+function findRunProperties(node: Element): Element | null {
+  const rPrs = node.getElementsByTagNameNS(W_NS, 'rPr');
+  return rPrs.length > 0 ? rPrs[0] : null;
+}
+
+function appendTextRun(doc: Document, para: Element, value: string, styleSource: Element): void {
+  const run = doc.createElementNS(W_NS, 'w:r');
+  const rPr = findRunProperties(styleSource);
+  if (rPr) run.appendChild(rPr.cloneNode(true));
+  setFilledTextSize(run);
+
+  const tElem = doc.createElementNS(W_NS, 'w:t');
+  tElem.setAttributeNS(XML_NS, 'xml:space', 'preserve');
+  tElem.textContent = value;
+  run.appendChild(tElem);
+  para.appendChild(run);
+}
+
 function fillEmptyCell(doc: Document, cell: Element, value: string): boolean {
   const paras = cell.getElementsByTagNameNS(W_NS, 'p');
   if (paras.length === 0) return false;
@@ -102,15 +169,11 @@ function fillEmptyCell(doc: Document, cell: Element, value: string): boolean {
   if (texts.length > 0) {
     texts[0].textContent = value;
     texts[0].setAttributeNS(XML_NS, 'xml:space', 'preserve');
+    setFilledTextSizeForText(texts[0]);
     for (let i = 1; i < texts.length; i++) texts[i].textContent = '';
     return true;
   }
-  const run = doc.createElementNS(W_NS, 'w:r');
-  const tElem = doc.createElementNS(W_NS, 'w:t');
-  tElem.setAttributeNS(XML_NS, 'xml:space', 'preserve');
-  tElem.textContent = value;
-  run.appendChild(tElem);
-  paras[0].appendChild(run);
+  appendTextRun(doc, paras[0], value, cell);
   return true;
 }
 
@@ -119,15 +182,12 @@ function setParagraphText(para: Element, value: string): void {
   if (texts.length === 0) {
     const runs = para.getElementsByTagNameNS(W_NS, 'r');
     if (runs.length === 0) return;
-    const doc = para.ownerDocument!;
-    const tElem = doc.createElementNS(W_NS, 'w:t');
-    tElem.setAttributeNS(XML_NS, 'xml:space', 'preserve');
-    tElem.textContent = value;
-    runs[0].appendChild(tElem);
+    appendTextRun(para.ownerDocument!, para, value, para);
     return;
   }
   texts[0].textContent = value;
   texts[0].setAttributeNS(XML_NS, 'xml:space', 'preserve');
+  setFilledTextSizeForText(texts[0]);
   for (let i = 1; i < texts.length; i++) texts[i].textContent = '';
 }
 
@@ -230,6 +290,7 @@ export async function fillSkInvestTemplate(form: SkInvestFormData): Promise<Fill
     for (const r of textRepls) {
       if (content === r.find) {
         t.textContent = r.replace;
+        setFilledTextSizeForText(t);
         textReplaceFilled++;
         break;
       }

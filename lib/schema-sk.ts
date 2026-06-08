@@ -45,11 +45,6 @@ export function buildSkTextReplacements(form: SkFormData): TextReplacement[] {
       find: '계약일\u00a0 2026년\u00a0\u00a0\u00a0\u00a0 월\u00a0\u00a0\u00a0\u00a0 일',
       replace: `계약일\u00a0 ${dateStr}`,
     },
-    // 별지 7호 "실외,3" → "실외,지상"
-    {
-      find: '☐실외,3',
-      replace: '☐실외,지상',
-    },
   ];
 }
 

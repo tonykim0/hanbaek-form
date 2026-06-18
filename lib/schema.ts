@@ -16,7 +16,7 @@
 // Form data shape
 // ─────────────────────────────────────────────
 
-export type BuildingType = 'apartment' | 'commercial' | 'etc';
+export type BuildingType = 'apartment' | 'yeonlip' | 'sangga' | 'etc_officetel' | 'etc_knowledge';
 export type InstallLocationKind = 'indoor' | 'outdoor' | '';
 export type Ownership = 'own' | 'rent' | '';
 export type OwnerRelation = 'self' | 'family' | 'friend' | 'employee' | 'none' | '';
@@ -291,28 +291,34 @@ export function buildSdtMaps(form: ContractFormData): SdtMaps {
     [TEXT_IDS.dupDistQty]: form.dupDist ? form.dupDistQty : '',
     [TEXT_IDS.dupOutletQty]: form.dupOutlet ? form.dupOutletQty : '',
 
-    // 시설명 placeholder 클리어
+    // 시설명 placeholder — 기타(오피스텔/지식산업센터) 선택 시 채움, 나머지 클리어
     [TEXT_IDS.facilityName_b5]: '',
-    [TEXT_IDS.facilityName_other]: '',
+    [TEXT_IDS.facilityName_other]:
+      form.buildingType === 'etc_officetel' ? '오피스텔' :
+      form.buildingType === 'etc_knowledge' ? '지식산업센터' : '',
   };
+
+  const isApt = form.buildingType === 'apartment' || form.buildingType === 'yeonlip';
+  const isBiz = form.buildingType === 'sangga';
+  const isEtc = form.buildingType === 'etc_officetel' || form.buildingType === 'etc_knowledge';
 
   // ─── Checkboxes ───
   const checkbox: Record<string, boolean> = {
     // 건물형태 — 라디오 (별지7호)
     [CB_IDS.bldDanok]: false,
     [CB_IDS.bldApt]: form.buildingType === 'apartment',
-    [CB_IDS.bldYeonlip]: false,
-    [CB_IDS.bldSangga]: form.buildingType === 'commercial',
-    [CB_IDS.bldEtc]: form.buildingType === 'etc',
+    [CB_IDS.bldYeonlip]: form.buildingType === 'yeonlip',
+    [CB_IDS.bldSangga]: form.buildingType === 'sangga',
+    [CB_IDS.bldEtc]: isEtc,
 
     // 별지5호 — 설치 희망지/장소 cascade from 건물형태
-    // 아파트 → 공동주택, 상업시설 → 사업장, 기타 → 기타
-    [CB_IDS.b5_loc1_apt]: form.buildingType === 'apartment',
-    [CB_IDS.b5_loc1_biz]: form.buildingType === 'commercial',
-    [CB_IDS.b5_loc1_etc]: form.buildingType === 'etc',
-    [CB_IDS.b5_loc2_apt]: form.buildingType === 'apartment',
-    [CB_IDS.b5_loc2_biz]: form.buildingType === 'commercial',
-    [CB_IDS.b5_loc2_etc]: form.buildingType === 'etc',
+    // 공동주택·연립주택 → 공동주택, 상가 → 사업장, 기타 → 기타
+    [CB_IDS.b5_loc1_apt]: isApt,
+    [CB_IDS.b5_loc1_biz]: isBiz,
+    [CB_IDS.b5_loc1_etc]: isEtc,
+    [CB_IDS.b5_loc2_apt]: isApt,
+    [CB_IDS.b5_loc2_biz]: isBiz,
+    [CB_IDS.b5_loc2_etc]: isEtc,
 
     // 설치위치 — 라디오
     [CB_IDS.locIndoor]: form.installLocation === 'indoor',

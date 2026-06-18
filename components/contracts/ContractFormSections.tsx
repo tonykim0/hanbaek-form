@@ -287,9 +287,11 @@ export function ConsultingSection<TFieldValues extends CommonContractFields>({
       </Field>
 
       <RadioField label="건물형태" required>
-        <Radio name={'buildingType' as Path<TFieldValues>} value="apartment" register={register} label="아파트" />
-        <Radio name={'buildingType' as Path<TFieldValues>} value="commercial" register={register} label="상업시설" />
-        <Radio name={'buildingType' as Path<TFieldValues>} value="etc" register={register} label="기타" />
+        <Radio name={'buildingType' as Path<TFieldValues>} value="apartment" register={register} label="공동주택" />
+        <Radio name={'buildingType' as Path<TFieldValues>} value="yeonlip" register={register} label="연립주택" />
+        <Radio name={'buildingType' as Path<TFieldValues>} value="sangga" register={register} label="상가" />
+        <Radio name={'buildingType' as Path<TFieldValues>} value="etc_officetel" register={register} label="기타 (오피스텔)" />
+        <Radio name={'buildingType' as Path<TFieldValues>} value="etc_knowledge" register={register} label="기타 (지식산업센터)" />
       </RadioField>
 
       <RadioField label="설치위치">

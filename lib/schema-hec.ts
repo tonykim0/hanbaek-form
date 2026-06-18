@@ -10,7 +10,7 @@
 // Form data shape (pluglink fields + 4 HEC-only)
 // ─────────────────────────────────────────────
 
-export type BuildingType = 'apartment' | 'commercial' | 'etc';
+export type BuildingType = 'apartment' | 'yeonlip' | 'sangga' | 'etc_officetel' | 'etc_knowledge';
 export type InstallLocationKind = 'indoor' | 'outdoor' | '';
 export type Ownership = 'own' | 'rent' | '';
 export type OwnerRelation = 'self' | 'family' | 'friend' | 'employee' | 'none' | '';
@@ -206,22 +206,28 @@ export function buildHecSdtMaps(form: HecFormData): SdtMaps {
     [TEXT_IDS.dupOutletQty]: form.dupOutlet ? form.dupOutletQty : '',
 
     [TEXT_IDS.facilityName_b5]: '',
-    [TEXT_IDS.facilityName_other]: '',
+    [TEXT_IDS.facilityName_other]:
+      form.buildingType === 'etc_officetel' ? '오피스텔' :
+      form.buildingType === 'etc_knowledge' ? '지식산업센터' : '',
   };
 
+  const isApt = form.buildingType === 'apartment' || form.buildingType === 'yeonlip';
+  const isBiz = form.buildingType === 'sangga';
+  const isEtc = form.buildingType === 'etc_officetel' || form.buildingType === 'etc_knowledge';
+
   const checkbox: Record<string, boolean> = {
-    [CB_IDS.b5_loc1_apt]: form.buildingType === 'apartment',
-    [CB_IDS.b5_loc1_biz]: form.buildingType === 'commercial',
-    [CB_IDS.b5_loc1_etc]: form.buildingType === 'etc',
-    [CB_IDS.b5_loc2_apt]: form.buildingType === 'apartment',
-    [CB_IDS.b5_loc2_biz]: form.buildingType === 'commercial',
-    [CB_IDS.b5_loc2_etc]: form.buildingType === 'etc',
+    [CB_IDS.b5_loc1_apt]: isApt,
+    [CB_IDS.b5_loc1_biz]: isBiz,
+    [CB_IDS.b5_loc1_etc]: isEtc,
+    [CB_IDS.b5_loc2_apt]: isApt,
+    [CB_IDS.b5_loc2_biz]: isBiz,
+    [CB_IDS.b5_loc2_etc]: isEtc,
 
     [CB_IDS.bldDanok]: false,
     [CB_IDS.bldApt]: form.buildingType === 'apartment',
-    [CB_IDS.bldYeonlip]: false,
-    [CB_IDS.bldSangga]: form.buildingType === 'commercial',
-    [CB_IDS.bldEtc]: form.buildingType === 'etc',
+    [CB_IDS.bldYeonlip]: form.buildingType === 'yeonlip',
+    [CB_IDS.bldSangga]: form.buildingType === 'sangga',
+    [CB_IDS.bldEtc]: isEtc,
 
     [CB_IDS.locIndoor]: form.installLocation === 'indoor',
     [CB_IDS.locOutdoor]: form.installLocation === 'outdoor',

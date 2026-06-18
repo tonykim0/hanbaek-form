@@ -291,8 +291,10 @@ export function buildSdtMaps(form: ContractFormData): SdtMaps {
     [TEXT_IDS.dupDistQty]: form.dupDist ? form.dupDistQty : '',
     [TEXT_IDS.dupOutletQty]: form.dupOutlet ? form.dupOutletQty : '',
 
-    // 시설명 placeholder — 기타(오피스텔/지식산업센터) 선택 시 채움, 나머지 클리어
-    [TEXT_IDS.facilityName_b5]: '',
+    // 기타(오피스텔/지식산업센터) 선택 시 시설명 채움, 나머지 클리어
+    [TEXT_IDS.facilityName_b5]:
+      form.buildingType === 'etc_officetel' ? '오피스텔' :
+      form.buildingType === 'etc_knowledge' ? '지식산업센터' : '',
     [TEXT_IDS.facilityName_other]:
       form.buildingType === 'etc_officetel' ? '오피스텔' :
       form.buildingType === 'etc_knowledge' ? '지식산업센터' : '',

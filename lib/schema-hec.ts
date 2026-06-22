@@ -10,7 +10,7 @@
 // Form data shape (pluglink fields + 4 HEC-only)
 // ─────────────────────────────────────────────
 
-export type BuildingType = 'apartment' | 'yeonlip' | 'sangga' | 'etc_officetel' | 'etc_knowledge';
+export type BuildingType = 'apartment' | 'yeonlip' | 'sangga' | 'etc_officetel' | 'etc_knowledge' | 'etc_government';
 export type InstallLocationKind = 'indoor' | 'outdoor' | '';
 export type Ownership = 'own' | 'rent' | '';
 export type OwnerRelation = 'self' | 'family' | 'friend' | 'employee' | 'none' | '';
@@ -165,6 +165,13 @@ export interface SdtMaps {
   checkbox: Record<string, boolean>;
 }
 
+function etcLabel(bt: BuildingType): string {
+  if (bt === 'etc_officetel') return '오피스텔';
+  if (bt === 'etc_knowledge') return '지식산업센터';
+  if (bt === 'etc_government') return '관공서';
+  return '';
+}
+
 export function buildHecSdtMaps(form: HecFormData): SdtMaps {
   const installAddr = form.installAddr.trim() || form.custAddr;
   const smartQty = form.installQty;
@@ -205,17 +212,13 @@ export function buildHecSdtMaps(form: HecFormData): SdtMaps {
     [TEXT_IDS.dupDistQty]: form.dupDist ? form.dupDistQty : '',
     [TEXT_IDS.dupOutletQty]: form.dupOutlet ? form.dupOutletQty : '',
 
-    [TEXT_IDS.facilityName_b5]:
-      form.buildingType === 'etc_officetel' ? '오피스텔' :
-      form.buildingType === 'etc_knowledge' ? '지식산업센터' : '',
-    [TEXT_IDS.facilityName_other]:
-      form.buildingType === 'etc_officetel' ? '오피스텔' :
-      form.buildingType === 'etc_knowledge' ? '지식산업센터' : '',
+    [TEXT_IDS.facilityName_b5]: etcLabel(form.buildingType),
+    [TEXT_IDS.facilityName_other]: etcLabel(form.buildingType),
   };
 
   const isApt = form.buildingType === 'apartment' || form.buildingType === 'yeonlip';
   const isBiz = form.buildingType === 'sangga';
-  const isEtc = form.buildingType === 'etc_officetel' || form.buildingType === 'etc_knowledge';
+  const isEtc = form.buildingType === 'etc_officetel' || form.buildingType === 'etc_knowledge' || form.buildingType === 'etc_government';
 
   const checkbox: Record<string, boolean> = {
     [CB_IDS.b5_loc1_apt]: isApt,

@@ -61,6 +61,11 @@ export function buildNiceParagraphReplacements(form: NiceFormData): TextReplacem
       find: '7일',
       replace: '',
     },
+    // 직인사용 동의서 상호 — multi-run in NICE template
+    {
+      find: '상호: 운암포레스힐2 관리사무소',
+      replace: `상호: ${form.custName}`,
+    },
   ];
 }
 
@@ -69,10 +74,6 @@ export function buildNiceTextReplacements(form: NiceFormData): TextReplacement[]
 
   return [
     // 직인사용 동의서
-    {
-      find: '상호: 운암포레스힐2 관리사무소',
-      replace: `상호: ${form.custName}`,
-    },
     {
       find: '주소: 광주광역시 북구 대자실로 22',
       replace: `주소: ${form.custAddr}`,

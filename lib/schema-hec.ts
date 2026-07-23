@@ -117,6 +117,9 @@ const TEXT_IDS = {
   sealAddr: '900000002',
   sealRep: '900000003',
   sealDate: '900000004',
+  // 운영계약서 본문 — SDT로 전환
+  chargerQty: '900000011',
+  contractTermTable: '900000012',
 } as const;
 
 const CB_IDS = {
@@ -223,6 +226,10 @@ export function buildHecSdtMaps(form: HecFormData): SdtMaps {
     [TEXT_IDS.sealRep]: form.custRepresentative,
     [TEXT_IDS.sealDate]: `${form.contractYear}년 ${form.contractMonth}월 ${form.contractDay}일`,
 
+    // 운영계약서 본문 (SDT)
+    [TEXT_IDS.chargerQty]: form.installQty,
+    [TEXT_IDS.contractTermTable]: form.contractTerm,
+
     [TEXT_IDS.dupFastQty]: form.dupFast ? form.dupFastQty : '',
     [TEXT_IDS.dupSlowQty]: form.dupSlow ? form.dupSlowQty : '',
     [TEXT_IDS.dupDistQty]: form.dupDist ? form.dupDistQty : '',
@@ -310,11 +317,7 @@ export function buildTextReplacements(form: HecFormData): TextReplacement[] {
     // "완속 :  " → "완속 : {term}"  (split across runs: this is the first run)
     // We handle the contractTerm in the fill function by filling the header table
 
-    // ── 운영계약서: 충전기수량 ──
-    {
-      find: '완속충전기 :   대(7kW / C type / 1CH)',
-      replace: `완속충전기 : ${form.installQty}대(7kW / C type / 1CH)`,
-    },
+    // ── 운영계약서: 충전기수량 → SDT로 전환됨 ──
 
     // ── 운영계약서: 약관 서두 ──
     {
@@ -366,12 +369,7 @@ export function buildTextReplacements(form: HecFormData): TextReplacement[] {
  */
 export function buildHecParagraphReplacements(form: HecFormData): TextReplacement[] {
   return [
-    // (직인 상호는 SDT로 전환됨)
-    // 운영계약서 충전기 수량
-    {
-      find: '완속충전기 :   대(7kW / C type / 1CH)',
-      replace: `완속충전기 : ${form.installQty}대(7kW / C type / 1CH)`,
-    },
+    // (직인 상호 · 충전기 수량은 SDT로 전환됨)
     // 수량공문 회사명 (발신줄 + 서명줄, 다른 텍스트와 한 문단)
     {
       find: '현대재송동아파트 관리사무소',

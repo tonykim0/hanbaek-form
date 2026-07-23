@@ -332,20 +332,7 @@ function fillSecondSignatureDate(doc: Document, form: HecFormData): number {
  */
 function fillContractTerm(doc: Document, form: HecFormData): number {
   let filled = 0;
-
-  // 계약내용 표 계약기간: "완속 :     년 / 급속 :     년"
-  // "완속" 과 " :  " 이 별도 run 으로 쪼개져 있어 단일-run 매칭이 불가 →
-  // 문단 단위로 찾아 완속 기간만 채우고 급속은 공란 유지.
-  const paras = doc.getElementsByTagNameNS(W_NS, 'p');
-  for (let i = 0; i < paras.length; i++) {
-    const combined = collectText(paras[i]);
-    if (/^완속\s*:\s+년\s*\/\s*급속\s*:\s+년$/.test(combined)) {
-      setParagraphText(paras[i], `완속 : ${form.contractTerm}년 / 급속 :     년`);
-      filled++;
-      break;
-    }
-  }
-
+  // 계약내용 표 계약기간(완속)은 SDT(contractTermTable)로 전환됨.
   const allTexts = doc.getElementsByTagNameNS(W_NS, 't');
 
   for (let i = 0; i < allTexts.length; i++) {

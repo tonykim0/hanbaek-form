@@ -120,6 +120,14 @@ const TEXT_IDS = {
   // 운영계약서 본문 — SDT로 전환
   chargerQty: '900000011',
   contractTermTable: '900000012',
+  // 배치3: 약관서두 · 공문 필드 — SDT로 전환
+  preambleName: '900000021',
+  gongmunEmail: '900000022',
+  gongmunDate: '900000023',
+  gongmunCompanySend: '900000024',
+  gongmunBaseDate: '900000025',
+  gongmunEvCount: '900000026',
+  gongmunCompanySign: '900000027',
 } as const;
 
 const CB_IDS = {
@@ -230,6 +238,15 @@ export function buildHecSdtMaps(form: HecFormData): SdtMaps {
     [TEXT_IDS.chargerQty]: form.installQty,
     [TEXT_IDS.contractTermTable]: form.contractTerm,
 
+    // 약관서두 · 수량공문 (SDT)
+    [TEXT_IDS.preambleName]: form.custName,
+    [TEXT_IDS.gongmunEmail]: form.custEmail,
+    [TEXT_IDS.gongmunDate]: `${form.contractYear}년 ${form.contractMonth}월 ${form.contractDay}일`,
+    [TEXT_IDS.gongmunCompanySend]: form.custName,
+    [TEXT_IDS.gongmunBaseDate]: `${form.contractYear}년 ${form.contractMonth}월 기준`,
+    [TEXT_IDS.gongmunEvCount]: form.evCount,
+    [TEXT_IDS.gongmunCompanySign]: form.custName,
+
     [TEXT_IDS.dupFastQty]: form.dupFast ? form.dupFastQty : '',
     [TEXT_IDS.dupSlowQty]: form.dupSlow ? form.dupSlowQty : '',
     [TEXT_IDS.dupDistQty]: form.dupDist ? form.dupDistQty : '',
@@ -320,10 +337,6 @@ export function buildTextReplacements(form: HecFormData): TextReplacement[] {
     // ── 운영계약서: 충전기수량 → SDT로 전환됨 ──
 
     // ── 운영계약서: 약관 서두 ──
-    {
-      find: '___________________________',
-      replace: form.custName,
-    },
 
     // ── 운영계약서: 서명부 날짜 (1번째) ──
     {
@@ -333,31 +346,6 @@ export function buildTextReplacements(form: HecFormData): TextReplacement[] {
 
     // ── 직인사용 동의서: SDT(콘텐츠 컨트롤)로 전환됨 (buildHecSdtMaps에서 처리) ──
 
-    // ── 수량공문 ──
-    {
-      find: '현대재송동아파트 관리사무소\u00a0\u00a0\u00a0\u00a0\u00a0 (인)',
-      replace: `${form.custName}\u00a0\u00a0\u00a0\u00a0\u00a0 (인)`,
-    },
-    {
-      find: '현대재송동아파트 관리사무소',
-      replace: form.custName,
-    },
-    {
-      find: '2025년 12월 01일',
-      replace: dateStr,
-    },
-    {
-      find: '\u00a0\u00a0• 기준 일자 : 2025년 12월 기준',
-      replace: `\u00a0\u00a0• 기준 일자 : ${form.contractYear}년 ${form.contractMonth}월 기준`,
-    },
-    {
-      find: '\u00a0\u00a0• 등록 대수 : 6대',
-      replace: `\u00a0\u00a0• 등록 대수 : ${form.evCount}대`,
-    },
-    {
-      find: 'gs9966@naver.com',
-      replace: form.custEmail,
-    },
   ];
 }
 
@@ -370,11 +358,6 @@ export function buildTextReplacements(form: HecFormData): TextReplacement[] {
 export function buildHecParagraphReplacements(form: HecFormData): TextReplacement[] {
   return [
     // (직인 상호 · 충전기 수량은 SDT로 전환됨)
-    // 수량공문 회사명 (발신줄 + 서명줄, 다른 텍스트와 한 문단)
-    {
-      find: '현대재송동아파트 관리사무소',
-      replace: form.custName,
-    },
   ];
 }
 

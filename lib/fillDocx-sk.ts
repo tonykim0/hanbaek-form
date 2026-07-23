@@ -292,9 +292,13 @@ export async function fillSkTemplate(form: SkFormData): Promise<FillResult> {
   if (tables.length > 0) {
     filledHeaderCells += fillLabelValueTable(doc, tables[0], buildSkHeaderTableMap(form));
   }
-  // Fill Table 3 (직인 동의서) label cells
-  if (tables.length > 3) {
-    filledHeaderCells += fillLabelValueTable(doc, tables[3], buildSkSealConsentMap(form));
+  // Fill 직인 동의서 table — located by its label (not a fixed index, which
+  // breaks when tables are added/removed, e.g. the 별첨1 충전요금 table).
+  const sealTable = Array.from(tables).find((t) =>
+    collectText(t as Element).includes('신청자(건물)명')
+  );
+  if (sealTable) {
+    filledHeaderCells += fillLabelValueTable(doc, sealTable as Element, buildSkSealConsentMap(form));
   }
 
   // 서비스이용자 signature (paragraph exact match)

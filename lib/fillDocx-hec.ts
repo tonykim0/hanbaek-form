@@ -14,6 +14,7 @@ import {
   HecFormData,
   buildHecSdtMaps,
   buildTextReplacements,
+  buildHecParagraphReplacements,
   buildHeaderTableMap,
 } from './schema-hec';
 
@@ -185,6 +186,21 @@ function appendTextRun(doc: Document, para: Element, value: string, styleSource:
   tElem.textContent = value;
   run.appendChild(tElem);
   para.appendChild(run);
+}
+
+/**
+ * Overwrite a paragraph's text: set the first <w:t> to value, clear the rest.
+ * Used for multi-run anchors that the single-<w:t> pass cannot match.
+ */
+function setParagraphText(para: Element, value: string): void {
+  const texts = para.getElementsByTagNameNS(W_NS, 't');
+  if (texts.length === 0) return;
+  texts[0].textContent = value;
+  texts[0].setAttributeNS(XML_NS, 'xml:space', 'preserve');
+  setFilledTextSizeForText(texts[0]);
+  for (let i = 1; i < texts.length; i++) {
+    texts[i].textContent = '';
+  }
 }
 
 /**
@@ -487,6 +503,23 @@ export async function fillHecTemplate(form: HecFormData): Promise<FillResult> {
         textReplaceFilled++;
         break;
       }
+    }
+  }
+
+  // 8b. Paragraph-level replacements for multi-run anchors (상호, 수량, 공문 회사명)
+  // Run after the single-<w:t> pass so already-replaced text (e.g. 공문 날짜)
+  // is reflected in the combined text before we rewrite the paragraph.
+  const paraReplacements = buildHecParagraphReplacements(form);
+  const allParas = doc.getElementsByTagNameNS(W_NS, 'p');
+  for (let i = 0; i < allParas.length; i++) {
+    const combined = collectText(allParas[i]);
+    let newText = combined;
+    for (const r of paraReplacements) {
+      if (newText.includes(r.find)) newText = newText.split(r.find).join(r.replace);
+    }
+    if (newText !== combined) {
+      setParagraphText(allParas[i], newText);
+      textReplaceFilled++;
     }
   }
 

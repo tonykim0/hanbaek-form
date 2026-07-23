@@ -364,6 +364,32 @@ export function buildTextReplacements(form: HecFormData): TextReplacement[] {
 }
 
 /**
+ * Paragraph-level replacements for anchors that are split across multiple
+ * <w:t> runs (proofErr / spell-check markers break them apart), so the
+ * single-<w:t> pass in fillDocx-hec can never match them.
+ * Applied as substring replacement over each paragraph's combined text.
+ */
+export function buildHecParagraphReplacements(form: HecFormData): TextReplacement[] {
+  return [
+    // 직인사용 동의서 상호 (proofErr splits "운암포레스힐2 관리사무소")
+    {
+      find: '상호: 운암포레스힐2 관리사무소',
+      replace: `상호: ${form.custName}`,
+    },
+    // 운영계약서 충전기 수량
+    {
+      find: '완속충전기 :   대(7kW / C type / 1CH)',
+      replace: `완속충전기 : ${form.installQty}대(7kW / C type / 1CH)`,
+    },
+    // 수량공문 회사명 (발신줄 + 서명줄, 다른 텍스트와 한 문단)
+    {
+      find: '현대재송동아파트 관리사무소',
+      replace: form.custName,
+    },
+  ];
+}
+
+/**
  * Label→value map for filling empty header table cells.
  * The first table in the document has rows like:
  *   | 법인명 | (empty cell) |

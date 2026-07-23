@@ -112,6 +112,11 @@ const TEXT_IDS = {
   surveyorTel: '-632096669',
   surveyorName: '140012807',
   surveyDate: '-501512409',
+  // 직인사용 동의서 — SDT(콘텐츠 컨트롤)로 전환 (텍스트 치환 대체)
+  sealSangho: '900000001',
+  sealAddr: '900000002',
+  sealRep: '900000003',
+  sealDate: '900000004',
 } as const;
 
 const CB_IDS = {
@@ -211,6 +216,12 @@ export function buildHecSdtMaps(form: HecFormData): SdtMaps {
     [TEXT_IDS.surveyorTel]: form.salesTel,
     [TEXT_IDS.surveyorName]: form.salesName,
     [TEXT_IDS.surveyDate]: surveyDate,
+
+    // 직인사용 동의서 (SDT)
+    [TEXT_IDS.sealSangho]: form.custName,
+    [TEXT_IDS.sealAddr]: form.custAddr,
+    [TEXT_IDS.sealRep]: form.custRepresentative,
+    [TEXT_IDS.sealDate]: `${form.contractYear}년 ${form.contractMonth}월 ${form.contractDay}일`,
 
     [TEXT_IDS.dupFastQty]: form.dupFast ? form.dupFastQty : '',
     [TEXT_IDS.dupSlowQty]: form.dupSlow ? form.dupSlowQty : '',
@@ -317,23 +328,7 @@ export function buildTextReplacements(form: HecFormData): TextReplacement[] {
       replace: `${form.contractYear}년 ${form.contractMonth}월 ${form.contractDay}일`,
     },
 
-    // ── 직인사용 동의서 ──
-    {
-      find: '상호: 운암포레스힐2 관리사무소',
-      replace: `상호: ${form.custName}`,
-    },
-    {
-      find: '주소: 광주광역시 북구 대자실로 22',
-      replace: `주소: ${form.custAddr}`,
-    },
-    {
-      find: '대표자: 이명주',
-      replace: `대표자: ${form.custRepresentative}`,
-    },
-    {
-      find: '2025년 9월 25일',
-      replace: dateStr,
-    },
+    // ── 직인사용 동의서: SDT(콘텐츠 컨트롤)로 전환됨 (buildHecSdtMaps에서 처리) ──
 
     // ── 수량공문 ──
     {
@@ -371,11 +366,7 @@ export function buildTextReplacements(form: HecFormData): TextReplacement[] {
  */
 export function buildHecParagraphReplacements(form: HecFormData): TextReplacement[] {
   return [
-    // 직인사용 동의서 상호 (proofErr splits "운암포레스힐2 관리사무소")
-    {
-      find: '상호: 운암포레스힐2 관리사무소',
-      replace: `상호: ${form.custName}`,
-    },
+    // (직인 상호는 SDT로 전환됨)
     // 운영계약서 충전기 수량
     {
       find: '완속충전기 :   대(7kW / C type / 1CH)',

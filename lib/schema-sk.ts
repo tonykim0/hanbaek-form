@@ -14,8 +14,18 @@ export type SkFormData = Omit<
   'siteManager' | 'parkingSlotsSlow' | 'evCount'
 >;
 
+// 계약서 본문 SDT (SK 템플릿에 주입) — 텍스트 치환 대체
+const SK_CONTRACT_TERM_ID = '900000051'; // 계약기간 '□ 10년, □ 7년' 토글
+const SK_CONTRACT_DATE_ID = '900000052'; // 계약일 날짜
+
 export function buildSkSdtMaps(form: SkFormData): SdtMaps {
-  return buildHecSdtMaps(form as HecFormData);
+  const maps = buildHecSdtMaps(form as HecFormData);
+  const term10 = form.contractTerm === '10' ? '■' : '□';
+  const term7 = form.contractTerm === '7' ? '■' : '□';
+  maps.text[SK_CONTRACT_TERM_ID] = `${term10} 10년, ${term7} 7년`;
+  maps.text[SK_CONTRACT_DATE_ID] =
+    `${form.contractYear}년 ${form.contractMonth}월 ${form.contractDay}일`;
+  return maps;
 }
 
 export interface TextReplacement {
@@ -23,29 +33,10 @@ export interface TextReplacement {
   replace: string;
 }
 
-export function buildSkTextReplacements(form: SkFormData): TextReplacement[] {
-  const dateStr = `${form.contractYear}년 ${form.contractMonth}월 ${form.contractDay}일`;
-
-  const term10 = form.contractTerm === '10' ? '■' : '□';
-  const term7 = form.contractTerm === '7' ? '■' : '□';
-
-  return [
-    // 계약기간 toggle
-    {
-      find: '충전기 서비스 시작일로부터 □ 10년, □ 7년',
-      replace: `충전기 서비스 시작일로부터 ${term10} 10년, ${term7} 7년`,
-    },
-    // 충전기 종류 — BAS1007.D1.1 항상 체크
-    {
-      find: '□ BAS1007.D1.1(스마트완속충전기),',
-      replace: '■ BAS1007.D1.1(스마트완속충전기),',
-    },
-    // 계약일
-    {
-      find: '계약일\u00a0 2026년\u00a0\u00a0\u00a0\u00a0 월\u00a0\u00a0\u00a0\u00a0 일',
-      replace: `계약일\u00a0 ${dateStr}`,
-    },
-  ];
+export function buildSkTextReplacements(_form: SkFormData): TextReplacement[] {
+  // 계약기간·계약일은 SDT(900000051/900000052)로 전환됨.
+  // BAS1007.D1.1(항상 체크)은 템플릿에서 ■로 영구 수정됨.
+  return [];
 }
 
 /** Header table labels (Table 0 서비스이용자 block). */

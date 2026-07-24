@@ -9,7 +9,6 @@ import {
   buildNiceParagraphReplacements,
   buildNiceTextReplacements,
   buildNiceHeaderTableMap,
-  computeNiceContractAmount,
 } from './schema-nice';
 
 const W_NS = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
@@ -239,31 +238,6 @@ function fillHeaderTable(doc: Document, labelMap: Record<string, string>): numbe
 }
 
 /**
- * Fill NICE 계약내용 row (Table 0 Row 8): 수량, 계약금액 cells.
- * 모델명(index 2) is left blank for manual entry later.
- * Row has 7 cells; index 4 has '3,600,000' (단가).
- */
-function fillNiceContractRow(doc: Document, form: NiceFormData): number {
-  let filled = 0;
-  const tables = doc.getElementsByTagNameNS(W_NS, 'tbl');
-  if (tables.length === 0) return 0;
-
-  const rows = tables[0].getElementsByTagNameNS(W_NS, 'tr');
-  for (let r = 0; r < rows.length; r++) {
-    const cells = rows[r].getElementsByTagNameNS(W_NS, 'tc');
-    if (cells.length !== 7) continue;
-    const priceText = collectText(cells[4]).trim();
-    if (priceText !== '3,600,000') continue;
-
-    if (fillEmptyCell(doc, cells[3], form.installQty)) filled++;
-    const amount = computeNiceContractAmount(form.installQty);
-    if (amount && fillEmptyCell(doc, cells[5], amount)) filled++;
-    break;
-  }
-  return filled;
-}
-
-/**
  * Toggle the inline 계약기간 checkboxes in 제3조:
  *   "☐ 7년(84개월) ■ 10년(120개월)"
  * Runs are split — find the paragraph with this text and rewrite.
@@ -338,8 +312,8 @@ export async function fillNiceTemplate(form: NiceFormData): Promise<FillResult> 
   const headerMap = buildNiceHeaderTableMap(form);
   const filledHeaderCells = fillHeaderTable(doc, headerMap);
 
+  // 계약행 수량·계약금액은 SDT(900000041/042)로 채워짐.
   let textReplaceFilled = 0;
-  textReplaceFilled += fillNiceContractRow(doc, form);
   textReplaceFilled += fillNiceContractTerm(doc, form);
 
   // Paragraph-level replacements (multi-run)

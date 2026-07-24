@@ -18,8 +18,16 @@ export type NiceFormData = Omit<
 
 const NICE_UNIT_PRICE = 3_600_000;
 
+// 계약행(제1조 표) 수량·계약금액 — NICE 템플릿에 주입된 전용 SDT
+const NICE_CONTRACT_QTY_ID = '900000041';
+const NICE_CONTRACT_AMOUNT_ID = '900000042';
+
 export function buildNiceSdtMaps(form: NiceFormData): SdtMaps {
-  return buildHecSdtMaps(form as unknown as HecFormData);
+  const maps = buildHecSdtMaps(form as unknown as HecFormData);
+  // 직인동의서 주소/대표자/날짜는 기존 seal SDT id(900000002/3/4)로 채워짐.
+  maps.text[NICE_CONTRACT_QTY_ID] = form.installQty;
+  maps.text[NICE_CONTRACT_AMOUNT_ID] = computeNiceContractAmount(form.installQty);
+  return maps;
 }
 
 export interface TextReplacement {
@@ -69,29 +77,10 @@ export function buildNiceParagraphReplacements(form: NiceFormData): TextReplacem
   ];
 }
 
-export function buildNiceTextReplacements(form: NiceFormData): TextReplacement[] {
-  const dateStr = `${form.contractYear}년 ${form.contractMonth}월 ${form.contractDay}일`;
-
-  return [
-    // 직인사용 동의서
-    {
-      find: '주소: 광주광역시 북구 대자실로 22',
-      replace: `주소: ${form.custAddr}`,
-    },
-    {
-      find: '대표자: 이명주',
-      replace: `대표자: ${form.custRepresentative}`,
-    },
-    {
-      find: '2025년 9월 25일',
-      replace: dateStr,
-    },
-    // 별지 7호 "실외,3" → "실외,지상" (pluglink 템플릿 공통 오타)
-    {
-      find: '☐실외,3',
-      replace: '☐실외,지상',
-    },
-  ];
+export function buildNiceTextReplacements(_form: NiceFormData): TextReplacement[] {
+  // 직인동의서 주소/대표자/날짜는 SDT(900000002/3/4)로 전환됨.
+  // 별지7호 '실외,지상' 오타는 템플릿에서 이미 수정됨.
+  return [];
 }
 
 export function buildNiceHeaderTableMap(form: NiceFormData): Record<string, string> {

@@ -17,16 +17,10 @@ export { buildSkSdtMaps as buildSkInvestSdtMaps };
 export { buildSkHeaderTableMap as buildSkInvestHeaderTableMap };
 
 /**
- * 자투 템플릿은 BAS1007.D1.1 텍스트가 멀티-run으로 분리됨:
- *   "□ BAS1007.D1.1(" | "스마트완속충전기" | "),"
- * 첫 번째 노드만 단독으로 매칭해 □→■ 치환.
+ * 계약기간·계약일은 SDT(900000051/900000052)로 전환됨.
+ * BAS1007.D1.1(항상 체크)은 템플릿에서 ■로 영구 수정됨.
+ * (기존에는 멀티-run 분리로 인한 부분매칭 치환이 필요했으나 SDT로 대체)
  */
 export function buildSkInvestTextReplacements(form: SkFormData): TextReplacement[] {
-  return [
-    ...buildSkTextReplacements(form),
-    {
-      find: '□ BAS1007.D1.1(',
-      replace: '■ BAS1007.D1.1(',
-    },
-  ];
+  return buildSkTextReplacements(form);
 }

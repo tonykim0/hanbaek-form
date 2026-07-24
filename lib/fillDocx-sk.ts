@@ -301,20 +301,8 @@ export async function fillSkTemplate(form: SkFormData): Promise<FillResult> {
     filledHeaderCells += fillLabelValueTable(doc, sealTable as Element, buildSkSealConsentMap(form));
   }
 
-  // 서비스이용자 signature (paragraph exact match)
+  // 서비스이용자 서명란은 SDT(900000053)로 채워짐.
   let textReplaceFilled = 0;
-  const paras = doc.getElementsByTagNameNS(W_NS, 'p');
-  for (let i = 0; i < paras.length; i++) {
-    const combined = collectText(paras[i]);
-    if (combined === '서비스이용자                              (인)') {
-      setParagraphText(
-        paras[i],
-        `서비스이용자       ${form.custName}${' '.repeat(Math.max(1, 22 - form.custName.length))}(인)`
-      );
-      textReplaceFilled++;
-      break;
-    }
-  }
 
   // Single-<w:t> replacements
   const textRepls = buildSkTextReplacements(form);

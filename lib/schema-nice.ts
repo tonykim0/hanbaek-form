@@ -24,9 +24,15 @@ const NICE_CONTRACT_AMOUNT_ID = '900000042';
 
 export function buildNiceSdtMaps(form: NiceFormData): SdtMaps {
   const maps = buildHecSdtMaps(form as unknown as HecFormData);
-  // 직인동의서 주소/대표자/날짜는 기존 seal SDT id(900000002/3/4)로 채워짐.
+  // 직인동의서 상호/주소/대표자/날짜는 기존 seal SDT id(900000001/2/3/4)로 채워짐.
   maps.text[NICE_CONTRACT_QTY_ID] = form.installQty;
   maps.text[NICE_CONTRACT_AMOUNT_ID] = computeNiceContractAmount(form.installQty);
+  // 설치위치(제1조 표) — 문단치환에서 SDT로 전환
+  maps.text['900000043'] = buildNiceInstallLocation(form);
+  // 제3조 계약기간 인라인 체크박스 — fillNiceContractTerm에서 SDT로 전환
+  const box7 = form.contractTerm === '7' ? '■' : '☐';
+  const box10 = form.contractTerm === '10' ? '■' : '☐';
+  maps.text['900000048'] = `${box7} 7년(84개월) ${box10} 10년(120개월)`;
   return maps;
 }
 
@@ -42,16 +48,13 @@ export function buildNiceInstallLocation(form: NiceFormData): string {
 }
 
 export function buildNiceParagraphReplacements(form: NiceFormData): TextReplacement[] {
-  const installLocation = buildNiceInstallLocation(form);
   const dateStr = `${form.contractYear}년 ${form.contractMonth}월 ${form.contractDay}일`;
 
+  // 설치위치·직인 상호는 SDT(900000043 / 900000001)로 전환됨.
+  // 서명부(고객사명·신청자·계약체결일)는 문서 내 2~4벌 중복이라 문단치환 유지
+  // (이미 run-split 내성이 있고, 대상이 교체 전용 더미데이터라 편집 취약성이 낮음).
   return [
-    // 설치장소 주소 (table 0 row 9) — multi-run, paragraph-level
-    {
-      find: '부산광역시 연제구 거제대로 275 / 상세위치 : 지하 1층 06,12 기둥 옆',
-      replace: installLocation,
-    },
-    // 서명부 고객사명 (multi-run paragraph)
+    // 서명부 고객사명 (multi-run paragraph, 2벌)
     {
       find: '거제 미소지움 더퍼스트 아파트 입주자대표회의',
       replace: form.custName,
@@ -60,7 +63,7 @@ export function buildNiceParagraphReplacements(form: NiceFormData): TextReplacem
       find: '[신청자]거제 미소지움 더퍼스트 아파트 입주자대표회의(인)',
       replace: `[신청자]${form.custName}(인)`,
     },
-    // 서명부 날짜 split across two paragraphs: '계약 체결일 : 2026년4월' + '7일'
+    // 서명부 날짜 split across two paragraphs: '계약 체결일 : 2026년4월' + '7일' (4벌)
     {
       find: '계약 체결일 : 2026년4월',
       replace: `계약 체결일 : ${dateStr}`,
@@ -68,11 +71,6 @@ export function buildNiceParagraphReplacements(form: NiceFormData): TextReplacem
     {
       find: '7일',
       replace: '',
-    },
-    // 직인사용 동의서 상호 — multi-run in NICE template
-    {
-      find: '상호: 운암포레스힐2 관리사무소',
-      replace: `상호: ${form.custName}`,
     },
   ];
 }

@@ -17,6 +17,7 @@ export type SkFormData = Omit<
 // 계약서 본문 SDT (SK 템플릿에 주입) — 텍스트 치환 대체
 const SK_CONTRACT_TERM_ID = '900000051'; // 계약기간 '□ 10년, □ 7년' 토글
 const SK_CONTRACT_DATE_ID = '900000052'; // 계약일 날짜
+const SK_SIGN_USER_ID = '900000053'; // 서비스이용자 서명란(상호)
 
 export function buildSkSdtMaps(form: SkFormData): SdtMaps {
   const maps = buildHecSdtMaps(form as HecFormData);
@@ -25,6 +26,9 @@ export function buildSkSdtMaps(form: SkFormData): SdtMaps {
   maps.text[SK_CONTRACT_TERM_ID] = `${term10} 10년, ${term7} 7년`;
   maps.text[SK_CONTRACT_DATE_ID] =
     `${form.contractYear}년 ${form.contractMonth}월 ${form.contractDay}일`;
+  // 서명란: '서비스이용자' 라벨(run0)과 '(인)'(run4) 사이 SDT — 정렬 패딩 포함
+  maps.text[SK_SIGN_USER_ID] =
+    `       ${form.custName}${' '.repeat(Math.max(1, 22 - form.custName.length))}`;
   return maps;
 }
 

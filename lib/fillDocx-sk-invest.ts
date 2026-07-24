@@ -266,20 +266,8 @@ export async function fillSkInvestTemplate(form: SkInvestFormData): Promise<Fill
     filledHeaderCells += fillLabelValueTable(doc, tables[0], buildSkInvestHeaderTableMap(form));
   }
 
-  // 서비스이용자 서명란 채우기 (Table 0 Row 13)
+  // 서비스이용자 서명란은 SDT(900000053)로 채워짐.
   let textReplaceFilled = 0;
-  const paras = doc.getElementsByTagNameNS(W_NS, 'p');
-  for (let i = 0; i < paras.length; i++) {
-    const combined = collectText(paras[i]);
-    if (combined.startsWith('서비스이용자') && combined.endsWith('(인)') && combined.includes('(인)')) {
-      setParagraphText(
-        paras[i],
-        `서비스이용자       ${form.custName}${' '.repeat(Math.max(1, 22 - form.custName.length))}(인)`
-      );
-      textReplaceFilled++;
-      break;
-    }
-  }
 
   // 텍스트 치환
   const textRepls = buildSkInvestTextReplacements(form);

@@ -237,27 +237,6 @@ function fillHeaderTable(doc: Document, labelMap: Record<string, string>): numbe
   return filled;
 }
 
-/**
- * Toggle the inline 계약기간 checkboxes in 제3조:
- *   "☐ 7년(84개월) ■ 10년(120개월)"
- * Runs are split — find the paragraph with this text and rewrite.
- */
-function fillNiceContractTerm(doc: Document, form: NiceFormData): number {
-  const paras = doc.getElementsByTagNameNS(W_NS, 'p');
-  for (let i = 0; i < paras.length; i++) {
-    const combined = collectText(paras[i]);
-    if (combined.includes('7년(84개월)') && combined.includes('10년(120개월)')) {
-      const box7 = form.contractTerm === '7' ? CHECKED_GLYPH : UNCHECKED_GLYPH;
-      const box10 = form.contractTerm === '10' ? CHECKED_GLYPH : UNCHECKED_GLYPH;
-      const prefix = combined.split('☐')[0].split('■')[0];
-      const newText = `${prefix}${box7} 7년(84개월) ${box10} 10년(120개월)`;
-      setParagraphText(paras[i], newText);
-      return 1;
-    }
-  }
-  return 0;
-}
-
 export interface FillResult {
   blob: Blob;
   filledSdtText: number;
@@ -312,9 +291,9 @@ export async function fillNiceTemplate(form: NiceFormData): Promise<FillResult> 
   const headerMap = buildNiceHeaderTableMap(form);
   const filledHeaderCells = fillHeaderTable(doc, headerMap);
 
-  // 계약행 수량·계약금액은 SDT(900000041/042)로 채워짐.
+  // 계약행 수량·계약금액은 SDT(900000041/042)로,
+  // 제3조 계약기간·설치위치는 SDT(900000048/043)로 채워짐.
   let textReplaceFilled = 0;
-  textReplaceFilled += fillNiceContractTerm(doc, form);
 
   // Paragraph-level replacements (multi-run)
   const paraRepls = buildNiceParagraphReplacements(form);

@@ -247,6 +247,19 @@ export function buildHecSdtMaps(form: HecFormData): SdtMaps {
     [TEXT_IDS.gongmunEvCount]: form.evCount,
     [TEXT_IDS.gongmunCompanySign]: form.custName,
 
+    // 배치4: 서명부 · 서명날짜 · 계약기간 본문 · 주차면 · 공문 전화 (텍스트치환 → SDT)
+    '900000031': form.custAddr, // 서명부 주소 #1
+    '900000032': form.custAddr, // 서명부 주소 #2
+    '900000033': form.custName, // 서명부 상호 #1
+    '900000034': form.custName, // 서명부 상호 #2
+    '900000035': form.custRepresentative, // 서명부 대표자 #1
+    '900000036': form.custRepresentative, // 서명부 대표자 #2
+    '900000037': `${form.contractYear}년 ${form.contractMonth}월 ${form.contractDay}일`, // 서명날짜 #1
+    '900000038': `${form.contractYear}년 ${form.contractMonth}월 ${form.contractDay}일`, // 서명날짜 #2
+    '900000039': form.contractTerm, // 계약기간 본문절 (운영시작일로부터 X년)
+    '900000040': form.installQty, // 주차면 수
+    '900000041': form.custTel, // 공문 TEL 전화번호
+
     [TEXT_IDS.dupFastQty]: form.dupFast ? form.dupFastQty : '',
     [TEXT_IDS.dupSlowQty]: form.dupSlow ? form.dupSlowQty : '',
     [TEXT_IDS.dupDistQty]: form.dupDist ? form.dupDistQty : '',
@@ -325,28 +338,10 @@ export interface TextReplacement {
  * Build text replacements for the three non-SDT sections.
  * These replace hardcoded sample data in <w:t> elements.
  */
-export function buildTextReplacements(form: HecFormData): TextReplacement[] {
-  const installAddr = form.installAddr.trim() || form.custAddr;
-  const dateStr = `${form.contractYear}년 ${form.contractMonth}월 ${form.contractDay}일`;
-
-  return [
-    // ── 운영계약서: 계약기간 행 ──
-    // "완속 :  " → "완속 : {term}"  (split across runs: this is the first run)
-    // We handle the contractTerm in the fill function by filling the header table
-
-    // ── 운영계약서: 충전기수량 → SDT로 전환됨 ──
-
-    // ── 운영계약서: 약관 서두 ──
-
-    // ── 운영계약서: 서명부 날짜 (1번째) ──
-    {
-      find: '년    월    일',
-      replace: `${form.contractYear}년 ${form.contractMonth}월 ${form.contractDay}일`,
-    },
-
-    // ── 직인사용 동의서: SDT(콘텐츠 컨트롤)로 전환됨 (buildHecSdtMaps에서 처리) ──
-
-  ];
+export function buildTextReplacements(_form: HecFormData): TextReplacement[] {
+  // 운영계약서/직인동의서/수량공문의 모든 텍스트치환 필드가 SDT로 전환됨.
+  // (서명부·서명날짜·계약기간본문·주차면·공문전화 = 배치4에서 900000031~041로 전환)
+  return [];
 }
 
 /**

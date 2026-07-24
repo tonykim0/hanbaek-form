@@ -214,6 +214,11 @@ export function buildHecSdtMaps(form: HecFormData): SdtMaps {
     [TEXT_IDS.contractDay_b5privacy]: form.contractDay,
     [TEXT_IDS.custName_privacy]: form.custName,
 
+    // 별지5호 서명날짜·개인정보동의서 날짜의 연도 (보조사업 연도가 매년 바뀌므로
+    // 정적 '2026' 대신 폼 연도를 SDT로 반영)
+    '900000201': form.contractYear, // 별지5호 서명 연도
+    '900000202': form.contractYear, // 개인정보동의서 연도
+
     [TEXT_IDS.custName_b7_b]: form.custName,
     [TEXT_IDS.custTel_b7]: form.custTel,
     [TEXT_IDS.custAddr_b7]: form.custAddr,

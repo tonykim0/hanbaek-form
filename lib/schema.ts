@@ -258,6 +258,15 @@ export function buildSdtMaps(form: ContractFormData): SdtMaps {
     [TEXT_IDS.contractMonth_seal]: form.contractMonth,
     [TEXT_IDS.contractDay_seal]: form.contractDay,
 
+    // 각 서명/계약 날짜의 연도 — 정적 '2026' 대신 폼 연도(contractYear) 반영
+    '900000201': form.contractYear, // 별지5호 서명 연도
+    '900000202': form.contractYear, // 개인정보동의서 연도
+    '900000203': form.contractYear, // 직인동의서 연도
+    '900000204': form.contractYear, // 본계약 계약일 연도
+    '900000205': form.contractYear, // 합의서(체결일 인용) 연도
+    '900000206': form.contractYear, // 합의서 서명 연도
+    '900000207': form.contractYear, // 행위신고 업무대행 동의서 연도
+
     // 행위신고 업무대행 동의서 — v2 폼에서 입력받지 않음, 빈 값으로 클리어
     [TEXT_IDS.apartmentName]: '',
     [TEXT_IDS.managerTel]: '',

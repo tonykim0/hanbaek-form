@@ -175,7 +175,16 @@ export function ContractInfoSection<TFieldValues extends CommonContractFields>({
 }) {
   return (
     <Section title="2. 계약 정보">
-      <Field label="설치장소 주소">
+      <Field
+        label={
+          <>
+            설치장소 주소{' '}
+            <span className="text-red-600 font-normal">
+              (신청자 주소와 실제 설치주소 구분을 꼭 해주세요)
+            </span>
+          </>
+        }
+      >
         <input
           {...register('installAddr' as Path<TFieldValues>)}
           className={inputCls}

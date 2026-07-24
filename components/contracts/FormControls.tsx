@@ -31,7 +31,7 @@ export function Field({
   error,
   children,
 }: {
-  label: string;
+  label: ReactNode;
   required?: boolean;
   error?: string;
   children: ReactNode;

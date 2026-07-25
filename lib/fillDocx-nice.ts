@@ -18,7 +18,8 @@ const XML_NS = 'http://www.w3.org/XML/1998/namespace';
 const CHECKED_GLYPH = '\u25A0';
 const UNCHECKED_GLYPH = '\u2610';
 const CHECKED_FONT = '맑은 고딕';
-const UNCHECKED_FONT = 'MS Gothic';
+// 사전현장컨설팅 결과서 등 문서 전체를 맑은 고딕으로 통일 (체크박스 글리프 포함)
+const UNCHECKED_FONT = '맑은 고딕';
 const FILLED_TEXT_SIZE = '16'; // 8pt in Word half-point units
 
 function getSdtId(sdt: Element): string | null {

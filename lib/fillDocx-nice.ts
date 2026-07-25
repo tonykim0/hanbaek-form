@@ -84,7 +84,15 @@ function setFilledTextSizeForText(text: Element): void {
   if (run) setFilledTextSize(run);
 }
 
+// 본문 흐름에 들어가는 SDT — 주변 문장과 폰트 크기를 맞추기 위해
+// 채움 시 8pt(FILLED_TEXT_SIZE) 강제를 건너뛰고 템플릿 크기를 유지한다.
+const KEEP_TEMPLATE_SIZE_IDS = new Set<string>(['900000049']); // 별첨 합의서 프로모션 조항
+
 function fillTextSdt(sdt: Element, value: string): boolean {
+  const keepSize = (() => {
+    const id = getSdtId(sdt);
+    return id != null && KEEP_TEMPLATE_SIZE_IDS.has(id);
+  })();
   const sdtPrList = sdt.getElementsByTagNameNS(W_NS, 'sdtPr');
   if (sdtPrList.length > 0) {
     const showings = sdtPrList[0].getElementsByTagNameNS(W_NS, 'showingPlcHdr');
@@ -116,7 +124,7 @@ function fillTextSdt(sdt: Element, value: string): boolean {
         elems[0].parentNode?.removeChild(elems[0]);
       }
     }
-    setFilledTextSize(runs[i]);
+    if (!keepSize) setFilledTextSize(runs[i]);
   }
   return true;
 }

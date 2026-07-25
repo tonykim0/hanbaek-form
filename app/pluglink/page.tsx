@@ -99,6 +99,7 @@ export default function App() {
           <CustomerInfoSection
             register={register}
             errors={errors}
+            watch={watch}
             addressPlaceholder="광주광역시 광산구 비아로 23"
             telPlaceholder="062-954-1122"
           />

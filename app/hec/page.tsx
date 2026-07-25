@@ -106,6 +106,7 @@ export default function HecPage() {
           <CustomerInfoSection
             register={register}
             errors={errors}
+            watch={watch}
             afterContact={
               <Field label="현장 담당자">
                 <input

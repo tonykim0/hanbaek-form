@@ -29,11 +29,13 @@ export function Field({
   label,
   required,
   error,
+  warning,
   children,
 }: {
   label: ReactNode;
   required?: boolean;
   error?: string;
+  warning?: ReactNode;
   children: ReactNode;
 }) {
   return (
@@ -44,6 +46,9 @@ export function Field({
       </label>
       {children}
       {error && <p className="text-sm text-red-600 mt-1">{error}</p>}
+      {!error && warning && (
+        <p className="text-sm text-amber-600 mt-1">{warning}</p>
+      )}
     </div>
   );
 }

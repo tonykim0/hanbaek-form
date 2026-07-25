@@ -5,6 +5,7 @@ import type {
   FieldValues,
   Path,
   UseFormRegister,
+  UseFormWatch,
 } from 'react-hook-form';
 import {
   Checkbox,
@@ -16,6 +17,7 @@ import {
   Section,
 } from '@/components/contracts/FormControls';
 import { PHONE_RE, YEAR_OPTIONS } from '@/lib/contract-form';
+import { isBizIdComplete, isValidKoreanBizId } from '@/lib/bizid';
 
 type CommonContractFields = FieldValues & {
   custName: string;
@@ -64,6 +66,7 @@ function fieldError<TFieldValues extends FieldValues>(
 export function CustomerInfoSection<TFieldValues extends CommonContractFields>({
   register,
   errors,
+  watch,
   addressPlaceholder = '예: 서울특별시 강남구 테헤란로 1',
   telPlaceholder = '02-1234-5678',
   children,
@@ -71,11 +74,19 @@ export function CustomerInfoSection<TFieldValues extends CommonContractFields>({
 }: {
   register: UseFormRegister<TFieldValues>;
   errors: FieldErrors<TFieldValues>;
+  watch?: UseFormWatch<TFieldValues>;
   addressPlaceholder?: string;
   telPlaceholder?: string;
   children?: React.ReactNode;
   afterContact?: React.ReactNode;
 }) {
+  const bizIdValue = watch
+    ? (watch('custBizId' as Path<TFieldValues>) as unknown as string)
+    : undefined;
+  const bizIdChecksumWarning =
+    bizIdValue && isBizIdComplete(bizIdValue) && !isValidKoreanBizId(bizIdValue)
+      ? '⚠ 체크섬 불일치 — 사업자등록번호 오타 여부를 확인해주세요'
+      : undefined;
   return (
     <Section title="1. 고객사 정보">
       <Field
@@ -96,6 +107,7 @@ export function CustomerInfoSection<TFieldValues extends CommonContractFields>({
         label="사업자등록번호"
         required
         error={fieldError(errors, 'custBizId' as Path<TFieldValues>)}
+        warning={bizIdChecksumWarning}
       >
         <input
           {...register('custBizId' as Path<TFieldValues>, {

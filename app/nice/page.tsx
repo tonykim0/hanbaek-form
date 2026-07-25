@@ -116,6 +116,15 @@ export default function NicePage() {
             errors={errors}
             installQtyPlaceholder="3"
             contractTermLabels={{ seven: '7년 (84개월)', ten: '10년 (120개월)' }}
+            contractTermHint={
+              <p className="text-sm text-blue-700 bg-blue-50 border border-blue-200 rounded px-3 py-2">
+                📣 특별 프로모션: <b>7년 계약</b> 선택 시 6개월 동안 149원 제공 /{' '}
+                <b>10년 계약</b> 선택 시 6개월 동안 149원 + 6개월 동안 220원 제공
+                <span className="block text-xs text-blue-600 mt-0.5">
+                  선택한 계약기간에 따라 합의서 프로모션 문구가 자동 반영됩니다.
+                </span>
+              </p>
+            }
             afterInstallAddr={
               <Field label="상세위치">
               <input

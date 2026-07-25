@@ -33,6 +33,11 @@ export function buildNiceSdtMaps(form: NiceFormData): SdtMaps {
   const box7 = form.contractTerm === '7' ? '■' : '☐';
   const box10 = form.contractTerm === '10' ? '■' : '☐';
   maps.text['900000048'] = `${box7} 7년(84개월) ${box10} 10년(120개월)`;
+  // 별첨 합의서 특별 프로모션 — 계약기간(7/10년)에 따라 제공기간·단가가 달라짐
+  maps.text['900000049'] =
+    form.contractTerm === '7'
+      ? '제공 기간은 제3조에 따라 사용 개시일로부터 6개월 동안이며 제공 단가는 149원/kwh(VAT 포함)'
+      : '제공 기간은 제3조에 따라 사용 개시일로부터 최초 6개월은 149원/kwh, 이후 6개월은 220원/kwh(VAT 포함)';
   return maps;
 }
 

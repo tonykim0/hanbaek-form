@@ -164,6 +164,7 @@ export function ContractInfoSection<TFieldValues extends CommonContractFields>({
   gridClassName = 'grid grid-cols-2 gap-4',
   afterInstallAddr,
   extraGridFields,
+  contractTermHint,
 }: {
   register: UseFormRegister<TFieldValues>;
   errors: FieldErrors<TFieldValues>;
@@ -172,6 +173,7 @@ export function ContractInfoSection<TFieldValues extends CommonContractFields>({
   gridClassName?: string;
   afterInstallAddr?: React.ReactNode;
   extraGridFields?: React.ReactNode;
+  contractTermHint?: React.ReactNode;
 }) {
   return (
     <Section title="2. 계약 정보">
@@ -214,6 +216,7 @@ export function ContractInfoSection<TFieldValues extends CommonContractFields>({
         </Field>
         {extraGridFields}
       </div>
+      {contractTermHint}
       <Field label="계약일 / 조사일">
         <div className="flex gap-2 items-center">
           <select

@@ -7,6 +7,7 @@ import {
   ContractInfoSection,
   CustomerInfoSection,
 } from '@/components/contracts/ContractFormSections';
+import { Radio, RadioField, Section } from '@/components/contracts/FormControls';
 import {
   ContractPageShell,
   FormActions,
@@ -22,6 +23,7 @@ import { downloadBlob } from '@/lib/download';
 import { ContractFormData } from '@/lib/schema';
 
 const defaultValues: Partial<ContractFormData> = {
+  businessType: 'subsidy',
   contractYear: DEFAULT_YEAR,
   contractMonth: '',
   contractDay: '',
@@ -96,6 +98,13 @@ export default function App() {
           onSubmit={handleSubmit(onSubmit)}
           className="space-y-6 bg-white rounded-lg shadow-sm border border-gray-200 p-6"
         >
+          <Section title="사업구분">
+            <RadioField label="계약 유형" hint="선택에 따라 생성되는 계약서 양식이 달라집니다 (입력 항목은 동일)">
+              <Radio name="businessType" value="subsidy" register={register} label="보조금사업" />
+              <Radio name="businessType" value="invest" register={register} label="자체투자" />
+            </RadioField>
+          </Section>
+
           <CustomerInfoSection
             register={register}
             errors={errors}

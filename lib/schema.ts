@@ -23,6 +23,10 @@ export type OwnerRelation = 'self' | 'family' | 'friend' | 'employee' | 'none' |
 export type PowerSupply = 'moja' | 'hanjeon' | '';
 
 export interface ContractFormData {
+  // 0. 사업구분 — 보조금사업(subsidy) / 자체투자(invest)
+  //    필드는 동일하고 생성 템플릿만 달라짐 (template.docx / template_invest.docx)
+  businessType: 'subsidy' | 'invest';
+
   // 1. 고객사 정보
   custName: string;
   custBizId: string;

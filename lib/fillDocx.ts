@@ -167,8 +167,12 @@ export interface FillResult {
 export async function fillContractTemplate(
   form: ContractFormData
 ): Promise<FillResult> {
-  // 1. Fetch template
-  const response = await fetch('/pluglink/template.docx');
+  // 1. Fetch template — 사업구분에 따라 보조금/자체투자 문서 선택 (필드는 동일)
+  const templatePath =
+    form.businessType === 'invest'
+      ? '/pluglink/template_invest.docx'
+      : '/pluglink/template.docx';
+  const response = await fetch(templatePath);
   if (!response.ok) {
     throw new Error(`템플릿 파일을 불러올 수 없습니다 (${response.status})`);
   }

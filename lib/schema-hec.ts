@@ -11,10 +11,8 @@
 // ─────────────────────────────────────────────
 
 export type BuildingType = 'apartment' | 'yeonlip' | 'sangga' | 'etc_officetel' | 'etc_knowledge' | 'etc_government';
-export type InstallLocationKind = 'indoor' | 'outdoor' | '';
 export type Ownership = 'own' | 'rent' | '';
 export type OwnerRelation = 'self' | 'family' | 'friend' | 'employee' | 'none' | '';
-export type PowerSupply = 'moja' | 'hanjeon' | '';
 
 export interface HecFormData {
   // 1. 고객사 정보
@@ -43,10 +41,14 @@ export interface HecFormData {
   // 4. 사전 현장 컨설팅 결과서 (별지7호)
   parkingLotCount: string;
   buildingType: BuildingType;
-  installLocation: InstallLocationKind;
+  // 설치위치 — 중복 선택 가능
+  installLocIndoor: boolean;
+  installLocOutdoor: boolean;
   ownership: Ownership;
   ownerRelation: OwnerRelation;
-  powerSupply: PowerSupply;
+  // 전력인입 — 중복 선택 가능
+  powerMoja: boolean;
+  powerHanjeon: boolean;
   installTypeWall: boolean;
   installTypeStand: boolean;
 
@@ -294,8 +296,8 @@ export function buildHecSdtMaps(form: HecFormData): SdtMaps {
     [CB_IDS.bldSangga]: form.buildingType === 'sangga',
     [CB_IDS.bldEtc]: isEtc,
 
-    [CB_IDS.locIndoor]: form.installLocation === 'indoor',
-    [CB_IDS.locOutdoor]: form.installLocation === 'outdoor',
+    [CB_IDS.locIndoor]: form.installLocIndoor,
+    [CB_IDS.locOutdoor]: form.installLocOutdoor,
 
     [CB_IDS.ownOwn]: form.ownership === 'own',
     [CB_IDS.ownRent]: form.ownership === 'rent',
@@ -306,14 +308,14 @@ export function buildHecSdtMaps(form: HecFormData): SdtMaps {
     [CB_IDS.relEmployee]: form.ownerRelation === 'employee',
     [CB_IDS.relNone]: form.ownerRelation === 'none',
 
-    [CB_IDS.powerMoja]: form.powerSupply === 'moja',
-    [CB_IDS.powerHanjeon]: form.powerSupply === 'hanjeon',
+    [CB_IDS.powerMoja]: form.powerMoja,
+    [CB_IDS.powerHanjeon]: form.powerHanjeon,
 
     [CB_IDS.typeWall]: form.installTypeWall,
     [CB_IDS.typeStand]: form.installTypeStand,
 
-    [CB_IDS.highVoltConfirm]: form.powerSupply === 'moja',
-    [CB_IDS.lowVoltConfirm]: form.powerSupply === 'hanjeon',
+    [CB_IDS.highVoltConfirm]: form.powerMoja,
+    [CB_IDS.lowVoltConfirm]: form.powerHanjeon,
 
     [CB_IDS.dupFast]: form.dupFast,
     [CB_IDS.dupSlow]: form.dupSlow,

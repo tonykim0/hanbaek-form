@@ -17,10 +17,8 @@
 // ─────────────────────────────────────────────
 
 export type BuildingType = 'apartment' | 'yeonlip' | 'sangga' | 'etc_officetel' | 'etc_knowledge' | 'etc_government';
-export type InstallLocationKind = 'indoor' | 'outdoor' | '';
 export type Ownership = 'own' | 'rent' | '';
 export type OwnerRelation = 'self' | 'family' | 'friend' | 'employee' | 'none' | '';
-export type PowerSupply = 'moja' | 'hanjeon' | '';
 
 export interface ContractFormData {
   // 0. 사업구분 — 보조금사업(subsidy) / 자체투자(invest)
@@ -53,10 +51,14 @@ export interface ContractFormData {
   // 4. 사전 현장 컨설팅 결과서 (별지7호)
   parkingLotCount: string;
   buildingType: BuildingType;
-  installLocation: InstallLocationKind;
+  // 설치위치 — 중복 선택 가능
+  installLocIndoor: boolean;
+  installLocOutdoor: boolean;
   ownership: Ownership;
   ownerRelation: OwnerRelation;
-  powerSupply: PowerSupply;
+  // 전력인입 — 중복 선택 가능
+  powerMoja: boolean;
+  powerHanjeon: boolean;
   installTypeWall: boolean;
   installTypeStand: boolean;
 
@@ -354,9 +356,9 @@ export function buildSdtMaps(form: ContractFormData): SdtMaps {
     [CB_IDS.b5_loc2_biz]: isBiz,
     [CB_IDS.b5_loc2_etc]: isEtc,
 
-    // 설치위치 — 라디오
-    [CB_IDS.locIndoor]: form.installLocation === 'indoor',
-    [CB_IDS.locOutdoor]: form.installLocation === 'outdoor',
+    // 설치위치 — 중복 선택 가능
+    [CB_IDS.locIndoor]: form.installLocIndoor,
+    [CB_IDS.locOutdoor]: form.installLocOutdoor,
 
     // 소유여부 — 라디오
     [CB_IDS.ownOwn]: form.ownership === 'own',
@@ -369,17 +371,17 @@ export function buildSdtMaps(form: ContractFormData): SdtMaps {
     [CB_IDS.relEmployee]: form.ownerRelation === 'employee',
     [CB_IDS.relNone]: form.ownerRelation === 'none',
 
-    // 전력인입 — 라디오
-    [CB_IDS.powerMoja]: form.powerSupply === 'moja',
-    [CB_IDS.powerHanjeon]: form.powerSupply === 'hanjeon',
+    // 전력인입 — 중복 선택 가능
+    [CB_IDS.powerMoja]: form.powerMoja,
+    [CB_IDS.powerHanjeon]: form.powerHanjeon,
 
     // 설치타입 — 다중
     [CB_IDS.typeWall]: form.installTypeWall,
     [CB_IDS.typeStand]: form.installTypeStand,
 
     // 5번 cascade from 전력인입
-    [CB_IDS.highVoltConfirm]: form.powerSupply === 'moja',
-    [CB_IDS.lowVoltConfirm]: form.powerSupply === 'hanjeon',
+    [CB_IDS.highVoltConfirm]: form.powerMoja,
+    [CB_IDS.lowVoltConfirm]: form.powerHanjeon,
 
     // 6번 중복설치
     [CB_IDS.dupFast]: form.dupFast,

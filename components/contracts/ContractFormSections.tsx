@@ -36,10 +36,12 @@ type CommonContractFields = FieldValues & {
   salesTel: string;
   parkingLotCount: string;
   buildingType: string;
-  installLocation: string;
+  installLocIndoor: boolean;
+  installLocOutdoor: boolean;
   ownership: string;
   ownerRelation: string;
-  powerSupply: string;
+  powerMoja: boolean;
+  powerHanjeon: boolean;
   installTypeWall: boolean;
   installTypeStand: boolean;
   dupFast: boolean;
@@ -319,9 +321,9 @@ export function ConsultingSection<TFieldValues extends CommonContractFields>({
         <Radio name={'buildingType' as Path<TFieldValues>} value="etc_government" register={register} label="기타 (관공서)" />
       </RadioField>
 
-      <RadioField label="설치위치">
-        <Radio name={'installLocation' as Path<TFieldValues>} value="indoor" register={register} label="실내·지하" />
-        <Radio name={'installLocation' as Path<TFieldValues>} value="outdoor" register={register} label="실외·노상" />
+      <RadioField label="설치위치" hint="중복 선택 가능">
+        <Checkbox register={register} name={'installLocIndoor' as Path<TFieldValues>} label="실내·지하" />
+        <Checkbox register={register} name={'installLocOutdoor' as Path<TFieldValues>} label="실외·노상" />
       </RadioField>
 
       <RadioField label="소유여부">
@@ -337,9 +339,9 @@ export function ConsultingSection<TFieldValues extends CommonContractFields>({
         <Radio name={'ownerRelation' as Path<TFieldValues>} value="none" register={register} label="무관" />
       </RadioField>
 
-      <RadioField label="전력인입">
-        <Radio name={'powerSupply' as Path<TFieldValues>} value="moja" register={register} label="모자분할" />
-        <Radio name={'powerSupply' as Path<TFieldValues>} value="hanjeon" register={register} label="한전불입" />
+      <RadioField label="전력인입" hint="중복 선택 가능">
+        <Checkbox register={register} name={'powerMoja' as Path<TFieldValues>} label="모자분할" />
+        <Checkbox register={register} name={'powerHanjeon' as Path<TFieldValues>} label="한전불입" />
       </RadioField>
 
       <RadioField label="설치타입" hint="중복 선택 가능">

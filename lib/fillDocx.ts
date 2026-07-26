@@ -191,19 +191,28 @@ export async function fillContractTemplate(
   }
 
   // 4. Build maps
-  const { text: textMap, checkbox: cbMap } = buildSdtMaps(form);
+  const { text: textMap, checkbox: cbMap, remove } = buildSdtMaps(form);
+  const removeIds = new Set(remove ?? []);
 
-  // 5. Walk all <w:sdt> elements and fill matching ones
-  const sdts = doc.getElementsByTagNameNS(W_NS, 'sdt');
+  // 5. Walk all <w:sdt> elements and fill matching ones.
+  //    Snapshot to an array first — removeSdtBlock() mutates the tree.
+  const sdtList = doc.getElementsByTagNameNS(W_NS, 'sdt');
+  const sdts: Element[] = [];
+  for (let i = 0; i < sdtList.length; i++) sdts.push(sdtList[i]);
   let textFilled = 0;
   let cbToggled = 0;
   const seenIds = new Set<string>();
 
-  for (let i = 0; i < sdts.length; i++) {
-    const sdt = sdts[i];
+  for (const sdt of sdts) {
     const sdtId = getSdtId(sdt);
     if (!sdtId) continue;
     seenIds.add(sdtId);
+
+    // Block SDT marked for removal (e.g. 7년 계약 → 2단계 프로모션 문단 삭제)
+    if (removeIds.has(sdtId)) {
+      sdt.parentNode?.removeChild(sdt);
+      continue;
+    }
 
     if (isCheckboxSdt(sdt)) {
       if (sdtId in cbMap) {
@@ -217,7 +226,7 @@ export async function fillContractTemplate(
   }
 
   // Check which mapped IDs were not found in the doc (template drift detection)
-  const allMapped = [...Object.keys(textMap), ...Object.keys(cbMap)];
+  const allMapped = [...Object.keys(textMap), ...Object.keys(cbMap), ...removeIds];
   const unmatchedIds = allMapped.filter((id) => !seenIds.has(id));
 
   // 6. Serialize and write back

@@ -182,6 +182,8 @@ const CB_IDS = {
 export interface SdtMaps {
   text: Record<string, string>;
   checkbox: Record<string, boolean>;
+  /** 블록 SDT id 목록 — 채움 시 해당 SDT(문단 포함)를 문서에서 제거 */
+  remove?: string[];
 }
 
 function etcLabel(bt: BuildingType): string {

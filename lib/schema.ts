@@ -206,6 +206,15 @@ const CB_IDS = {
   b5_loc2_etc: '-697774570',     // 기타
 } as const;
 
+/** 합의서 단계별 프로모션 조건부 SDT (계약기간 7/10년) — 템플릿에 주입됨 */
+const PROMO_IDS = {
+  stage2Block: '900000210', // [72] 2단계 불릿 (블록 SDT, 7년이면 제거)
+  intro: '900000211', // [69] 제1항 도입부
+  stage1: '900000212', // [71] 1단계 불릿
+  total: '900000213', // [74] 총 프로모션 기간
+  autoswitch: '900000214', // [76] 자동 전환 문장
+} as const;
+
 // ─────────────────────────────────────────────
 // Build maps for fillDocx
 // ─────────────────────────────────────────────
@@ -215,6 +224,8 @@ export interface SdtMaps {
   text: Record<string, string>;
   /** SDT id → checked state */
   checkbox: Record<string, boolean>;
+  /** 블록 SDT id 목록 — 채움 시 해당 SDT(문단 포함)를 문서에서 제거 */
+  remove?: string[];
 }
 
 function etcLabel(bt: BuildingType): string {
@@ -379,5 +390,30 @@ export function buildSdtMaps(form: ContractFormData): SdtMaps {
     form.dupFast || form.dupSlow || form.dupDist || form.dupOutlet || form.dupKiosk;
   checkbox[CB_IDS.dupNone] = !anyDup;
 
-  return { text, checkbox };
+  // ─── 합의서 단계별 프로모션 — 계약기간 조건부 ───
+  // 7년: 6개월(180일) 149원 단일 / 10년: 6개월 149원 + 6개월 249원 (총 360일)
+  const isTen = form.contractTerm === '10';
+  // [69] 제1항 도입부 — 10년만 "단계별"
+  text[PROMO_IDS.intro] =
+    `“서비스 제공자”는 본 계약에 따른 신규 서비스 개시를 기념하여, 다음과 같이 ${
+      isTen ? '단계별 ' : ''
+    }프로모션 요금을 적용한다.`;
+  // [71] 1단계 불릿
+  text[PROMO_IDS.stage1] = isTen
+    ? '1단계 (서비스 개시일로부터 180일간): 149원/kWh '
+    : '서비스 개시일로부터 180일간: 149원/kWh ';
+  // [74] 총 프로모션 기간 (10년 360일 / 7년 180일)
+  text[PROMO_IDS.total] =
+    `위 제1항에 명시된 총 ${
+      isTen ? '360' : '180'
+    }일간의 프로모션 기간이 종료된 이후에는 “서비스 제공자”의 홈페이지에 고지된 당사의 표준 공시 요금을 적용하는 것을 원칙으로 한다.`;
+  // [76] 자동 전환 (10년 "다음 단계의" / 7년 "표준 공시")
+  text[PROMO_IDS.autoswitch] =
+    `요금의 변동 기준일은 서비스 개시일을 산입하여 계산하며, 프로모션 기간 종료 전 별도의 통보 없이 익일부터 ${
+      isTen ? '다음 단계의' : '표준 공시'
+    } 요금으로 자동 전환된다.`;
+  // [72] 2단계 불릿 블록 — 7년이면 문단째 제거
+  const remove = isTen ? [] : [PROMO_IDS.stage2Block];
+
+  return { text, checkbox, remove };
 }

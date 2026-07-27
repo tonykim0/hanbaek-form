@@ -330,10 +330,10 @@ export function ConsultingSection<TFieldValues extends CommonContractFields>({
 
         <ChoiceGroup label="소유주와의 관계">
           <PillRadio name={'ownerRelation' as Path<TFieldValues>} value="self" register={register} label="본인" />
+          <PillRadio name={'ownerRelation' as Path<TFieldValues>} value="none" register={register} label="무관" />
           <PillRadio name={'ownerRelation' as Path<TFieldValues>} value="family" register={register} label="가족" />
           <PillRadio name={'ownerRelation' as Path<TFieldValues>} value="friend" register={register} label="지인" />
           <PillRadio name={'ownerRelation' as Path<TFieldValues>} value="employee" register={register} label="직원" />
-          <PillRadio name={'ownerRelation' as Path<TFieldValues>} value="none" register={register} label="무관" />
         </ChoiceGroup>
       </SubGroup>
 

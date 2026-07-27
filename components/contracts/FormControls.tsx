@@ -193,10 +193,7 @@ export function PillCheckbox<TFieldValues extends FieldValues>({
   return (
     <label className="cursor-pointer">
       <input type="checkbox" {...register(name)} className="peer sr-only" />
-      <span className={pillClass}>
-        <span className="text-xs leading-none opacity-0 peer-checked:opacity-100 -ml-0.5">✓</span>
-        {label}
-      </span>
+      <span className={pillClass}>{label}</span>
     </label>
   );
 }

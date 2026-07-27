@@ -12,7 +12,10 @@ import {
 export type SkFormData = Omit<
   HecFormData,
   'siteManager' | 'parkingSlotsSlow' | 'evCount'
->;
+> & {
+  // 사업구분 — 보조금사업(subsidy) / 자체투자(invest). 생성 템플릿만 달라짐.
+  businessType: 'subsidy' | 'invest';
+};
 
 // 계약서 본문 SDT (SK 템플릿에 주입) — 텍스트 치환 대체
 const SK_CONTRACT_TERM_ID = '900000051'; // 계약기간 '□ 10년, □ 7년' 토글
@@ -20,7 +23,7 @@ const SK_CONTRACT_DATE_ID = '900000052'; // 계약일 날짜
 const SK_SIGN_USER_ID = '900000053'; // 서비스이용자 서명란(상호)
 
 export function buildSkSdtMaps(form: SkFormData): SdtMaps {
-  const maps = buildHecSdtMaps(form as HecFormData);
+  const maps = buildHecSdtMaps(form as unknown as HecFormData);
   const term10 = form.contractTerm === '10' ? '■' : '□';
   const term7 = form.contractTerm === '7' ? '■' : '□';
   maps.text[SK_CONTRACT_TERM_ID] = `${term10} 10년, ${term7} 7년`;

@@ -10,6 +10,9 @@ import {
 import {
   contractInputClass,
   Field,
+  Radio,
+  RadioField,
+  Section,
 } from '@/components/contracts/FormControls';
 import {
   ContractPageShell,
@@ -26,6 +29,7 @@ import { downloadBlob } from '@/lib/download';
 import { SkFormData } from '@/lib/schema-sk';
 
 const defaultValues: Partial<SkFormData> = {
+  businessType: 'subsidy',
   contractYear: DEFAULT_YEAR,
   contractMonth: '',
   contractDay: '',
@@ -79,7 +83,11 @@ export default function SkPage() {
     try {
       const { fillSkTemplate } = await import('@/lib/fillDocx-sk');
       const result = await fillSkTemplate(data);
-      const filename = buildContractFilename(data.contractYear, '계약서류_SK', data.custName);
+      const filename = buildContractFilename(
+        data.contractYear,
+        data.businessType === 'invest' ? '계약서류_SK자체투자' : '계약서류_SK',
+        data.custName
+      );
       downloadBlob(result.blob, filename);
       setStatus({
         kind: 'success',
@@ -102,6 +110,13 @@ export default function SkPage() {
           onSubmit={handleSubmit(onSubmit)}
           className="space-y-6 bg-white rounded-lg shadow-sm border border-gray-200 p-6"
         >
+          <Section title="사업구분">
+            <RadioField label="계약 유형" hint="선택에 따라 생성되는 계약서 양식이 달라집니다 (입력 항목은 동일)">
+              <Radio name="businessType" value="subsidy" register={register} label="보조금사업" />
+              <Radio name="businessType" value="invest" register={register} label="자체투자" />
+            </RadioField>
+          </Section>
+
           <CustomerInfoSection register={register} errors={errors} watch={watch}>
             <Field label="사업자등록증상 대표자" required error={errors.custRepresentative?.message}>
               <input

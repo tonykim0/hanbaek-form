@@ -246,7 +246,13 @@ export interface FillResult {
 }
 
 export async function fillSkTemplate(form: SkFormData): Promise<FillResult> {
-  const response = await fetch('/sk/template.docx');
+  // 사업구분에 따라 보조금/자체투자 문서 선택 (폼 데이터·SDT맵은 동일).
+  // 직인동의서 채움은 아래 sealTable 가드로 템플릿에 있을 때만 수행된다.
+  const templatePath =
+    form.businessType === 'invest'
+      ? '/sk/template_invest.docx'
+      : '/sk/template.docx';
+  const response = await fetch(templatePath);
   if (!response.ok) {
     throw new Error(`템플릿 파일을 불러올 수 없습니다 (${response.status})`);
   }

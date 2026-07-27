@@ -2,9 +2,42 @@
 
 import type { ReactNode } from 'react';
 import type { FieldValues, Path, UseFormRegister } from 'react-hook-form';
+import { formatKoreanPhone } from '@/lib/contract-form';
 
 export const contractInputClass =
   'w-full border border-gray-300 rounded px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent';
+
+/**
+ * 한국 전화번호 입력 — 숫자 입력 시 하이픈(-)을 자동 삽입한다.
+ * 형식 검증 없이 자리수에 맞춰 -를 넣으므로 사용자가 형식을 신경 쓸 필요가 없다.
+ */
+export function PhoneInput<TFieldValues extends FieldValues>({
+  register,
+  name,
+  required,
+  placeholder,
+  className = contractInputClass,
+}: {
+  register: UseFormRegister<TFieldValues>;
+  name: Path<TFieldValues>;
+  required?: boolean;
+  placeholder?: string;
+  className?: string;
+}) {
+  const reg = register(name, required ? { required: '필수' } : undefined);
+  return (
+    <input
+      {...reg}
+      onChange={(e) => {
+        e.target.value = formatKoreanPhone(e.target.value);
+        reg.onChange(e);
+      }}
+      inputMode="numeric"
+      className={className}
+      placeholder={placeholder}
+    />
+  );
+}
 
 export function Section({
   title,

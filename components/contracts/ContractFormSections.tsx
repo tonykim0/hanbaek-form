@@ -12,11 +12,12 @@ import {
   contractInputClass,
   DuplicateInstallFieldset,
   Field,
+  PhoneInput,
   Radio,
   RadioField,
   Section,
 } from '@/components/contracts/FormControls';
-import { formatKoreanPhone, YEAR_OPTIONS } from '@/lib/contract-form';
+import { YEAR_OPTIONS } from '@/lib/contract-form';
 import { isBizIdComplete, isValidKoreanBizId } from '@/lib/bizid';
 
 type CommonContractFields = FieldValues & {
@@ -89,10 +90,6 @@ export function CustomerInfoSection<TFieldValues extends CommonContractFields>({
     bizIdValue && isBizIdComplete(bizIdValue) && !isValidKoreanBizId(bizIdValue)
       ? '⚠ 체크섬 불일치 — 사업자등록번호 오타 여부를 확인해주세요'
       : undefined;
-  // 대표 전화번호 — 입력 시 자동 하이픈(-) 삽입
-  const telRegister = register('custTel' as Path<TFieldValues>, {
-    required: '필수',
-  });
   return (
     <Section title="1. 고객사 정보">
       <Field
@@ -144,14 +141,10 @@ export function CustomerInfoSection<TFieldValues extends CommonContractFields>({
           required
           error={fieldError(errors, 'custTel' as Path<TFieldValues>)}
         >
-          <input
-            {...telRegister}
-            onChange={(e) => {
-              e.target.value = formatKoreanPhone(e.target.value);
-              telRegister.onChange(e);
-            }}
-            inputMode="numeric"
-            className={inputCls}
+          <PhoneInput
+            register={register}
+            name={'custTel' as Path<TFieldValues>}
+            required
             placeholder={telPlaceholder}
           />
         </Field>
@@ -298,7 +291,7 @@ export function ConsultingSection<TFieldValues extends CommonContractFields>({
           <input {...register('salesName' as Path<TFieldValues>)} className={inputCls} />
         </Field>
         <Field label="연락처">
-          <input {...register('salesTel' as Path<TFieldValues>)} className={inputCls} />
+          <PhoneInput register={register} name={'salesTel' as Path<TFieldValues>} />
         </Field>
       </div>
 

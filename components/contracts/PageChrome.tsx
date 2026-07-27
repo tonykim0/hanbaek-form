@@ -70,7 +70,7 @@ export function FormActions({
       <button
         type="submit"
         disabled={isSubmitting}
-        className="flex-none bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-semibold px-6 py-3 rounded-lg shadow-sm transition"
+        className="flex-none bg-brand-600 hover:bg-brand-700 disabled:bg-gray-400 text-white font-semibold px-6 py-3 rounded-lg shadow-sm transition"
       >
         {isSubmitting ? submittingLabel : submitLabel}
       </button>

@@ -79,7 +79,7 @@ export default function CompletePage() {
             <div>
               <button
                 onClick={() => setShowFiles(!showFiles)}
-                className="text-sm text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1"
+                className="text-sm text-brand-600 hover:text-brand-800 font-medium flex items-center gap-1"
               >
                 분류 결과 보기
                 <span className={`transition-transform ${showFiles ? 'rotate-180' : ''}`}>
@@ -109,7 +109,7 @@ export default function CompletePage() {
             sessionStorage.removeItem('intake_result');
             router.push('/intake');
           }}
-          className="w-full mt-4 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg shadow transition"
+          className="w-full mt-4 bg-brand-600 hover:bg-brand-700 text-white font-semibold py-3 rounded-lg shadow transition"
         >
           다른 건 추가 접수
         </button>

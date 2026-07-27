@@ -5,7 +5,7 @@ import type { FieldValues, Path, UseFormRegister } from 'react-hook-form';
 import { formatKoreanPhone } from '@/lib/contract-form';
 
 export const contractInputClass =
-  'w-full border border-gray-300 rounded px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent';
+  'w-full border border-gray-300 rounded px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent';
 
 /**
  * 한국 전화번호 입력 — 숫자 입력 시 하이픈(-)을 자동 삽입한다.
@@ -54,7 +54,7 @@ export function Section({
       {title && (
         <div className="flex items-center gap-2.5 px-4 sm:px-5 py-3 border-b border-gray-100 bg-gray-50/60 rounded-t-xl">
           {num && (
-            <span className="flex-none inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold">
+            <span className="flex-none inline-flex items-center justify-center w-6 h-6 rounded-full bg-brand-600 text-white text-xs font-bold">
               {num}
             </span>
           )}
@@ -130,7 +130,7 @@ export function Radio<TFieldValues extends FieldValues>({
 }) {
   return (
     <label className="flex items-center gap-1.5 text-sm text-gray-700 cursor-pointer">
-      <input type="radio" value={value} {...register(name)} className="h-4 w-4 text-blue-600" />
+      <input type="radio" value={value} {...register(name)} className="h-4 w-4 accent-brand-600" />
       {label}
     </label>
   );
@@ -147,7 +147,7 @@ export function Checkbox<TFieldValues extends FieldValues>({
 }) {
   return (
     <label className="flex items-center gap-1.5 text-sm text-gray-700 cursor-pointer">
-      <input type="checkbox" {...register(name)} className="h-4 w-4 text-blue-600 rounded" />
+      <input type="checkbox" {...register(name)} className="h-4 w-4 accent-brand-600 rounded" />
       {label}
     </label>
   );
@@ -171,7 +171,7 @@ export function DupRow<TFieldValues extends FieldValues>({
       <input
         type="checkbox"
         {...register(checkboxName)}
-        className="h-4 w-4 text-blue-600 rounded"
+        className="h-4 w-4 accent-brand-600 rounded"
       />
       <span className="text-sm text-gray-700 w-32">{label}</span>
       <input
@@ -255,7 +255,7 @@ export function DuplicateInstallFieldset<TFieldValues extends DuplicateInstallFi
           <input
             type="checkbox"
             {...register('dupKiosk' as Path<TFieldValues>)}
-            className="h-4 w-4 text-blue-600 rounded"
+            className="h-4 w-4 accent-brand-600 rounded"
           />
           <span className="text-sm text-gray-700">키오스크</span>
           <span className="text-xs text-gray-400">(수량란 없음)</span>

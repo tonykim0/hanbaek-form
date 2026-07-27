@@ -65,7 +65,7 @@ export default function UploadZone({ files, onFilesChange }: UploadZoneProps) {
       }}
       className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
         isDragActive
-          ? 'border-blue-500 bg-blue-50'
+          ? 'border-brand-500 bg-brand-50'
           : 'border-gray-300 hover:border-gray-400 bg-gray-50'
       }`}
     >
@@ -84,7 +84,7 @@ export default function UploadZone({ files, onFilesChange }: UploadZoneProps) {
           {isDragActive ? '\u{1F4E5}' : '\u{1F4C4}'}
         </div>
         {isDragActive ? (
-          <p className="text-blue-600 font-medium">여기에 놓으세요</p>
+          <p className="text-brand-600 font-medium">여기에 놓으세요</p>
         ) : (
           <>
             <p className="text-gray-700 font-medium">

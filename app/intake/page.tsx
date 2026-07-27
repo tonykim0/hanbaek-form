@@ -144,7 +144,7 @@ export default function IntakePage() {
               <button
                 onClick={handleSubmit}
                 disabled={!canSubmit}
-                className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-semibold py-3 rounded-lg shadow transition"
+                className="w-full bg-brand-600 hover:bg-brand-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-semibold py-3 rounded-lg shadow transition"
               >
                 접수하기
               </button>
@@ -190,7 +190,7 @@ function ProgressDisplay({ progress }: { progress: ProgressState }) {
         </div>
         <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
           <div
-            className="bg-blue-600 h-full rounded-full transition-all duration-500"
+            className="bg-brand-600 h-full rounded-full transition-all duration-500"
             style={{ width: `${overallPercent}%` }}
           />
         </div>
@@ -298,7 +298,7 @@ function StepIndicator({
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
           </svg>
         ) : active ? (
-          <span className="w-3 h-3 rounded-full bg-blue-500 animate-pulse" />
+          <span className="w-3 h-3 rounded-full bg-brand-500 animate-pulse" />
         ) : (
           <span className="w-3 h-3 rounded-full bg-gray-300" />
         )}

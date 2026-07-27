@@ -49,7 +49,7 @@ export default function ErrorPage() {
               sessionStorage.removeItem('intake_error');
               router.back();
             }}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg shadow transition"
+            className="w-full bg-brand-600 hover:bg-brand-700 text-white font-semibold py-3 rounded-lg shadow transition"
           >
             다시 시도
           </button>

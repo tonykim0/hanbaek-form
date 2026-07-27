@@ -16,7 +16,7 @@ export default function Home() {
           <div className="grid grid-cols-2 gap-3">
             <Link
               href="/pluglink"
-              className="block w-full bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md hover:border-blue-300 transition p-5"
+              className="block w-full bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md hover:border-brand-300 transition p-5"
             >
               <h3 className="text-lg font-semibold text-gray-900">플러그링크</h3>
               <p className="text-sm text-gray-500 mt-1">플러그링크 계약서류 자동생성 (보조금·자체투자 선택)</p>
@@ -24,7 +24,7 @@ export default function Home() {
 
             <Link
               href="/hec"
-              className="block w-full bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md hover:border-blue-300 transition p-5"
+              className="block w-full bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md hover:border-brand-300 transition p-5"
             >
               <h3 className="text-lg font-semibold text-gray-900">현대엔지니어링</h3>
               <p className="text-sm text-gray-500 mt-1">현대엔지니어링 운영서비스 계약서류 자동생성</p>
@@ -32,7 +32,7 @@ export default function Home() {
 
             <Link
               href="/nice"
-              className="block w-full bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md hover:border-blue-300 transition p-5"
+              className="block w-full bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md hover:border-brand-300 transition p-5"
             >
               <h3 className="text-lg font-semibold text-gray-900">나이스인프라</h3>
               <p className="text-sm text-gray-500 mt-1">나이스인프라 계약서류 자동생성</p>
@@ -40,7 +40,7 @@ export default function Home() {
 
             <Link
               href="/sk"
-              className="block w-full bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md hover:border-blue-300 transition p-5"
+              className="block w-full bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md hover:border-brand-300 transition p-5"
             >
               <h3 className="text-lg font-semibold text-gray-900">SK일렉링크</h3>
               <p className="text-sm text-gray-500 mt-1">SK일렉링크 계약서류 자동생성 (보조금·자체투자 선택)</p>
@@ -56,10 +56,10 @@ export default function Home() {
           </h2>
           <Link
             href="/intake"
-            className="block w-full bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow-sm hover:shadow-md transition p-5"
+            className="block w-full bg-brand-600 hover:bg-brand-700 text-white rounded-lg shadow-sm hover:shadow-md transition p-5"
           >
             <h3 className="text-lg font-semibold">작성 완료한 계약서 접수</h3>
-            <p className="text-sm text-blue-100 mt-1">
+            <p className="text-sm text-brand-100 mt-1">
               완료된 계약서 ZIP을 업로드해주세요 (영업자용)
             </p>
           </Link>

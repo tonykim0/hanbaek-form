@@ -17,7 +17,6 @@ import {
 import {
   ContractPageShell,
   FormActions,
-  NoticePanel,
   type SubmitStatus,
 } from '@/components/contracts/PageChrome';
 import {
@@ -145,18 +144,6 @@ export default function SkPage() {
           <FormActions status={status} isSubmitting={isSubmitting} />
         </form>
 
-      <NoticePanel
-        sections={[
-          {
-            title: '자동 처리 항목',
-            items: [
-              <>충전기 종류 → <strong>BAS1007.D1.1</strong> 자동 체크</>,
-              <>별지5호 결제방식 → <strong>후불청구(회원결제)</strong> (템플릿 고정)</>,
-              <>개인정보 수집·이용 동의 → <strong>동의함</strong> (템플릿 고정)</>,
-            ],
-          },
-        ]}
-      />
     </ContractPageShell>
   );
 }

@@ -11,7 +11,6 @@ import { Radio, RadioField, Section } from '@/components/contracts/FormControls'
 import {
   ContractPageShell,
   FormActions,
-  NoticePanel,
   type SubmitStatus,
 } from '@/components/contracts/PageChrome';
 import {
@@ -134,22 +133,6 @@ export default function App() {
           <FormActions status={status} isSubmitting={isSubmitting} />
         </form>
 
-      <NoticePanel
-        sections={[
-          {
-            title: 'ℹ️ 자동 처리되는 항목 (별지5호)',
-            items: [
-              <>결제방식 → <strong>후불청구(회원결제)</strong> (템플릿 고정)</>,
-              <>개인정보 수집·이용 동의 → <strong>동의함</strong> (템플릿 고정)</>,
-              <>개인정보 제3자 위탁·제공 동의 → <strong>동의함</strong> (템플릿 고정)</>,
-            ],
-          },
-          {
-            title: '⚠️ Word에서 수동 확인 필요',
-            items: ['별지5호 시설 종류 (공동주택/사업장/소상공인/기타) — 단지마다 거의 동일'],
-          },
-        ]}
-      />
     </ContractPageShell>
   );
 }

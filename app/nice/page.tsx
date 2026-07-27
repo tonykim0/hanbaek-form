@@ -127,9 +127,13 @@ export default function NicePage() {
               </p>
             }
             afterInstallAddr={
-              <Field label="상세위치">
+              <Field
+                label="상세위치"
+                required
+                error={errors.installDetailLocation?.message as string | undefined}
+              >
               <input
-                {...register('installDetailLocation')}
+                {...register('installDetailLocation', { required: '필수' })}
                 className={inputCls}
                 placeholder="예: 지하 1층 06,12 기둥 옆"
               />

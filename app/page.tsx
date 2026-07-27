@@ -15,13 +15,13 @@ export default function Home() {
             계약서 만들기
           </h2>
           <p className="text-xs text-gray-500 mb-3">CPO를 선택해주세요</p>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="flex flex-col gap-3">
             <Link
               href="/pluglink"
               className="block w-full bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md hover:border-brand-300 transition p-5"
             >
               <h3 className="text-lg font-semibold text-gray-900">플러그링크</h3>
-              <p className="text-sm text-gray-500 mt-1">플러그링크 계약서류 자동생성 (보조금·자체투자 선택)</p>
+              <p className="text-sm text-gray-500 mt-1">보조금·자체투자 선택</p>
             </Link>
 
             <Link
@@ -29,7 +29,6 @@ export default function Home() {
               className="block w-full bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md hover:border-brand-300 transition p-5"
             >
               <h3 className="text-lg font-semibold text-gray-900">현대엔지니어링</h3>
-              <p className="text-sm text-gray-500 mt-1">현대엔지니어링 운영서비스 계약서류 자동생성</p>
             </Link>
 
             <Link
@@ -37,7 +36,6 @@ export default function Home() {
               className="block w-full bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md hover:border-brand-300 transition p-5"
             >
               <h3 className="text-lg font-semibold text-gray-900">나이스인프라</h3>
-              <p className="text-sm text-gray-500 mt-1">나이스인프라 계약서류 자동생성</p>
             </Link>
 
             <Link
@@ -45,7 +43,7 @@ export default function Home() {
               className="block w-full bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md hover:border-brand-300 transition p-5"
             >
               <h3 className="text-lg font-semibold text-gray-900">SK일렉링크</h3>
-              <p className="text-sm text-gray-500 mt-1">SK일렉링크 계약서류 자동생성 (보조금·자체투자 선택)</p>
+              <p className="text-sm text-gray-500 mt-1">보조금·자체투자 선택</p>
             </Link>
           </div>
         </section>

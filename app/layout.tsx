@@ -3,7 +3,7 @@ import { Analytics } from '@vercel/analytics/react';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: '한백 EV 충전기 계약서 자동생성',
+  title: '한백 전기차충전사업',
   description: '한백 EV 인프라 사업 내부 도구',
   icons: { icon: '/logo.png', apple: '/logo.png' },
 };

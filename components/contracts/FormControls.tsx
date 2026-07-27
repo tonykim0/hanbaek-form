@@ -198,18 +198,38 @@ export function PillCheckbox<TFieldValues extends FieldValues>({
   );
 }
 
-/** 라벨 + pill 묶음. 라디오/체크박스 pill 그룹을 감싼다. */
+/**
+ * 라벨 + pill 묶음. 라디오/체크박스 pill 그룹을 감싼다.
+ * inline=true 이면 라벨을 왼쪽 고정폭에 두고 pill을 같은 줄에 정렬한다
+ * (옵션 수가 적은 그룹에서 표처럼 읽혀 스캔이 빠르다). 모바일에선 자동으로 쌓인다.
+ */
 export function ChoiceGroup({
   label,
   required,
   hint,
+  inline,
   children,
 }: {
   label: string;
   required?: boolean;
   hint?: string;
+  inline?: boolean;
   children: ReactNode;
 }) {
+  if (inline) {
+    return (
+      <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-3">
+        <div className="flex-none sm:w-28">
+          <span className="text-sm font-medium text-gray-700">
+            {label}
+            {required && <span className="text-red-500 ml-1">*</span>}
+          </span>
+          {hint && <span className="block text-xs text-brand-600">{hint}</span>}
+        </div>
+        <div className="flex flex-wrap gap-2">{children}</div>
+      </div>
+    );
+  }
   return (
     <div>
       <div className="flex items-baseline gap-2 mb-1.5">

@@ -323,12 +323,12 @@ export function ConsultingSection<TFieldValues extends CommonContractFields>({
       </SubGroup>
 
       <SubGroup label="소유 정보">
-        <ChoiceGroup label="소유여부">
+        <ChoiceGroup label="소유여부" inline>
           <PillRadio name={'ownership' as Path<TFieldValues>} value="own" register={register} label="소유" />
           <PillRadio name={'ownership' as Path<TFieldValues>} value="rent" register={register} label="임대" />
         </ChoiceGroup>
 
-        <ChoiceGroup label="소유주와의 관계">
+        <ChoiceGroup label="소유주와의 관계" inline>
           <PillRadio name={'ownerRelation' as Path<TFieldValues>} value="self" register={register} label="본인" />
           <PillRadio name={'ownerRelation' as Path<TFieldValues>} value="none" register={register} label="무관" />
           <PillRadio name={'ownerRelation' as Path<TFieldValues>} value="employee" register={register} label="직원" />
@@ -336,17 +336,17 @@ export function ConsultingSection<TFieldValues extends CommonContractFields>({
       </SubGroup>
 
       <SubGroup label="설치 조건">
-        <ChoiceGroup label="설치위치" hint="중복 선택 가능">
+        <ChoiceGroup label="설치위치" hint="중복 선택 가능" inline>
           <PillCheckbox register={register} name={'installLocIndoor' as Path<TFieldValues>} label="실내·지하" />
           <PillCheckbox register={register} name={'installLocOutdoor' as Path<TFieldValues>} label="실외·노상" />
         </ChoiceGroup>
 
-        <ChoiceGroup label="전력인입" hint="중복 선택 가능">
+        <ChoiceGroup label="전력인입" hint="중복 선택 가능" inline>
           <PillCheckbox register={register} name={'powerMoja' as Path<TFieldValues>} label="모자분할" />
           <PillCheckbox register={register} name={'powerHanjeon' as Path<TFieldValues>} label="한전불입" />
         </ChoiceGroup>
 
-        <ChoiceGroup label="설치타입" hint="중복 선택 가능">
+        <ChoiceGroup label="설치타입" hint="중복 선택 가능" inline>
           <PillCheckbox register={register} name={'installTypeWall' as Path<TFieldValues>} label="벽부형" />
           <PillCheckbox register={register} name={'installTypeStand' as Path<TFieldValues>} label="스탠드" />
         </ChoiceGroup>

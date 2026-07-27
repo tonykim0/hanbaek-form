@@ -5,6 +5,8 @@ export default function Home() {
     <div className="min-h-screen bg-gray-50 flex items-center justify-center px-6 py-10">
       <div className="max-w-2xl w-full">
         <header className="text-center mb-8">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo.png" alt="한백" className="w-16 h-16 mx-auto mb-3" />
           <h1 className="text-2xl font-bold text-gray-900">한백 계약서 자동생성</h1>
         </header>
 

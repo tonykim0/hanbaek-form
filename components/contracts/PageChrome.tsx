@@ -24,8 +24,10 @@ export function ContractPageShell({
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-6">
       <div className="max-w-5xl mx-auto">
-        <header className="mb-6">
-          <h1 className="text-3xl font-bold text-gray-900">{title}</h1>
+        <header className="mb-6 flex items-center gap-3">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo.png" alt="한백" className="w-10 h-10 flex-none" />
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">{title}</h1>
         </header>
 
         {children}

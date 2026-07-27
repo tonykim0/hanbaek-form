@@ -46,14 +46,22 @@ export function Section({
   title: string;
   children: ReactNode;
 }) {
+  const match = title ? title.match(/^\s*(\d+)\.\s*(.*)$/) : null;
+  const num = match ? match[1] : null;
+  const heading = match ? match[2] : title;
   return (
-    <section>
+    <section className="rounded-xl border border-gray-200 bg-white shadow-sm">
       {title && (
-        <h2 className="text-lg font-semibold text-gray-800 border-b border-gray-200 pb-2 mb-4">
-          {title}
-        </h2>
+        <div className="flex items-center gap-2.5 px-4 sm:px-5 py-3 border-b border-gray-100 bg-gray-50/60 rounded-t-xl">
+          {num && (
+            <span className="flex-none inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold">
+              {num}
+            </span>
+          )}
+          <h2 className="text-base font-semibold text-gray-900">{heading}</h2>
+        </div>
       )}
-      <div className="space-y-3">{children}</div>
+      <div className="p-4 sm:p-5 space-y-3">{children}</div>
     </section>
   );
 }

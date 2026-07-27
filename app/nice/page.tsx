@@ -100,7 +100,7 @@ export default function NicePage() {
     <ContractPageShell title="나이스인프라 계약서 자동생성">
         <form
           onSubmit={handleSubmit(onSubmit)}
-          className="space-y-6 bg-white rounded-lg shadow-sm border border-gray-200 p-6"
+          className="space-y-4 pb-2"
         >
           <CustomerInfoSection register={register} errors={errors} watch={watch}>
             <Field label="사업자등록증상 대표자" required error={errors.custRepresentative?.message}>

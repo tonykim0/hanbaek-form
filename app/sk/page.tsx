@@ -107,7 +107,7 @@ export default function SkPage() {
     <ContractPageShell title="SK일렉링크 계약서 자동생성">
         <form
           onSubmit={handleSubmit(onSubmit)}
-          className="space-y-6 bg-white rounded-lg shadow-sm border border-gray-200 p-6"
+          className="space-y-4 pb-2"
         >
           <Section title="사업구분">
             <RadioField label="계약 유형" hint="선택에 따라 생성되는 계약서 양식이 달라집니다 (입력 항목은 동일)">

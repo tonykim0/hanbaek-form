@@ -102,7 +102,7 @@ export default function HecPage() {
     <ContractPageShell title="현대엔지니어링 계약서 자동생성">
         <form
           onSubmit={handleSubmit(onSubmit)}
-          className="space-y-6 bg-white rounded-lg shadow-sm border border-gray-200 p-6"
+          className="space-y-4 pb-2"
         >
           <CustomerInfoSection
             register={register}

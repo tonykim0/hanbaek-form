@@ -50,23 +50,27 @@ export function FormActions({
   submittingLabel?: string;
 }) {
   return (
-    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 pt-4 border-t">
-      <div className="text-sm">
-        {status && (
+    <div className="sticky bottom-4 z-20 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-xl border border-gray-200 bg-white/95 backdrop-blur px-4 sm:px-5 py-3 shadow-lg">
+      <div className="text-sm min-w-0">
+        {status ? (
           <p
             className={
-              status.kind === 'success' ? 'text-green-700' : 'text-red-600 font-medium'
+              status.kind === 'success'
+                ? 'text-green-700'
+                : 'text-red-600 font-medium'
             }
           >
-            {status.kind === 'success' ? 'V ' : 'X '}
+            {status.kind === 'success' ? '✅ ' : '⚠️ '}
             {status.msg}
           </p>
+        ) : (
+          <p className="text-gray-400">입력을 마치면 아래 버튼으로 계약서를 생성하세요</p>
         )}
       </div>
       <button
         type="submit"
         disabled={isSubmitting}
-        className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-semibold px-6 py-3 rounded-lg shadow transition"
+        className="flex-none bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-semibold px-6 py-3 rounded-lg shadow-sm transition"
       >
         {isSubmitting ? submittingLabel : submitLabel}
       </button>

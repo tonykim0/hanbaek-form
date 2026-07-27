@@ -3,11 +3,11 @@ import Link from 'next/link';
 export default function Home() {
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center px-6 py-10">
-      <div className="max-w-2xl w-full">
-        <header className="text-center mb-8">
+      <div className="max-w-md w-full">
+        <header className="text-left mb-8">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo.png" alt="한백" className="w-16 h-16 mx-auto mb-3" />
-          <h1 className="text-2xl font-bold text-gray-900">한백 계약서 자동생성</h1>
+          <img src="/logo.png" alt="한백" className="w-16 h-16 mb-3" />
+          <h1 className="text-2xl font-bold text-gray-900">한백 전기차충전사업</h1>
         </header>
 
         <section className="mb-8">
@@ -18,7 +18,7 @@ export default function Home() {
           <div className="flex flex-col gap-3">
             <Link
               href="/pluglink"
-              className="block w-full bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md hover:border-brand-300 transition p-5"
+              className="block w-full bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md hover:border-brand-300 transition p-4"
             >
               <h3 className="text-lg font-semibold text-gray-900">플러그링크</h3>
               <p className="text-sm text-gray-500 mt-1">보조금·자체투자 선택</p>
@@ -26,21 +26,21 @@ export default function Home() {
 
             <Link
               href="/hec"
-              className="block w-full bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md hover:border-brand-300 transition p-5"
+              className="block w-full bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md hover:border-brand-300 transition p-4"
             >
               <h3 className="text-lg font-semibold text-gray-900">현대엔지니어링</h3>
             </Link>
 
             <Link
               href="/nice"
-              className="block w-full bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md hover:border-brand-300 transition p-5"
+              className="block w-full bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md hover:border-brand-300 transition p-4"
             >
               <h3 className="text-lg font-semibold text-gray-900">나이스인프라</h3>
             </Link>
 
             <Link
               href="/sk"
-              className="block w-full bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md hover:border-brand-300 transition p-5"
+              className="block w-full bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md hover:border-brand-300 transition p-4"
             >
               <h3 className="text-lg font-semibold text-gray-900">SK일렉링크</h3>
               <p className="text-sm text-gray-500 mt-1">보조금·자체투자 선택</p>
@@ -56,7 +56,7 @@ export default function Home() {
           </h2>
           <Link
             href="/intake"
-            className="block w-full bg-brand-600 hover:bg-brand-700 text-white rounded-lg shadow-sm hover:shadow-md transition p-5"
+            className="block w-full bg-brand-600 hover:bg-brand-700 text-white rounded-lg shadow-sm hover:shadow-md transition p-4"
           >
             <h3 className="text-lg font-semibold">작성 완료한 계약서 접수</h3>
             <p className="text-sm text-brand-100 mt-1">

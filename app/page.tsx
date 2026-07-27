@@ -19,7 +19,7 @@ export default function Home() {
               className="block w-full bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md hover:border-blue-300 transition p-5"
             >
               <h3 className="text-lg font-semibold text-gray-900">플러그링크</h3>
-              <p className="text-sm text-gray-500 mt-1">플러그링크 계약서류 자동생성</p>
+              <p className="text-sm text-gray-500 mt-1">플러그링크 계약서류 자동생성 (보조금·자체투자 선택)</p>
             </Link>
 
             <Link
@@ -42,16 +42,8 @@ export default function Home() {
               href="/sk"
               className="block w-full bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md hover:border-blue-300 transition p-5"
             >
-              <h3 className="text-lg font-semibold text-gray-900">SK일렉링크 (환경부)</h3>
-              <p className="text-sm text-gray-500 mt-1">SK일렉링크 환경부 보조금 계약서류 자동생성</p>
-            </Link>
-
-            <Link
-              href="/sk-invest"
-              className="block w-full bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md hover:border-blue-300 transition p-5"
-            >
-              <h3 className="text-lg font-semibold text-gray-900">SK일렉링크 (자투)</h3>
-              <p className="text-sm text-gray-500 mt-1">SK일렉링크 자체투자 계약서류 자동생성</p>
+              <h3 className="text-lg font-semibold text-gray-900">SK일렉링크</h3>
+              <p className="text-sm text-gray-500 mt-1">SK일렉링크 계약서류 자동생성 (보조금·자체투자 선택)</p>
             </Link>
           </div>
         </section>

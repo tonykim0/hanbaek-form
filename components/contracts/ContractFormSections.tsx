@@ -8,14 +8,15 @@ import type {
   UseFormWatch,
 } from 'react-hook-form';
 import {
-  Checkbox,
+  ChoiceGroup,
   contractInputClass,
   DuplicateInstallFieldset,
   Field,
   PhoneInput,
-  Radio,
-  RadioField,
+  PillCheckbox,
+  PillRadio,
   Section,
+  SubGroup,
 } from '@/components/contracts/FormControls';
 import { YEAR_OPTIONS } from '@/lib/contract-form';
 import { isBizIdComplete, isValidKoreanBizId } from '@/lib/bizid';
@@ -283,75 +284,83 @@ export function ConsultingSection<TFieldValues extends CommonContractFields>({
 }) {
   return (
     <Section title={title}>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Field label="외주모집대행사">
-          <input {...register('salesCompany' as Path<TFieldValues>)} className={inputCls} />
-        </Field>
-        <Field label="담당자명">
-          <input {...register('salesName' as Path<TFieldValues>)} className={inputCls} />
-        </Field>
-        <Field label="연락처">
-          <PhoneInput register={register} name={'salesTel' as Path<TFieldValues>} />
-        </Field>
-      </div>
+      <SubGroup label="모집 대행">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Field label="외주모집대행사">
+            <input {...register('salesCompany' as Path<TFieldValues>)} className={inputCls} />
+          </Field>
+          <Field label="담당자명">
+            <input {...register('salesName' as Path<TFieldValues>)} className={inputCls} />
+          </Field>
+          <Field label="연락처">
+            <PhoneInput register={register} name={'salesTel' as Path<TFieldValues>} />
+          </Field>
+        </div>
+      </SubGroup>
 
-      <Field
-        label="보유 주차면수 (면)"
-        required
-        error={fieldError(errors, 'parkingLotCount' as Path<TFieldValues>)}
-      >
-        <input
-          {...register('parkingLotCount' as Path<TFieldValues>, { required: '필수' })}
-          className={inputCls}
-          type="number"
-          placeholder="545"
+      <SubGroup label="현장 개요">
+        <Field
+          label="보유 주차면수 (면)"
+          required
+          error={fieldError(errors, 'parkingLotCount' as Path<TFieldValues>)}
+        >
+          <input
+            {...register('parkingLotCount' as Path<TFieldValues>, { required: '필수' })}
+            className={`${inputCls} md:max-w-xs`}
+            type="number"
+            placeholder="545"
+          />
+        </Field>
+
+        <ChoiceGroup label="건물형태" required>
+          <PillRadio name={'buildingType' as Path<TFieldValues>} value="apartment" register={register} label="공동주택" />
+          <PillRadio name={'buildingType' as Path<TFieldValues>} value="yeonlip" register={register} label="연립주택" />
+          <PillRadio name={'buildingType' as Path<TFieldValues>} value="sangga" register={register} label="상가" />
+          <PillRadio name={'buildingType' as Path<TFieldValues>} value="etc_officetel" register={register} label="기타 (오피스텔)" />
+          <PillRadio name={'buildingType' as Path<TFieldValues>} value="etc_knowledge" register={register} label="기타 (지식산업센터)" />
+          <PillRadio name={'buildingType' as Path<TFieldValues>} value="etc_government" register={register} label="기타 (관공서)" />
+        </ChoiceGroup>
+      </SubGroup>
+
+      <SubGroup label="소유 정보">
+        <ChoiceGroup label="소유여부">
+          <PillRadio name={'ownership' as Path<TFieldValues>} value="own" register={register} label="소유" />
+          <PillRadio name={'ownership' as Path<TFieldValues>} value="rent" register={register} label="임대" />
+        </ChoiceGroup>
+
+        <ChoiceGroup label="소유주와의 관계">
+          <PillRadio name={'ownerRelation' as Path<TFieldValues>} value="self" register={register} label="본인" />
+          <PillRadio name={'ownerRelation' as Path<TFieldValues>} value="family" register={register} label="가족" />
+          <PillRadio name={'ownerRelation' as Path<TFieldValues>} value="friend" register={register} label="지인" />
+          <PillRadio name={'ownerRelation' as Path<TFieldValues>} value="employee" register={register} label="직원" />
+          <PillRadio name={'ownerRelation' as Path<TFieldValues>} value="none" register={register} label="무관" />
+        </ChoiceGroup>
+      </SubGroup>
+
+      <SubGroup label="설치 조건">
+        <ChoiceGroup label="설치위치" hint="중복 선택 가능">
+          <PillCheckbox register={register} name={'installLocIndoor' as Path<TFieldValues>} label="실내·지하" />
+          <PillCheckbox register={register} name={'installLocOutdoor' as Path<TFieldValues>} label="실외·노상" />
+        </ChoiceGroup>
+
+        <ChoiceGroup label="전력인입" hint="중복 선택 가능">
+          <PillCheckbox register={register} name={'powerMoja' as Path<TFieldValues>} label="모자분할" />
+          <PillCheckbox register={register} name={'powerHanjeon' as Path<TFieldValues>} label="한전불입" />
+        </ChoiceGroup>
+
+        <ChoiceGroup label="설치타입" hint="중복 선택 가능">
+          <PillCheckbox register={register} name={'installTypeWall' as Path<TFieldValues>} label="벽부형" />
+          <PillCheckbox register={register} name={'installTypeStand' as Path<TFieldValues>} label="스탠드" />
+        </ChoiceGroup>
+
+        <DuplicateInstallFieldset
+          register={register}
+          dupFast={dupFast}
+          dupSlow={dupSlow}
+          dupDist={dupDist}
+          dupOutlet={dupOutlet}
         />
-      </Field>
-
-      <RadioField label="건물형태" required>
-        <Radio name={'buildingType' as Path<TFieldValues>} value="apartment" register={register} label="공동주택" />
-        <Radio name={'buildingType' as Path<TFieldValues>} value="yeonlip" register={register} label="연립주택" />
-        <Radio name={'buildingType' as Path<TFieldValues>} value="sangga" register={register} label="상가" />
-        <Radio name={'buildingType' as Path<TFieldValues>} value="etc_officetel" register={register} label="기타 (오피스텔)" />
-        <Radio name={'buildingType' as Path<TFieldValues>} value="etc_knowledge" register={register} label="기타 (지식산업센터)" />
-        <Radio name={'buildingType' as Path<TFieldValues>} value="etc_government" register={register} label="기타 (관공서)" />
-      </RadioField>
-
-      <RadioField label="설치위치" hint="중복 선택 가능">
-        <Checkbox register={register} name={'installLocIndoor' as Path<TFieldValues>} label="실내·지하" />
-        <Checkbox register={register} name={'installLocOutdoor' as Path<TFieldValues>} label="실외·노상" />
-      </RadioField>
-
-      <RadioField label="소유여부">
-        <Radio name={'ownership' as Path<TFieldValues>} value="own" register={register} label="소유" />
-        <Radio name={'ownership' as Path<TFieldValues>} value="rent" register={register} label="임대" />
-      </RadioField>
-
-      <RadioField label="소유주와의 관계">
-        <Radio name={'ownerRelation' as Path<TFieldValues>} value="self" register={register} label="본인" />
-        <Radio name={'ownerRelation' as Path<TFieldValues>} value="family" register={register} label="가족" />
-        <Radio name={'ownerRelation' as Path<TFieldValues>} value="friend" register={register} label="지인" />
-        <Radio name={'ownerRelation' as Path<TFieldValues>} value="employee" register={register} label="직원" />
-        <Radio name={'ownerRelation' as Path<TFieldValues>} value="none" register={register} label="무관" />
-      </RadioField>
-
-      <RadioField label="전력인입" hint="중복 선택 가능">
-        <Checkbox register={register} name={'powerMoja' as Path<TFieldValues>} label="모자분할" />
-        <Checkbox register={register} name={'powerHanjeon' as Path<TFieldValues>} label="한전불입" />
-      </RadioField>
-
-      <RadioField label="설치타입" hint="중복 선택 가능">
-        <Checkbox register={register} name={'installTypeWall' as Path<TFieldValues>} label="벽부형" />
-        <Checkbox register={register} name={'installTypeStand' as Path<TFieldValues>} label="스탠드" />
-      </RadioField>
-
-      <DuplicateInstallFieldset
-        register={register}
-        dupFast={dupFast}
-        dupSlow={dupSlow}
-        dupDist={dupDist}
-        dupOutlet={dupOutlet}
-      />
+      </SubGroup>
     </Section>
   );
 }

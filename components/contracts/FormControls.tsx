@@ -153,6 +153,95 @@ export function Checkbox<TFieldValues extends FieldValues>({
   );
 }
 
+/** 라디오/체크박스를 선택형 pill(칩) 버튼으로 표시하기 위한 공통 스타일 */
+const pillClass =
+  'inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-sm cursor-pointer select-none transition ' +
+  'border-gray-300 text-gray-700 bg-white hover:border-brand-400 hover:bg-brand-50 ' +
+  'peer-checked:border-brand-600 peer-checked:bg-brand-600 peer-checked:text-white peer-checked:font-medium ' +
+  'peer-focus-visible:ring-2 peer-focus-visible:ring-brand-500 peer-focus-visible:ring-offset-1';
+
+/** 단일 선택 pill (라디오) */
+export function PillRadio<TFieldValues extends FieldValues>({
+  name,
+  value,
+  register,
+  label,
+}: {
+  name: Path<TFieldValues>;
+  value: string;
+  register: UseFormRegister<TFieldValues>;
+  label: string;
+}) {
+  return (
+    <label className="cursor-pointer">
+      <input type="radio" value={value} {...register(name)} className="peer sr-only" />
+      <span className={pillClass}>{label}</span>
+    </label>
+  );
+}
+
+/** 다중 선택 pill (체크박스) — 선택 시 체크 표시 */
+export function PillCheckbox<TFieldValues extends FieldValues>({
+  register,
+  name,
+  label,
+}: {
+  register: UseFormRegister<TFieldValues>;
+  name: Path<TFieldValues>;
+  label: string;
+}) {
+  return (
+    <label className="cursor-pointer">
+      <input type="checkbox" {...register(name)} className="peer sr-only" />
+      <span className={pillClass}>
+        <span className="text-xs leading-none opacity-0 peer-checked:opacity-100 -ml-0.5">✓</span>
+        {label}
+      </span>
+    </label>
+  );
+}
+
+/** 라벨 + pill 묶음. 라디오/체크박스 pill 그룹을 감싼다. */
+export function ChoiceGroup({
+  label,
+  required,
+  hint,
+  children,
+}: {
+  label: string;
+  required?: boolean;
+  hint?: string;
+  children: ReactNode;
+}) {
+  return (
+    <div>
+      <div className="flex items-baseline gap-2 mb-1.5">
+        <span className="text-sm font-medium text-gray-700">
+          {label}
+          {required && <span className="text-red-500 ml-1">*</span>}
+        </span>
+        {hint && <span className="text-xs text-brand-600">{hint}</span>}
+      </div>
+      <div className="flex flex-wrap gap-2">{children}</div>
+    </div>
+  );
+}
+
+/** 카드 내부의 소그룹 구분 헤더 */
+export function SubGroup({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-2">
+        <span className="text-xs font-semibold uppercase tracking-wide text-brand-700">
+          {label}
+        </span>
+        <span className="flex-1 h-px bg-gray-100" />
+      </div>
+      {children}
+    </div>
+  );
+}
+
 export function DupRow<TFieldValues extends FieldValues>({
   register,
   checkboxName,

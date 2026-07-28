@@ -10,6 +10,10 @@ const updates = [
     date: '2026. 07. 27.',
     title: '플러그링크 자체투자 계약서 추가',
   },
+  {
+    date: '2026. 07. 26.',
+    title: '현대엔지니어링 운영서비스 계약서 업데이트',
+  },
 ];
 
 export default function Home() {
@@ -43,6 +47,7 @@ export default function Home() {
                   className="block w-full bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md hover:border-brand-300 transition p-4"
                 >
                   <h3 className="text-lg font-semibold text-gray-900">현대엔지니어링</h3>
+                  <p className="text-sm text-gray-500 mt-1">보조금·자체투자 선택</p>
                 </Link>
 
                 <Link

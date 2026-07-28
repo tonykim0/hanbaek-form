@@ -26,7 +26,7 @@ const CHECKED_GLYPH = '\u25A0';   // ■
 const UNCHECKED_GLYPH = '\u2610'; // ☐
 const CHECKED_FONT = '맑은 고딕';
 const UNCHECKED_FONT = 'MS Gothic';
-const FILLED_TEXT_SIZE = '16'; // 8pt in Word half-point units
+const FILLED_TEXT_SIZE = '18'; // 9pt in Word half-point units (계약서·약관 가독성 위해 8pt→9pt 한 단계 상향)
 
 // ─────────────────────────────────────────────
 // SDT helpers (same as pluglink fillDocx.ts)

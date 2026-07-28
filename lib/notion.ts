@@ -422,7 +422,9 @@ function createUniqueFileName(
 }
 
 // 여러 페이지여도 하나의 파일로 유지해야 하는 카테고리
+// (계약서: SK 별첨1·현대 운영서비스계약서+약관처럼 계약 관련 페이지는 항상 1개 파일로 통합)
 const NO_SPLIT_CATEGORIES = new Set<string>([
+  '계약서',
   '한전 전기요금 청구서',
   '건축물대장',
 ]);

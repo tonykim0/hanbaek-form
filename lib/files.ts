@@ -122,14 +122,10 @@ function sha256(buffer: Buffer): string {
 }
 
 /**
- * 표준 파일명 생성: {현장명}_{카테고리}_{날짜}.pdf
+ * 표준 파일명 생성: {현장명}_{카테고리}.pdf
  * 파일명에 허용되지 않는 문자는 '_'로 대체.
  */
-export function buildStandardName(
-  현장명: string,
-  category: string,
-  date: string
-): string {
+export function buildStandardName(현장명: string, category: string): string {
   // 파일명용 카테고리 줄임말
   const categoryShort: Record<string, string> = {
     '계약서': '계약서',
@@ -142,6 +138,8 @@ export function buildStandardName(
     '입주자대표회의 회의록': '회의록',
     '한전 전기요금 청구서': '한전청구서',
     '건축물대장': '건축물대장',
+    '사업자등록증': '사업자등록증',
+    '고유번호증': '고유번호증',
     '실사보고서': '실사보고서',
     '기타': '기타',
   };
@@ -149,5 +147,5 @@ export function buildStandardName(
   const catShort = categoryShort[category] ?? '기타';
   // Windows/macOS 파일명 금지 문자 제거
   const safeName = 현장명.replace(/[<>:"/\\|?*\x00-\x1f]/g, '_').trim();
-  return `${safeName}_${catShort}_${date}.pdf`;
+  return `${safeName}_${catShort}.pdf`;
 }

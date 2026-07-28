@@ -1,4 +1,4 @@
-// 12개 분류 카테고리 (HANDOFF.md §4)
+// 14개 분류 카테고리 (HANDOFF.md §4)
 export type FileCategory =
   | '계약서'
   | '합의서'
@@ -10,6 +10,8 @@ export type FileCategory =
   | '입주자대표회의 회의록'
   | '한전 전기요금 청구서'
   | '건축물대장'
+  | '사업자등록증'
+  | '고유번호증'
   | '실사보고서'
   | '기타';
 

@@ -106,7 +106,7 @@ export async function attachFilesToPage(
   metadata: ExtractedMetadata | null
 ): Promise<ClassifiedFile[]> {
   const today = formatToday();
-  const uploadItems = await buildUploadItems(files, metadata, today);
+  const uploadItems = await buildUploadItems(files, metadata);
   const { classifiedFiles } = await attachUploadItemsToPage(pageId, uploadItems, today);
   return classifiedFiles;
 }
@@ -141,8 +141,7 @@ export interface AttachUploadItemsResult {
  */
 export async function buildUploadItems(
   files: NormalizedFile[],
-  metadata: ExtractedMetadata | null,
-  today: string
+  metadata: ExtractedMetadata | null
 ): Promise<UploadItem[]> {
   const items: UploadItem[] = [];
 
@@ -161,7 +160,7 @@ export async function buildUploadItems(
         originalName: file.name,
         category,
         standardName: metadata?.현장명
-          ? buildStandardName(metadata.현장명, category, today)
+          ? buildStandardName(metadata.현장명, category)
           : file.name,
         buffer: file.buffer,
       });
@@ -182,7 +181,7 @@ export async function buildUploadItems(
           originalName: file.name,
           category: info.category,
           standardName: metadata?.현장명
-            ? buildStandardName(metadata.현장명, info.category, today)
+            ? buildStandardName(metadata.현장명, info.category)
             : file.name,
           buffer,
         });
@@ -217,7 +216,7 @@ export async function attachUploadItemsToPage(
   // ── 번들 ZIP 먼저 첨부 (페이지 상단 위치) ────────────────────
   if (shouldBundle) {
     currentStep++;
-    const zipName = buildBundleZipName(siteName, today);
+    const zipName = buildBundleZipName(siteName);
 
     options.onProgress?.({
       current: currentStep,
@@ -282,9 +281,9 @@ function mapPowerInletToSujeon(value: string): string | null {
   return map[value] ?? null;
 }
 
-function buildBundleZipName(siteName: string, date: string): string {
+function buildBundleZipName(siteName: string): string {
   const safe = siteName.replace(/[<>:"/\\|?*\x00-\x1f]/g, '_').trim();
-  return `${safe}_전체_${date}.zip`;
+  return `${safe}_전체.zip`;
 }
 
 async function buildBundleZip(

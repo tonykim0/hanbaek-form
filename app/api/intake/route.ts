@@ -106,11 +106,7 @@ export async function POST(request: NextRequest) {
         send({ phase: 'splitting', message: '파일 준비 중...' });
 
         const today = formatToday();
-        const uploadItems = await buildUploadItems(
-          normalizedFiles,
-          metadata,
-          today
-        );
+        const uploadItems = await buildUploadItems(normalizedFiles, metadata);
 
         const isSplit = normalizedFiles.length === 1 && uploadItems.length > 1;
         send({

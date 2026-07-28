@@ -297,8 +297,43 @@ async function buildBundleZip(
   return zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' });
 }
 
+/** 일시적 오류(네트워크·429·5xx)에 한해 지수 백오프로 재시도한다. */
+async function withRetry<T>(
+  fn: () => Promise<T>,
+  label: string,
+  attempts = 3
+): Promise<T> {
+  let lastError: unknown;
+  for (let i = 1; i <= attempts; i++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastError = err;
+      if (i >= attempts || !isRetryableError(err)) break;
+      console.warn(`[notion] ${label} 재시도 ${i}/${attempts - 1}:`, err);
+      await sleep(500 * i);
+    }
+  }
+  throw lastError;
+}
+
+function isRetryableError(err: unknown): boolean {
+  if (err instanceof APIResponseError) {
+    return err.status === 429 || err.status >= 500;
+  }
+  // fetch 헬퍼가 던지는 "... failed: <status> ..." 메시지에서 상태코드 판별
+  const msg = err instanceof Error ? err.message : String(err);
+  const m = msg.match(/failed:\s*(\d{3})/);
+  if (m) {
+    const s = Number(m[1]);
+    return s === 429 || s >= 500;
+  }
+  return true; // 네트워크/알 수 없는 오류 → 재시도
+}
+
 /**
  * 단일 파일을 Notion에 업로드 + 페이지에 블록 첨부.
+ * 각 단계(업로드 세션/전송, 블록 첨부)를 일시 오류 시 재시도해 누락을 줄인다.
  */
 export async function uploadAndAttach(
   pageId: string,
@@ -306,54 +341,55 @@ export async function uploadAndAttach(
   standardName: string,
   contentType: string = 'application/pdf'
 ): Promise<void> {
-  // Step 1: 업로드 세션 생성
-  const createRes = await fetch('https://api.notion.com/v1/file_uploads', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${process.env.NOTION_API_KEY}`,
-      'Notion-Version': '2022-06-28',
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      filename: standardName,
-      content_type: contentType,
-    }),
-  });
-  if (!createRes.ok) {
-    const text = await createRes.text();
-    throw new Error(`file_uploads.create failed: ${createRes.status} ${text}`);
-  }
-  const fileUpload = await createRes.json() as { id: string };
-
-  // Step 2: 바이너리 전송
-  const formData = new FormData();
-  const ab = buffer.buffer.slice(
-    buffer.byteOffset,
-    buffer.byteOffset + buffer.byteLength
-  ) as ArrayBuffer;
-  formData.append('file', new Blob([ab], { type: contentType }), standardName);
-
-  const sendRes = await fetch(
-    `https://api.notion.com/v1/file_uploads/${fileUpload.id}/send`,
-    {
+  // Step 1+2: 업로드 세션 생성 + 바이너리 전송 (재시도 시 새 세션 발급 → 중복 없음)
+  const fileUploadId = await withRetry(async () => {
+    const createRes = await fetch('https://api.notion.com/v1/file_uploads', {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${process.env.NOTION_API_KEY}`,
         'Notion-Version': '2022-06-28',
+        'Content-Type': 'application/json',
       },
-      body: formData,
+      body: JSON.stringify({ filename: standardName, content_type: contentType }),
+    });
+    if (!createRes.ok) {
+      throw new Error(`file_uploads.create failed: ${createRes.status} ${await createRes.text()}`);
     }
-  );
-  if (!sendRes.ok) {
-    const text = await sendRes.text();
-    throw new Error(`file_uploads.send failed: ${sendRes.status} ${text}`);
-  }
+    const fileUpload = (await createRes.json()) as { id: string };
+
+    const formData = new FormData();
+    const ab = buffer.buffer.slice(
+      buffer.byteOffset,
+      buffer.byteOffset + buffer.byteLength
+    ) as ArrayBuffer;
+    formData.append('file', new Blob([ab], { type: contentType }), standardName);
+
+    const sendRes = await fetch(
+      `https://api.notion.com/v1/file_uploads/${fileUpload.id}/send`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${process.env.NOTION_API_KEY}`,
+          'Notion-Version': '2022-06-28',
+        },
+        body: formData,
+      }
+    );
+    if (!sendRes.ok) {
+      throw new Error(`file_uploads.send failed: ${sendRes.status} ${await sendRes.text()}`);
+    }
+    return fileUpload.id;
+  }, `업로드(${standardName})`);
 
   // Step 3: 페이지 블록으로 첨부
-  await notion.blocks.children.append({
-    block_id: pageId,
-    children: [createFileBlock(standardName, fileUpload.id) as any],
-  });
+  await withRetry(
+    () =>
+      notion.blocks.children.append({
+        block_id: pageId,
+        children: [createFileBlock(standardName, fileUploadId) as any],
+      }),
+    `첨부(${standardName})`
+  );
 }
 
 function createFileBlock(name: string, fileUploadId: string) {

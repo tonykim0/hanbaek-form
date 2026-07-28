@@ -124,10 +124,36 @@ export default function IntakePage() {
               서류 업로드
             </h2>
             <div className="mb-3 rounded-lg border border-amber-300 bg-amber-50 p-4">
-              <ul className="list-disc pl-5 space-y-2 text-sm font-medium text-amber-800">
-                <li>모든 서류를 하나의 ZIP으로 압축해서 올려주세요. ZIP이 아닌 파일은 받지 않습니다.</li>
-                <li>모든 서류는 스캔본으로 부탁드립니다. 사진촬영본은 무조건 보완요청 드릴 예정이며, 계약서류의 글자가 희미하거나 안 보일 경우에도 보완요청 드릴 예정입니다.</li>
-                <li>한 번에 한 현장 서류만 올려주세요. 여러 현장은 ZIP을 분리해서 각각 접수해주세요.</li>
+              <p className="flex items-center gap-1.5 mb-3 text-sm font-bold text-amber-900">
+                <span aria-hidden>⚠️</span>
+                접수 전 꼭 확인해주세요
+              </p>
+              <ul className="space-y-2.5 text-sm text-amber-900">
+                <li className="flex gap-2">
+                  <span aria-hidden className="mt-px text-amber-500">•</span>
+                  <span>
+                    모든 서류를 <strong className="font-semibold">하나의 ZIP</strong>으로 압축해 올려주세요.
+                    ZIP이 아닌 파일은 받지 않습니다.
+                  </span>
+                </li>
+                <li className="flex gap-2">
+                  <span aria-hidden className="mt-px text-amber-500">•</span>
+                  <span>
+                    모든 서류는 <strong className="font-semibold">스캔본</strong>으로 부탁드립니다.
+                    사진촬영본은 무조건{' '}
+                    <span className="font-semibold underline decoration-2 underline-offset-2">
+                      보완요청
+                    </span>{' '}
+                    드리며, 글자가 희미하거나 안 보이는 경우에도 보완요청 드립니다.
+                  </span>
+                </li>
+                <li className="flex gap-2">
+                  <span aria-hidden className="mt-px text-amber-500">•</span>
+                  <span>
+                    <strong className="font-semibold">한 현장씩</strong> 올려주세요.
+                    여러 현장은 ZIP을 분리해 각각 접수해주세요.
+                  </span>
+                </li>
               </ul>
             </div>
             <UploadZone files={files} onFilesChange={setFiles} />

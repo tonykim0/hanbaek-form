@@ -16,6 +16,7 @@ interface StartIntakeSessionOptions {
   salesRepName: string;
   salesRepCompany: string;
   blobUrl: string;
+  note?: string;
   onEvent: (event: IntakeStreamEvent) => void;
 }
 
@@ -51,6 +52,7 @@ export async function startIntakeSession({
   salesRepName,
   salesRepCompany,
   blobUrl,
+  note,
   onEvent,
 }: StartIntakeSessionOptions): Promise<void> {
   const res = await fetch('/api/intake', {
@@ -60,6 +62,7 @@ export async function startIntakeSession({
       salesRepName,
       salesRepCompany,
       blobUrl,
+      note,
     }),
   });
 

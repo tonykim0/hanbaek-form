@@ -27,7 +27,8 @@ export interface SalesRep {
  */
 export async function createNotionEntry(
   salesRep: SalesRep,
-  metadata: ExtractedMetadata | null
+  metadata: ExtractedMetadata | null,
+  note: string = ''
 ): Promise<{ id: string; url: string }> {
   const currentYear = new Date().getFullYear();
 
@@ -75,11 +76,6 @@ export async function createNotionEntry(
     if (metadata.현장이메일) {
       properties['현장이메일'] = { email: metadata.현장이메일 };
     }
-    if (metadata.비고) {
-      properties['특이사항'] = {
-        rich_text: [{ text: { content: metadata.비고 } }],
-      };
-    }
     // 사업구분: 추출값 우선, 없으면 설치신청서 유무로 환경부 추정
     const has설치신청서 = (metadata.files ?? []).some(
       (f) => f.category === '전기차충전시설 설치신청서'
@@ -88,6 +84,16 @@ export async function createNotionEntry(
     if (사업구분) {
       properties['사업구분'] = { select: { name: 사업구분 } };
     }
+  }
+
+  // 특이사항: 접수자 입력 메모 우선 + AI 추출 비고 (metadata 없어도 메모는 기록)
+  const 특이사항Parts: string[] = [];
+  if (note) 특이사항Parts.push(`[접수자] ${note}`);
+  if (metadata?.비고) 특이사항Parts.push(`[AI] ${metadata.비고}`);
+  if (특이사항Parts.length > 0) {
+    properties['특이사항'] = {
+      rich_text: [{ text: { content: 특이사항Parts.join('\n') } }],
+    };
   }
 
   // 누락 서류 점검 (핵심 세트 + 조건부) → '누락서류' 속성에 기록

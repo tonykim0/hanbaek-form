@@ -29,6 +29,7 @@ export default function IntakePage() {
   const router = useRouter();
   const [name, setName] = useState('');
   const [company, setCompany] = useState('');
+  const [note, setNote] = useState('');
   const [files, setFiles] = useState<File[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [progress, setProgress] = useState<ProgressState>(INITIAL_PROGRESS);
@@ -64,6 +65,7 @@ export default function IntakePage() {
         salesRepName: name.trim(),
         salesRepCompany: company.trim(),
         blobUrl,
+        note: note.trim(),
         onEvent: (event) => {
           const route = handleIntakeEvent(event, setProgress);
           if (route === 'complete' && event.phase === 'done') {
@@ -140,8 +142,14 @@ export default function IntakePage() {
               <span aria-hidden className="mt-px text-amber-500">•</span>
               <span>
                 <strong className="font-semibold">사전현장컨설팅 결과서</strong>와{' '}
-                <strong className="font-semibold">사진대지</strong>는 반드시 함께 올려야 정상 접수로 인정됩니다.
-                단, <strong className="font-semibold">플러그링크·나이스인프라</strong>는 사진대지 대신 실사보고서를 제출합니다.
+                <strong className="font-semibold">사진대지</strong>는 반드시 함께 올려야 정상 접수로 인정됩니다.{' '}
+                <span className="inline-block rounded bg-red-600 px-1.5 py-0.5 text-xs font-bold text-white align-middle">
+                  영업비 지급 조건
+                </span>
+                <br />
+                <span className="text-amber-800">
+                  단, <strong className="font-semibold">플러그링크·나이스인프라</strong>는 사진대지 대신 실사보고서를 제출합니다.
+                </span>
               </span>
             </li>
           </ul>
@@ -170,6 +178,20 @@ export default function IntakePage() {
             <div className="mt-3">
               <FilePreview files={files} onRemove={handleRemoveFile} />
             </div>
+          </section>
+
+          {/* 특이사항 (접수자 메모) */}
+          <section>
+            <h2 className="text-sm font-semibold text-gray-800 mb-2">
+              특이사항 <span className="font-normal text-gray-400">(선택)</span>
+            </h2>
+            <textarea
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              rows={3}
+              placeholder="담당자에게 전달할 특이사항이 있으면 적어주세요. (예: 누락 서류 사유, 현장 특이사항 등)"
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-800 placeholder:text-gray-400 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 resize-y"
+            />
           </section>
 
           {/* 접수 버튼 / 진행 상태 */}

@@ -31,6 +31,7 @@ export async function POST(request: NextRequest) {
     salesRepName?: string;
     salesRepCompany?: string;
     blobUrl?: string;
+    note?: string;
   };
   try {
     body = await request.json();
@@ -41,6 +42,7 @@ export async function POST(request: NextRequest) {
   const salesRepName = body.salesRepName?.trim() ?? '';
   const salesRepCompany = body.salesRepCompany?.trim() ?? '';
   const blobUrl = body.blobUrl?.trim() ?? '';
+  const note = body.note?.trim() ?? '';
 
   if (!salesRepName || !salesRepCompany) {
     return errorResponse('영업자 이름과 소속은 필수입니다', 'VALIDATION_ERROR');
@@ -136,7 +138,8 @@ export async function POST(request: NextRequest) {
         try {
           const page = await createNotionEntry(
             { name: salesRepName, company: salesRepCompany },
-            metadata
+            metadata,
+            note
           );
           const { classifiedFiles, warnings: attachWarnings } =
             await attachUploadItemsToPage(page.id, uploadItems, today, {

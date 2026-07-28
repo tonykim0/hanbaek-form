@@ -15,6 +15,9 @@ export type Ownership = 'own' | 'rent' | '';
 export type OwnerRelation = 'self' | 'family' | 'friend' | 'employee' | 'none' | '';
 
 export interface HecFormData {
+  // 0. 사업구분 — 보조금사업(subsidy) / 자체투자(invest). 생성 템플릿만 달라짐.
+  businessType: 'subsidy' | 'invest';
+
   // 1. 고객사 정보
   custName: string;
   custBizId: string;

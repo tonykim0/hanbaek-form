@@ -270,8 +270,13 @@ export interface FillResult {
 }
 
 export async function fillHecTemplate(form: HecFormData): Promise<FillResult> {
-  // 1. Fetch template
-  const response = await fetch('/hec/template.docx');
+  // 1. Fetch template — 사업구분에 따라 보조금/자체투자 문서 선택 (필드는 동일)
+  //    자체투자본은 별지5호 설치신청서·개인정보 동의서가 제거된 버전
+  const templatePath =
+    form.businessType === 'invest'
+      ? '/hec/template_invest.docx'
+      : '/hec/template.docx';
+  const response = await fetch(templatePath);
   if (!response.ok) {
     throw new Error(`템플릿 파일을 불러올 수 없습니다 (${response.status})`);
   }

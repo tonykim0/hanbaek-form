@@ -136,6 +136,14 @@ export default function IntakePage() {
                 여러 현장은 ZIP을 분리해 각각 접수해주세요.
               </span>
             </li>
+            <li className="flex gap-2">
+              <span aria-hidden className="mt-px text-amber-500">•</span>
+              <span>
+                <strong className="font-semibold">사전현장컨설팅 결과서</strong>와{' '}
+                <strong className="font-semibold">사진대지</strong>는 반드시 함께 올려야 정상 접수로 인정됩니다.
+                단, <strong className="font-semibold">플러그링크·나이스인프라</strong>는 사진대지 대신 실사보고서를 제출합니다.
+              </span>
+            </li>
           </ul>
         </div>
 

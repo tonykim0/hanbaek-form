@@ -386,6 +386,7 @@ const ENV_ONLY_REQUIRED_DOCS = [
  *   + 사업자등록증(또는 고유번호증)
  * - 환경부 전용: 전기차충전시설 설치신청서·개인정보 동의서
  * - 건물유형 조건부: 공동주택 → 입주자대표회의 회의록 / 그 외(상업시설) → 관리단 회의록
+ * - 사진대지: 사전현장컨설팅 결과서와 함께 필수 (플러그링크·나이스인프라는 실사보고서로 대체하여 면제)
  */
 export function buildMissingDocsNote(metadata: ExtractedMetadata | null): string {
   if (!metadata) return 'AI 분류 실패 — 서류 누락 여부 수동 확인 필요';
@@ -416,8 +417,13 @@ export function buildMissingDocsNote(metadata: ExtractedMetadata | null): string
     if (!present.has('관리단 회의록')) missing.push('관리단 회의록');
   }
 
-  // SK일렉링크: 사진대지(사전현장컨설팅 결과서의 일부) 필수
-  if (metadata.CPO?.includes('SK일렉링크') && !present.has('사진대지')) {
+  // 사진대지: 사전현장컨설팅 결과서와 함께 필수
+  // (단 플러그링크·나이스인프라는 사진대지 대신 실사보고서를 제출하므로 면제)
+  const cpos = metadata.CPO ?? [];
+  const 사진대지면제 = cpos.some(
+    (c) => c === '플러그링크' || c === '나이스인프라'
+  );
+  if (cpos.length > 0 && !사진대지면제 && !present.has('사진대지')) {
     missing.push('사진대지(사전현장컨설팅)');
   }
 

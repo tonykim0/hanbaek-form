@@ -91,51 +91,63 @@ export function CustomerInfoSection<TFieldValues extends CommonContractFields>({
     bizIdValue && isBizIdComplete(bizIdValue) && !isValidKoreanBizId(bizIdValue)
       ? '⚠ 체크섬 불일치 — 사업자등록번호 오타 여부를 확인해주세요'
       : undefined;
+  // 법인명은 대표자(children)가 있으면 한 줄에 나란히, 없으면(플러그링크) 단독 전체폭
+  const legalNameField = (
+    <Field
+      label="사업자등록증상 법인명 (단체명)"
+      required
+      error={fieldError(errors, 'custName' as Path<TFieldValues>)}
+    >
+      <input
+        {...register('custName' as Path<TFieldValues>, {
+          required: '법인명은 필수입니다',
+        })}
+        className={inputCls}
+        placeholder="예: OO아파트 입주자대표회의"
+      />
+    </Field>
+  );
   return (
     <Section title="1. 고객사 정보">
-      <Field
-        label="사업자등록증상 법인명 (단체명)"
-        required
-        error={fieldError(errors, 'custName' as Path<TFieldValues>)}
-      >
-        <input
-          {...register('custName' as Path<TFieldValues>, {
-            required: '법인명은 필수입니다',
-          })}
-          className={inputCls}
-          placeholder="예: OO아파트 입주자대표회의"
-        />
-      </Field>
-      {children}
-      <Field
-        label="사업자등록번호"
-        required
-        error={fieldError(errors, 'custBizId' as Path<TFieldValues>)}
-        warning={bizIdChecksumWarning}
-      >
-        <input
-          {...register('custBizId' as Path<TFieldValues>, {
-            required: '필수',
-            pattern: {
-              value: /^\d{3}-\d{2}-\d{5}$/,
-              message: '형식: XXX-XX-XXXXX',
-            },
-          })}
-          className={inputCls}
-          placeholder="123-45-67890"
-        />
-      </Field>
-      <Field
-        label="주소 (도로명)"
-        required
-        error={fieldError(errors, 'custAddr' as Path<TFieldValues>)}
-      >
-        <input
-          {...register('custAddr' as Path<TFieldValues>, { required: '필수' })}
-          className={inputCls}
-          placeholder={addressPlaceholder}
-        />
-      </Field>
+      {children ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {legalNameField}
+          {children}
+        </div>
+      ) : (
+        legalNameField
+      )}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Field
+          label="사업자등록번호"
+          required
+          error={fieldError(errors, 'custBizId' as Path<TFieldValues>)}
+          warning={bizIdChecksumWarning}
+        >
+          <input
+            {...register('custBizId' as Path<TFieldValues>, {
+              required: '필수',
+              pattern: {
+                value: /^\d{3}-\d{2}-\d{5}$/,
+                message: '형식: XXX-XX-XXXXX',
+              },
+            })}
+            className={inputCls}
+            placeholder="123-45-67890"
+          />
+        </Field>
+        <Field
+          label="주소 (도로명)"
+          required
+          error={fieldError(errors, 'custAddr' as Path<TFieldValues>)}
+        >
+          <input
+            {...register('custAddr' as Path<TFieldValues>, { required: '필수' })}
+            className={inputCls}
+            placeholder={addressPlaceholder}
+          />
+        </Field>
+      </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Field
           label="대표 전화번호"

@@ -72,13 +72,28 @@ export async function createNotionEntry(
     if (metadata.현장연락처) {
       properties['현장연락처'] = { phone_number: metadata.현장연락처 };
     }
+    if (metadata.현장이메일) {
+      properties['현장이메일'] = { email: metadata.현장이메일 };
+    }
+    if (metadata.비고) {
+      properties['특이사항'] = {
+        rich_text: [{ text: { content: metadata.비고 } }],
+      };
+    }
+    // 사업구분: 추출값 우선, 없으면 설치신청서 유무로 환경부 추정
     const has설치신청서 = metadata.files.some(
       (f) => f.category === '전기차충전시설 설치신청서'
     );
-    if (has설치신청서) {
-      properties['사업구분'] = { select: { name: '환경부' } };
+    const 사업구분 = metadata.사업구분 ?? (has설치신청서 ? '환경부' : null);
+    if (사업구분) {
+      properties['사업구분'] = { select: { name: 사업구분 } };
     }
   }
+
+  // 누락 서류 점검 (핵심 세트 + 조건부) → '누락서류' 속성에 기록
+  properties['누락서류'] = {
+    rich_text: [{ text: { content: buildMissingDocsNote(metadata) } }],
+  };
 
   const page = await notion.pages.create({
     parent: { database_id: DB_ID },
@@ -270,6 +285,50 @@ export async function attachUploadItemsToPage(
   }
 
   return { classifiedFiles, warnings };
+}
+
+// 항상 필수인 핵심 서류
+const ALWAYS_REQUIRED_DOCS = [
+  '계약서',
+  '합의서',
+  '직인사용 동의서',
+  '행위신고 업무대행 동의서',
+  '개인정보 동의서',
+  '사전현장컨설팅 결과서',
+  '한전 전기요금 청구서',
+  '건축물대장',
+] as const;
+
+/**
+ * 접수 서류 누락 점검 결과 문구를 만든다. ('누락서류' 속성용)
+ * - 핵심 세트 8종 + 사업자등록증(또는 고유번호증) 항상 필수
+ * - 환경부 사업이면 전기차충전시설 설치신청서 추가 필수
+ * - 공동주택이면 입주자대표회의 회의록 추가 필수
+ */
+export function buildMissingDocsNote(metadata: ExtractedMetadata | null): string {
+  if (!metadata) return 'AI 분류 실패 — 서류 누락 여부 수동 확인 필요';
+
+  const present = new Set(metadata.files.map((f) => f.category));
+  const missing: string[] = [];
+
+  for (const doc of ALWAYS_REQUIRED_DOCS) {
+    if (!present.has(doc)) missing.push(doc);
+  }
+  if (!present.has('사업자등록증') && !present.has('고유번호증')) {
+    missing.push('사업자등록증(또는 고유번호증)');
+  }
+
+  const has설치신청서 = present.has('전기차충전시설 설치신청서');
+  const is환경부 = metadata.사업구분 === '환경부' || has설치신청서;
+  if (is환경부 && !has설치신청서) {
+    missing.push('전기차충전시설 설치신청서');
+  }
+  if (metadata.건축물유형 === '공동주택' && !present.has('입주자대표회의 회의록')) {
+    missing.push('입주자대표회의 회의록');
+  }
+
+  if (missing.length === 0) return '이상 없음';
+  return `⚠ 누락 ${missing.length}건: ${missing.join(', ')}`;
 }
 
 function mapPowerInletToSujeon(value: string): string | null {

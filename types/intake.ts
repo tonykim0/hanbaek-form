@@ -41,6 +41,8 @@ export type PowerInlet =
   | '한전수전'
   | '모자분리';
 
+export type BusinessType = '환경부' | '자체투자';
+
 // Claude가 반환하는 각 파일의 분류 결과
 export interface ClassifiedFileInfo {
   originalName: string;
@@ -61,8 +63,10 @@ export interface ExtractedMetadata {
   건축물유형: BuildingType | null;
   전력인입: PowerInlet | null;
   소재지: SojaejiName | null;
+  사업구분: BusinessType | null;
   현장담당자: string | null;
   현장연락처: string | null;
+  현장이메일: string | null;
   설치위치: string | null;
   비고: string | null;
   files: ClassifiedFileInfo[];

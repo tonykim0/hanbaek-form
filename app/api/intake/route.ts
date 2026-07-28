@@ -16,6 +16,7 @@ import {
   createNotionEntry,
   attachUploadItemsToPage,
   buildUploadItems,
+  buildMissingDocsNote,
   formatToday,
 } from '@/lib/notion';
 import type { IntakeSuccessResponse } from '@/types/intake';
@@ -100,6 +101,12 @@ export async function POST(request: NextRequest) {
         } catch (err) {
           console.error('[intake] Claude 추출 실패:', err);
           warnings.push('AI 분류에 실패했습니다. 담당자가 수동으로 검수합니다.');
+        }
+
+        // 서류 누락 점검 → 접수 화면에도 즉시 경고 노출 (노션 '누락서류' 속성에도 기록됨)
+        if (metadata) {
+          const missingNote = buildMissingDocsNote(metadata);
+          if (missingNote.startsWith('⚠')) warnings.push(missingNote);
         }
 
         // ── PDF 분할 + 업로드 항목 준비 ─────────────────────────

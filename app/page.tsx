@@ -50,6 +50,7 @@ export default function Home() {
                   className="block w-full bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md hover:border-brand-300 transition p-4"
                 >
                   <h3 className="text-lg font-semibold text-gray-900">나이스인프라</h3>
+                  <p className="text-sm text-gray-500 mt-1">보조금·자체투자 선택</p>
                 </Link>
 
                 <Link

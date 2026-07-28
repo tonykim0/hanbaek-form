@@ -257,7 +257,13 @@ export interface FillResult {
 }
 
 export async function fillNiceTemplate(form: NiceFormData): Promise<FillResult> {
-  const response = await fetch('/nice/template.docx');
+  // 사업구분에 따라 보조금/자체투자 문서 선택 (필드는 동일)
+  // 자체투자본은 표지 우상단 '26년 기후부 스마트형 배지가 제거된 버전
+  const templatePath =
+    form.businessType === 'invest'
+      ? '/nice/template_invest.docx'
+      : '/nice/template.docx';
+  const response = await fetch(templatePath);
   if (!response.ok) {
     throw new Error(`템플릿 파일을 불러올 수 없습니다 (${response.status})`);
   }

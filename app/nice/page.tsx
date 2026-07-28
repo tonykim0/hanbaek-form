@@ -10,6 +10,9 @@ import {
 import {
   contractInputClass,
   Field,
+  Radio,
+  RadioField,
+  Section,
 } from '@/components/contracts/FormControls';
 import {
   ContractPageShell,
@@ -25,6 +28,7 @@ import { downloadBlob } from '@/lib/download';
 import { NiceFormData } from '@/lib/schema-nice';
 
 const defaultValues: Partial<NiceFormData> = {
+  businessType: 'subsidy',
   contractYear: DEFAULT_YEAR,
   contractMonth: '',
   contractDay: '',
@@ -79,7 +83,11 @@ export default function NicePage() {
     try {
       const { fillNiceTemplate } = await import('@/lib/fillDocx-nice');
       const result = await fillNiceTemplate(data);
-      const filename = buildContractFilename(data.contractYear, '계약서류_NICE', data.custName);
+      const filename = buildContractFilename(
+        data.contractYear,
+        data.businessType === 'invest' ? '계약서류_NICE자체투자' : '계약서류_NICE',
+        data.custName,
+      );
       downloadBlob(result.blob, filename);
       setStatus({
         kind: 'success',
@@ -102,6 +110,13 @@ export default function NicePage() {
           onSubmit={handleSubmit(onSubmit)}
           className="space-y-4 pb-2"
         >
+          <Section title="사업구분">
+            <RadioField label="계약 유형" hint="선택에 따라 생성되는 계약서 양식이 달라집니다 (입력 항목은 동일)">
+              <Radio name="businessType" value="subsidy" register={register} label="보조금사업" />
+              <Radio name="businessType" value="invest" register={register} label="자체투자" />
+            </RadioField>
+          </Section>
+
           <CustomerInfoSection register={register} errors={errors} watch={watch}>
             <Field label="사업자등록증상 대표자" required error={errors.custRepresentative?.message}>
               <input

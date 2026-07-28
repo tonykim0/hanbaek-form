@@ -13,6 +13,8 @@ export type NiceFormData = Omit<
   HecFormData,
   'siteManager' | 'parkingSlotsSlow' | 'evCount'
 > & {
+  // 사업구분 — 보조금사업(subsidy) / 자체투자(invest). 생성 템플릿만 달라짐.
+  businessType: 'subsidy' | 'invest';
   installDetailLocation: string;
 };
 

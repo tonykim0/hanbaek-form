@@ -10,7 +10,9 @@ import {
 import {
   contractInputClass,
   Field,
+  Section,
 } from '@/components/contracts/FormControls';
+import type { Path, UseFormRegister } from 'react-hook-form';
 import {
   ContractPageShell,
   FormActions,
@@ -57,9 +59,55 @@ const defaultValues: Partial<HecFormData> = {
   siteManager: '관리소장',
   parkingSlotsSlow: '',
   evCount: '',
+  hanjeonSlow: '',
+  hanjeonFast: '',
+  mojaSlow: '',
+  mojaFast: '',
+  wallSlow: '',
+  wallFast: '',
+  standSlow: '',
+  standFast: '',
+  siteTotalSlow: '',
+  siteTotalFast: '',
 };
 
 const inputCls = contractInputClass;
+
+/** 완속/급속 설치대수 한 쌍 입력 (별지1·별지2 사진대지/체크리스트용) */
+function QtyPair({
+  label,
+  slowName,
+  fastName,
+  register,
+}: {
+  label: string;
+  slowName: Path<HecFormData>;
+  fastName: Path<HecFormData>;
+  register: UseFormRegister<HecFormData>;
+}) {
+  return (
+    <div className="flex items-center gap-2 flex-wrap">
+      <span className="w-32 text-sm font-medium text-gray-700">{label}</span>
+      <span className="text-xs text-gray-500">완속</span>
+      <input
+        {...register(slowName)}
+        type="number"
+        min="0"
+        placeholder="0"
+        className="border border-gray-300 rounded px-2 py-1 w-20 text-sm"
+      />
+      <span className="text-xs text-gray-500 ml-1">급속</span>
+      <input
+        {...register(fastName)}
+        type="number"
+        min="0"
+        placeholder="0"
+        className="border border-gray-300 rounded px-2 py-1 w-20 text-sm"
+      />
+      <span className="text-xs text-gray-500">기</span>
+    </div>
+  );
+}
 
 export default function HecPage() {
   const {
@@ -153,6 +201,27 @@ export default function HecPage() {
             dupDist={dupDist}
             dupOutlet={dupOutlet}
           />
+
+          <Section title="4. 사진대지·체크리스트 설치대수 (별지1·별지2)">
+            <p className="text-xs text-gray-500 -mt-1">
+              전원공급방식·설치타입별 완속/급속 대수를 입력하면 사진대지([별지1])와
+              사전 체크리스트([별지2])에 자동 반영됩니다. 조사일·현장명은 위 입력값이 자동 사용됩니다.
+            </p>
+            <div className="space-y-3">
+              <p className="text-sm font-semibold text-brand-700">전원 공급방식별</p>
+              <QtyPair label="한전 별도수전" slowName="hanjeonSlow" fastName="hanjeonFast" register={register} />
+              <QtyPair label="모자분리" slowName="mojaSlow" fastName="mojaFast" register={register} />
+            </div>
+            <div className="space-y-3 pt-1">
+              <p className="text-sm font-semibold text-brand-700">충전기 설치 Type별</p>
+              <QtyPair label="벽부형" slowName="wallSlow" fastName="wallFast" register={register} />
+              <QtyPair label="스탠드형" slowName="standSlow" fastName="standFast" register={register} />
+            </div>
+            <div className="space-y-3 pt-1">
+              <p className="text-sm font-semibold text-brand-700">충전시설 총 설치대수 (별지2)</p>
+              <QtyPair label="총 설치대수" slowName="siteTotalSlow" fastName="siteTotalFast" register={register} />
+            </div>
+          </Section>
 
           <FormActions status={status} isSubmitting={isSubmitting} />
         </form>

@@ -68,6 +68,18 @@ export interface HecFormData {
   siteManager: string;
   parkingSlotsSlow: string;
   evCount: string;
+
+  // 별지1 사진대지 / 별지2 체크리스트 — 전원공급·설치타입별 설치대수 (완속/급속)
+  hanjeonSlow: string;
+  hanjeonFast: string;
+  mojaSlow: string;
+  mojaFast: string;
+  wallSlow: string;
+  wallFast: string;
+  standSlow: string;
+  standFast: string;
+  siteTotalSlow: string;
+  siteTotalFast: string;
 }
 
 // ─────────────────────────────────────────────
@@ -76,6 +88,20 @@ export interface HecFormData {
 // ─────────────────────────────────────────────
 
 const TEXT_IDS = {
+  // 별지1 사진대지 / 별지2 체크리스트 (신규 양식)
+  surveyDate_b2: '900000250',
+  siteName_b2: '900000251',
+  b2Slow: '900000252',
+  b2Fast: '900000253',
+  hanjeonSlow: '900000254',
+  hanjeonFast: '900000255',
+  mojaSlow: '900000256',
+  mojaFast: '900000257',
+  wallSlow: '900000258',
+  wallFast: '900000259',
+  standSlow: '900000260',
+  standFast: '900000261',
+
   // 별지 5호 — 환경공단 신청서
   custName_b5_apt: '831731575',
   parkingLotCount_b5: '1461920188',
@@ -201,6 +227,20 @@ export function buildHecSdtMaps(form: HecFormData): SdtMaps {
   const surveyDate = `${form.contractYear}년 ${form.contractMonth}월 ${form.contractDay}일`;
 
   const text: Record<string, string> = {
+    // 별지1 사진대지 / 별지2 체크리스트 (신규 양식)
+    [TEXT_IDS.surveyDate_b2]: surveyDate,
+    [TEXT_IDS.siteName_b2]: form.custName,
+    [TEXT_IDS.b2Slow]: form.siteTotalSlow,
+    [TEXT_IDS.b2Fast]: form.siteTotalFast,
+    [TEXT_IDS.hanjeonSlow]: form.hanjeonSlow,
+    [TEXT_IDS.hanjeonFast]: form.hanjeonFast,
+    [TEXT_IDS.mojaSlow]: form.mojaSlow,
+    [TEXT_IDS.mojaFast]: form.mojaFast,
+    [TEXT_IDS.wallSlow]: form.wallSlow,
+    [TEXT_IDS.wallFast]: form.wallFast,
+    [TEXT_IDS.standSlow]: form.standSlow,
+    [TEXT_IDS.standFast]: form.standFast,
+
     [TEXT_IDS.custName_b5_apt]: form.custName,
     [TEXT_IDS.parkingLotCount_b5]: form.parkingLotCount,
     [TEXT_IDS.installAddr_b5]: installAddr,

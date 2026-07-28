@@ -97,12 +97,47 @@ export default function IntakePage() {
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-6">
       <div className="max-w-2xl mx-auto">
-        <header className="mb-6">
+        <header className="mb-5">
           <h1 className="text-2xl font-bold text-gray-900">계약서 접수</h1>
           <p className="text-sm text-gray-500 mt-1">
             한백 EV 충전 인프라 사업
           </p>
         </header>
+
+        {/* 접수 전 필수 안내 (최상단 배너) */}
+        <div className="mb-6 overflow-hidden rounded-lg border-2 border-amber-400 bg-amber-50 shadow-sm">
+          <div className="flex items-center gap-2 bg-amber-400 px-4 py-2.5 text-sm font-bold text-amber-950">
+            <span aria-hidden className="text-base">⚠️</span>
+            접수 전 꼭 확인해주세요
+          </div>
+          <ul className="space-y-2.5 px-4 py-4 text-sm text-amber-900">
+            <li className="flex gap-2">
+              <span aria-hidden className="mt-px text-amber-500">•</span>
+              <span>
+                모든 서류를 <strong className="font-semibold">하나의 ZIP</strong>으로 압축해 올려주세요.
+                ZIP이 아닌 파일은 받지 않습니다.
+              </span>
+            </li>
+            <li className="flex gap-2">
+              <span aria-hidden className="mt-px text-amber-500">•</span>
+              <span>
+                모든 서류는 <strong className="font-semibold">스캔본</strong>으로 부탁드립니다.
+                사진촬영본은 무조건{' '}
+                <span className="font-semibold underline decoration-2 underline-offset-2">
+                  보완요청
+                </span>{' '}
+                드리며, 글자가 희미하거나 안 보이는 경우에도 보완요청 드립니다.
+              </span>
+            </li>
+            <li className="flex gap-2">
+              <span aria-hidden className="mt-px text-amber-500">•</span>
+              <span>
+                <strong className="font-semibold">한 현장씩</strong> 올려주세요.
+                여러 현장은 ZIP을 분리해 각각 접수해주세요.
+              </span>
+            </li>
+          </ul>
+        </div>
 
         <div className="space-y-6 bg-white rounded-lg shadow-sm border border-gray-200 p-5">
           {/* 영업자 정보 */}
@@ -123,39 +158,6 @@ export default function IntakePage() {
             <h2 className="text-sm font-semibold text-gray-800 mb-2">
               서류 업로드
             </h2>
-            <div className="mb-3 rounded-lg border border-amber-300 bg-amber-50 p-4">
-              <p className="flex items-center gap-1.5 mb-3 text-sm font-bold text-amber-900">
-                <span aria-hidden>⚠️</span>
-                접수 전 꼭 확인해주세요
-              </p>
-              <ul className="space-y-2.5 text-sm text-amber-900">
-                <li className="flex gap-2">
-                  <span aria-hidden className="mt-px text-amber-500">•</span>
-                  <span>
-                    모든 서류를 <strong className="font-semibold">하나의 ZIP</strong>으로 압축해 올려주세요.
-                    ZIP이 아닌 파일은 받지 않습니다.
-                  </span>
-                </li>
-                <li className="flex gap-2">
-                  <span aria-hidden className="mt-px text-amber-500">•</span>
-                  <span>
-                    모든 서류는 <strong className="font-semibold">스캔본</strong>으로 부탁드립니다.
-                    사진촬영본은 무조건{' '}
-                    <span className="font-semibold underline decoration-2 underline-offset-2">
-                      보완요청
-                    </span>{' '}
-                    드리며, 글자가 희미하거나 안 보이는 경우에도 보완요청 드립니다.
-                  </span>
-                </li>
-                <li className="flex gap-2">
-                  <span aria-hidden className="mt-px text-amber-500">•</span>
-                  <span>
-                    <strong className="font-semibold">한 현장씩</strong> 올려주세요.
-                    여러 현장은 ZIP을 분리해 각각 접수해주세요.
-                  </span>
-                </li>
-              </ul>
-            </div>
             <UploadZone files={files} onFilesChange={setFiles} />
             <div className="mt-3">
               <FilePreview files={files} onRemove={handleRemoveFile} />

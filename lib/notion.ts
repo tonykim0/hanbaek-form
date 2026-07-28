@@ -9,7 +9,7 @@ import { Client, APIResponseError } from '@notionhq/client';
 import JSZip from 'jszip';
 import type { ExtractedMetadata, ClassifiedFile, ClassifiedFileInfo, FileCategory } from '@/types/intake';
 import type { NormalizedFile } from './files';
-import { buildStandardName } from './files';
+import { buildStandardName, isPdfFile } from './files';
 import { splitPdf, mergePdfs } from './pdf-split';
 import { createHash } from 'crypto';
 
@@ -131,6 +131,8 @@ export interface UploadItem {
   category: FileCategory;
   standardName: string;
   buffer: Buffer;
+  /** 첨부 시 content-type (미지정 시 application/pdf) */
+  contentType?: string;
 }
 
 export interface AttachmentProgress {
@@ -162,6 +164,22 @@ export async function buildUploadItems(
 
   for (const file of files) {
     const normalName = file.name.normalize('NFC');
+
+    // 통과 파일(xlsx/pptx 등): AI 분류·분할 없이 원본 그대로, 확장자 유지해 첨부
+    if (!isPdfFile(file)) {
+      const ext = (normalName.split('.').pop() ?? 'bin').toLowerCase();
+      const category = passthroughCategory(normalName);
+      items.push({
+        originalName: file.name,
+        category,
+        standardName: metadata?.현장명
+          ? buildStandardName(metadata.현장명, category, ext)
+          : file.name,
+        buffer: file.buffer,
+        contentType: file.mimeType,
+      });
+      continue;
+    }
 
     // 이 파일에 매칭되는 metadata entries (통합 PDF면 여러 개)
     const matchedInfos: ClassifiedFileInfo[] = metadata?.files?.filter(
@@ -252,6 +270,14 @@ async function mergeKaptWithBuildingLedger(
   return result;
 }
 
+/** 통과 파일(xlsx/pptx 등)의 확장자로 카테고리를 정한다. */
+function passthroughCategory(name: string): FileCategory {
+  const lower = name.toLowerCase();
+  if (/\.xlsx?$/.test(lower)) return '실사보고서'; // 플러그링크 실사보고서
+  if (/\.pptx?$/.test(lower)) return '설치승인서'; // 현대 설치승인서
+  return '기타';
+}
+
 export async function attachUploadItemsToPage(
   pageId: string,
   uploadItems: UploadItem[],
@@ -312,7 +338,12 @@ export async function attachUploadItemsToPage(
     });
 
     try {
-      await uploadAndAttach(pageId, item.buffer, uniqueName);
+      await uploadAndAttach(
+        pageId,
+        item.buffer,
+        uniqueName,
+        item.contentType ?? 'application/pdf'
+      );
       classifiedFiles.push({
         originalName: item.originalName,
         category: item.category,
@@ -383,6 +414,11 @@ export function buildMissingDocsNote(metadata: ExtractedMetadata | null): string
     if (!present.has('입주자대표회의 회의록')) missing.push('입주자대표회의 회의록');
   } else if (metadata.건축물유형 === '상업시설') {
     if (!present.has('관리단 회의록')) missing.push('관리단 회의록');
+  }
+
+  // SK일렉링크: 사진대지(사전현장컨설팅 결과서의 일부) 필수
+  if (metadata.CPO?.includes('SK일렉링크') && !present.has('사진대지')) {
+    missing.push('사진대지(사전현장컨설팅)');
   }
 
   if (missing.length === 0) return '이상 없음';
@@ -535,7 +571,11 @@ function createUniqueFileName(
 ): string {
   const count = (nameCount.get(standardName) ?? 0) + 1;
   nameCount.set(standardName, count);
-  return count > 1 ? standardName.replace('.pdf', `_${count}.pdf`) : standardName;
+  if (count === 1) return standardName;
+  // 확장자 앞에 _N 삽입 (pdf·xlsx·pptx 등 확장자 무관)
+  const dot = standardName.lastIndexOf('.');
+  if (dot < 0) return `${standardName}_${count}`;
+  return `${standardName.slice(0, dot)}_${count}${standardName.slice(dot)}`;
 }
 
 // 여러 페이지여도 하나의 파일로 유지해야 하는 카테고리

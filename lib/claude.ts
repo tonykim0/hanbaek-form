@@ -33,8 +33,10 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 export async function classifyAndExtract(
   pdfs: NormalizedFile[]
 ): Promise<ExtractedMetadata> {
+  // 방어적으로 PDF만 전송 (Claude vision은 xlsx/pptx 등을 처리하지 못함)
+  const pdfOnly = pdfs.filter((p) => p.mimeType === 'application/pdf');
   const content = [
-    ...pdfs.map((pdf) => ({
+    ...pdfOnly.map((pdf) => ({
       type: 'document' as const,
       source: {
         type: 'base64' as const,
@@ -44,7 +46,7 @@ export async function classifyAndExtract(
     })),
     {
       type: 'text' as const,
-      text: buildExtractionPrompt(pdfs.map((p) => p.name)),
+      text: buildExtractionPrompt(pdfOnly.map((p) => p.name)),
     },
   ];
 

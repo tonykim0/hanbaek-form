@@ -10,7 +10,7 @@
  */
 import { NextRequest } from 'next/server';
 import { del } from '@vercel/blob';
-import { extractAndHashFromZipBuffer, isZipBuffer } from '@/lib/files';
+import { extractAndHashFromZipBuffer, isZipBuffer, isPdfFile } from '@/lib/files';
 import { classifyAndExtract } from '@/lib/claude';
 import {
   createNotionEntry,
@@ -80,27 +80,33 @@ export async function POST(request: NextRequest) {
         const normalizedFiles = await extractAndHashFromZipBuffer(zipBuffer);
 
         if (normalizedFiles.length === 0) {
-          throw new IntakeRouteError('PDF 파일을 찾을 수 없습니다.', 'NO_PDF');
+          throw new IntakeRouteError('접수할 파일을 찾을 수 없습니다.', 'NO_FILES');
         }
+
+        // AI 분류 대상은 PDF만 (xlsx/pptx 등은 원본 그대로 첨부만)
+        const pdfFiles = normalizedFiles.filter(isPdfFile);
 
         send({
           phase: 'extracting',
-          message: `PDF ${normalizedFiles.length}개 추출 완료`,
+          message: `파일 ${normalizedFiles.length}개 추출 완료`,
           fileCount: normalizedFiles.length,
         });
 
         // ── AI 분류 ─────────────────────────────────────────────
-        send({
-          phase: 'classifying',
-          message: `AI 분류 중... (${normalizedFiles.length}개 파일)`,
-        });
-
         let metadata = null;
-        try {
-          metadata = await classifyAndExtract(normalizedFiles);
-        } catch (err) {
-          console.error('[intake] Claude 추출 실패:', err);
-          warnings.push('AI 분류에 실패했습니다. 담당자가 수동으로 검수합니다.');
+        if (pdfFiles.length > 0) {
+          send({
+            phase: 'classifying',
+            message: `AI 분류 중... (PDF ${pdfFiles.length}개)`,
+          });
+          try {
+            metadata = await classifyAndExtract(pdfFiles);
+          } catch (err) {
+            console.error('[intake] Claude 추출 실패:', err);
+            warnings.push('AI 분류에 실패했습니다. 담당자가 수동으로 검수합니다.');
+          }
+        } else {
+          warnings.push('PDF가 없어 AI 분류를 건너뜁니다. 첨부 파일만 접수됩니다.');
         }
 
         // 서류 누락 점검 → 접수 화면에도 즉시 경고 노출 (노션 '누락서류' 속성에도 기록됨)

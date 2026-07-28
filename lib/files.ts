@@ -14,8 +14,22 @@ export interface NormalizedFile {
   name: string;
   buffer: Buffer;
   hash: string;
-  mimeType: 'application/pdf';
+  /** application/pdf(=AI 분류 대상) 또는 xlsx/pptx 등 원본 첨부(통과) */
+  mimeType: string;
 }
+
+/** PDF(및 이미지→PDF 변환본)만 AI 분류 대상. 그 외는 원본 그대로 첨부(통과) */
+export function isPdfFile(file: NormalizedFile): boolean {
+  return file.mimeType === 'application/pdf';
+}
+
+// 원본 그대로 첨부하는 통과 파일 형식 (AI 분류·분할 안 함)
+const PASSTHROUGH_TYPES: Record<string, string> = {
+  xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  xls: 'application/vnd.ms-excel',
+  pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  ppt: 'application/vnd.ms-powerpoint',
+};
 
 const ZIP_SIGNATURES = [
   Buffer.from([0x50, 0x4b, 0x03, 0x04]),
@@ -79,7 +93,9 @@ async function extractPDFsFromZip(buffer: Buffer): Promise<NormalizedFile[]> {
     const isPdf = lower.endsWith('.pdf');
     const isPng = lower.endsWith('.png');
     const isJpg = lower.endsWith('.jpg') || lower.endsWith('.jpeg');
-    if (!isPdf && !isPng && !isJpg) continue;
+    const ext = lower.split('.').pop() ?? '';
+    const passthroughType = PASSTHROUGH_TYPES[ext];
+    if (!isPdf && !isPng && !isJpg && !passthroughType) continue;
 
     const sourceBuffer = await zipFile.async('nodebuffer');
     const baseName = (path.split('/').pop() ?? path).normalize('NFC');
@@ -90,6 +106,17 @@ async function extractPDFsFromZip(buffer: Buffer): Promise<NormalizedFile[]> {
         buffer: sourceBuffer,
         hash: sha256(sourceBuffer),
         mimeType: 'application/pdf',
+      });
+      continue;
+    }
+
+    // xlsx/pptx 등: 변환·분류 없이 원본 그대로 첨부
+    if (passthroughType) {
+      pdfs.push({
+        name: baseName,
+        buffer: sourceBuffer,
+        hash: sha256(sourceBuffer),
+        mimeType: passthroughType,
       });
       continue;
     }
@@ -122,10 +149,14 @@ function sha256(buffer: Buffer): string {
 }
 
 /**
- * 표준 파일명 생성: {현장명}_{카테고리}.pdf
- * 파일명에 허용되지 않는 문자는 '_'로 대체.
+ * 표준 파일명 생성: {현장명}_{카테고리}.{ext}
+ * 파일명에 허용되지 않는 문자는 '_'로 대체. ext 기본값은 pdf.
  */
-export function buildStandardName(현장명: string, category: string): string {
+export function buildStandardName(
+  현장명: string,
+  category: string,
+  ext: string = 'pdf'
+): string {
   // 파일명용 카테고리 줄임말
   const categoryShort: Record<string, string> = {
     '계약서': '계약서',
@@ -135,11 +166,13 @@ export function buildStandardName(현장명: string, category: string): string {
     '전기차충전시설 설치신청서': '설치신청서',
     '개인정보 동의서': '개인정보동의서',
     '사전현장컨설팅 결과서': '사전컨설팅',
+    '사진대지': '사진대지',
     '입주자대표회의 회의록': '회의록',
     '관리단 회의록': '관리단회의록',
     '한전 전기요금 청구서': '한전청구서',
     '건축물대장': '건축물대장',
     'K-apt 스크린샷': 'kapt스크린샷',
+    '설치승인서': '설치승인서',
     '사업자등록증': '사업자등록증',
     '고유번호증': '고유번호증',
     '실사보고서': '실사보고서',
@@ -149,5 +182,5 @@ export function buildStandardName(현장명: string, category: string): string {
   const catShort = categoryShort[category] ?? '기타';
   // Windows/macOS 파일명 금지 문자 제거
   const safeName = 현장명.replace(/[<>:"/\\|?*\x00-\x1f]/g, '_').trim();
-  return `${safeName}_${catShort}.pdf`;
+  return `${safeName}_${catShort}.${ext}`;
 }

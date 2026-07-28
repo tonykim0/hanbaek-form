@@ -10,7 +10,7 @@ import JSZip from 'jszip';
 import type { ExtractedMetadata, ClassifiedFile, ClassifiedFileInfo, FileCategory } from '@/types/intake';
 import type { NormalizedFile } from './files';
 import { buildStandardName } from './files';
-import { splitPdf } from './pdf-split';
+import { splitPdf, mergePdfs } from './pdf-split';
 import { createHash } from 'crypto';
 
 const notion = new Client({ auth: process.env.NOTION_API_KEY });
@@ -81,7 +81,7 @@ export async function createNotionEntry(
       };
     }
     // 사업구분: 추출값 우선, 없으면 설치신청서 유무로 환경부 추정
-    const has설치신청서 = metadata.files.some(
+    const has설치신청서 = (metadata.files ?? []).some(
       (f) => f.category === '전기차충전시설 설치신청서'
     );
     const 사업구분 = metadata.사업구분 ?? (has설치신청서 ? '환경부' : null);
@@ -164,7 +164,7 @@ export async function buildUploadItems(
     const normalName = file.name.normalize('NFC');
 
     // 이 파일에 매칭되는 metadata entries (통합 PDF면 여러 개)
-    const matchedInfos: ClassifiedFileInfo[] = metadata?.files.filter(
+    const matchedInfos: ClassifiedFileInfo[] = metadata?.files?.filter(
       (f) => f.originalName.normalize('NFC') === normalName
     ) ?? [];
 
@@ -204,7 +204,52 @@ export async function buildUploadItems(
     }
   }
 
-  return items;
+  return mergeKaptWithBuildingLedger(items, metadata?.현장명);
+}
+
+/**
+ * K-apt 스크린샷을 건축물대장과 하나의 PDF로 병합한다.
+ * (건축물대장에 주차면수가 없을 때 K-apt 화면을 보완 자료로 함께 제출)
+ * 병합 파일명: {현장명}_건축물대장+kapt스크린샷.pdf
+ * 건축물대장이 없으면 K-apt는 단독 파일로 유지한다.
+ */
+async function mergeKaptWithBuildingLedger(
+  items: UploadItem[],
+  현장명: string | undefined
+): Promise<UploadItem[]> {
+  const kaptItems = items.filter((i) => i.category === 'K-apt 스크린샷');
+  const bldgItems = items.filter((i) => i.category === '건축물대장');
+  if (kaptItems.length === 0 || bldgItems.length === 0) return items;
+
+  const mergedBuffer = await mergePdfs([
+    ...bldgItems.map((b) => b.buffer),
+    ...kaptItems.map((k) => k.buffer),
+  ]);
+  const safeName = 현장명?.replace(/[<>:"/\\|?*\x00-\x1f]/g, '_').trim();
+  const mergedItem: UploadItem = {
+    originalName: bldgItems[0].originalName,
+    category: '건축물대장',
+    standardName: safeName
+      ? `${safeName}_건축물대장+kapt스크린샷.pdf`
+      : bldgItems[0].standardName,
+    buffer: mergedBuffer,
+  };
+
+  // 원래 건축물대장 위치에 병합본을 넣고, 개별 건축물대장·K-apt 항목은 제거
+  const result: UploadItem[] = [];
+  let inserted = false;
+  for (const it of items) {
+    if (it.category === 'K-apt 스크린샷') continue;
+    if (it.category === '건축물대장') {
+      if (!inserted) {
+        result.push(mergedItem);
+        inserted = true;
+      }
+      continue;
+    }
+    result.push(it);
+  }
+  return result;
 }
 
 export async function attachUploadItemsToPage(
@@ -287,44 +332,57 @@ export async function attachUploadItemsToPage(
   return { classifiedFiles, warnings };
 }
 
-// 항상 필수인 핵심 서류
-const ALWAYS_REQUIRED_DOCS = [
+// 사업구분과 무관하게 항상 필수인 서류
+const COMMON_REQUIRED_DOCS = [
   '계약서',
   '합의서',
   '직인사용 동의서',
   '행위신고 업무대행 동의서',
-  '개인정보 동의서',
   '사전현장컨설팅 결과서',
   '한전 전기요금 청구서',
   '건축물대장',
 ] as const;
 
+// 환경부 사업일 때만 필수인 서류
+const ENV_ONLY_REQUIRED_DOCS = [
+  '전기차충전시설 설치신청서',
+  '개인정보 동의서',
+] as const;
+
 /**
  * 접수 서류 누락 점검 결과 문구를 만든다. ('누락서류' 속성용)
- * - 핵심 세트 8종 + 사업자등록증(또는 고유번호증) 항상 필수
- * - 환경부 사업이면 전기차충전시설 설치신청서 추가 필수
- * - 공동주택이면 입주자대표회의 회의록 추가 필수
+ * - 공통 필수: 계약서·합의서·직인사용/행위신고 동의서·사전현장컨설팅 결과서·한전청구서·건축물대장
+ *   + 사업자등록증(또는 고유번호증)
+ * - 환경부 전용: 전기차충전시설 설치신청서·개인정보 동의서
+ * - 건물유형 조건부: 공동주택 → 입주자대표회의 회의록 / 그 외(상업시설) → 관리단 회의록
  */
 export function buildMissingDocsNote(metadata: ExtractedMetadata | null): string {
   if (!metadata) return 'AI 분류 실패 — 서류 누락 여부 수동 확인 필요';
 
-  const present = new Set(metadata.files.map((f) => f.category));
+  const present = new Set((metadata.files ?? []).map((f) => f.category));
   const missing: string[] = [];
 
-  for (const doc of ALWAYS_REQUIRED_DOCS) {
+  for (const doc of COMMON_REQUIRED_DOCS) {
     if (!present.has(doc)) missing.push(doc);
   }
   if (!present.has('사업자등록증') && !present.has('고유번호증')) {
     missing.push('사업자등록증(또는 고유번호증)');
   }
 
-  const has설치신청서 = present.has('전기차충전시설 설치신청서');
-  const is환경부 = metadata.사업구분 === '환경부' || has설치신청서;
-  if (is환경부 && !has설치신청서) {
-    missing.push('전기차충전시설 설치신청서');
+  // 환경부 전용 서류 (설치신청서 유무 또는 사업구분으로 환경부 판별)
+  const is환경부 =
+    metadata.사업구분 === '환경부' || present.has('전기차충전시설 설치신청서');
+  if (is환경부) {
+    for (const doc of ENV_ONLY_REQUIRED_DOCS) {
+      if (!present.has(doc)) missing.push(doc);
+    }
   }
-  if (metadata.건축물유형 === '공동주택' && !present.has('입주자대표회의 회의록')) {
-    missing.push('입주자대표회의 회의록');
+
+  // 건물유형별 회의록 (유형 미확인 시 오탐 방지 위해 검사 안 함)
+  if (metadata.건축물유형 === '공동주택') {
+    if (!present.has('입주자대표회의 회의록')) missing.push('입주자대표회의 회의록');
+  } else if (metadata.건축물유형 === '상업시설') {
+    if (!present.has('관리단 회의록')) missing.push('관리단 회의록');
   }
 
   if (missing.length === 0) return '이상 없음';

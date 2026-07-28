@@ -27,3 +27,22 @@ export async function splitPdf(
   const bytes = await newDoc.save();
   return Buffer.from(bytes);
 }
+
+/**
+ * 여러 PDF Buffer를 순서대로 이어붙여 하나의 PDF Buffer로 병합합니다.
+ * (예: 건축물대장 + K-apt 스크린샷)
+ */
+export async function mergePdfs(buffers: Buffer[]): Promise<Buffer> {
+  const mergedDoc = await PDFDocument.create();
+
+  for (const buf of buffers) {
+    const srcDoc = await PDFDocument.load(buf);
+    const copiedPages = await mergedDoc.copyPages(srcDoc, srcDoc.getPageIndices());
+    for (const page of copiedPages) {
+      mergedDoc.addPage(page);
+    }
+  }
+
+  const bytes = await mergedDoc.save();
+  return Buffer.from(bytes);
+}

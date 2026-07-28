@@ -14,10 +14,12 @@ const anthropic = new Anthropic({
 });
 
 const MODEL = 'claude-sonnet-4-6';
-/** 개별 Claude 호출 타임아웃 (전체 라우트 60s 예산 안에서 재시도 여지 확보) */
-const CALL_TIMEOUT_MS = 45_000;
-/** 2번째 시도는 경과시간이 이 값 미만일 때만 (라우트 타임아웃 방지) */
-const RETRY_ELAPSED_BUDGET_MS = 28_000;
+/** 개별 Claude 호출 타임아웃 */
+const CALL_TIMEOUT_MS = 50_000;
+/** 최대 시도 횟수 */
+const MAX_ATTEMPTS = 3;
+/** 경과시간이 이 값 미만일 때만 재시도 (라우트 maxDuration=180s 예산 보호) */
+const RETRY_ELAPSED_BUDGET_MS = 120_000;
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -49,7 +51,7 @@ export async function classifyAndExtract(
   const startedAt = Date.now();
   let lastError: unknown;
 
-  for (let attempt = 1; attempt <= 2; attempt++) {
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     try {
       const message = await anthropic.messages.create(
         {
@@ -63,10 +65,10 @@ export async function classifyAndExtract(
       return parseMetadata(message);
     } catch (err) {
       lastError = err;
-      console.warn(`[claude] 추출 시도 ${attempt} 실패:`, err);
-      // 남은 시간이 부족하면 재시도하지 않는다 (라우트 60s 타임아웃 보호)
-      if (attempt >= 2 || Date.now() - startedAt > RETRY_ELAPSED_BUDGET_MS) break;
-      await sleep(800);
+      console.warn(`[claude] 추출 시도 ${attempt}/${MAX_ATTEMPTS} 실패:`, err);
+      // 남은 시간이 부족하면 재시도하지 않는다 (라우트 maxDuration 보호)
+      if (attempt >= MAX_ATTEMPTS || Date.now() - startedAt > RETRY_ELAPSED_BUDGET_MS) break;
+      await sleep(800 * attempt);
     }
   }
   throw lastError;

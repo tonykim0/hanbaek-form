@@ -20,7 +20,8 @@ import {
 } from '@/lib/notion';
 import type { IntakeSuccessResponse } from '@/types/intake';
 
-export const maxDuration = 60;
+// Vercel Pro: 대용량 ZIP·다파일 접수의 중간 종료(부분 저장) 방지를 위해 여유 확보
+export const maxDuration = 180;
 const ALLOWED_BLOB_HOST_RE = /(^|\.)blob\.vercel-storage\.com$/;
 
 export async function POST(request: NextRequest) {

@@ -183,6 +183,10 @@ const CB_IDS = {
   powerMoja: '-6213483',       // 모자분할
   powerHanjeon: '1212161000',  // 한전불입
 
+  // 계약기간 — 신규 계약서 1페이지 (■10년 ☐7년) 체크박스
+  term10: '900000220',
+  term7: '900000221',
+
   // 설치타입 (다중 선택)
   typeWall: '1167367960',      // 벽부형
   typeStand: '-176657065',     // 스탠드
@@ -375,6 +379,10 @@ export function buildSdtMaps(form: ContractFormData): SdtMaps {
     [CB_IDS.powerMoja]: form.powerMoja,
     [CB_IDS.powerHanjeon]: form.powerHanjeon,
 
+    // 계약기간 — 신규 계약서 1페이지 체크박스 (라디오)
+    [CB_IDS.term10]: form.contractTerm === '10',
+    [CB_IDS.term7]: form.contractTerm === '7',
+
     // 설치타입 — 다중
     [CB_IDS.typeWall]: form.installTypeWall,
     [CB_IDS.typeStand]: form.installTypeStand,
@@ -396,29 +404,18 @@ export function buildSdtMaps(form: ContractFormData): SdtMaps {
     form.dupFast || form.dupSlow || form.dupDist || form.dupOutlet || form.dupKiosk;
   checkbox[CB_IDS.dupNone] = !anyDup;
 
-  // ─── 합의서 단계별 프로모션 — 계약기간 조건부 ───
-  // 7년: 6개월(180일) 149원 단일 / 10년: 6개월 149원 + 6개월 249원 (총 360일)
+  // ─── 합의서 단계별 프로모션 — 계약기간 조건부 (신규 계약서 문구) ───
+  // 7년: 180일 149원 단일 / 10년: 1단계 180일 149원 + 2단계 180일 249원
   const isTen = form.contractTerm === '10';
-  // [69] 제1항 도입부 — 10년만 "단계별"
-  text[PROMO_IDS.intro] =
-    `“서비스 제공자”는 본 계약에 따른 신규 서비스 개시를 기념하여, 다음과 같이 ${
-      isTen ? '단계별 ' : ''
-    }프로모션 요금을 적용한다.`;
-  // [71] 1단계 불릿
+  // 제1항 도입부 — 10년만 "단계별"
+  text[PROMO_IDS.intro] = isTen
+    ? '"서비스 제공자"는 서비스 개시일로부터 아래와 같이 단계별 프로모션 요금을 적용하기로 한다.'
+    : '"서비스 제공자"는 서비스 개시일로부터 아래와 같이 프로모션 요금을 적용하기로 한다.';
+  // 1단계 불릿 — 7년은 단일 단계라 "1단계" 라벨 제거
   text[PROMO_IDS.stage1] = isTen
-    ? '1단계 (서비스 개시일로부터 180일간): 149원/kWh '
-    : '서비스 개시일로부터 180일간: 149원/kWh ';
-  // [74] 총 프로모션 기간 (10년 360일 / 7년 180일)
-  text[PROMO_IDS.total] =
-    `위 제1항에 명시된 총 ${
-      isTen ? '360' : '180'
-    }일간의 프로모션 기간이 종료된 이후에는 “서비스 제공자”의 홈페이지에 고지된 당사의 표준 공시 요금을 적용하는 것을 원칙으로 한다.`;
-  // [76] 자동 전환 (10년 "다음 단계의" / 7년 "표준 공시")
-  text[PROMO_IDS.autoswitch] =
-    `요금의 변동 기준일은 서비스 개시일을 산입하여 계산하며, 프로모션 기간 종료 전 별도의 통보 없이 익일부터 ${
-      isTen ? '다음 단계의' : '표준 공시'
-    } 요금으로 자동 전환된다.`;
-  // [72] 2단계 불릿 블록 — 7년이면 문단째 제거
+    ? '- 1단계 (서비스 개시일로부터 180일간): 149원/kWh'
+    : '- 서비스 개시일로부터 180일간: 149원/kWh';
+  // 2단계 불릿 블록 — 7년이면 문단째 제거 (10년은 템플릿 정적 문구 유지)
   const remove = isTen ? [] : [PROMO_IDS.stage2Block];
 
   return { text, checkbox, remove };

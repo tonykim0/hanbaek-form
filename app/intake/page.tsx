@@ -174,17 +174,6 @@ export default function IntakePage() {
             />
           </section>
 
-          {/* 파일 업로드 */}
-          <section>
-            <h2 className="text-sm font-semibold text-gray-800 mb-2">
-              서류 업로드
-            </h2>
-            <UploadZone files={files} onFilesChange={setFiles} />
-            <div className="mt-3">
-              <FilePreview files={files} onRemove={handleRemoveFile} />
-            </div>
-          </section>
-
           {/* 특이사항 (접수자 메모) */}
           <section>
             <h2 className="text-sm font-semibold text-gray-800 mb-2">
@@ -197,6 +186,17 @@ export default function IntakePage() {
               placeholder="담당자에게 전달할 특이사항이 있으면 적어주세요. (예: 누락 서류 사유, 현장 특이사항 등)"
               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-800 placeholder:text-gray-400 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 resize-y"
             />
+          </section>
+
+          {/* 파일 업로드 */}
+          <section>
+            <h2 className="text-sm font-semibold text-gray-800 mb-2">
+              서류 업로드
+            </h2>
+            <UploadZone files={files} onFilesChange={setFiles} />
+            <div className="mt-3">
+              <FilePreview files={files} onRemove={handleRemoveFile} />
+            </div>
           </section>
 
           {/* 접수 버튼 / 진행 상태 */}

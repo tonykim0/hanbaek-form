@@ -73,7 +73,8 @@ export async function createNotionEntry(
     if (metadata.현장연락처) {
       properties['현장연락처'] = { phone_number: metadata.현장연락처 };
     }
-    if (metadata.현장이메일) {
+    // 이메일은 형식이 유효할 때만 (Notion email 속성은 잘못된 형식이면 create 전체가 400)
+    if (metadata.현장이메일 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(metadata.현장이메일)) {
       properties['현장이메일'] = { email: metadata.현장이메일 };
     }
     // 사업구분: 추출값 우선, 없으면 설치신청서 유무로 환경부 추정
@@ -101,15 +102,51 @@ export async function createNotionEntry(
     rich_text: [{ text: { content: buildMissingDocsNote(metadata) } }],
   };
 
-  const page = await notion.pages.create({
-    parent: { database_id: DB_ID },
-    properties,
-  });
+  const page = await createPageWithKnownProps(properties);
 
   return {
     id: page.id,
     url: (page as { url: string }).url,
   };
+}
+
+/**
+ * DB에 실제 존재하는 속성만 남겨 페이지를 생성한다.
+ * 노션에서 속성 이름이 변경/삭제되어도(스키마 드리프트) 존재하지 않는 속성 하나 때문에
+ * create 전체가 400으로 실패(→ 접수 실패)하는 것을 방지한다.
+ */
+async function createPageWithKnownProps(
+  properties: Record<string, any>
+): Promise<{ id: string; url: string }> {
+  let props = properties;
+  try {
+    const db = (await notion.databases.retrieve({
+      database_id: DB_ID,
+    })) as { properties?: Record<string, unknown> };
+    const existing = new Set(Object.keys(db.properties ?? {}));
+    const dropped: string[] = [];
+    props = Object.fromEntries(
+      Object.entries(properties).filter(([key]) => {
+        if (existing.has(key)) return true;
+        dropped.push(key);
+        return false;
+      })
+    );
+    if (dropped.length > 0) {
+      console.warn(
+        `[notion] DB에 없는 속성 생략 (스키마 변경?): ${dropped.join(', ')}`
+      );
+    }
+  } catch (err) {
+    // 스키마 조회 실패 시엔 필터 없이 원래 속성으로 진행 (기존 동작 유지)
+    console.warn('[notion] DB 스키마 조회 실패 → 속성 필터 없이 진행:', err);
+  }
+
+  const page = await notion.pages.create({
+    parent: { database_id: DB_ID },
+    properties: props,
+  });
+  return { id: page.id, url: (page as { url: string }).url };
 }
 
 /**

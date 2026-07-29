@@ -153,6 +153,11 @@ export default function IntakePage() {
               </span>
             </li>
           </ul>
+          <div className="border-t-2 border-amber-300 bg-amber-100 px-4 py-3 text-sm font-bold text-red-700">
+            <span className="underline decoration-2 underline-offset-2">
+              서류가 누락되면 영업비 지급조건에 미달되어 정산 대상이 아닙니다.
+            </span>
+          </div>
         </div>
 
         <div className="space-y-6 bg-white rounded-lg shadow-sm border border-gray-200 p-5">

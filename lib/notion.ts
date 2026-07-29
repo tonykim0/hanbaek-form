@@ -88,16 +88,16 @@ export async function createNotionEntry(
     }
   }
 
-  // 서류특이사항: 접수자 입력 메모 우선 + AI 추출 비고 (metadata 없어도 메모는 기록)
-  const 특이사항Parts: string[] = [];
-  if (note) 특이사항Parts.push(`[접수자] ${note}`);
-  if (metadata?.비고) 특이사항Parts.push(`[AI] ${metadata.비고}`);
-  if (특이사항Parts.length > 0) {
-    properties['서류특이사항'] = richText(특이사항Parts.join('\n'));
+  // 서류요약: 접수자 입력 메모 우선 + AI 추출 비고 (metadata 없어도 메모는 기록)
+  const 서류요약Parts: string[] = [];
+  if (note) 서류요약Parts.push(`[접수자] ${note}`);
+  if (metadata?.비고) 서류요약Parts.push(`[AI] ${metadata.비고}`);
+  if (서류요약Parts.length > 0) {
+    properties['서류요약'] = richText(서류요약Parts.join('\n'));
   }
 
-  // 누락 서류 점검 (핵심 세트 + 조건부) → '누락서류' 속성에 기록
-  properties['누락서류'] = richText(buildMissingDocsNote(metadata));
+  // 누락 서류 점검 (핵심 세트 + 조건부) → '누락서류 (AI)' 속성에 기록
+  properties['누락서류 (AI)'] = richText(buildMissingDocsNote(metadata));
 
   const page = await createPageDroppingMissingProps(properties);
 

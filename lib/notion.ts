@@ -87,12 +87,12 @@ export async function createNotionEntry(
     }
   }
 
-  // 특이사항: 접수자 입력 메모 우선 + AI 추출 비고 (metadata 없어도 메모는 기록)
+  // 서류특이사항: 접수자 입력 메모 우선 + AI 추출 비고 (metadata 없어도 메모는 기록)
   const 특이사항Parts: string[] = [];
   if (note) 특이사항Parts.push(`[접수자] ${note}`);
   if (metadata?.비고) 특이사항Parts.push(`[AI] ${metadata.비고}`);
   if (특이사항Parts.length > 0) {
-    properties['특이사항'] = {
+    properties['서류특이사항'] = {
       rich_text: [{ text: { content: 특이사항Parts.join('\n') } }],
     };
   }

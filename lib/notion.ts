@@ -44,7 +44,7 @@ export async function createNotionEntry(
 
   if (metadata) {
     if (metadata.주소) {
-      properties['현장주소'] = { rich_text: [{ text: { content: metadata.주소 } }] };
+      properties['현장주소'] = richText(metadata.주소);
     }
     if (metadata.건축물유형) {
       properties['건축물 유형'] = { select: { name: metadata.건축물유형 } };
@@ -52,23 +52,24 @@ export async function createNotionEntry(
     if (metadata.CPO && metadata.CPO.length > 0) {
       properties['운영사'] = { select: { name: metadata.CPO[0] } };
     }
-    if (metadata.계약대수 != null) {
-      properties['계약대수'] = { number: metadata.계약대수 };
+    // 숫자 필드: Claude가 "7" 같은 문자열로 줄 수 있어 강제 숫자 변환 (아니면 Notion 400)
+    const 계약대수 = toFiniteNumber(metadata.계약대수);
+    if (계약대수 != null) {
+      properties['계약대수'] = { number: 계약대수 };
     }
     if (metadata.계약기간) {
       properties['계약기간'] = { select: { name: metadata.계약기간 } };
     }
-    if (metadata.총주차면수 != null) {
-      properties['총 주차면수'] = { number: metadata.총주차면수 };
+    const 총주차면수 = toFiniteNumber(metadata.총주차면수);
+    if (총주차면수 != null) {
+      properties['총 주차면수'] = { number: 총주차면수 };
     }
     if (metadata.전력인입) {
       const mapped = mapPowerInletToSujeon(metadata.전력인입);
       if (mapped) properties['수전방식'] = { select: { name: mapped } };
     }
     if (metadata.현장담당자) {
-      properties['현장담당자'] = {
-        rich_text: [{ text: { content: metadata.현장담당자 } }],
-      };
+      properties['현장담당자'] = richText(metadata.현장담당자);
     }
     if (metadata.현장연락처) {
       properties['현장연락처'] = { phone_number: metadata.현장연락처 };
@@ -92,17 +93,13 @@ export async function createNotionEntry(
   if (note) 특이사항Parts.push(`[접수자] ${note}`);
   if (metadata?.비고) 특이사항Parts.push(`[AI] ${metadata.비고}`);
   if (특이사항Parts.length > 0) {
-    properties['서류특이사항'] = {
-      rich_text: [{ text: { content: 특이사항Parts.join('\n') } }],
-    };
+    properties['서류특이사항'] = richText(특이사항Parts.join('\n'));
   }
 
   // 누락 서류 점검 (핵심 세트 + 조건부) → '누락서류' 속성에 기록
-  properties['누락서류'] = {
-    rich_text: [{ text: { content: buildMissingDocsNote(metadata) } }],
-  };
+  properties['누락서류'] = richText(buildMissingDocsNote(metadata));
 
-  const page = await createPageWithKnownProps(properties);
+  const page = await createPageDroppingMissingProps(properties);
 
   return {
     id: page.id,
@@ -111,42 +108,60 @@ export async function createNotionEntry(
 }
 
 /**
- * DB에 실제 존재하는 속성만 남겨 페이지를 생성한다.
- * 노션에서 속성 이름이 변경/삭제되어도(스키마 드리프트) 존재하지 않는 속성 하나 때문에
+ * 페이지를 생성하되, 노션이 "존재하지 않는 속성"이라고 거부하면 그 속성만 빼고 재시도한다.
+ * 노션에서 속성이 삭제/이름변경되어(스키마 드리프트) 존재하지 않는 속성 하나 때문에
  * create 전체가 400으로 실패(→ 접수 실패)하는 것을 방지한다.
+ *
+ * databases.retrieve는 최신 스키마를 즉시 반영하지 못할 수 있어(캐시/지연) 신뢰하지 않고,
+ * create 응답의 실제 오류 메시지를 근거로 정확히 문제 속성만 제거한다.
  */
-async function createPageWithKnownProps(
+async function createPageDroppingMissingProps(
   properties: Record<string, any>
 ): Promise<{ id: string; url: string }> {
-  let props = properties;
-  try {
-    const db = (await notion.databases.retrieve({
-      database_id: DB_ID,
-    })) as { properties?: Record<string, unknown> };
-    const existing = new Set(Object.keys(db.properties ?? {}));
-    const dropped: string[] = [];
-    props = Object.fromEntries(
-      Object.entries(properties).filter(([key]) => {
-        if (existing.has(key)) return true;
-        dropped.push(key);
-        return false;
-      })
-    );
-    if (dropped.length > 0) {
-      console.warn(
-        `[notion] DB에 없는 속성 생략 (스키마 변경?): ${dropped.join(', ')}`
-      );
+  const props = { ...properties };
+  const dropped: string[] = [];
+
+  for (let attempt = 0; attempt < 6; attempt++) {
+    try {
+      const page = await notion.pages.create({
+        parent: { database_id: DB_ID },
+        properties: props,
+      });
+      if (dropped.length > 0) {
+        console.warn(
+          `[notion] 존재하지 않는 속성 제외하고 접수 저장 (스키마 변경?): ${dropped.join(', ')}`
+        );
+      }
+      return { id: page.id, url: (page as { url: string }).url };
+    } catch (err) {
+      const missing = parseMissingPropertyNames(err).filter((n) => n in props);
+      if (missing.length === 0) throw err; // 다른 종류의 오류는 그대로 전파
+      for (const name of missing) {
+        delete props[name];
+        dropped.push(name);
+      }
     }
-  } catch (err) {
-    // 스키마 조회 실패 시엔 필터 없이 원래 속성으로 진행 (기존 동작 유지)
-    console.warn('[notion] DB 스키마 조회 실패 → 속성 필터 없이 진행:', err);
   }
 
+  // 재시도 소진 후 마지막 1회 (여기서 실패하면 상위에서 처리)
   const page = await notion.pages.create({
     parent: { database_id: DB_ID },
     properties: props,
   });
   return { id: page.id, url: (page as { url: string }).url };
+}
+
+/** 노션 validation 오류 메시지에서 "X is not a property that exists." 속성명들을 추출. */
+function parseMissingPropertyNames(err: unknown): string[] {
+  const msg = err instanceof Error ? err.message : String(err ?? '');
+  const names: string[] = [];
+  const re = /(.+?) is not a property that exists\./g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(msg)) !== null) {
+    const name = m[1].trim();
+    if (name) names.push(name);
+  }
+  return names;
 }
 
 /**
@@ -286,6 +301,11 @@ async function mergeKaptWithBuildingLedger(
     ...bldgItems.map((b) => b.buffer),
     ...kaptItems.map((k) => k.buffer),
   ]);
+  // 병합 실패 시엔 건축물대장·K-apt를 각각 개별 파일로 그대로 첨부 (누락 방지)
+  if (!mergedBuffer) {
+    console.warn('[notion] 건축물대장+K-apt 병합 실패 → 개별 첨부로 유지');
+    return items;
+  }
   const safeName = 현장명?.replace(/[<>:"/\\|?*\x00-\x1f]/g, '_').trim();
   const mergedItem: UploadItem = {
     originalName: bldgItems[0].originalName,
@@ -482,6 +502,28 @@ export function buildMissingDocsNote(metadata: ExtractedMetadata | null): string
 
   if (missing.length === 0) return '이상 없음';
   return `⚠ 누락 ${missing.length}건: ${missing.join(', ')}`;
+}
+
+// Notion rich_text 한 조각의 최대 길이(2000자). 초과 시 create 전체가 400.
+const NOTION_TEXT_MAX = 2000;
+
+/** rich_text 속성값 생성 (2000자 초과 시 안전하게 잘라냄). */
+function richText(content: string): { rich_text: Array<{ text: { content: string } }> } {
+  const safe =
+    content.length > NOTION_TEXT_MAX
+      ? `${content.slice(0, NOTION_TEXT_MAX - 1)}…`
+      : content;
+  return { rich_text: [{ text: { content: safe } }] };
+}
+
+/** number 속성용: 숫자/숫자문자열만 유효 숫자로, 그 외(null/NaN/문자)는 null. */
+function toFiniteNumber(value: unknown): number | null {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+  if (typeof value === 'string' && value.trim() !== '') {
+    const n = Number(value);
+    return Number.isFinite(n) ? n : null;
+  }
+  return null;
 }
 
 function mapPowerInletToSujeon(value: string): string | null {

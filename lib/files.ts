@@ -121,14 +121,19 @@ async function extractPDFsFromZip(buffer: Buffer): Promise<NormalizedFile[]> {
       continue;
     }
 
-    const pdfBuffer = await imageToPdf(sourceBuffer, isPng ? 'png' : 'jpg');
-    const pdfName = baseName.replace(/\.(png|jpe?g)$/i, '.pdf');
-    pdfs.push({
-      name: pdfName,
-      buffer: pdfBuffer,
-      hash: sha256(pdfBuffer),
-      mimeType: 'application/pdf',
-    });
+    // 이미지→PDF 변환 실패(손상·비표준 이미지) 시 해당 파일만 건너뜀 (전체 실패 방지)
+    try {
+      const pdfBuffer = await imageToPdf(sourceBuffer, isPng ? 'png' : 'jpg');
+      const pdfName = baseName.replace(/\.(png|jpe?g)$/i, '.pdf');
+      pdfs.push({
+        name: pdfName,
+        buffer: pdfBuffer,
+        hash: sha256(pdfBuffer),
+        mimeType: 'application/pdf',
+      });
+    } catch (err) {
+      console.warn(`[files] 이미지 변환 실패, 건너뜀: ${baseName}`, err);
+    }
   }
 
   return pdfs;

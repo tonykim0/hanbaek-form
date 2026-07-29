@@ -121,7 +121,21 @@ export async function POST(request: NextRequest) {
         send({ phase: 'splitting', message: '파일 준비 중...' });
 
         const today = formatToday();
-        const uploadItems = await buildUploadItems(normalizedFiles, metadata);
+        let uploadItems;
+        try {
+          uploadItems = await buildUploadItems(normalizedFiles, metadata);
+        } catch (err) {
+          // 분할/병합 준비가 통째로 실패해도 원본 파일은 첨부되도록 폴백
+          console.error('[intake] 업로드 항목 준비 실패 → 원본 첨부로 폴백:', err);
+          warnings.push('파일 자동 분할에 실패해 원본 그대로 첨부합니다.');
+          uploadItems = normalizedFiles.map((f) => ({
+            originalName: f.name,
+            category: '기타' as const,
+            standardName: f.name,
+            buffer: f.buffer,
+            contentType: f.mimeType,
+          }));
+        }
 
         const isSplit = normalizedFiles.length === 1 && uploadItems.length > 1;
         send({

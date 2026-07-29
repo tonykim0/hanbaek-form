@@ -5,6 +5,8 @@ const nextConfig = {
     serverActions: {
       bodySizeLimit: '50mb',
     },
+    // heic-convert(libheif wasm)는 번들링하지 않고 런타임에 node_modules에서 로드
+    serverComponentsExternalPackages: ['heic-convert'],
   },
 };
 

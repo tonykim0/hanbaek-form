@@ -93,9 +93,10 @@ async function extractPDFsFromZip(buffer: Buffer): Promise<NormalizedFile[]> {
     const isPdf = lower.endsWith('.pdf');
     const isPng = lower.endsWith('.png');
     const isJpg = lower.endsWith('.jpg') || lower.endsWith('.jpeg');
+    const isHeic = lower.endsWith('.heic') || lower.endsWith('.heif');
     const ext = lower.split('.').pop() ?? '';
     const passthroughType = PASSTHROUGH_TYPES[ext];
-    if (!isPdf && !isPng && !isJpg && !passthroughType) continue;
+    if (!isPdf && !isPng && !isJpg && !isHeic && !passthroughType) continue;
 
     const sourceBuffer = await zipFile.async('nodebuffer');
     const baseName = (path.split('/').pop() ?? path).normalize('NFC');
@@ -123,8 +124,15 @@ async function extractPDFsFromZip(buffer: Buffer): Promise<NormalizedFile[]> {
 
     // 이미지→PDF 변환 실패(손상·비표준 이미지) 시 해당 파일만 건너뜀 (전체 실패 방지)
     try {
-      const pdfBuffer = await imageToPdf(sourceBuffer, isPng ? 'png' : 'jpg');
-      const pdfName = baseName.replace(/\.(png|jpe?g)$/i, '.pdf');
+      let pdfBuffer: Buffer;
+      if (isHeic) {
+        // HEIC(아이폰 사진)는 PNG로 먼저 변환 후 PDF 임베드
+        const png = await heicToPng(sourceBuffer);
+        pdfBuffer = await imageToPdf(png, 'png');
+      } else {
+        pdfBuffer = await imageToPdf(sourceBuffer, isPng ? 'png' : 'jpg');
+      }
+      const pdfName = baseName.replace(/\.(png|jpe?g|heic|heif)$/i, '.pdf');
       pdfs.push({
         name: pdfName,
         buffer: pdfBuffer,
@@ -137,6 +145,16 @@ async function extractPDFsFromZip(buffer: Buffer): Promise<NormalizedFile[]> {
   }
 
   return pdfs;
+}
+
+/**
+ * HEIC/HEIF → PNG 변환. heic-convert(libheif wasm)를 필요할 때만 동적 로드.
+ * (JPEG 출력은 pdf-lib embedJpg가 거부하는 경우가 있어 PNG로 변환)
+ */
+async function heicToPng(heicBuffer: Buffer): Promise<Buffer> {
+  const convert = (await import('heic-convert')).default;
+  const out = await convert({ buffer: heicBuffer, format: 'PNG' });
+  return Buffer.from(out);
 }
 
 async function imageToPdf(imageBuffer: Buffer, kind: 'png' | 'jpg'): Promise<Buffer> {

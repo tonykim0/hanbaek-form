@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>기설치 충전기 이력 작성 및 증빙자료 제출 안내 | 한백</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --brand:#56A76C;
+  --brand-deep:#2E6B41;
+  --brand-pale:#EDF6F0;
+  --brand-line:#B4D9C1;
+  --ink:#182320;
+  --ink-soft:#4C5A55;
+  --ink-faint:#7E8C87;
+  --paper:#FFFFFF;
+  --panel:#F4F6F5;
+  --panel-deep:#E7ECE9;
+  --rule:#D5DCD8;
+  --signal:#AF3125;
+  --signal-pale:#FBEDEB;
+  --signal-line:#E2B6B0;
+  --amber:#8A5B12;
+  --amber-pale:#FBF2E1;
+  --amber-line:#E0C596;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0;background:var(--panel);color:var(--ink);
+  font-family:'IBM Plex Sans KR',system-ui,sans-serif;
+  font-weight:400;line-height:1.78;font-size:15px;
+  -webkit-font-smoothing:antialiased;
+}
+.sheet{max-width:960px;margin:0 auto;background:var(--paper);padding:0 0 56px;box-shadow:0 0 0 1px var(--rule)}
+.pad{padding:0 48px}
+
+/* — masthead — */
+.masthead{border-bottom:3px solid var(--brand);padding:26px 48px 22px}
+.mast-row{display:flex;align-items:flex-start;gap:18px}
+.logo{width:42px;height:auto;flex:none;margin-top:1px}
+.mast-txt{flex:1 1 340px;min-width:0}
+h1{font-size:26px;font-weight:600;letter-spacing:-.02em;margin:0;line-height:1.35}
+.mast-sub{color:var(--ink-soft);font-size:13.5px;margin-top:6px}
+
+/* — thesis — */
+.thesis{background:var(--brand-pale);border-bottom:1px solid var(--brand-line);padding:26px 48px}
+.thesis-label{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.14em;color:var(--brand-deep);text-transform:uppercase;font-weight:500}
+.calc{display:flex;align-items:flex-start;gap:16px;flex-wrap:wrap;margin:14px 0 14px}
+.calc-n{font-family:'IBM Plex Mono',monospace;font-size:36px;font-weight:600;line-height:1;color:var(--ink)}
+.calc-n.out{color:var(--brand-deep)}
+.calc-t{font-size:12px;color:var(--ink-soft);margin-top:7px;line-height:1.55}
+.calc-op{font-family:'IBM Plex Mono',monospace;font-size:26px;color:var(--ink-faint);line-height:1.2}
+.thesis-p{font-size:15px;color:var(--ink-soft);max-width:660px;margin:0}
+.thesis-p b{color:var(--ink);font-weight:600}
+
+/* — sections — */
+section{padding-top:36px}
+.sec-head{display:flex;align-items:baseline;gap:12px;border-bottom:2px solid var(--ink);padding-bottom:7px;margin-bottom:18px}
+.sec-num{font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;color:var(--brand-deep);letter-spacing:.06em}
+h2{font-size:19px;font-weight:600;margin:0;letter-spacing:-.01em}
+.sec-note{margin-left:auto;font-size:12px;color:var(--ink-faint);text-align:right}
+h3{font-size:15px;font-weight:600;margin:24px 0 8px}
+p{margin:0 0 12px}
+.lead{color:var(--ink-soft)}
+
+/* — column strip — */
+.strip{display:flex;gap:5px;flex-wrap:wrap;margin:0 0 10px}
+.col{flex:1 1 0;min-width:100px;border:1px solid var(--rule);background:var(--paper)}
+.col-k{font-family:'IBM Plex Mono',monospace;font-weight:600;font-size:13px;padding:5px 9px;border-bottom:1px solid var(--rule);background:var(--panel-deep)}
+.col-b{padding:8px 9px 10px}
+.col-n{font-size:12.5px;font-weight:600;line-height:1.4}
+.col-d{font-size:11.5px;color:var(--ink-soft);line-height:1.55;margin-top:4px}
+.col.hand .col-k{color:var(--ink);background:#DCE8E0}
+.col.auto{border-color:var(--rule);background:var(--panel)}
+.col.auto .col-k{color:var(--ink-faint)}
+.col.auto .col-n{color:var(--ink-soft)}
+.legend{font-size:12px;color:var(--ink-faint);margin:0 0 18px}
+.sw{display:inline-block;width:10px;height:10px;border:1px solid var(--rule);vertical-align:-1px;margin-right:5px}
+.sw.a{background:#DCE8E0}
+.sw.b{background:var(--panel)}
+
+/* — tables — */
+table{width:100%;border-collapse:collapse;font-size:13.5px;margin:0 0 14px}
+th,td{border:1px solid var(--rule);padding:9px 11px;text-align:left;vertical-align:top}
+th{background:var(--panel-deep);font-weight:600;font-size:12.5px}
+td.num,th.num{font-family:'IBM Plex Mono',monospace;text-align:right;white-space:nowrap}
+tr.total td{background:var(--brand-pale);font-weight:500}
+.case-k{font-family:'IBM Plex Mono',monospace;font-weight:600;color:var(--brand-deep);white-space:nowrap}
+.case-s{display:block;font-weight:400;color:var(--ink-soft);font-family:'IBM Plex Sans KR',sans-serif;font-size:12px;margin-top:2px}
+.dash{color:var(--ink-faint);text-align:center}
+.sub{color:var(--ink-soft);font-size:12.5px}
+.it{display:block;margin-bottom:3px}
+.chk td.bx{font-family:'IBM Plex Mono',monospace;font-size:15px;color:var(--ink-faint);text-align:center;padding:9px 4px}
+
+/* — callouts — */
+.note{border:1px solid var(--rule);border-left:3px solid var(--brand);background:var(--panel);padding:12px 15px;margin:0 0 14px;font-size:13.5px}
+.note.warn{border-left-color:var(--signal);border-color:var(--signal-line);background:var(--signal-pale)}
+.note.amber{border-left-color:var(--amber);border-color:var(--amber-line);background:var(--amber-pale)}
+.note.calc-note{border-left-color:var(--brand);border-color:var(--brand-line);background:var(--brand-pale)}
+.note-k{display:block;font-size:10.5px;font-family:'IBM Plex Mono',monospace;letter-spacing:.1em;text-transform:uppercase;margin-bottom:5px;color:var(--ink-faint);font-weight:500}
+.note-div{margin-top:9px;padding-top:9px;border-top:1px solid rgba(0,0,0,.09)}
+
+ul{margin:0 0 12px;padding-left:19px}
+li{margin-bottom:4px}
+code{font-family:'IBM Plex Mono',monospace;font-size:12.5px;background:var(--panel-deep);padding:1px 5px}
+.tag{display:inline-block;font-size:11px;font-family:'IBM Plex Mono',monospace;padding:1px 6px;border:1px solid var(--rule);background:var(--paper);color:var(--ink-soft);white-space:nowrap}
+.tag.req{border-color:var(--signal-line);background:var(--signal-pale);color:var(--signal)}
+.tag.ok{border-color:var(--brand-line);background:var(--brand-pale);color:var(--brand-deep)}
+
+figure{margin:0 0 16px}
+figcaption{font-size:12px;color:var(--ink-faint);margin-top:8px;line-height:1.6}
+
+/* — draft banner — */
+.draft{background:var(--amber-pale);border-bottom:1px solid var(--amber-line);color:var(--amber);font-size:12.5px;padding:9px 48px;text-align:center}
+
+@media (max-width:700px){
+  .pad,.masthead,.thesis,.draft{padding-left:20px;padding-right:20px}
+  .sheet{box-shadow:none}
+  h1{font-size:21px}
+  .calc-n{font-size:29px}
+  table{font-size:12.5px}
+  th,td{padding:7px 8px}
+}
+@media print{
+  body{background:#fff;font-size:11pt}
+  .sheet{max-width:none;box-shadow:none;padding-bottom:0}
+  .draft{display:none}
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  section{break-inside:avoid;padding-top:26px}
+  table,figure,.note,.strip{break-inside:avoid}
+}
+</style>
+</head>
+<body>
+<div class="sheet">
+
+<div class="draft">※ 원본 파일 인코딩 손상으로 내용을 복원해 재작성한 임시본입니다. 원본과 대조해 검수 후 확정본으로 교체 예정입니다.</div>
+
+<div class="masthead">
+  <div class="mast-row">
+    <img class="logo" src="data:image/png;base64,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" alt="한백 로고">
+    <div class="mast-txt">
+      <h1>기설치 충전기 이력 작성 및 증빙자료 제출 안내</h1>
+      <div class="mast-sub">올해 기신청 가능한 모든 현장 대상 · 환경공단 지침 변경 반영</div>
+    </div>
+  </div>
+</div>
+
+<div class="thesis">
+  <div class="thesis-label">이 양식이 필요한 이유</div>
+  <div class="calc">
+    <div><div class="calc-n">50</div><div class="calc-t">보조금 한도<br>주차면 1,000면의 5%</div></div>
+    <div class="calc-op">−</div>
+    <div><div class="calc-n">40</div><div class="calc-t">기설치로 우선 차감되는 대수<br>과거 이력에서 확인</div></div>
+    <div class="calc-op">=</div>
+    <div><div class="calc-n out">10</div><div class="calc-t">올해 신청 가능 기수</div></div>
+  </div>
+  <p class="thesis-p">해당 현장은 <b>과거부터 설치되어 있던 충전기 기수만큼 올해 신청할 수 있는 기수가 차감됩니다.</b> 공단이 이 대수를 검증하겠다는 것이 이번 지침 변경의 내용입니다. 과거 이력을 빠짐없이 확인하여 정확한 대수로 작성하는 것이 이번 양식의 목적입니다.</p>
+</div>
+
+<div class="pad">
+
+<section>
+  <div class="sec-head"><span class="sec-num">01</span><h2>먼저 확인할 두 가지</h2></div>
+  <p class="lead"><b>이력 양식파일</b>은 운영사가 배포한 「신청지점별 충전기 이력」 양식을 말합니다. 현장마다 확인해야 할 것은 두 가지입니다. 나머지는 이를 무엇으로 증명하는가의 문제입니다.</p>
+  <table>
+    <tr><th style="width:118px">발주 연도</th><td>과거 충전기를 설치·철거·교체한 시점이 각각 언제인가. <b>건물 준공 이후의 모든 이력</b>이 대상입니다.</td></tr>
+    <tr><th>대수(기수)</th><td>각 시점에 몇 기를 설치·철거·교체하였는가.</td></tr>
+  </table>
+  <div class="note warn"><span class="note-k">주의 · CASE 1 · 2 · 4 · 5 공통</span>현장 증빙서에 <b>누적 총 대수로만</b> 기재되어 있더라도(예: 총 20기) 그대로 작성하시면 안 됩니다. 단지 대장 또는 사업장을 확인하여 <b>설치 연도별로 행을 분리</b>하여 작성하시기 바랍니다(예: 19년도 10기 / 20년도 10기).</div>
+</section>
+
+<section>
+  <div class="sec-head"><span class="sec-num">02</span><h2>현장이 어느 CASE에 해당하는가</h2><span class="sec-note">위에서부터 순서대로 판단</span></div>
+  <p class="lead">위에서부터 순서대로 판단하면 다섯 CASE 중 하나로 정해집니다. CASE별 제출 서류와 세부 조건은 03번에서 확인하시기 바랍니다.</p>
+  <figure>
+<svg viewBox="0 0 862 652" width="100%" role="img" aria-label="기설치 증빙 CASE 판단 흐름도">
+  <defs><marker id="ar" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="#4C5A55" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+  <g font-family="'IBM Plex Sans KR',sans-serif">
+
+  <rect x="20" y="16" width="420" height="46" fill="#F4F6F5" stroke="#D5DCD8"/>
+  <text x="230" y="45" text-anchor="middle" font-size="15" font-weight="600" fill="#182320">기신청 현장</text>
+  <line x1="230" y1="62" x2="230" y2="82" stroke="#4C5A55" stroke-width="1.4" marker-end="url(#ar)"/>
+
+  <rect x="20" y="88" width="420" height="60" fill="#FFFFFF" stroke="#8FB79E" stroke-width="1.4"/>
+  <text x="230" y="113" text-anchor="middle" font-size="15" font-weight="600" fill="#182320">이미 설치된 충전기가 있는가?</text>
+  <text x="230" y="134" text-anchor="middle" font-size="12.5" fill="#4C5A55">한 기라도 있으면 아래로</text>
+  <line x1="440" y1="118" x2="466" y2="118" stroke="#4C5A55" stroke-width="1.4" marker-end="url(#ar)"/>
+  <rect x="472" y="88" width="348" height="60" fill="#EDF6F0" stroke="#8FB79E"/>
+  <text x="646" y="113" text-anchor="middle" font-size="15" font-weight="600" fill="#2E6B41">CASE 3 · 한 기도 없음</text>
+  <text x="646" y="134" text-anchor="middle" font-size="12.5" fill="#4C5A55">비고란에 대수 기재 후 종료</text>
+  <line x1="230" y1="148" x2="230" y2="170" stroke="#4C5A55" stroke-width="1.4" marker-end="url(#ar)"/>
+
+  <rect x="20" y="176" width="420" height="60" fill="#FFFFFF" stroke="#8FB79E" stroke-width="1.4"/>
+  <text x="230" y="201" text-anchor="middle" font-size="15" font-weight="600" fill="#182320">기설치 충전기 전부가</text>
+  <text x="230" y="222" text-anchor="middle" font-size="15" font-weight="600" fill="#182320">보조금으로 설치되었는가?</text>
+  <line x1="440" y1="206" x2="466" y2="206" stroke="#4C5A55" stroke-width="1.4" marker-end="url(#ar)"/>
+  <rect x="472" y="176" width="348" height="60" fill="#FBF2E1" stroke="#E0C596"/>
+  <text x="646" y="201" text-anchor="middle" font-size="15" font-weight="600" fill="#8A5B12">CASE 5 · 전부 보조금분</text>
+  <text x="646" y="222" text-anchor="middle" font-size="12.5" fill="#4C5A55">양식파일 제출 후 대수 확인</text>
+  <line x1="230" y1="236" x2="230" y2="258" stroke="#4C5A55" stroke-width="1.4" marker-end="url(#ar)"/>
+
+  <rect x="20" y="264" width="420" height="60" fill="#FFFFFF" stroke="#8FB79E" stroke-width="1.4"/>
+  <text x="230" y="289" text-anchor="middle" font-size="15" font-weight="600" fill="#182320">현장이 신고 대상 건물인가?</text>
+  <text x="230" y="310" text-anchor="middle" font-size="12.5" fill="#4C5A55">건물 성격 · 재활 의무와 무관</text>
+  <line x1="440" y1="294" x2="466" y2="294" stroke="#4C5A55" stroke-width="1.4" marker-end="url(#ar)"/>
+  <rect x="472" y="264" width="348" height="60" fill="#FBF2E1" stroke="#E0C596"/>
+  <text x="646" y="289" text-anchor="middle" font-size="15" font-weight="600" fill="#8A5B12">CASE 4 · 비대상 건물</text>
+  <text x="646" y="310" text-anchor="middle" font-size="12.5" fill="#4C5A55">오피스텔 · 일반 사업장</text>
+  <line x1="230" y1="324" x2="230" y2="346" stroke="#4C5A55" stroke-width="1.4" marker-end="url(#ar)"/>
+
+  <rect x="20" y="352" width="420" height="60" fill="#FFFFFF" stroke="#8FB79E" stroke-width="1.4"/>
+  <text x="230" y="377" text-anchor="middle" font-size="15" font-weight="600" fill="#182320">가장 최근 현장 신고 증명서를</text>
+  <text x="230" y="398" text-anchor="middle" font-size="15" font-weight="600" fill="#182320">협력사가 금번 건으로 신고하는가?</text>
+  <path d="M230 412 L230 428 L150 428 L150 444" fill="none" stroke="#4C5A55" stroke-width="1.4" marker-end="url(#ar)"/>
+  <path d="M230 412 L230 428 L560 428 L560 444" fill="none" stroke="#4C5A55" stroke-width="1.4" marker-end="url(#ar)"/>
+
+  <rect x="20" y="454" width="380" height="62" fill="#FBF2E1" stroke="#E0C596"/>
+  <text x="210" y="479" text-anchor="middle" font-size="15" font-weight="600" fill="#8A5B12">CASE 1 · 협력사 신고</text>
+  <text x="210" y="500" text-anchor="middle" font-size="12.5" fill="#4C5A55">협력사 증명서의 변경 전 대수</text>
+  <rect x="440" y="454" width="380" height="62" fill="#FBF2E1" stroke="#E0C596"/>
+  <text x="630" y="479" text-anchor="middle" font-size="15" font-weight="600" fill="#8A5B12">CASE 2 · 전 협력사 · 단지 신고</text>
+  <text x="630" y="500" text-anchor="middle" font-size="12.5" fill="#4C5A55">전 협력사 증명서의 변경 후 대수</text>
+  <line x1="210" y1="516" x2="210" y2="566" stroke="#4C5A55" stroke-width="1.4" marker-end="url(#ar)"/>
+  <line x1="630" y1="516" x2="630" y2="566" stroke="#4C5A55" stroke-width="1.4" marker-end="url(#ar)"/>
+  <path d="M820 206 H840 V600 H824" fill="none" stroke="#4C5A55" stroke-width="1.4" marker-end="url(#ar)"/>
+  <path d="M820 294 H840" fill="none" stroke="#4C5A55" stroke-width="1.4"/>
+
+  <rect x="20" y="572" width="800" height="56" fill="#FBEDEB" stroke="#E2B6B0"/>
+  <text x="420" y="596" text-anchor="middle" font-size="15" font-weight="600" fill="#AF3125">철거 · 교체 이력이 있으면 증빙자료 일체 추가</text>
+  <text x="420" y="616" text-anchor="middle" font-size="12.5" fill="#4C5A55">CASE 1 · 2 · 4 · 5 공통 적용 · 보조금 여부와 무관 (상세한 내용은 04 항목)</text>
+  </g>
+</svg>
+  </figure>
+</section>
+
+<section>
+  <div class="sec-head"><span class="sec-num">03</span><h2>CASE별 제출 서류</h2><span class="sec-note">이력 양식파일은 전 CASE 공통</span></div>
+  <table>
+    <thead><tr><th style="width:118px">CASE</th><th style="width:33%">작성 기준</th><th>제출 서류</th></tr></thead>
+    <tbody>
+      <tr><td class="case-k">CASE 1<span class="case-s">협력사 신고</span></td>
+        <td>협력사가 금번 설치 건으로 신고한<br>현장 신고 증명서의 <b>행 내용 변경 전</b> 대수<div class="sub" style="margin-top:4px">컨설팅결과서의 중복 대수 · 사업 최종 기설치 대수와 일치 필수<br>※ 비공용 충전기가 증명서에 미포함 시 설계도면 기준 우선 ▶ 도면도 없으면 작성 제외</div></td>
+        <td><span class="it">① 현장 신고 증명서 <span class="sub">협력사 신고 · 금번 설치 건</span></span>
+            <span class="it">② 이력 양식파일</span>
+            <span class="it">③ K-아파트 기본정보 · 관리사무소 정보 <span class="tag req">비공용 포함 시</span></span>
+            <span class="it">④ 설계도면 <span class="tag">도면 기준 우선 시</span></span></td></tr>
+      <tr><td class="case-k">CASE 2<span class="case-s">전 협력사 · 단지 신고</span></td>
+        <td>전 협력사 · 단지가 신고한 증명서 중<br>설치 시점 최종본의 <b>행 변경 후</b> 대수<div class="sub" style="margin-top:4px">컨설팅결과서의 중복 대수 · 사업 최종 기설치 대수와 일치 필수<br>※ 비공용 충전기가 증명서에 미포함 시 설계도면 기준 우선 ▶ 도면도 없으면 작성 제외</div></td>
+        <td><span class="it">① 현장 신고 증명서 <span class="sub">전 협력사 · 단지 신고분 · 설치 시점 최종본</span></span>
+            <span class="it">② 이력 양식파일</span>
+            <span class="it">③ K-아파트 기본정보 · 관리사무소 정보 <span class="tag req">비공용 포함 시</span></span>
+            <span class="it">④ 설계도면 <span class="tag">도면 기준 우선 시</span></span></td></tr>
+      <tr><td class="case-k">CASE 3<span class="case-s">기설치 없음</span></td>
+        <td>단지 내 기설치 대수가 전혀 없는 현장<div class="sub" style="margin-top:4px">비고란에 「기설치 이력 없음」 기재</div></td>
+        <td><span class="it">① 이력 양식파일</span></td></tr>
+      <tr><td class="case-k">CASE 4<span class="case-s">신고 비대상</span></td>
+        <td>현장 신고 대상이 아닌<br>오피스텔 · 일반 사업장</td>
+        <td><span class="it">① 이력 양식파일</span>
+            <span class="it">② 기설치 설치완료확인서 <span class="tag">확보 가능분</span></span>
+            <span class="it">③ 기설치 신청서로 나온 지자체 공문 <span class="tag">확보 가능분</span></span>
+            <span class="it">④ 기설치 전기설비 안전점검필증 <span class="tag">확보 가능분</span></span></td></tr>
+      <tr><td class="case-k">CASE 5<span class="case-s">전부 보조금분</span></td>
+        <td>기설치 충전기 전부가<br>보조금으로 설치된 현장</td>
+        <td><span class="it">① 이력 양식파일</span></td></tr>
+    </tbody>
+  </table>
+  <div class="note"><span class="note-k">코드 범례</span><b>번호가 붙은 항목은 모두 제출합니다.</b> 단 <span class="tag">태그</span>가 붙은 항목은 해당 조건일 때만 제출하며, CASE 4의 <span class="tag">확보 가능분</span>은 구할 수 있는 자료를 최대한 확보한다는 뜻입니다. 여기에 대해 <b>철거·교체 이력이 있으면 04번 항목의 서류가 추가</b>됩니다.</div>
+
+  <h3>CASE 1 · 2 — 현장 신고 대상 현장</h3>
+  <div class="note"><span class="note-k">CASE 1 · 2 판단</span>기준은 <b>금번 설치 건의 신고 주체인가</b>입니다. 같은 단지에서 과거에 <b>다른 운영사 건</b>으로 신고를 진행했다면, 신고 주체가 같더라도 <b>CASE 2</b>로 판단합니다.</div>
+
+  <h3>CASE 4 — 오피스텔 · 일반 사업장</h3>
+  <div class="note"><span class="note-k">대상 건물 판단</span>「현장 신고 대상 건물」은 실무상 아파트를 뜻하지만 정확히 일치하지는 않습니다. 기준은 <b>해당 건물이 현장 신고 제도의 적용을 받는 종인가</b>이며, 올해 신고를 진행하는지와는 무관합니다.
+    <div class="note-div"><b>증명서가 없다는 이유로 CASE 4로 분류하지 마시기 바랍니다.</b> 준공 전 충전기가 설치되어 현장 신고 증명서가 없는 아파트는 <b>CASE 1·2</b>에 해당하며, 이 경우 설계도면으로 대수를 우선합니다.</div>
+  </div>
+
+  <table>
+    <tr><th style="width:31%">① 기설치 설치완료확인서</th><td class="dash">−</td></tr>
+    <tr><th>② 기설치 진행한 협력사<br><span class="case-s">또는 지자체 공문</span></th>
+      <td>협력사 → <b>기설치 대수가 기재되어 있어야</b> 합니다.<br>지자체 공문 → <b>「설치 기수」 · 「철거 기수」 문구가 반드시 포함</b>되어야 합니다.</td></tr>
+    <tr><th>③ 기설치 전기설비 안전점검필증</th><td>기설치 충전기분이어야 합니다.</td></tr>
+  </table>
+  <div class="note"><span class="note-k">판단 기준</span>모든 값을 갖출 필요는 없습니다. <b>제출 가능한 증빙 자료</b>를 확보하시면 되고, 기준은 하나입니다 — <b>기설치 대수가 확인되는 자료인가.</b> 대수가 기재되지 않은 협력사 자료는 제출하셔도 인정되지 않습니다.</div>
+
+  <h3>CASE 5 — 전부 보조금 설치분</h3>
+  <div class="note warn"><span class="note-k">CASE 5 판단 시 주의</span><b>기설치 충전기가 100% 보조금분인 경우에만</b> CASE 5입니다. 비공용(보조금 미수령) 충전기가 한 기라도 포함되어 있으면 CASE 5가 아니며, 이 경우 <b>보조금 충전기 몫까지 현장 신고 증명서를 제출</b>해야 합니다. 또한 CASE 5에 해당하더라도 철거·교체 이력이 있으면 증빙자료가 필요합니다.</div>
+</section>
+
+<section>
+  <div class="sec-head"><span class="sec-num">04</span><h2>증명서가 없거나 맞지 않을 때</h2><span class="sec-note">CASE 1 · 2</span></div>
+  <p class="lead">현장 신고 증명서만으로 대수가 확정되지 않는 두 가지 상황입니다.</p>
+  <h3>증명서에 비공용 충전기가 누락된 경우 (CASE 1 · 2)</h3>
+  <p class="lead"><b>비공용 충전기</b>는 보조금을 받지 않고 설치된 충전기를 말합니다. 준공 전 건설사가 설치하거나 단지가 자체 예산으로 설치한 경우가 이에 해당하며, 현장 신고 증명서에 기재되지 않은 사례가 많습니다. 이때는 <b>설계도면 기준으로 대수를 우선</b>하고 도면과 함께 제출합니다. 도면도 없으면 작성에서 제외합니다. 도면 기준으로 우선한 대수는 <b>컨설팅결과서의 중복 대수와 반드시 일치</b>해야 합니다.</p>
+
+  <h3>전 협력사 · 단지 설치분의 증명서를 구하는 방법 (CASE 2)</h3>
+  <p class="lead">전 협력사가 진행한 신고 건의 증명서를 직접 발급받을 수 있습니다. 이 경우 <b>아파트 관리사무소 또는 입주자대표회의를 통해, 해당 단지에서 이전에 운영 중인 CPO사에 현장 신고 증명서 발급을 요청</b>하도록 협조를 구하시기 바랍니다.</p>
+  <div class="note"><span class="note-k">요청 경로</span>협력사 → 관리사무소 · 입대의 → 이전 운영 중인 CPO사 → 증명서 수령<div class="note-div">단지 측이 요청 주체가 되어야 CPO사가 응하는 경우가 많습니다. 협력사가 직접 CPO사에 연락하는 것보다 단지를 통하는 편이 회신율이 높습니다.</div></div>
+</section>
+
+<section>
+  <div class="sec-head"><span class="sec-num">05</span><h2>철거 · 교체 이력이 있는 현장</h2><span class="sec-note">CASE 무관 공통 추가</span></div>
+  <div class="note warn"><span class="note-k">전 가이드 규정</span>철거 및 교체 이력이 있는 경우 <b>관련 증빙자료 일체 제출 필수.</b> 철거·교체 대수도 그대로 기설치로 우선합니다(예: 철거 5기 + 교체 설치 5기 = 기설치 10기).</div>
+  <p class="lead">아래는 「증빙자료 일체」에 무엇이 포함되는지를 양식의 입력 사항과 작성 예시에서 정리한 것입니다.</p>
+  <table>
+    <thead><tr><th style="width:142px">목적</th><th>제출 서류</th></tr></thead>
+    <tbody>
+      <tr><td><b>대수 확인</b></td><td>현장 신고 · 허가 증명서 일체
+        <div class="sub" style="margin-top:4px">철거 건은 <b>대수의 의결서(입대의)</b>를 함께 제출합니다. 철거 대수 확인용입니다.</div></td></tr>
+      <tr><td><b>내구연한 우선</b></td><td>위치별 <b>충전기 명판 사진</b> 등 제조연월일 확인 자료.<br>확인이 불가한 경우 → 준공 전 설치 건은 <b>k-apt 사용승인일</b>부터, 그 외는 <b>증명서 발급일자</b>부터 철거일까지로 우선합니다.</td></tr>
+      <tr><td><b>불가피한 사유<br>소명</b></td><td>위 자료 + 사유를 확인할 수 있는 증빙 일체(신청자 공문 등)<br><span class="sub">대상 사유 — 천재지변, 화재, 건물 철거, 이전 불가(사업시행기관 파산 등)</span></td></tr>
+    </tbody>
+  </table>
+  <div class="note amber"><span class="note-k">소명이 필요한 경우</span>내구연한 <b>8년을 초과하여</b> 철거한 기수는 기설치 대수에 우선되지 않으므로 소명이 필요하지 않습니다. <b>8년 이내에 철거·교체한 기수 중 불가피한 사유를 주장할 때에만</b> 해당하는 절차이며, 인정 여부는 보조금 접수 시 심사가 확정합니다.</div>
+</section>
+
+<section>
+  <div class="sec-head"><span class="sec-num">06</span><h2>양식 작성 방법</h2><span class="sec-note">B~G열만 입력<br>H·I열은 자동 계산</span></div>
+
+  <div class="strip">
+    <div class="col hand"><div class="col-k">B</div><div class="col-b"><div class="col-n">발주 일자</div><div class="col-d">증명서 발급일자<br>없으면 사용승인일</div></div></div>
+    <div class="col hand"><div class="col-k">C</div><div class="col-b"><div class="col-n">구분</div><div class="col-d">드롭다운 선택<br>직접 입력 금지</div></div></div>
+    <div class="col hand"><div class="col-k">D</div><div class="col-b"><div class="col-n">해당 기수</div><div class="col-d">해당 행의<br>충전기 기수</div></div></div>
+    <div class="col hand"><div class="col-k">E</div><div class="col-b"><div class="col-n">8년 초과</div><div class="col-d">내구연한 초과<br>철거·교체 기수</div></div></div>
+    <div class="col hand"><div class="col-k">F</div><div class="col-b"><div class="col-n">8년 이내 우선</div><div class="col-d">내구연한 이내<br>우선 철거·교체</div></div></div>
+    <div class="col hand"><div class="col-k">G</div><div class="col-b"><div class="col-n">8년 이내 불가피</div><div class="col-d">천재지변 · 화재 등</div></div></div>
+    <div class="col auto"><div class="col-k">H</div><div class="col-b"><div class="col-n">최종 기설치 대수</div><div class="col-d">자동 계산</div></div></div>
+    <div class="col auto"><div class="col-k">I</div><div class="col-b"><div class="col-n">대수 검증</div><div class="col-d">자동 · TRUE 확인</div></div></div>
+  </div>
+  <p class="legend"><span class="sw a"></span>직접 입력<span style="display:inline-block;width:18px"></span><span class="sw b"></span>자동 계산 · 입력 금지</p>
+
+  <h3>입력 규칙</h3>
+  <table>
+    <thead><tr><th style="width:146px">행 종류</th><th>입력 방법</th></tr></thead>
+    <tbody>
+      <tr><td><b>신규 설치</b><span class="case-s">기설치 없던 자리에 신규 설치</span></td>
+        <td><code>D</code>열만 작성합니다. <code>E</code>~<code>H</code>열은 빈 칸 처리되며 입력하지 않습니다.</td></tr>
+      <tr><td><b>교체 설치</b><span class="case-s">철거 후 같은 자리에 교체</span></td>
+        <td><code>D</code>열에 교체 기수를 기재하고, 해당 기수를 철거 사유에 따라 <code>E</code>·<code>F</code>·<code>G</code>열로 나누어 배분합니다. <b>E+F+G 합계가 D와 일치</b>해야 합니다.</td></tr>
+      <tr><td><b>철거</b><span class="case-s">완전 철거 · 재설치 없음</span></td>
+        <td>교체 설치와 동일합니다. <b>E+F+G 합계 = D</b></td></tr>
+    </tbody>
+  </table>
+  <div class="note warn"><span class="note-k">제출 전 필수 확인</span><code>I</code>열(대수 검증)이 <b>전 행 TRUE인지 반드시 확인</b>한 후 제출하시기 바랍니다. FALSE는 E·F·G 합계가 D와 일치하지 않는다는 뜻이므로 해당 행을 수정해야 합니다.</div>
+  <div class="note"><span class="note-k">행 분리 기준</span>하나의 증명서에 여러 행위가 함께 포함된 경우(예: 교체 설치 + 신규 설치) <b>행위별로 행을 분리</b>하여 작성합니다. 설치 연도가 다르면 연도별로도 분리합니다.</div>
+
+  <h3>작성 예시</h3>
+  <p class="lead">총 주차면 1,000면 · 보조금 한도 50기(5%)인 아파트. 준공 전 건설사가 설치한 자체 운영 충전기가 있는 현장입니다.</p>
+  <table>
+    <thead><tr><th style="width:38px">연번</th><th style="width:100px">B 발주 일자</th><th style="width:84px">C 구분</th><th class="num">D</th><th class="num">E</th><th class="num">F</th><th class="num">G</th><th>사유 및 증빙</th></tr></thead>
+    <tbody>
+      <tr><td class="num">1</td><td class="num">2012-01-01</td><td>신규 설치</td><td class="num">50</td><td class="dash">/</td><td class="dash">/</td><td class="dash">/</td><td>준공 전 건설사 설치 · 아파트 자체 운영<br><span class="sub">증빙: 설계도면, 건축허가서</span></td></tr>
+      <tr><td class="num">2</td><td class="num">2019-01-01</td><td>교체 설치</td><td class="num">20</td><td class="num">0</td><td class="num">20</td><td class="num">0</td><td>자체 운영이 어려워 위탁 교체 <span class="tag req">기설치 우선</span><br><span class="sub">7년 사용 · 내구연한 이내 우선 철거 → F열<br>증빙: 현장 신고 증명서, 제조연월일 증빙</span></td></tr>
+      <tr><td class="num">3</td><td class="num">2020-02-01</td><td>철거</td><td class="num">30</td><td class="num">30</td><td class="num">0</td><td class="num">0</td><td>내구연한 8년 초과 <span class="tag">미우선</span><br><span class="sub">8년 1개월 사용 → E열<br>증빙: 현장 허가 증명서, 입대의 의결서</span></td></tr>
+      <tr class="total"><td colspan="3">전체 (자동)</td><td class="num">20</td><td class="num">30</td><td class="num">20</td><td class="num">0</td><td><b>H = 20 + 20 = 40기</b> → 올해 신청 가능 <b>50 − 40 = 10기</b></td></tr>
+    </tbody>
+  </table>
+
+  <div class="note calc-note"><span class="note-k">계산 방식</span>
+    전체 <code>D</code> = 신규 설치 합계 − 철거 합계 = <b>현재 남은 대수 기수</b> (50 − 30 = 20)<br>
+    전체 <code>H</code> = <code>D</code> + <code>F</code> = 남은 대수 기수 + <b>내구연한 이내에 우선으로 철거한 기수</b> (20 + 20 = 40)
+    <div class="note-div"><b>내구연한 8년을 채워 다 철거한 기수(E)는 기설치에서 제외되고, 8년을 채우지 못한 채 우선으로 철거한 기수(F)는 그대로 다시 우선됩니다.</b> 불가피한 사유(G)는 양식상으로는 제외되나, 인정 여부는 보조금 접수 시 심사가 확정합니다.</div>
+  </div>
+
+  <h3>증빙 자료명 표기 (J열)</h3>
+  <p class="lead">첨부하는 모든 파일은 앞의 <code>증빙 자료명</code> 칸에 자료 명칭을 명확히 기재해야 합니다. 표기 형식은 <b>행위 구분_자료 종류</b>입니다.</p>
+  <table>
+    <tr><td class="num" style="width:38px">1</td><td><code>1. 신규 설치_설계도면</code></td></tr>
+    <tr><td class="num">2</td><td><code>2. 교체 설치_현장 신고 증명서</code></td></tr>
+    <tr><td class="num">3</td><td><code>3. 철거_현장 허가 증명서</code></td></tr>
+  </table>
+</section>
+
+<section>
+  <div class="sec-head"><span class="sec-num">07</span><h2>최종 제출물 체크리스트</h2><span class="sec-note">제출 직전 확인</span></div>
+  <table class="chk">
+    <thead><tr><th style="width:26px"></th><th style="width:42%">제출물</th><th>제출 대상</th></tr></thead>
+    <tbody>
+      <tr><td class="bx">☐</td><td><b>이력 양식파일</b></td><td><span class="tag req">전 현장 필수</span> CASE 3은 비고란에 「기설치 이력 없음」 기재</td></tr>
+      <tr><td class="bx">☐</td><td><b>현장 신고 증명서</b><span class="case-s">CASE 1 — 협력사 신고 금번 건 / CASE 2 — 전 협력사 · 단지 신고분 최종본</span></td><td>CASE 1 · 2</td></tr>
+      <tr><td class="bx">☐</td><td>K-아파트 기본정보 · 관리사무소 정보</td><td>CASE 1 · 2 중 <b>비공용 충전기가 포함된</b> 현장</td></tr>
+      <tr><td class="bx">☐</td><td>설계도면<span class="case-s">또는 건축허가서</span></td><td>CASE 1 · 2 중 <b>설계도면 기준으로 대수를 우선한</b> 현장</td></tr>
+      <tr><td class="bx">☐</td><td>기설치 증빙 자료<span class="case-s">설치완료확인서 / 협력사 또는 지자체 공문 / 전기설비 안전점검필증</span></td><td>CASE 4 · 확보 가능한 자료 전부</td></tr>
+      <tr><td class="bx">☐</td><td>현장 신고 · 허가 증명서 일체<span class="case-s">철거 건은 입대의 의결서 포함</span></td><td><b>철거 · 교체 이력이 있는</b> 현장 · CASE 무관</td></tr>
+      <tr><td class="bx">☐</td><td>내구연한 증빙<span class="case-s">충전기 명판 사진 등 제조연월일 확인 자료</span></td><td><b>철거 · 교체 이력이 있는</b> 현장 · CASE 무관</td></tr>
+      <tr><td class="bx">☐</td><td>불가피한 사유 확인 자료<span class="case-s">신청자 공문 등 일체</span></td><td>내구연한 이내 철거·교체를 <b>불가피한 사유로 소명한</b> 경우</td></tr>
+    </tbody>
+  </table>
+  <div class="note"><span class="note-k">제출 전 최종 확인</span>① 양식 <code>I</code>열이 전 행 TRUE인가 &nbsp;·&nbsp; ② 최종 기설치 대수가 컨설팅결과서의 중복 대수와 일치하는가 &nbsp;·&nbsp; ③ 모든 첨부파일이 <code>증빙 자료명</code> 칸에 기재되어 있는가</div>
+</section>
+
+<section>
+  <div class="sec-head"><span class="sec-num">08</span><h2>자주 발생하는 오류</h2></div>
+  <table>
+    <thead><tr><th style="width:44%">잘못된 작성</th><th>올바른 작성</th></tr></thead>
+    <tbody>
+      <tr><td>증명서의 누적 총 대수를 한 행에 그대로 입력</td><td>설치 연도별로 행을 분리하여 입력</td></tr>
+      <tr><td>철거·교체 행을 D열만 기재하고 E·F·G열은 빈칸</td><td>철거 사유별로 E·F·G열에 배분 · I열 TRUE 확인</td></tr>
+      <tr><td>대수가 기재되지 않은 협력사 증빙으로 제출</td><td>대수가 기재된 자료로 재수령</td></tr>
+      <tr><td>철거 5기와 교체 설치 5기를 5기로 계산</td><td>철거분과 교체분을 각각 행으로 분리하여 모두 기재</td></tr>
+      <tr><td>비공용 충전기가 증명서에 없다는 이유로 누락</td><td>설계도면 기준으로 우선하여 도면과 함께 제출</td></tr>
+      <tr><td>기설치가 없는 현장을 표기하지 않음</td><td>비고란에 「기설치 이력 없음」 기재 후 필수 제출</td></tr>
+    </tbody>
+  </table>
+</section>
+
+</div>
+</div>
+</body>
+</html>

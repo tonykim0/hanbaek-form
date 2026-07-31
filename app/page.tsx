@@ -2,6 +2,11 @@ import Link from 'next/link';
 
 const updates = [
   {
+    date: '2026. 07. 29.',
+    title: '기설치 충전기 이력 작성 및 증빙자료 제출 안내',
+    href: '/notices/legacy-charger-history.html',
+  },
+  {
     date: '2026. 07. 28.',
     title: '현대엔지니어링 별지1(사진대지)·별지2(사전체크리스트) 추가',
     note: '2026. 08. 01.부터 적용',
@@ -96,7 +101,19 @@ export default function Home() {
                   <span className="block text-xs text-gray-400 tabular-nums mb-1">
                     {u.date}
                   </span>
-                  <p className="text-gray-700 leading-snug">{u.title}</p>
+                  {u.href ? (
+                    <a
+                      href={u.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="group inline-flex items-start gap-1 text-brand-700 font-medium leading-snug hover:underline"
+                    >
+                      {u.title}
+                      <span aria-hidden className="text-brand-500 transition-transform group-hover:translate-x-0.5">↗</span>
+                    </a>
+                  ) : (
+                    <p className="text-gray-700 leading-snug">{u.title}</p>
+                  )}
                   {u.note && (
                     <span className="inline-block mt-1.5 text-xs text-brand-700 bg-brand-50 rounded px-1.5 py-0.5">
                       {u.note}

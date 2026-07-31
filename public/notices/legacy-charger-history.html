@@ -117,7 +117,8 @@ figcaption{font-size:12px;color:var(--ink-faint);margin-top:8px;line-height:1.6}
 
 @media (max-width:700px){
   .pad,.masthead,.thesis{padding-left:20px;padding-right:20px}
-  .toc{padding-left:20px;padding-right:20px}
+  .toc{padding-left:20px;padding-right:20px;flex-wrap:wrap;row-gap:8px}
+  .toc-dl{order:-1;width:100%;justify-content:center}
   .sec-head{flex-wrap:wrap}
   .sec-note{margin-left:0;text-align:left;flex:1 1 100%}
   .fab-group{right:14px;bottom:14px}
@@ -137,11 +138,18 @@ figcaption{font-size:12px;color:var(--ink-faint);margin-top:8px;line-height:1.6}
 }
 
 /* — quick nav — */
-.toc{position:sticky;top:0;z-index:10;display:flex;gap:6px;overflow-x:auto;background:var(--paper);border-bottom:1px solid var(--rule);padding:9px 48px;scrollbar-width:thin}
-.toc a{flex:none;display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:var(--ink-soft);text-decoration:none;padding:5px 11px;border:1px solid var(--rule);border-radius:999px;white-space:nowrap;transition:border-color .15s,color .15s,background .15s}
-.toc a:hover{border-color:var(--brand-line);background:var(--brand-pale);color:var(--brand-deep)}
-.toc a.active{border-color:var(--brand);background:var(--brand-pale);color:var(--brand-deep)}
+.toc{position:sticky;top:0;z-index:10;display:flex;align-items:center;gap:10px;background:var(--paper);border-bottom:1px solid var(--rule);padding:9px 48px}
+.toc-links{flex:1 1 auto;min-width:0;display:flex;gap:6px;overflow-x:auto;scrollbar-width:thin}
+.toc-links a{flex:none;display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:var(--ink-soft);text-decoration:none;padding:5px 11px;border:1px solid var(--rule);border-radius:999px;white-space:nowrap;transition:border-color .15s,color .15s,background .15s}
+.toc-links a:hover{border-color:var(--brand-line);background:var(--brand-pale);color:var(--brand-deep)}
+.toc-links a.active{border-color:var(--brand);background:var(--brand-pale);color:var(--brand-deep)}
 .toc-n{font-family:'IBM Plex Mono',monospace;font-weight:600;font-size:11px;color:var(--brand-deep)}
+.toc-dl{flex:none;display:inline-flex;align-items:center;gap:6px;background:var(--brand);color:#fff;font-size:12.5px;font-weight:600;padding:7px 14px;border-radius:999px;text-decoration:none;white-space:nowrap;transition:background .15s}
+.toc-dl:hover{background:var(--brand-deep)}
+
+/* — inline download link (section 06) — */
+.dl-inline{display:inline-flex;align-items:center;gap:6px;font-size:13.5px;font-weight:600;color:var(--brand-deep);text-decoration:none;border-bottom:1px solid var(--brand-line);padding-bottom:1px}
+.dl-inline:hover{color:var(--brand);border-color:var(--brand)}
 html{scroll-behavior:smooth}
 section{scroll-margin-top:56px}
 
@@ -188,13 +196,16 @@ section{scroll-margin-top:56px}
 </div>
 
 <nav class="toc" aria-label="목차">
-  <a href="#s01"><span class="toc-n">01</span>확인할 두 가지</a>
-  <a href="#s02"><span class="toc-n">02</span>CASE 판단</a>
-  <a href="#s03"><span class="toc-n">03</span>제출 서류</a>
-  <a href="#s04"><span class="toc-n">04</span>예외 상황</a>
-  <a href="#s05"><span class="toc-n">05</span>철거·교체</a>
-  <a href="#s06"><span class="toc-n">06</span>양식 작성</a>
-  <a href="#s07"><span class="toc-n">07</span>체크리스트</a>
+  <div class="toc-links">
+    <a href="#s01"><span class="toc-n">01</span>확인할 두 가지</a>
+    <a href="#s02"><span class="toc-n">02</span>CASE 판단</a>
+    <a href="#s03"><span class="toc-n">03</span>제출 서류</a>
+    <a href="#s04"><span class="toc-n">04</span>예외 상황</a>
+    <a href="#s05"><span class="toc-n">05</span>철거·교체</a>
+    <a href="#s06"><span class="toc-n">06</span>양식 작성</a>
+    <a href="#s07"><span class="toc-n">07</span>체크리스트</a>
+  </div>
+  <a class="toc-dl" href="/notices/files/legacy-charger-history-template.xlsx" download="기설치_충전기_이력_양식.xlsx">⬇ 양식 다운로드</a>
 </nav>
 
 <div class="pad">
@@ -279,17 +290,17 @@ section{scroll-margin-top:56px}
     <thead><tr><th style="width:118px">CASE</th><th style="width:33%">작성 기준</th><th>제출 서류</th></tr></thead>
     <tbody>
       <tr><td class="case-k">CASE 1<span class="case-s">협력사 신고</span></td>
-        <td>협력사가 금번 설치 건으로 신고한<br>현장 신고 증명서의 <b>행 내용 변경 전</b> 대수<div class="sub" style="margin-top:4px">컨설팅결과서의 중복 대수 · 사업 최종 기설치 대수와 일치 필수<br>※ 비공용 충전기가 증명서에 미포함 시 설계도면 기준 우선 ▶ 도면도 없으면 작성 제외</div></td>
+        <td>협력사가 금번 설치 건으로 신고한<br>현장 신고 증명서의 <b>행 내용 변경 전</b> 대수<div class="sub" style="margin-top:4px">컨설팅결과서의 중복 대수 · 사업 최종 기설치 대수와 일치 필수<br>※ 설계도면은 증명서로 비공용 충전기 수량을 확인할 수 없어 <b>도면 기준으로 수량을 산정할 때만</b> 제출합니다. 증명서로 수량이 확인되면 도면은 제출하지 않습니다. (도면도 없으면 작성 제외)</div></td>
         <td><span class="it">① 현장 신고 증명서 <span class="sub">협력사 신고 · 금번 설치 건</span></span>
             <span class="it">② 이력 양식파일</span>
             <span class="it">③ K-아파트 기본정보 · 관리사무소 정보 <span class="tag req">비공용 포함 시</span></span>
-            <span class="it">④ 설계도면 <span class="tag">도면 기준 우선 시</span></span></td></tr>
+            <span class="it">④ 설계도면 <span class="tag">도면 기준 산정 시만</span></span></td></tr>
       <tr><td class="case-k">CASE 2<span class="case-s">전 협력사 · 단지 신고</span></td>
-        <td>전 협력사 · 단지가 신고한 증명서 중<br>설치 시점 최종본의 <b>행 변경 후</b> 대수<div class="sub" style="margin-top:4px">컨설팅결과서의 중복 대수 · 사업 최종 기설치 대수와 일치 필수<br>※ 비공용 충전기가 증명서에 미포함 시 설계도면 기준 우선 ▶ 도면도 없으면 작성 제외</div></td>
+        <td>전 협력사 · 단지가 신고한 증명서 중<br>설치 시점 최종본의 <b>행 변경 후</b> 대수<div class="sub" style="margin-top:4px">컨설팅결과서의 중복 대수 · 사업 최종 기설치 대수와 일치 필수<br>※ 설계도면은 증명서로 비공용 충전기 수량을 확인할 수 없어 <b>도면 기준으로 수량을 산정할 때만</b> 제출합니다. 증명서로 수량이 확인되면 도면은 제출하지 않습니다. (도면도 없으면 작성 제외)</div></td>
         <td><span class="it">① 현장 신고 증명서 <span class="sub">전 협력사 · 단지 신고분 · 설치 시점 최종본</span></span>
             <span class="it">② 이력 양식파일</span>
             <span class="it">③ K-아파트 기본정보 · 관리사무소 정보 <span class="tag req">비공용 포함 시</span></span>
-            <span class="it">④ 설계도면 <span class="tag">도면 기준 우선 시</span></span></td></tr>
+            <span class="it">④ 설계도면 <span class="tag">도면 기준 산정 시만</span></span></td></tr>
       <tr><td class="case-k">CASE 3<span class="case-s">기설치 없음</span></td>
         <td>단지 내 기설치 대수가 전혀 없는 현장<div class="sub" style="margin-top:4px">비고란에 「기설치 이력 없음」 기재</div></td>
         <td><span class="it">① 이력 양식파일</span></td></tr>
@@ -304,7 +315,7 @@ section{scroll-margin-top:56px}
         <td><span class="it">① 이력 양식파일</span></td></tr>
     </tbody>
   </table>
-  <div class="note"><span class="note-k">코드 범례</span><b>번호가 붙은 항목은 모두 제출합니다.</b> 단 <span class="tag">태그</span>가 붙은 항목은 해당 조건일 때만 제출하며, CASE 4의 <span class="tag">확보 가능분</span>은 구할 수 있는 자료를 최대한 확보한다는 뜻입니다. 여기에 대해 <b>철거·교체 이력이 있으면 04번 항목의 서류가 추가</b>됩니다.</div>
+  <div class="note"><span class="note-k">코드 범례</span><b>번호가 붙은 항목은 모두 제출합니다.</b> 단 <span class="tag">태그</span>가 붙은 항목은 해당 조건일 때만 제출합니다 — 예를 들어 <b>설계도면은 비공용 충전기 수량을 도면 기준으로 산정한 현장에서만</b> 제출하며, 증명서로 수량이 확인되는 현장은 제출하지 않습니다. CASE 4의 <span class="tag">확보 가능분</span>은 구할 수 있는 자료를 최대한 확보한다는 뜻입니다. 여기에 대해 <b>철거·교체 이력이 있으면 04번 항목의 서류가 추가</b>됩니다.</div>
 
   <h3>CASE 1 · 2 — 현장 신고 대상 현장</h3>
   <div class="note"><span class="note-k">CASE 1 · 2 판단</span>기준은 <b>금번 설치 건의 신고 주체인가</b>입니다. 같은 단지에서 과거에 <b>다른 운영사 건</b>으로 신고를 진행했다면, 신고 주체가 같더라도 <b>CASE 2</b>로 판단합니다.</div>
@@ -330,7 +341,7 @@ section{scroll-margin-top:56px}
   <div class="sec-head"><span class="sec-num">04</span><h2>증명서가 없거나 맞지 않을 때</h2><span class="sec-note">CASE 1 · 2</span></div>
   <p class="lead">현장 신고 증명서만으로 대수가 확정되지 않는 두 가지 상황입니다.</p>
   <h3>증명서에 비공용 충전기가 누락된 경우 (CASE 1 · 2)</h3>
-  <p class="lead"><b>비공용 충전기</b>는 보조금을 받지 않고 설치된 충전기를 말합니다. 준공 전 건설사가 설치하거나 단지가 자체 예산으로 설치한 경우가 이에 해당하며, 현장 신고 증명서에 기재되지 않은 사례가 많습니다. 이때는 <b>설계도면 기준으로 대수를 우선</b>하고 도면과 함께 제출합니다. 도면도 없으면 작성에서 제외합니다. 도면 기준으로 우선한 대수는 <b>컨설팅결과서의 중복 대수와 반드시 일치</b>해야 합니다.</p>
+  <p class="lead"><b>비공용 충전기</b>는 보조금을 받지 않고 설치된 충전기를 말합니다. 준공 전 건설사가 설치하거나 단지가 자체 예산으로 설치한 경우가 이에 해당하며, 현장 신고 증명서에 기재되지 않은 사례가 많습니다. <b>증명서만으로 비공용 대수가 확인되면 설계도면은 제출하지 않습니다.</b> 확인이 안 될 때만 <b>설계도면 기준으로 대수를 산정</b>하고 도면과 함께 제출합니다. 도면도 없으면 작성에서 제외합니다. 도면 기준으로 산정한 대수는 <b>컨설팅결과서의 중복 대수와 반드시 일치</b>해야 합니다.</p>
 
   <h3>전 협력사 · 단지 설치분의 증명서를 구하는 방법 (CASE 2)</h3>
   <p class="lead">전 협력사가 진행한 신고 건의 증명서를 직접 발급받을 수 있습니다. 이 경우 <b>아파트 관리사무소 또는 입주자대표회의를 통해, 해당 단지에서 이전에 운영 중인 CPO사에 현장 신고 증명서 발급을 요청</b>하도록 협조를 구하시기 바랍니다.</p>
@@ -355,6 +366,7 @@ section{scroll-margin-top:56px}
 
 <section id="s06">
   <div class="sec-head"><span class="sec-num">06</span><h2>양식 작성 방법</h2><span class="sec-note">B~G열만 입력<br>H·I열은 자동 계산</span></div>
+  <p class="lead"><a class="dl-inline" href="/notices/files/legacy-charger-history-template.xlsx" download="기설치_충전기_이력_양식.xlsx">⬇ 이력 양식파일(.xlsx) 다운로드</a></p>
 
   <div class="strip">
     <div class="col hand"><div class="col-k">B</div><div class="col-b"><div class="col-n">발주 일자</div><div class="col-d">증명서 발급일자<br>없으면 사용승인일</div></div></div>
@@ -418,7 +430,7 @@ section{scroll-margin-top:56px}
       <tr><td class="bx"><input type="checkbox"></td><td><b>이력 양식파일</b></td><td><span class="tag req">전 현장 필수</span> CASE 3은 비고란에 「기설치 이력 없음」 기재</td></tr>
       <tr><td class="bx"><input type="checkbox"></td><td><b>현장 신고 증명서</b><span class="case-s">CASE 1 — 협력사 신고 금번 건 / CASE 2 — 전 협력사 · 단지 신고분 최종본</span></td><td>CASE 1 · 2</td></tr>
       <tr><td class="bx"><input type="checkbox"></td><td>K-아파트 기본정보 · 관리사무소 정보</td><td>CASE 1 · 2 중 <b>비공용 충전기가 포함된</b> 현장</td></tr>
-      <tr><td class="bx"><input type="checkbox"></td><td>설계도면<span class="case-s">또는 건축허가서</span></td><td>CASE 1 · 2 중 <b>설계도면 기준으로 대수를 우선한</b> 현장</td></tr>
+      <tr><td class="bx"><input type="checkbox"></td><td>설계도면<span class="case-s">또는 건축허가서</span></td><td>CASE 1 · 2 중 <b>비공용 충전기 수량을 도면 기준으로 산정한</b> 현장만 <span class="sub">(증명서로 확인되면 제출 불필요)</span></td></tr>
       <tr><td class="bx"><input type="checkbox"></td><td>기설치 증빙 자료<span class="case-s">설치완료확인서 / 협력사 또는 지자체 공문 / 전기설비 안전점검필증</span></td><td>CASE 4 · 확보 가능한 자료 전부</td></tr>
       <tr><td class="bx"><input type="checkbox"></td><td>현장 신고 · 허가 증명서 일체<span class="case-s">철거 건은 입대의 의결서 포함</span></td><td><b>철거 · 교체 이력이 있는</b> 현장 · CASE 무관</td></tr>
       <tr><td class="bx"><input type="checkbox"></td><td>내구연한 증빙<span class="case-s">충전기 명판 사진 등 제조연월일 확인 자료</span></td><td><b>철거 · 교체 이력이 있는</b> 현장 · CASE 무관</td></tr>
@@ -469,7 +481,7 @@ section{scroll-margin-top:56px}
   });
 
   // 목차: 현재 보고 있는 섹션 강조
-  var tocLinks = Array.prototype.slice.call(document.querySelectorAll('.toc a'));
+  var tocLinks = Array.prototype.slice.call(document.querySelectorAll('.toc-links a'));
   var sections = tocLinks.map(function(a){ return document.querySelector(a.getAttribute('href')); });
   if ('IntersectionObserver' in window) {
     var observer = new IntersectionObserver(function(entries){

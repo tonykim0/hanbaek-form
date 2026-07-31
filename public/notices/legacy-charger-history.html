@@ -144,12 +144,12 @@ figcaption{font-size:12px;color:var(--ink-faint);margin-top:8px;line-height:1.6}
 .toc-links a:hover{border-color:var(--brand-line);background:var(--brand-pale);color:var(--brand-deep)}
 .toc-links a.active{border-color:var(--brand);background:var(--brand-pale);color:var(--brand-deep)}
 .toc-n{font-family:'IBM Plex Mono',monospace;font-weight:600;font-size:11px;color:var(--brand-deep)}
-.toc-dl{flex:none;display:inline-flex;align-items:center;gap:6px;background:var(--brand);color:#fff;font-size:12.5px;font-weight:600;padding:7px 14px;border-radius:999px;text-decoration:none;white-space:nowrap;transition:background .15s}
-.toc-dl:hover{background:var(--brand-deep)}
+.toc-dl{flex:none;display:inline-flex;align-items:center;gap:6px;background:var(--signal);color:#fff;font-size:12.5px;font-weight:700;padding:7px 16px;border-radius:999px;text-decoration:none;white-space:nowrap;box-shadow:0 1px 3px rgba(175,49,37,.35);transition:background .15s,box-shadow .15s,transform .15s}
+.toc-dl:hover{background:#8f2a20;box-shadow:0 2px 6px rgba(175,49,37,.45);transform:translateY(-1px)}
 
 /* — inline download link (section 06) — */
-.dl-inline{display:inline-flex;align-items:center;gap:6px;font-size:13.5px;font-weight:600;color:var(--brand-deep);text-decoration:none;border-bottom:1px solid var(--brand-line);padding-bottom:1px}
-.dl-inline:hover{color:var(--brand);border-color:var(--brand)}
+.dl-inline{display:inline-flex;align-items:center;gap:6px;font-size:13.5px;font-weight:700;color:var(--signal);text-decoration:none;border-bottom:1px solid var(--signal-line);padding-bottom:1px}
+.dl-inline:hover{color:#8f2a20;border-color:#8f2a20}
 html{scroll-behavior:smooth}
 section{scroll-margin-top:56px}
 
@@ -205,7 +205,7 @@ section{scroll-margin-top:56px}
     <a href="#s06"><span class="toc-n">06</span>양식 작성</a>
     <a href="#s07"><span class="toc-n">07</span>체크리스트</a>
   </div>
-  <a class="toc-dl" href="/notices/files/legacy-charger-history-template.xlsx" download="기설치_충전기_이력_양식.xlsx">⬇ 양식 다운로드</a>
+  <a class="toc-dl" href="/notices/files/legacy-charger-history-template.xlsx" download="(양식) 신청지점별 충전기 이력(260720)_최종.xlsx">⬇ 양식 다운로드</a>
 </nav>
 
 <div class="pad">
@@ -379,7 +379,7 @@ section{scroll-margin-top:56px}
 
 <section id="s06">
   <div class="sec-head"><span class="sec-num">06</span><h2>양식 작성 방법</h2><span class="sec-note">B~G열만 입력<br>H·I열은 자동 계산</span></div>
-  <p class="lead"><a class="dl-inline" href="/notices/files/legacy-charger-history-template.xlsx" download="기설치_충전기_이력_양식.xlsx">⬇ 이력 양식파일(.xlsx) 다운로드</a></p>
+  <p class="lead"><a class="dl-inline" href="/notices/files/legacy-charger-history-template.xlsx" download="(양식) 신청지점별 충전기 이력(260720)_최종.xlsx">⬇ 이력 양식파일(.xlsx) 다운로드</a></p>
 
   <div class="strip">
     <div class="col hand"><div class="col-k">B</div><div class="col-b"><div class="col-n">발주 일자</div><div class="col-d">증명서 발급일자<br>없으면 사용승인일</div></div></div>

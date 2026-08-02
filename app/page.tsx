@@ -32,7 +32,7 @@ export default function Home() {
         </header>
 
         <div className="grid gap-8 md:grid-cols-[minmax(0,1fr)_18rem] md:items-start">
-          <div>
+          <div className="order-2 md:order-1">
             <section className="mb-8">
               <h2 className="text-sm font-semibold text-gray-700 mb-3">
                 계약서 만들기
@@ -91,15 +91,21 @@ export default function Home() {
             </section>
           </div>
 
-          <aside className="bg-white border border-gray-200 rounded-lg shadow-sm p-5">
-            <h2 className="text-sm font-semibold text-gray-700 mb-4">
+          <aside className="order-1 md:order-2 bg-white border border-gray-200 border-t-4 border-t-amber-400 rounded-lg shadow-sm p-5">
+            <h2 className="flex items-center gap-1.5 text-sm font-bold text-gray-900 mb-4">
+              <span aria-hidden>📢</span>
               업데이트 안내
             </h2>
             <ul className="flex flex-col gap-4">
-              {updates.map((u) => (
+              {updates.map((u, i) => (
                 <li key={u.date} className="text-sm">
-                  <span className="block text-xs text-gray-400 tabular-nums mb-1">
+                  <span className="flex items-center gap-1.5 text-xs text-gray-400 tabular-nums mb-1">
                     {u.date}
+                    {i === 0 && (
+                      <span className="text-[10px] font-bold text-white bg-amber-500 rounded px-1 py-0.5 leading-none">
+                        NEW
+                      </span>
+                    )}
                   </span>
                   {u.href ? (
                     <a

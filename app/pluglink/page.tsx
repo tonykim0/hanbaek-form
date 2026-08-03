@@ -34,6 +34,7 @@ const defaultValues: Partial<ContractFormData> = {
   surveyorName: '',
   surveyorTel: '',
   buildingType: 'apartment',
+  buildingTypeEtc: '',
   installLocIndoor: false,
   installLocOutdoor: false,
   ownership: 'own',
@@ -63,6 +64,7 @@ export default function App() {
 
   const [status, setStatus] = useState<SubmitStatus | null>(null);
 
+  const buildingType = watch('buildingType');
   const dupFast = watch('dupFast');
   const dupSlow = watch('dupSlow');
   const dupDist = watch('dupDist');
@@ -123,6 +125,7 @@ export default function App() {
           <ConsultingSection
             register={register}
             errors={errors}
+            buildingType={buildingType}
             title=""
             dupFast={dupFast}
             dupSlow={dupSlow}

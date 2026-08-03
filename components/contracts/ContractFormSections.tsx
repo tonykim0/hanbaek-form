@@ -38,6 +38,7 @@ type CommonContractFields = FieldValues & {
   salesTel: string;
   parkingLotCount: string;
   buildingType: string;
+  buildingTypeEtc: string;
   installLocIndoor: boolean;
   installLocOutdoor: boolean;
   ownership: string;
@@ -281,6 +282,7 @@ export function ConsultingSection<TFieldValues extends CommonContractFields>({
   register,
   errors,
   title = '3. 사전 현장 컨설팅 결과서 (별지7호)',
+  buildingType,
   dupFast,
   dupSlow,
   dupDist,
@@ -289,6 +291,7 @@ export function ConsultingSection<TFieldValues extends CommonContractFields>({
   register: UseFormRegister<TFieldValues>;
   errors: FieldErrors<TFieldValues>;
   title?: string;
+  buildingType: string;
   dupFast: boolean;
   dupSlow: boolean;
   dupDist: boolean;
@@ -324,14 +327,37 @@ export function ConsultingSection<TFieldValues extends CommonContractFields>({
           />
         </Field>
 
-        <ChoiceGroup label="건물형태" required>
+        <ChoiceGroup
+          label="건물형태"
+          required
+          hint="해당사항 없을 경우 직접 입력"
+          hintTone="danger"
+        >
           <PillRadio name={'buildingType' as Path<TFieldValues>} value="apartment" register={register} label="공동주택" />
           <PillRadio name={'buildingType' as Path<TFieldValues>} value="yeonlip" register={register} label="연립주택" />
           <PillRadio name={'buildingType' as Path<TFieldValues>} value="sangga" register={register} label="상가" />
           <PillRadio name={'buildingType' as Path<TFieldValues>} value="etc_officetel" register={register} label="기타 (오피스텔)" />
           <PillRadio name={'buildingType' as Path<TFieldValues>} value="etc_knowledge" register={register} label="기타 (지식산업센터)" />
           <PillRadio name={'buildingType' as Path<TFieldValues>} value="etc_government" register={register} label="기타 (관공서)" />
+          <PillRadio name={'buildingType' as Path<TFieldValues>} value="etc_custom" register={register} label="기타 (직접 입력)" />
         </ChoiceGroup>
+
+        {buildingType === 'etc_custom' && (
+          <Field
+            label="건물형태 직접 입력"
+            required
+            error={fieldError(errors, 'buildingTypeEtc' as Path<TFieldValues>)}
+          >
+            <input
+              {...register('buildingTypeEtc' as Path<TFieldValues>, {
+                validate: (v) =>
+                  (typeof v === 'string' && v.trim().length > 0) || '건물형태를 입력해주세요',
+              })}
+              className={`${inputCls} md:max-w-xs`}
+              placeholder="예: 대학교, 병원"
+            />
+          </Field>
+        )}
       </SubGroup>
 
       <SubGroup label="소유 정보">

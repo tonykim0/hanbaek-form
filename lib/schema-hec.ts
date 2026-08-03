@@ -10,7 +10,7 @@
 // Form data shape (pluglink fields + 4 HEC-only)
 // ─────────────────────────────────────────────
 
-export type BuildingType = 'apartment' | 'yeonlip' | 'sangga' | 'etc_officetel' | 'etc_knowledge' | 'etc_government';
+export type BuildingType = 'apartment' | 'yeonlip' | 'sangga' | 'etc_officetel' | 'etc_knowledge' | 'etc_government' | 'etc_custom';
 export type Ownership = 'own' | 'rent' | '';
 export type OwnerRelation = 'self' | 'family' | 'friend' | 'employee' | 'none' | '';
 
@@ -44,6 +44,8 @@ export interface HecFormData {
   // 4. 사전 현장 컨설팅 결과서 (별지7호)
   parkingLotCount: string;
   buildingType: BuildingType;
+  /** buildingType === 'etc_custom' 일 때 직접 입력한 건물형태 (예: 대학교, 병원) */
+  buildingTypeEtc: string;
   // 설치위치 — 중복 선택 가능
   installLocIndoor: boolean;
   installLocOutdoor: boolean;
@@ -201,10 +203,11 @@ export interface SdtMaps {
   remove?: string[];
 }
 
-function etcLabel(bt: BuildingType): string {
+function etcLabel(bt: BuildingType, custom = ''): string {
   if (bt === 'etc_officetel') return '오피스텔';
   if (bt === 'etc_knowledge') return '지식산업센터';
   if (bt === 'etc_government') return '관공서';
+  if (bt === 'etc_custom') return custom.trim();
   return '';
 }
 
@@ -293,13 +296,13 @@ export function buildHecSdtMaps(form: HecFormData): SdtMaps {
     [TEXT_IDS.dupDistQty]: form.dupDist ? form.dupDistQty : '',
     [TEXT_IDS.dupOutletQty]: form.dupOutlet ? form.dupOutletQty : '',
 
-    [TEXT_IDS.facilityName_b5]: etcLabel(form.buildingType),
-    [TEXT_IDS.facilityName_other]: etcLabel(form.buildingType),
+    [TEXT_IDS.facilityName_b5]: etcLabel(form.buildingType, form.buildingTypeEtc),
+    [TEXT_IDS.facilityName_other]: etcLabel(form.buildingType, form.buildingTypeEtc),
   };
 
   const isApt = form.buildingType === 'apartment' || form.buildingType === 'yeonlip';
   const isBiz = form.buildingType === 'sangga';
-  const isEtc = form.buildingType === 'etc_officetel' || form.buildingType === 'etc_knowledge' || form.buildingType === 'etc_government';
+  const isEtc = form.buildingType === 'etc_officetel' || form.buildingType === 'etc_knowledge' || form.buildingType === 'etc_government' || form.buildingType === 'etc_custom';
 
   const checkbox: Record<string, boolean> = {
     [CB_IDS.b5_loc1_apt]: isApt,

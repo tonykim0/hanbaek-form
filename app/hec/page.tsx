@@ -41,6 +41,7 @@ const defaultValues: Partial<HecFormData> = {
   surveyorName: '',
   surveyorTel: '',
   buildingType: 'apartment',
+  buildingTypeEtc: '',
   installLocIndoor: false,
   installLocOutdoor: false,
   ownership: 'own',
@@ -114,6 +115,7 @@ export default function HecPage() {
 
   const [status, setStatus] = useState<SubmitStatus | null>(null);
 
+  const buildingType = watch('buildingType');
   const dupFast = watch('dupFast');
   const dupSlow = watch('dupSlow');
   const dupDist = watch('dupDist');
@@ -202,6 +204,7 @@ export default function HecPage() {
           <ConsultingSection
             register={register}
             errors={errors}
+            buildingType={buildingType}
             dupFast={dupFast}
             dupSlow={dupSlow}
             dupDist={dupDist}

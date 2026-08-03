@@ -207,15 +207,22 @@ export function ChoiceGroup({
   label,
   required,
   hint,
+  /** hint 색상 — 기본 brand(초록), 'danger'는 적색 강조 */
+  hintTone = 'brand',
   inline,
   children,
 }: {
   label: string;
   required?: boolean;
   hint?: string;
+  hintTone?: 'brand' | 'danger';
   inline?: boolean;
   children: ReactNode;
 }) {
+  const hintCls =
+    hintTone === 'danger'
+      ? 'text-xs font-semibold text-red-600'
+      : 'text-xs text-brand-600';
   if (inline) {
     return (
       <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-3">
@@ -224,7 +231,7 @@ export function ChoiceGroup({
             {label}
             {required && <span className="text-red-500 ml-1">*</span>}
           </span>
-          {hint && <span className="block text-xs text-brand-600">{hint}</span>}
+          {hint && <span className={`block ${hintCls}`}>{hint}</span>}
         </div>
         <div className="flex flex-wrap gap-2">{children}</div>
       </div>
@@ -237,7 +244,7 @@ export function ChoiceGroup({
           {label}
           {required && <span className="text-red-500 ml-1">*</span>}
         </span>
-        {hint && <span className="text-xs text-brand-600">{hint}</span>}
+        {hint && <span className={hintCls}>{hint}</span>}
       </div>
       <div className="flex flex-wrap gap-2">{children}</div>
     </div>

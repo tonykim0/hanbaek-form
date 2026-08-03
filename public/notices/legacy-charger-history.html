@@ -49,12 +49,15 @@ h1{font-size:26px;font-weight:600;letter-spacing:-.02em;margin:0;line-height:1.3
 /* — thesis — */
 .thesis{background:var(--brand-pale);border-bottom:1px solid var(--brand-line);padding:26px 48px}
 .thesis-label{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.14em;color:var(--brand-deep);text-transform:uppercase;font-weight:500}
-.calc{display:flex;align-items:flex-start;gap:16px;flex-wrap:wrap;margin:14px 0 14px}
+.calc{display:flex;align-items:flex-start;gap:20px;flex-wrap:wrap;margin:16px 0 18px}
+.calc-item{min-width:126px}
 .calc-n{font-family:'IBM Plex Mono',monospace;font-size:36px;font-weight:600;line-height:1;color:var(--ink)}
-.calc-n.out{color:var(--brand-deep)}
 .calc-t{font-size:12px;color:var(--ink-soft);margin-top:7px;line-height:1.55}
-.calc-op{font-family:'IBM Plex Mono',monospace;font-size:26px;color:var(--ink-faint);line-height:1.2}
-.thesis-p{font-size:15px;color:var(--ink-soft);max-width:660px;margin:0}
+.calc-op{font-family:'IBM Plex Mono',monospace;font-size:24px;color:var(--ink-faint);line-height:1;padding-top:7px}
+.calc-item.out{background:var(--paper);border:1px solid var(--brand-line);border-radius:8px;padding:12px 20px;margin-top:-12px}
+.calc-item.out .calc-n{font-size:42px;color:var(--brand-deep)}
+.calc-item.out .calc-t{color:var(--brand-deep);font-weight:500}
+.thesis-p{font-size:15px;color:var(--ink-soft);max-width:660px;margin:0;padding-top:16px;border-top:1px solid var(--brand-line)}
 .thesis-p b{color:var(--ink);font-weight:600}
 
 /* — sections — */
@@ -125,6 +128,7 @@ figcaption{font-size:12px;color:var(--ink-faint);margin-top:8px;line-height:1.6}
   .sheet{box-shadow:none}
   h1{font-size:21px}
   .calc-n{font-size:29px}
+  .calc-item.out .calc-n{font-size:34px}
   table{font-size:12.5px}
   th,td{padding:7px 8px}
 }
@@ -186,11 +190,11 @@ section{scroll-margin-top:56px}
 <div class="thesis">
   <div class="thesis-label">이 양식이 필요한 이유</div>
   <div class="calc">
-    <div><div class="calc-n">50</div><div class="calc-t">보조금 한도<br>주차면 1,000면의 5%</div></div>
+    <div class="calc-item"><div class="calc-n">50</div><div class="calc-t">보조금 한도<br>주차면 1,000면의 5%</div></div>
     <div class="calc-op">−</div>
-    <div><div class="calc-n">40</div><div class="calc-t">기설치로 산정된 수량<br>과거 이력에서 확인</div></div>
+    <div class="calc-item"><div class="calc-n">40</div><div class="calc-t">기설치로 산정된 수량<br>과거 이력에서 확인</div></div>
     <div class="calc-op">=</div>
-    <div><div class="calc-n out">10</div><div class="calc-t">올해 신청 가능 기수</div></div>
+    <div class="calc-item out"><div class="calc-n">10</div><div class="calc-t">올해 신청 가능 기수</div></div>
   </div>
   <p class="thesis-p">해당 현장은 <b>과거부터 설치되어 있던 충전기 기수만큼 올해 신청할 수 있는 기수가 차감됩니다.</b> 공단이 이 수량을 검증하겠다는 것이 이번 지침 변경의 내용입니다. 과거 이력을 빠짐없이 확인하여 정확한 수량으로 작성하는 것이 이번 양식의 목적입니다.</p>
 </div>
@@ -423,6 +427,37 @@ section{scroll-margin-top:56px}
     전체 <code>D</code> = 신규 설치 합계 − 철거 합계 = <b>현재 남아 있는 기수</b> (50 − 30 = 20)<br>
     전체 <code>H</code> = <code>D</code> + <code>F</code> = 남아 있는 기수 + <b>내구연한 이내에 임의로 철거한 기수</b> (20 + 20 = 40)
     <div class="note-div"><b>내구연한 8년을 초과하여 철거한 기수(E)는 기설치에서 제외되고, 8년을 채우지 못한 채 임의로 철거한 기수(F)는 그대로 다시 산정됩니다.</b> 불가피한 사유(G)는 양식상으로는 제외되나, 인정 여부는 보조금 선정위원회가 판정합니다.</div>
+  </div>
+
+  <h3>CASE별 입력 차이</h3>
+  <p class="lead">B~G열 입력 규칙은 전 CASE 동일합니다. CASE에 따라 달라지는 것은 <b>D열 수량의 근거</b>와 <b>J열에 쓰는 자료 종류</b>입니다.</p>
+  <div class="table-wrap">
+  <table style="min-width:800px">
+    <thead><tr><th style="width:92px">CASE</th><th style="width:26%">D열 수량 근거</th><th style="width:24%">입력 특이사항</th><th>J열에 쓰는 자료 종류</th></tr></thead>
+    <tbody>
+      <tr><td class="case-k">CASE 1</td>
+        <td>행위신고증명서의 <b>행위 내용 변경 전</b> 수량</td>
+        <td class="dash">−</td>
+        <td>행위신고증명서 · 설계도면 <span class="sub">(도면 기준 산정 시)</span></td></tr>
+      <tr><td class="case-k">CASE 2</td>
+        <td>설치 직전 최종 증명서의 <b>행위 변경 후</b> 수량</td>
+        <td class="dash">−</td>
+        <td>행위신고증명서 · 설계도면 <span class="sub">(도면 기준 산정 시)</span></td></tr>
+      <tr><td class="case-k">CASE 3</td>
+        <td class="dash">−</td>
+        <td><b>행 작성 없음</b><div class="sub" style="margin-top:4px">비고란에 「기설치 이력 없음」 기재</div></td>
+        <td class="dash">−</td></tr>
+      <tr><td class="case-k">CASE 4</td>
+        <td>확보한 자료에서 확인되는 수량</td>
+        <td>증명서가 없으므로 <b>B열은 사용승인일</b> 기준</td>
+        <td>설치완료확인서 · 회의록 · 지자체 공문 · 전기안전점검필증</td></tr>
+      <tr><td class="case-k">CASE 5</td>
+        <td>보조금 설치분 <b>전량</b></td>
+        <td>전부 기설치로 산정</td>
+        <td>행위신고증명서</td></tr>
+      <tr class="total"><td colspan="4">철거·교체 이력이 있으면 <b>입대의 의결서 · 제조연월일 증빙</b>이 CASE와 무관하게 추가 — 05번 항목</td></tr>
+    </tbody>
+  </table>
   </div>
 
   <h3>증빙 자료명 표기 (J열)</h3>

@@ -92,6 +92,13 @@ export function CustomerInfoSection<TFieldValues extends CommonContractFields>({
     bizIdValue && isBizIdComplete(bizIdValue) && !isValidKoreanBizId(bizIdValue)
       ? '⚠ 체크섬 불일치 — 사업자등록번호 오타 여부를 확인해주세요'
       : undefined;
+  const bizIdRegistration = register('custBizId' as Path<TFieldValues>, {
+    required: '필수',
+    pattern: {
+      value: /^\d{10}$/,
+      message: '숫자 10자리를 입력해주세요',
+    },
+  });
   // 법인명은 대표자(children)가 있으면 한 줄에 나란히, 없으면(플러그링크) 단독 전체폭
   const legalNameField = (
     <Field
@@ -126,15 +133,17 @@ export function CustomerInfoSection<TFieldValues extends CommonContractFields>({
           warning={bizIdChecksumWarning}
         >
           <input
-            {...register('custBizId' as Path<TFieldValues>, {
-              required: '필수',
-              pattern: {
-                value: /^\d{3}-\d{2}-\d{5}$/,
-                message: '형식: XXX-XX-XXXXX',
-              },
-            })}
+            {...bizIdRegistration}
+            onChange={(event) => {
+              event.currentTarget.value = event.currentTarget.value
+                .replace(/\D/g, '')
+                .slice(0, 10);
+              void bizIdRegistration.onChange(event);
+            }}
+            inputMode="numeric"
+            maxLength={10}
             className={inputCls}
-            placeholder="123-45-67890"
+            placeholder="1234567890"
           />
         </Field>
         <Field

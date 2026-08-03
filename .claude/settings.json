@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(unzip -p *)",
+      "Bash(unzip -l *)",
+      "Bash(md5 *)",
+      "Bash(npx tsc --noEmit)",
+      "Bash(npx playwright screenshot *)",
+      "Bash(qlmanage -t *)",
+      "Bypass permissions"
+    ]
+  }
+}

@@ -5,3 +5,7 @@ out/
 .DS_Store
 *.tsbuildinfo
 .vercel
+
+# Claude Code — 공유용 settings.json 은 커밋, 개인 설정은 제외
+.claude/settings.local.json
+~$*.docx

@@ -286,6 +286,7 @@ export async function fillNiceTemplate(form: NiceFormData): Promise<FillResult> 
   let sdtTextFilled = 0;
   let sdtCbFilled = 0;
   const seenIds = new Set<string>();
+  const paragraphsToRemove: Element[] = [];
 
   for (let i = 0; i < sdts.length; i++) {
     const sdt = sdts[i];
@@ -296,8 +297,19 @@ export async function fillNiceTemplate(form: NiceFormData): Promise<FillResult> 
     if (isCheckboxSdt(sdt)) {
       if (sdtId in cbMap && toggleCheckboxSdt(sdt, cbMap[sdtId])) sdtCbFilled++;
     } else {
-      if (sdtId in textMap && fillTextSdt(sdt, textMap[sdtId])) sdtTextFilled++;
+      // 별첨합의서 ② 항목은 7년 계약에서 문단 전체를 제거한다.
+      if (sdtId === '900000049' && form.contractTerm === '7') {
+        const paragraph = findAncestor(sdt, 'p');
+        if (paragraph) paragraphsToRemove.push(paragraph);
+        sdtTextFilled++;
+      } else if (sdtId in textMap && fillTextSdt(sdt, textMap[sdtId])) {
+        sdtTextFilled++;
+      }
     }
+  }
+
+  for (const paragraph of paragraphsToRemove) {
+    paragraph.parentNode?.removeChild(paragraph);
   }
 
   const allMapped = [...Object.keys(textMap), ...Object.keys(cbMap)];
@@ -307,7 +319,7 @@ export async function fillNiceTemplate(form: NiceFormData): Promise<FillResult> 
   const filledHeaderCells = fillHeaderTable(doc, headerMap);
 
   // 계약행 수량·계약금액은 SDT(900000041/042)로,
-  // 제3조 계약기간·설치위치는 SDT(900000048/043)로 채워짐.
+  // 제3조 계약기간·설치위치·별첨합의서 ②는 SDT(900000048/043/049)로 채워짐.
   let textReplaceFilled = 0;
 
   // Paragraph-level replacements (multi-run)

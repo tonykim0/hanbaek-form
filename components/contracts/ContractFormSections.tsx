@@ -19,7 +19,11 @@ import {
   SubGroup,
 } from '@/components/contracts/FormControls';
 import { YEAR_OPTIONS } from '@/lib/contract-form';
-import { isBizIdComplete, isValidKoreanBizId } from '@/lib/bizid';
+import {
+  formatKoreanBizIdInput,
+  isBizIdComplete,
+  isValidKoreanBizId,
+} from '@/lib/bizid';
 
 type CommonContractFields = FieldValues & {
   custName: string;
@@ -94,10 +98,8 @@ export function CustomerInfoSection<TFieldValues extends CommonContractFields>({
       : undefined;
   const bizIdRegistration = register('custBizId' as Path<TFieldValues>, {
     required: '필수',
-    pattern: {
-      value: /^\d{10}$/,
-      message: '숫자 10자리를 입력해주세요',
-    },
+    validate: (value) =>
+      isBizIdComplete(String(value ?? '')) || '숫자 10자리를 입력해주세요',
   });
   // 법인명은 대표자(children)가 있으면 한 줄에 나란히, 없으면(플러그링크) 단독 전체폭
   const legalNameField = (
@@ -135,15 +137,15 @@ export function CustomerInfoSection<TFieldValues extends CommonContractFields>({
           <input
             {...bizIdRegistration}
             onChange={(event) => {
-              event.currentTarget.value = event.currentTarget.value
-                .replace(/\D/g, '')
-                .slice(0, 10);
+              event.currentTarget.value = formatKoreanBizIdInput(
+                event.currentTarget.value
+              );
               void bizIdRegistration.onChange(event);
             }}
             inputMode="numeric"
-            maxLength={10}
+            maxLength={12}
             className={inputCls}
-            placeholder="1234567890"
+            placeholder="123-45-67890"
           />
         </Field>
         <Field

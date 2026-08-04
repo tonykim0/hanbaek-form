@@ -21,10 +21,20 @@ export function isBizIdComplete(raw: string): boolean {
 
 /**
  * 문서 출력용 사업자등록번호 형식(3-2-5).
- * 입력 UI에서는 숫자만 받되, 모든 템플릿 결과물에는 하이픈을 넣는다.
+ * 입력값에 하이픈이 있거나 없어도 숫자 10자리를 기준으로 정규화한다.
  */
 export function formatKoreanBizId(raw: string): string {
   const digits = (raw || '').replace(/\D/g, '');
   if (digits.length !== 10) return digits;
+  return `${digits.slice(0, 3)}-${digits.slice(3, 5)}-${digits.slice(5)}`;
+}
+
+/** 입력 중 숫자 10자리까지만 받아 3-2-5 형식으로 점진적으로 표시한다. */
+export function formatKoreanBizIdInput(raw: string): string {
+  const digits = (raw || '').replace(/\D/g, '').slice(0, 10);
+  if (digits.length <= 3) return digits;
+  if (digits.length <= 5) {
+    return `${digits.slice(0, 3)}-${digits.slice(3)}`;
+  }
   return `${digits.slice(0, 3)}-${digits.slice(3, 5)}-${digits.slice(5)}`;
 }

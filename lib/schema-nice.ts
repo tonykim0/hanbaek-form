@@ -32,10 +32,8 @@ export function buildNiceSdtMaps(form: NiceFormData): SdtMaps {
   maps.text[NICE_CONTRACT_AMOUNT_ID] = computeNiceContractAmount(form.installQty);
   // 설치위치(제1조 표) — 문단치환에서 SDT로 전환
   maps.text['900000043'] = buildNiceInstallLocation(form);
-  // 제3조 계약기간 인라인 체크박스 — fillNiceContractTerm에서 SDT로 전환
-  const box7 = form.contractTerm === '7' ? '■' : '☐';
-  const box10 = form.contractTerm === '10' ? '■' : '☐';
-  maps.text['900000048'] = `${box7} 7년(84개월) ${box10} 10년(120개월)`;
+  // 제3조 계약기간 — 입력폼에서 선택한 기간만 표시
+  maps.text['900000048'] = formatNiceContractTerm(form.contractTerm);
   // 별첨 합의서 특별 프로모션 — 계약기간(7/10년)에 따라 제공기간·단가가 달라짐
   maps.text['900000049'] =
     form.contractTerm === '7'
@@ -47,6 +45,12 @@ export function buildNiceSdtMaps(form: NiceFormData): SdtMaps {
 export interface TextReplacement {
   find: string;
   replace: string;
+}
+
+export function formatNiceContractTerm(
+  contractTerm: NiceFormData['contractTerm']
+): string {
+  return contractTerm === '7' ? '7년(84개월)' : '10년(120개월)';
 }
 
 export function buildNiceInstallLocation(form: NiceFormData): string {

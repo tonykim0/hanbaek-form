@@ -6,6 +6,8 @@
  * (these sections have no SDTs — we replace hardcoded sample text directly).
  */
 
+import { formatKoreanBizId } from './bizid';
+
 // ─────────────────────────────────────────────
 // Form data shape (pluglink fields + 4 HEC-only)
 // ─────────────────────────────────────────────
@@ -213,6 +215,7 @@ function etcLabel(bt: BuildingType, custom = ''): string {
 
 export function buildHecSdtMaps(form: HecFormData): SdtMaps {
   const installAddr = form.installAddr.trim() || form.custAddr;
+  const custBizId = formatKoreanBizId(form.custBizId);
   const smartQty = form.installQty;
   const surveyDate = `${form.contractYear}년 ${form.contractMonth}월 ${form.contractDay}일`;
 
@@ -227,7 +230,7 @@ export function buildHecSdtMaps(form: HecFormData): SdtMaps {
     [TEXT_IDS.parkingLotCount_b5]: form.parkingLotCount,
     [TEXT_IDS.installAddr_b5]: installAddr,
     [TEXT_IDS.custName_b5_app]: form.custName,
-    [TEXT_IDS.custBizId_b5]: form.custBizId,
+    [TEXT_IDS.custBizId_b5]: custBizId,
     [TEXT_IDS.custTel_b5]: form.custTel,
     [TEXT_IDS.salesCompany_b5]: form.salesCompany,
     [TEXT_IDS.salesName_b5]: form.salesName,
@@ -400,7 +403,7 @@ export function buildHeaderTableMap(form: HecFormData): Record<string, string> {
     // 부지제공자 info (first group, lines ~155–651)
     '법인명': form.custName,
     '주소': form.custAddr,
-    '사업자등록번호': form.custBizId,
+    '사업자등록번호': formatKoreanBizId(form.custBizId),
     '담당자': form.siteManager,
     '전화번호': form.custTel,
     '이메일': form.custEmail,

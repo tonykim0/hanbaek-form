@@ -8,6 +8,7 @@ import {
   buildHecSdtMaps,
   SdtMaps,
 } from './schema-hec';
+import { formatKoreanBizId } from './bizid';
 
 export type NiceFormData = Omit<
   HecFormData,
@@ -91,7 +92,7 @@ export function buildNiceTextReplacements(_form: NiceFormData): TextReplacement[
 export function buildNiceHeaderTableMap(form: NiceFormData): Record<string, string> {
   return {
     '신청자명(기관/단체)': form.custName,
-    '고유번호(사업자등록번호)': form.custBizId,
+    '고유번호(사업자등록번호)': formatKoreanBizId(form.custBizId),
     '주소': form.custAddr,
     '연락처': form.custTel,
     '이메일주소': form.custEmail,

@@ -12,6 +12,8 @@
  * v2 spec에 없으므로 매핑하지 않음. Word에서 수동 토글.
  */
 
+import { formatKoreanBizId } from './bizid';
+
 // ─────────────────────────────────────────────
 // Form data shape
 // ─────────────────────────────────────────────
@@ -250,6 +252,7 @@ function etcLabel(bt: BuildingType, custom = ''): string {
 
 export function buildSdtMaps(form: ContractFormData): SdtMaps {
   const installAddr = form.installAddr.trim() || form.custAddr;
+  const custBizId = formatKoreanBizId(form.custBizId);
   // smart charger qty always equals install qty in v2
   const smartQty = form.installQty;
   // 계약일 = 조사일 (항상 동일)
@@ -258,7 +261,7 @@ export function buildSdtMaps(form: ContractFormData): SdtMaps {
   // ─── Text fields ───
   const text: Record<string, string> = {
     [TEXT_IDS.custName_main]: form.custName,
-    [TEXT_IDS.custBizId_main]: form.custBizId,
+    [TEXT_IDS.custBizId_main]: custBizId,
     [TEXT_IDS.custAddr_main]: form.custAddr,
     [TEXT_IDS.custTel_main]: form.custTel,
     [TEXT_IDS.custEmail_main]: form.custEmail,
@@ -274,7 +277,7 @@ export function buildSdtMaps(form: ContractFormData): SdtMaps {
     [TEXT_IDS.contractMonth_agree2]: form.contractMonth,
     [TEXT_IDS.contractDay_agree2]: form.contractDay,
     [TEXT_IDS.custName_agreeSign]: form.custName,
-    [TEXT_IDS.custBizId_agreeSign]: form.custBizId,
+    [TEXT_IDS.custBizId_agreeSign]: custBizId,
     [TEXT_IDS.custAddr_agreeSign]: form.custAddr,
 
     [TEXT_IDS.custName_seal]: form.custName,
@@ -303,7 +306,7 @@ export function buildSdtMaps(form: ContractFormData): SdtMaps {
     [TEXT_IDS.parkingLotCount_b5]: form.parkingLotCount,
     [TEXT_IDS.installAddr_b5]: installAddr,
     [TEXT_IDS.custName_b5_app]: form.custName,
-    [TEXT_IDS.custBizId_b5]: form.custBizId,
+    [TEXT_IDS.custBizId_b5]: custBizId,
     [TEXT_IDS.custTel_b5]: form.custTel,
     [TEXT_IDS.salesCompany_b5]: form.salesCompany,
     [TEXT_IDS.salesName_b5]: form.salesName,

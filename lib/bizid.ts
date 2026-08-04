@@ -18,3 +18,13 @@ export function isValidKoreanBizId(raw: string): boolean {
 export function isBizIdComplete(raw: string): boolean {
   return (raw || '').replace(/\D/g, '').length === 10;
 }
+
+/**
+ * 문서 출력용 사업자등록번호 형식(3-2-5).
+ * 입력 UI에서는 숫자만 받되, 모든 템플릿 결과물에는 하이픈을 넣는다.
+ */
+export function formatKoreanBizId(raw: string): string {
+  const digits = (raw || '').replace(/\D/g, '');
+  if (digits.length !== 10) return digits;
+  return `${digits.slice(0, 3)}-${digits.slice(3, 5)}-${digits.slice(5)}`;
+}

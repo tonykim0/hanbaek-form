@@ -8,6 +8,7 @@ import {
   buildHecSdtMaps,
   SdtMaps,
 } from './schema-hec';
+import { formatKoreanBizId } from './bizid';
 
 export type SkFormData = Omit<
   HecFormData,
@@ -50,7 +51,7 @@ export function buildSkTextReplacements(_form: SkFormData): TextReplacement[] {
 export function buildSkHeaderTableMap(form: SkFormData): Record<string, string> {
   return {
     '상 호': form.custName,
-    '사업자등록번호': form.custBizId,
+    '사업자등록번호': formatKoreanBizId(form.custBizId),
     '전화번호': form.custTel,
     '이메일': form.custEmail,
     '주 소': form.custAddr,

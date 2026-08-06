@@ -61,40 +61,7 @@ export default function Home() {
       <SiteHeader active="home" />
 
       <main className="mx-auto max-w-6xl px-5 pb-16 pt-10 sm:px-6 sm:pt-14">
-        <section className="relative overflow-hidden rounded-[2rem] bg-[#173e2b] px-6 py-9 text-white shadow-[0_24px_70px_-38px_rgba(23,62,43,0.8)] sm:px-10 sm:py-12">
-          <div className="absolute -right-16 -top-24 h-72 w-72 rounded-full border-[52px] border-white/[0.04]" />
-          <div className="absolute -bottom-24 right-32 h-52 w-52 rounded-full bg-brand-400/10 blur-2xl" />
-          <div className="relative max-w-2xl">
-            <p className="mb-4 text-xs font-bold tracking-[0.2em] text-brand-200">
-              HANBAEK EV OPERATIONS
-            </p>
-            <h1 className="text-3xl font-black leading-tight tracking-[-0.04em] sm:text-5xl">
-              계약 업무를 한곳에서
-              <br className="hidden sm:block" /> 빠르게 처리하세요.
-            </h1>
-            <p className="mt-5 max-w-xl text-sm leading-6 text-emerald-50/70 sm:text-base">
-              운영사를 선택해 계약서를 만들고, 작성이 끝난 서류는 바로 접수할 수 있습니다.
-            </p>
-          </div>
-
-          <ol className="relative mt-8 grid gap-px overflow-hidden rounded-2xl bg-white/10 sm:grid-cols-3">
-            {[
-              ['01', '운영사 선택', '계약 양식 선택'],
-              ['02', '정보 입력', '계약서 자동 생성'],
-              ['03', '완료본 접수', 'ZIP 업로드'],
-            ].map(([step, title, description]) => (
-              <li key={step} className="flex items-center gap-3 bg-white/[0.06] px-4 py-3.5">
-                <span className="text-xs font-black text-brand-200">{step}</span>
-                <span>
-                  <strong className="block text-sm">{title}</strong>
-                  <span className="text-xs text-white/50">{description}</span>
-                </span>
-              </li>
-            ))}
-          </ol>
-        </section>
-
-        <div className="mt-8 grid gap-8 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
+        <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
           <section id="contracts" className="scroll-mt-24">
             <div className="mb-4 flex items-end justify-between gap-4">
               <div>

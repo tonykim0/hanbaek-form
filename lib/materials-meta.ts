@@ -145,8 +145,11 @@ function trimSeparators(value: string): string {
  * 자동 규칙으로 부족하면 관리자 화면에서 이름을 직접 바꿀 수 있습니다.
  */
 export function parseDisplayTitle(fileName: string, groupKey?: string): ParsedTitle {
-  const dot = fileName.lastIndexOf('.');
-  const original = dot > 0 ? fileName.slice(0, dot) : fileName;
+  // 맥에서 올린 파일명은 자모가 분리된 NFD로 저장됩니다.
+  // 정규화하지 않으면 「플러그링크」 같은 비교가 전부 어긋납니다.
+  const normalized = fileName.normalize('NFC');
+  const dot = normalized.lastIndexOf('.');
+  const original = dot > 0 ? normalized.slice(0, dot) : normalized;
   let stem = original;
 
   // 1) 선행 정렬번호 — 「1. 」 「2) 」
@@ -221,6 +224,8 @@ export function parseDisplayTitle(fileName: string, groupKey?: string): ParsedTi
  */
 export function sanitizeFileName(name: string): string {
   return name
+    // 맥에서 고른 파일은 자모가 분리된 NFD로 넘어오므로 저장 전에 완성형으로 통일
+    .normalize('NFC')
     .replace(/[/\\]/g, '_')
     // eslint-disable-next-line no-control-regex
     .replace(/[\u0000-\u001f\u007f]/g, '')
@@ -253,7 +258,8 @@ export function isValidMaterialPath(pathname: string): boolean {
   if (!/^[a-z0-9-]{1,32}$/.test(group)) return false;
   if (!CATEGORY_KEYS.includes(category)) return false;
   if (!fileName || fileName.length > 200) return false;
-  if (fileName !== sanitizeFileName(fileName)) return false;
+  // 이미 올라간 NFD 파일도 통과해야 하므로 양쪽 다 정규화해서 비교합니다
+  if (fileName.normalize('NFC') !== sanitizeFileName(fileName)) return false;
 
   return true;
 }

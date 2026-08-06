@@ -76,7 +76,8 @@ function toMaterialFile(blob: {
       title: parsed.title,
       order: parsed.order,
       docDate: parsed.docDate,
-      fileName,
+      // 화면 표시는 완성형으로 (경로 · URL은 저장된 값 그대로 씁니다)
+      fileName: fileName.normalize('NFC'),
       pathname: blob.pathname,
       url: blob.url,
       downloadUrl: blob.downloadUrl,

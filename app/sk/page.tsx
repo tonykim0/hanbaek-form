@@ -68,6 +68,7 @@ export default function SkPage() {
     register,
     handleSubmit,
     watch,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<SkFormData>({ defaultValues });
 
@@ -118,7 +119,7 @@ export default function SkPage() {
             </RadioField>
           </Section>
 
-          <CustomerInfoSection register={register} errors={errors} watch={watch}>
+          <CustomerInfoSection setValue={setValue} register={register} errors={errors} watch={watch}>
             <Field label="사업자등록증상 대표자" required error={errors.custRepresentative?.message}>
               <input
                 {...register('custRepresentative', { required: '대표자명은 필수입니다' })}
@@ -129,6 +130,7 @@ export default function SkPage() {
           </CustomerInfoSection>
 
           <ContractInfoSection
+            setValue={setValue}
             watch={watch}
             register={register}
             errors={errors}

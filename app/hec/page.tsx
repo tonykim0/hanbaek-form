@@ -110,6 +110,7 @@ export default function HecPage() {
     register,
     handleSubmit,
     watch,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<HecFormData>({ defaultValues });
 
@@ -161,6 +162,7 @@ export default function HecPage() {
           </Section>
 
           <CustomerInfoSection
+            setValue={setValue}
             register={register}
             errors={errors}
             watch={watch}
@@ -184,6 +186,7 @@ export default function HecPage() {
           </CustomerInfoSection>
 
           <ContractInfoSection
+            setValue={setValue}
             watch={watch}
             register={register}
             errors={errors}

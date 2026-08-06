@@ -59,6 +59,7 @@ export default function App() {
     register,
     handleSubmit,
     watch,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<ContractFormData>({ defaultValues });
 
@@ -109,6 +110,7 @@ export default function App() {
           </Section>
 
           <CustomerInfoSection
+            setValue={setValue}
             register={register}
             errors={errors}
             watch={watch}
@@ -117,6 +119,7 @@ export default function App() {
           />
 
           <ContractInfoSection
+            setValue={setValue}
             watch={watch}
             register={register}
             errors={errors}

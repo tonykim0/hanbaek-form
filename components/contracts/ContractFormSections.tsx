@@ -4,9 +4,12 @@ import type {
   FieldErrors,
   FieldValues,
   Path,
+  PathValue,
   UseFormRegister,
+  UseFormSetValue,
   UseFormWatch,
 } from 'react-hook-form';
+import AddressSearchButton from '@/components/contracts/AddressSearchButton';
 import {
   ChoiceGroup,
   contractInputClass,
@@ -77,6 +80,7 @@ export function CustomerInfoSection<TFieldValues extends CommonContractFields>({
   register,
   errors,
   watch,
+  setValue,
   addressPlaceholder = '예: 서울특별시 강남구 테헤란로 1',
   telPlaceholder = '02-1234-5678',
   children,
@@ -85,6 +89,7 @@ export function CustomerInfoSection<TFieldValues extends CommonContractFields>({
   register: UseFormRegister<TFieldValues>;
   errors: FieldErrors<TFieldValues>;
   watch?: UseFormWatch<TFieldValues>;
+  setValue?: UseFormSetValue<TFieldValues>;
   addressPlaceholder?: string;
   telPlaceholder?: string;
   children?: React.ReactNode;
@@ -160,14 +165,27 @@ export function CustomerInfoSection<TFieldValues extends CommonContractFields>({
           error={fieldError(errors, 'custAddr' as Path<TFieldValues>)}
           warning={addrWarning}
         >
-          <input
-            {...register('custAddr' as Path<TFieldValues>, {
-              required: '필수',
-              validate: (value) => roadAddressError(String(value ?? '')) ?? true,
-            })}
-            className={inputCls}
-            placeholder={addressPlaceholder}
-          />
+          <div className="flex gap-2">
+            <input
+              {...register('custAddr' as Path<TFieldValues>, {
+                required: '필수',
+                validate: (value) => roadAddressError(String(value ?? '')) ?? true,
+              })}
+              className={`${inputCls} min-w-0 flex-1`}
+              placeholder={addressPlaceholder}
+            />
+            {setValue && (
+              <AddressSearchButton
+                onSelect={(address) =>
+                  setValue(
+                    'custAddr' as Path<TFieldValues>,
+                    address as PathValue<TFieldValues, Path<TFieldValues>>,
+                    { shouldValidate: true, shouldDirty: true }
+                  )
+                }
+              />
+            )}
+          </div>
         </Field>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -205,6 +223,7 @@ export function ContractInfoSection<TFieldValues extends CommonContractFields>({
   register,
   errors,
   watch,
+  setValue,
   installQtyPlaceholder,
   contractTermLabels = { seven: '7년', ten: '10년' },
   gridClassName = 'grid grid-cols-2 gap-4',
@@ -215,6 +234,7 @@ export function ContractInfoSection<TFieldValues extends CommonContractFields>({
   register: UseFormRegister<TFieldValues>;
   errors: FieldErrors<TFieldValues>;
   watch?: UseFormWatch<TFieldValues>;
+  setValue?: UseFormSetValue<TFieldValues>;
   installQtyPlaceholder: string;
   contractTermLabels?: { seven: string; ten: string };
   gridClassName?: string;
@@ -240,15 +260,28 @@ export function ContractInfoSection<TFieldValues extends CommonContractFields>({
         error={fieldError(errors, 'installAddr' as Path<TFieldValues>)}
         warning={installAddrWarning}
       >
-        <input
-          {...register('installAddr' as Path<TFieldValues>, {
-            // 설치장소는 「지하 1층」 등 위치 표기가 필요할 수 있어 상세주소 허용
-            validate: (value) =>
-              roadAddressError(String(value ?? ''), { allowDetail: true }) ?? true,
-          })}
-          className={inputCls}
-          placeholder="고객사 주소와 같으면 비워두세요"
-        />
+        <div className="flex gap-2">
+          <input
+            {...register('installAddr' as Path<TFieldValues>, {
+              // 설치장소는 「지하 1층」 등 위치 표기가 필요할 수 있어 상세주소 허용
+              validate: (value) =>
+                roadAddressError(String(value ?? ''), { allowDetail: true }) ?? true,
+            })}
+            className={`${inputCls} min-w-0 flex-1`}
+            placeholder="고객사 주소와 같으면 비워두세요"
+          />
+          {setValue && (
+            <AddressSearchButton
+              onSelect={(address) =>
+                setValue(
+                  'installAddr' as Path<TFieldValues>,
+                  address as PathValue<TFieldValues, Path<TFieldValues>>,
+                  { shouldValidate: true, shouldDirty: true }
+                )
+              }
+            />
+          )}
+        </div>
       </Field>
       {afterInstallAddr}
       <div className={gridClassName}>

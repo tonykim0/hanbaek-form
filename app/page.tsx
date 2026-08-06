@@ -2,6 +2,11 @@ import Link from 'next/link';
 
 const updates = [
   {
+    date: '2026. 08. 05.',
+    title: '운영사별 영업자료 · 시방서 자료실 신설',
+    href: '/materials',
+  },
+  {
     date: '2026. 07. 29.',
     title: '기설치 충전기 이력 작성 및 증빙자료 제출 안내',
     href: '/notices/legacy-charger-history.html',
@@ -86,6 +91,23 @@ export default function Home() {
                 <h3 className="text-lg font-semibold">작성 완료한 계약서 접수</h3>
                 <p className="text-sm text-brand-100 mt-1">
                   완료된 계약서 ZIP을 업로드해주세요 (영업자용)
+                </p>
+              </Link>
+            </section>
+
+            <div className="border-t border-gray-200 my-8" />
+
+            <section>
+              <h2 className="text-sm font-semibold text-gray-700 mb-3">자료실</h2>
+              <Link
+                href="/materials"
+                className="block w-full bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md hover:border-brand-300 transition p-4"
+              >
+                <h3 className="text-lg font-semibold text-gray-900">
+                  영업자료 · 시방서
+                </h3>
+                <p className="text-sm text-gray-500 mt-1">
+                  운영사별 자료 다운로드
                 </p>
               </Link>
             </section>

@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import Image from 'next/image';
 import MaterialsAdmin from '@/components/MaterialsAdmin';
+import SiteHeader from '@/components/SiteHeader';
 import { getMaterials } from '@/lib/materials';
 
 export const metadata: Metadata = {
@@ -15,8 +17,9 @@ export default async function MaterialsAdminPage() {
   const { groups, fileCount, storageMissing, error } = await getMaterials();
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8 px-6">
-      <div className="max-w-3xl mx-auto">
+    <div className="min-h-screen bg-[#f7f8f4]">
+      <SiteHeader active="materials" />
+      <main className="max-w-3xl mx-auto px-5 py-8 sm:px-6 sm:py-10">
         <header className="mb-6">
           <Link
             href="/materials"
@@ -25,8 +28,7 @@ export default async function MaterialsAdminPage() {
             <span aria-hidden>←</span> 자료실로
           </Link>
           <div className="flex items-center gap-3">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/logo.png" alt="한백" className="w-10 h-10 flex-none" />
+            <Image src="/logo.png" alt="한백" width={40} height={40} className="flex-none" />
             <div>
               <h1 className="text-2xl font-bold text-gray-900">자료실 관리</h1>
               <p className="text-sm text-gray-500 mt-1">
@@ -57,7 +59,7 @@ export default async function MaterialsAdminPage() {
         )}
 
         <MaterialsAdmin groups={groups} />
-      </div>
+      </main>
     </div>
   );
 }

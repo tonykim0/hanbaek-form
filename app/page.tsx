@@ -1,10 +1,39 @@
 import Link from 'next/link';
+import SiteHeader from '@/components/SiteHeader';
+
+const cpos = [
+  {
+    name: '플러그링크',
+    code: 'PL',
+    href: '/pluglink',
+    description: '보조금 · 자체투자',
+  },
+  {
+    name: '현대엔지니어링',
+    code: 'HEC',
+    href: '/hec',
+    description: '보조금 · 자체투자',
+  },
+  {
+    name: '나이스인프라',
+    code: 'NICE',
+    href: '/nice',
+    description: '보조금 · 자체투자',
+  },
+  {
+    name: 'SK일렉링크',
+    code: 'SK',
+    href: '/sk',
+    description: '보조금 · 자체투자',
+  },
+];
 
 const updates = [
   {
     date: '2026. 08. 05.',
     title: '운영사별 영업자료 · 시방서 자료실 신설',
     href: '/materials',
+    isNew: true,
   },
   {
     date: '2026. 07. 29.',
@@ -28,135 +57,159 @@ const updates = [
 
 export default function Home() {
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center px-6 py-10">
-      <div className="max-w-4xl w-full">
-        <header className="text-left mb-8">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo.png" alt="한백" className="w-16 h-16 mb-3" />
-          <h1 className="text-2xl font-bold text-gray-900">한백 전기차충전사업</h1>
-        </header>
+    <div className="min-h-screen bg-[#f7f8f4] text-slate-900">
+      <SiteHeader active="home" />
 
-        <div className="grid gap-8 md:grid-cols-[minmax(0,1fr)_18rem] md:items-start">
-          <div className="order-2 md:order-1">
-            <section className="mb-8">
-              <h2 className="text-sm font-semibold text-gray-700 mb-3">
-                계약서 만들기
-              </h2>
-              <p className="text-xs text-gray-500 mb-3">CPO를 선택해주세요</p>
-              <div className="flex flex-col gap-3">
-                <Link
-                  href="/pluglink"
-                  className="block w-full bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md hover:border-brand-300 transition p-4"
-                >
-                  <h3 className="text-lg font-semibold text-gray-900">플러그링크</h3>
-                  <p className="text-sm text-gray-500 mt-1">보조금·자체투자 선택</p>
-                </Link>
-
-                <Link
-                  href="/hec"
-                  className="block w-full bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md hover:border-brand-300 transition p-4"
-                >
-                  <h3 className="text-lg font-semibold text-gray-900">현대엔지니어링</h3>
-                  <p className="text-sm text-gray-500 mt-1">보조금·자체투자 선택</p>
-                </Link>
-
-                <Link
-                  href="/nice"
-                  className="block w-full bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md hover:border-brand-300 transition p-4"
-                >
-                  <h3 className="text-lg font-semibold text-gray-900">나이스인프라</h3>
-                  <p className="text-sm text-gray-500 mt-1">보조금·자체투자 선택</p>
-                </Link>
-
-                <Link
-                  href="/sk"
-                  className="block w-full bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md hover:border-brand-300 transition p-4"
-                >
-                  <h3 className="text-lg font-semibold text-gray-900">SK일렉링크</h3>
-                  <p className="text-sm text-gray-500 mt-1">보조금·자체투자 선택</p>
-                </Link>
-              </div>
-            </section>
-
-            <div className="border-t border-gray-200 mb-8" />
-
-            <section>
-              <h2 className="text-sm font-semibold text-gray-700 mb-3">
-                계약서 접수하기
-              </h2>
-              <Link
-                href="/intake"
-                className="block w-full bg-brand-600 hover:bg-brand-700 text-white rounded-lg shadow-sm hover:shadow-md transition p-4"
-              >
-                <h3 className="text-lg font-semibold">작성 완료한 계약서 접수</h3>
-                <p className="text-sm text-brand-100 mt-1">
-                  완료된 계약서 ZIP을 업로드해주세요 (영업자용)
-                </p>
-              </Link>
-            </section>
-
-            <div className="border-t border-gray-200 my-8" />
-
-            <section>
-              <h2 className="text-sm font-semibold text-gray-700 mb-3">자료실</h2>
-              <Link
-                href="/materials"
-                className="block w-full bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md hover:border-brand-300 transition p-4"
-              >
-                <h3 className="text-lg font-semibold text-gray-900">
-                  영업자료 · 시방서
-                </h3>
-                <p className="text-sm text-gray-500 mt-1">
-                  운영사별 자료 다운로드
-                </p>
-              </Link>
-            </section>
+      <main className="mx-auto max-w-6xl px-5 pb-16 pt-10 sm:px-6 sm:pt-14">
+        <section className="relative overflow-hidden rounded-[2rem] bg-[#173e2b] px-6 py-9 text-white shadow-[0_24px_70px_-38px_rgba(23,62,43,0.8)] sm:px-10 sm:py-12">
+          <div className="absolute -right-16 -top-24 h-72 w-72 rounded-full border-[52px] border-white/[0.04]" />
+          <div className="absolute -bottom-24 right-32 h-52 w-52 rounded-full bg-brand-400/10 blur-2xl" />
+          <div className="relative max-w-2xl">
+            <p className="mb-4 text-xs font-bold tracking-[0.2em] text-brand-200">
+              HANBAEK EV OPERATIONS
+            </p>
+            <h1 className="text-3xl font-black leading-tight tracking-[-0.04em] sm:text-5xl">
+              계약 업무를 한곳에서
+              <br className="hidden sm:block" /> 빠르게 처리하세요.
+            </h1>
+            <p className="mt-5 max-w-xl text-sm leading-6 text-emerald-50/70 sm:text-base">
+              운영사를 선택해 계약서를 만들고, 작성이 끝난 서류는 바로 접수할 수 있습니다.
+            </p>
           </div>
 
-          <aside className="order-1 md:order-2 bg-white border border-gray-200 border-t-4 border-t-amber-400 rounded-lg shadow-sm p-5">
-            <h2 className="flex items-center gap-1.5 text-sm font-bold text-gray-900 mb-4">
-              <span aria-hidden>📢</span>
-              업데이트 안내
-            </h2>
-            <ul className="flex flex-col gap-4">
-              {updates.map((u, i) => (
-                <li key={u.date} className="text-sm">
-                  <span className="flex items-center gap-1.5 text-xs text-gray-400 tabular-nums mb-1">
-                    {u.date}
-                    {i === 0 && (
-                      <span className="text-[10px] font-bold text-white bg-amber-500 rounded px-1 py-0.5 leading-none">
-                        NEW
-                      </span>
-                    )}
-                  </span>
-                  {u.href ? (
-                    <a
-                      href={u.href}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="group inline-flex items-start gap-1 text-brand-700 font-medium leading-snug hover:underline"
-                    >
-                      {u.title}
-                      <span aria-hidden className="text-brand-500 transition-transform group-hover:translate-x-0.5">↗</span>
-                    </a>
-                  ) : (
-                    <p className="text-gray-700 leading-snug">{u.title}</p>
-                  )}
-                  {u.note && (
-                    <span className="inline-block mt-1.5 text-xs text-brand-700 bg-brand-50 rounded px-1.5 py-0.5">
-                      {u.note}
+          <ol className="relative mt-8 grid gap-px overflow-hidden rounded-2xl bg-white/10 sm:grid-cols-3">
+            {[
+              ['01', '운영사 선택', '계약 양식 선택'],
+              ['02', '정보 입력', '계약서 자동 생성'],
+              ['03', '완료본 접수', 'ZIP 업로드'],
+            ].map(([step, title, description]) => (
+              <li key={step} className="flex items-center gap-3 bg-white/[0.06] px-4 py-3.5">
+                <span className="text-xs font-black text-brand-200">{step}</span>
+                <span>
+                  <strong className="block text-sm">{title}</strong>
+                  <span className="text-xs text-white/50">{description}</span>
+                </span>
+              </li>
+            ))}
+          </ol>
+        </section>
+
+        <div className="mt-8 grid gap-8 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
+          <section id="contracts" className="scroll-mt-24">
+            <div className="mb-4 flex items-end justify-between gap-4">
+              <div>
+                <p className="text-xs font-bold tracking-[0.14em] text-brand-700">CONTRACT</p>
+                <h2 className="mt-1 text-2xl font-black tracking-[-0.03em] text-slate-900">
+                  계약서 작성
+                </h2>
+              </div>
+              <p className="text-xs text-slate-400">운영사를 선택하세요</p>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              {cpos.map((cpo) => (
+                <Link
+                  key={cpo.href}
+                  href={cpo.href}
+                  className="group relative min-h-36 overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_10px_30px_-24px_rgba(15,23,42,0.5)] transition duration-200 hover:-translate-y-0.5 hover:border-brand-300 hover:shadow-[0_18px_36px_-24px_rgba(49,106,64,0.55)]"
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <span className="flex h-10 min-w-10 items-center justify-center rounded-xl bg-brand-50 px-2 text-xs font-black text-brand-700 ring-1 ring-brand-100">
+                      {cpo.code}
                     </span>
-                  )}
-                </li>
+                    <span aria-hidden className="text-xl text-slate-300 transition group-hover:translate-x-1 group-hover:text-brand-600">
+                      →
+                    </span>
+                  </div>
+                  <h3 className="mt-5 text-lg font-bold tracking-[-0.02em] text-slate-900">
+                    {cpo.name}
+                  </h3>
+                  <p className="mt-1 text-sm text-slate-500">{cpo.description}</p>
+                </Link>
               ))}
-            </ul>
+            </div>
+          </section>
+
+          <aside className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1">
+            <Link
+              href="/intake"
+              className="group rounded-2xl bg-brand-700 p-5 text-white shadow-[0_16px_35px_-24px_rgba(34,69,45,0.9)] transition hover:bg-brand-800"
+            >
+              <span className="inline-flex rounded-full bg-white/10 px-2.5 py-1 text-[11px] font-bold text-brand-100">
+                NEXT STEP
+              </span>
+              <h2 className="mt-5 text-xl font-black tracking-[-0.03em]">작성 완료본 접수</h2>
+              <p className="mt-2 text-sm leading-5 text-brand-100">
+                현장별 서류를 하나의 ZIP으로 묶어 접수합니다.
+              </p>
+              <span className="mt-5 inline-flex items-center gap-2 text-sm font-bold">
+                접수 시작 <span className="transition group-hover:translate-x-1">→</span>
+              </span>
+            </Link>
+
+            <Link
+              href="/materials"
+              className="group rounded-2xl border border-slate-200 bg-[#fffdf8] p-5 transition hover:border-amber-300"
+            >
+              <span className="text-xs font-bold tracking-[0.12em] text-amber-700">RESOURCES</span>
+              <h2 className="mt-2 text-lg font-black tracking-[-0.02em] text-slate-900">
+                영업자료 · 시방서
+              </h2>
+              <p className="mt-2 text-sm leading-5 text-slate-500">
+                운영사별 최신 자료를 검색하고 내려받으세요.
+              </p>
+              <span className="mt-4 inline-flex text-sm font-bold text-amber-800 group-hover:underline">
+                자료실 열기 →
+              </span>
+            </Link>
           </aside>
         </div>
 
-        <footer className="mt-10 text-center text-xs text-gray-400">
-          한백 EV Infra Solutions
-        </footer>
-      </div>
+        <section className="mt-12 overflow-hidden rounded-2xl border border-slate-200 bg-white">
+          <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4 sm:px-6">
+            <div>
+              <p className="text-[11px] font-bold tracking-[0.14em] text-amber-700">UPDATES</p>
+              <h2 className="mt-0.5 text-lg font-black tracking-[-0.02em]">업데이트 안내</h2>
+            </div>
+            <span className="text-xs text-slate-400">최근 변경사항</span>
+          </div>
+          <ul className="divide-y divide-slate-100">
+            {updates.map((update) => (
+              <li key={`${update.date}-${update.title}`} className="grid gap-1 px-5 py-4 sm:grid-cols-[7.5rem_minmax(0,1fr)_auto] sm:items-center sm:gap-4 sm:px-6">
+                <span className="flex items-center gap-2 text-xs tabular-nums text-slate-400">
+                  {update.date}
+                  {update.isNew && (
+                    <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-black text-amber-800">
+                      NEW
+                    </span>
+                  )}
+                </span>
+                {update.href ? (
+                  <Link
+                    href={update.href}
+                    target={update.href.startsWith('/notices/') ? '_blank' : undefined}
+                    rel={update.href.startsWith('/notices/') ? 'noopener noreferrer' : undefined}
+                    className="text-sm font-semibold leading-5 text-slate-700 hover:text-brand-700 hover:underline"
+                  >
+                    {update.title}
+                  </Link>
+                ) : (
+                  <p className="text-sm font-medium leading-5 text-slate-700">{update.title}</p>
+                )}
+                {update.note && (
+                  <span className="justify-self-start rounded-md bg-brand-50 px-2 py-1 text-[11px] font-semibold text-brand-700 sm:justify-self-end">
+                    {update.note}
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
+        </section>
+      </main>
+
+      <footer className="border-t border-slate-200 bg-white/50 px-6 py-7 text-center text-xs text-slate-400">
+        한백 EV Infra Solutions · Internal Operations
+      </footer>
     </div>
   );
 }

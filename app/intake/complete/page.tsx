@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { IntakeSuccessResponse } from '@/types/intake';
+import SiteHeader from '@/components/SiteHeader';
 
 export default function CompletePage() {
   const router = useRouter();
@@ -34,8 +35,9 @@ export default function CompletePage() {
   })();
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8 px-4">
-      <div className="max-w-lg mx-auto">
+    <div className="min-h-screen bg-[#f7f8f4]">
+      <SiteHeader active="intake" />
+      <main className="mx-auto max-w-lg px-5 py-10 sm:px-6">
         {/* 성공 아이콘 + 메시지 */}
         <div className="text-center mb-6">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-green-100 mb-4">
@@ -117,7 +119,7 @@ export default function CompletePage() {
         <footer className="mt-6 text-center text-xs text-gray-400">
           한백 EV Infra Solutions
         </footer>
-      </div>
+      </main>
     </div>
   );
 }

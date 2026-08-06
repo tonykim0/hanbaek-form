@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import SalesRepForm from '@/components/SalesRepForm';
 import UploadZone from '@/components/UploadZone';
 import FilePreview from '@/components/FilePreview';
+import SiteHeader from '@/components/SiteHeader';
 import { startIntakeSession, uploadIntakeZip } from '@/lib/intake-client';
 import type { IntakeStreamEvent } from '@/types/intake';
 
@@ -97,22 +98,29 @@ export default function IntakePage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8 px-6">
-      <div className="max-w-2xl mx-auto">
-        <header className="mb-5">
-          <h1 className="text-2xl font-bold text-gray-900">계약서 접수</h1>
-          <p className="text-sm text-gray-500 mt-1">
-            한백 EV 충전 인프라 사업
+    <div className="min-h-screen bg-[#f7f8f4]">
+      <SiteHeader active="intake" />
+      <main className="mx-auto max-w-2xl px-5 py-8 sm:px-6 sm:py-10">
+        <header className="mb-7">
+          <p className="text-xs font-bold tracking-[0.14em] text-brand-700">DOCUMENT INTAKE</p>
+          <h1 className="mt-1 text-3xl font-black tracking-[-0.04em] text-slate-900">계약서 접수</h1>
+          <p className="mt-2 text-sm leading-6 text-slate-500">
+            한 현장의 완료 서류를 ZIP 파일 하나로 묶어 접수해주세요.
           </p>
+          <ol className="mt-5 flex flex-wrap gap-2 text-xs font-semibold text-slate-500">
+            <li className="rounded-full bg-white px-3 py-1.5 ring-1 ring-slate-200">1. 접수자 정보</li>
+            <li className="rounded-full bg-white px-3 py-1.5 ring-1 ring-slate-200">2. ZIP 업로드</li>
+            <li className="rounded-full bg-white px-3 py-1.5 ring-1 ring-slate-200">3. 자동 분류</li>
+          </ol>
         </header>
 
         {/* 접수 전 필수 안내 (최상단 배너) */}
-        <div className="mb-6 overflow-hidden rounded-lg border-2 border-amber-400 bg-amber-50 shadow-sm">
-          <div className="flex items-center gap-2 bg-amber-400 px-4 py-2.5 text-sm font-bold text-amber-950">
-            <span aria-hidden className="text-base">⚠️</span>
+        <div className="mb-6 overflow-hidden rounded-2xl border border-amber-200 bg-[#fffaf0]">
+          <div className="flex items-center gap-2 border-b border-amber-200 bg-amber-100/60 px-5 py-3.5 text-sm font-bold text-amber-950">
+            <span aria-hidden className="flex h-6 w-6 items-center justify-center rounded-full bg-amber-400 text-xs">!</span>
             접수 전 꼭 확인해주세요
           </div>
-          <ul className="space-y-2.5 px-4 py-4 text-sm text-amber-900">
+          <ul className="grid gap-3 px-5 py-5 text-sm leading-6 text-amber-950 sm:grid-cols-2">
             <li className="flex gap-2">
               <span aria-hidden className="mt-px text-amber-500">•</span>
               <span>
@@ -153,14 +161,14 @@ export default function IntakePage() {
               </span>
             </li>
           </ul>
-          <div className="border-t-2 border-amber-300 bg-amber-100 px-4 py-3 text-sm font-bold text-red-700">
+          <div className="border-t border-amber-200 bg-amber-100/70 px-5 py-3 text-sm font-bold text-red-700">
             <span className="underline decoration-2 underline-offset-2">
               서류가 누락되면 영업비 지급조건에 미달되어 정산 대상이 아닙니다.
             </span>
           </div>
         </div>
 
-        <div className="space-y-6 bg-white rounded-lg shadow-sm border border-gray-200 p-5">
+        <div className="space-y-7 rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_18px_50px_-38px_rgba(15,23,42,0.55)] sm:p-6">
           {/* 영업자 정보 */}
           <section>
             <h2 className="text-sm font-semibold text-gray-800 mb-3">
@@ -207,7 +215,7 @@ export default function IntakePage() {
               <button
                 onClick={handleSubmit}
                 disabled={!canSubmit}
-                className="w-full bg-brand-600 hover:bg-brand-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-semibold py-3 rounded-lg shadow transition"
+                className="w-full rounded-xl bg-brand-700 py-3.5 font-semibold text-white shadow-sm transition hover:bg-brand-800 disabled:cursor-not-allowed disabled:bg-slate-300"
               >
                 접수하기
               </button>
@@ -215,10 +223,10 @@ export default function IntakePage() {
           )}
         </div>
 
-        <footer className="mt-6 text-center text-xs text-gray-400">
+        <footer className="mt-8 text-center text-xs text-slate-400">
           한백 EV Infra Solutions
         </footer>
-      </div>
+      </main>
     </div>
   );
 }

@@ -1,6 +1,8 @@
 'use client';
 
 import type { ReactNode } from 'react';
+import Link from 'next/link';
+import SiteHeader from '@/components/SiteHeader';
 
 export interface SubmitStatus {
   kind: 'success' | 'error';
@@ -22,20 +24,31 @@ export function ContractPageShell({
   footerText?: string;
 }) {
   return (
-    <div className="min-h-screen bg-gray-50 py-8 px-6">
-      <div className="max-w-5xl mx-auto">
-        <header className="mb-6 flex items-center gap-3">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo.png" alt="한백" className="w-10 h-10 flex-none" />
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">{title}</h1>
+    <div className="min-h-screen bg-[#f7f8f4]">
+      <SiteHeader active="contracts" />
+      <main className="max-w-5xl mx-auto px-5 py-8 sm:px-6 sm:py-10">
+        <header className="mb-7">
+          <Link
+            href="/#contracts"
+            className="mb-3 inline-flex items-center gap-1 text-xs font-semibold text-slate-500 transition hover:text-brand-700"
+          >
+            ← 운영사 다시 선택
+          </Link>
+          <p className="text-xs font-bold tracking-[0.14em] text-brand-700">CONTRACT BUILDER</p>
+          <h1 className="mt-1 text-2xl font-black tracking-[-0.035em] text-slate-900 sm:text-3xl">
+            {title}
+          </h1>
+          <p className="mt-2 text-sm text-slate-500">
+            필수 정보를 입력하면 운영사 양식에 맞는 계약서가 자동으로 생성됩니다.
+          </p>
         </header>
 
         {children}
 
-        <footer className="mt-6 text-center text-xs text-gray-400">
+        <footer className="mt-8 text-center text-xs text-slate-400">
           <p>{footerText}</p>
         </footer>
-      </div>
+      </main>
     </div>
   );
 }

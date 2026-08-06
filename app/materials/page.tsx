@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import MaterialsBrowser from '@/components/MaterialsBrowser';
+import SiteHeader from '@/components/SiteHeader';
 import { getMaterials } from '@/lib/materials';
 
 export const metadata: Metadata = {
@@ -18,29 +19,19 @@ export default async function MaterialsPage() {
     await getMaterials();
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8 px-5 sm:px-6">
-      <div className="max-w-3xl mx-auto">
-        <header className="mb-5">
-          <Link
-            href="/"
-            className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-brand-700 transition mb-3"
-          >
-            <span aria-hidden>←</span> 홈으로
-          </Link>
-          <div className="flex items-center gap-3">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/logo.png" alt="한백" className="w-10 h-10 flex-none" />
-            <div>
-              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
-                영업자료 · 시방서
-              </h1>
-              <p className="text-sm text-gray-500 mt-1">
-                {fileCount > 0
-                  ? `자료 ${fileCount}개${lastUpdated ? ` · 최근 업데이트 ${lastUpdated}` : ''}`
-                  : '운영사별 영업자료와 시방서를 내려받는 곳'}
-              </p>
-            </div>
-          </div>
+    <div className="min-h-screen bg-[#f7f8f4]">
+      <SiteHeader active="materials" />
+      <main className="mx-auto max-w-3xl px-5 py-8 sm:px-6 sm:py-10">
+        <header className="mb-7">
+          <p className="text-xs font-bold tracking-[0.14em] text-amber-700">RESOURCE LIBRARY</p>
+          <h1 className="mt-1 text-3xl font-black tracking-[-0.04em] text-slate-900">
+            영업자료 · 시방서
+          </h1>
+          <p className="mt-2 text-sm text-slate-500">
+            {fileCount > 0
+              ? `자료 ${fileCount}개${lastUpdated ? ` · 최근 업데이트 ${lastUpdated}` : ''}`
+              : '운영사별 영업자료와 시방서를 내려받는 곳'}
+          </p>
         </header>
 
         {(storageMissing || error) && (
@@ -62,13 +53,13 @@ export default async function MaterialsPage() {
           <MaterialsBrowser groups={groups} />
         )}
 
-        <footer className="mt-8 flex flex-col items-center gap-2 text-xs text-gray-400">
-          <Link href="/admin/materials" className="hover:text-brand-700 transition">
+        <footer className="mt-8 flex flex-col items-center gap-2 text-xs text-slate-400">
+          <Link href="/admin/materials" className="transition hover:text-brand-700">
             자료 관리 (담당자용)
           </Link>
           <p>한백 EV Infra Solutions</p>
         </footer>
-      </div>
+      </main>
     </div>
   );
 }

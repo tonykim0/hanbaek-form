@@ -2,9 +2,23 @@
 @tailwind components;
 @tailwind utilities;
 
+html {
+  scroll-behavior: smooth;
+}
+
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Apple SD Gothic Neo',
-    'Malgun Gothic', 'Noto Sans KR', sans-serif;
+  margin: 0;
+  color: #0f172a;
+  background: #f7f8f4;
+  font-family: 'Pretendard Variable', Pretendard, 'SUIT Variable', SUIT,
+    'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  color: #ffffff;
+  background: #316a40;
 }
 
 @keyframes progress-indeterminate {

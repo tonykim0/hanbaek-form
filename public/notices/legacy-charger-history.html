@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=1010">
 <title>기설치 충전기 이력 작성 및 증빙자료 제출 안내 | 한백</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -33,6 +33,7 @@ body{
   margin:0;background:var(--panel);color:var(--ink);
   font-family:'IBM Plex Sans KR',system-ui,sans-serif;
   font-weight:400;line-height:1.78;font-size:15px;
+  word-break:keep-all;overflow-wrap:break-word;
   -webkit-font-smoothing:antialiased;
 }
 .sheet{max-width:960px;margin:0 auto;background:var(--paper);padding:0 0 56px;box-shadow:0 0 0 1px var(--rule)}
@@ -117,27 +118,6 @@ figure{margin:0 0 16px}
 figcaption{font-size:12px;color:var(--ink-faint);margin-top:8px;line-height:1.6}
 
 
-@media (max-width:700px){
-  .pad,.masthead,.thesis{padding-left:20px;padding-right:20px}
-  .toc{padding-left:20px;padding-right:20px;flex-wrap:wrap;row-gap:8px}
-  .toc-dl{order:-1;width:100%;justify-content:center}
-  .sec-head{flex-wrap:wrap}
-  .sec-note{margin-left:0;text-align:left;flex:1 1 100%}
-  .fab-group{right:14px;bottom:14px}
-  .sheet{box-shadow:none}
-  h1{font-size:21px}
-  .calc-n{font-size:26px}
-  table{font-size:12.5px}
-  th,td{padding:7px 8px}
-}
-@media print{
-  body{background:#fff;font-size:11pt}
-  .sheet{max-width:none;box-shadow:none;padding-bottom:0}
-  *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
-  .toc,.fab-group{display:none}
-  section{break-inside:avoid;padding-top:26px}
-  table,figure,.note,.strip{break-inside:avoid}
-}
 
 /* — quick nav — */
 .toc{position:sticky;top:0;z-index:10;display:flex;align-items:center;gap:10px;background:var(--paper);border-bottom:1px solid var(--rule);padding:9px 48px}
@@ -170,6 +150,24 @@ section{scroll-margin-top:56px}
 .fab:hover{border-color:var(--brand-line);color:var(--brand-deep)}
 .fab.totop{opacity:0;pointer-events:none;transform:translateY(6px)}
 .fab.totop.show{opacity:1;pointer-events:auto;transform:translateY(0)}
+
+/* — print — 반드시 스타일 마지막에 위치 (.toc · .fab-group의 display 선언보다 뒤여야 숨김이 적용됨) */
+@media print{
+  body{background:#fff;font-size:10.5pt}
+  .sheet{max-width:none;box-shadow:none;padding-bottom:0}
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .toc,.fab-group{display:none !important}
+  section{padding-top:22px}
+  .sec-head,h2,h3{break-after:avoid}
+  figure,.note,.strip{break-inside:avoid}
+  /* 화면에서는 좌우 스크롤이지만 인쇄에서는 잘려 나가므로 폭 제한을 해제 */
+  .table-wrap{overflow:visible}
+  .table-wrap table{min-width:0 !important}
+  table{font-size:9pt}
+  th,td{padding:5px 6px}
+  thead{display:table-header-group}
+  tr{break-inside:avoid}
+}
 </style>
 </head>
 <body>
@@ -219,6 +217,18 @@ section{scroll-margin-top:56px}
     <tr><th style="width:118px">발생 연도</th><td>과거 충전기를 설치·철거·교체한 시점이 각각 언제인가. <b>건물 준공 이후의 모든 이력</b>이 대상입니다.</td></tr>
     <tr><th>수량(기수)</th><td>각 시점에 몇 기를 설치·철거·교체하였는가.</td></tr>
   </table>
+
+  <h3>기기 유형별 차감 환산</h3>
+  <p class="lead">일반 충전기 외에 아래 기기도 기설치 수량으로 차감됩니다. 현장에 설치되어 있다면 이력에서 누락하지 않도록 확인하시기 바랍니다.</p>
+  <table style="max-width:520px">
+    <thead><tr><th>기기 유형</th><th style="width:150px">차감 기준</th></tr></thead>
+    <tbody>
+      <tr><td>과금형 콘센트</td><td><b>4기당 1기</b></td></tr>
+      <tr><td>테슬라 슈퍼차저</td><td><b>1기당 1기</b></td></tr>
+      <tr><td>월 커넥터</td><td><b>1기당 1기</b></td></tr>
+    </tbody>
+  </table>
+  <div class="note amber"><span class="note-k">환산 예</span>과금형 콘센트 8기가 설치된 현장은 <b>2기</b>가 차감됩니다. 테슬라 슈퍼차저 · 월 커넥터는 설치 대수만큼 그대로 차감됩니다.</div>
 </section>
 
 <section id="s02">
@@ -240,7 +250,7 @@ section{scroll-margin-top:56px}
   <text x="453" y="108" text-anchor="middle" font-size="11" font-weight="600" fill="#AF3125">아니오</text>
   <rect x="472" y="88" width="348" height="60" fill="#EDF6F0" stroke="#8FB79E"/>
   <text x="646" y="113" text-anchor="middle" font-size="15" font-weight="600" fill="#2E6B41">CASE 3 · 한 기도 없음</text>
-  <text x="646" y="134" text-anchor="middle" font-size="12.5" fill="#4C5A55">'기설치 이력 없음' 기재 후 종료</text>
+  <text x="646" y="134" text-anchor="middle" font-size="12.5" fill="#4C5A55">'준공 이후 충전시설 설치 및 철거 이력 없음' 기재</text>
   <line x1="230" y1="148" x2="230" y2="170" stroke="#4C5A55" stroke-width="1.4" marker-end="url(#ar)"/>
   <text x="242" y="163" font-size="11" font-weight="600" fill="#2E6B41">예</text>
 
@@ -251,7 +261,7 @@ section{scroll-margin-top:56px}
   <text x="453" y="196" text-anchor="middle" font-size="11" font-weight="600" fill="#2E6B41">예</text>
   <rect x="472" y="176" width="348" height="60" fill="#FBF2E1" stroke="#E0C596"/>
   <text x="646" y="201" text-anchor="middle" font-size="15" font-weight="600" fill="#8A5B12">CASE 5 · 전부 보조금분</text>
-  <text x="646" y="222" text-anchor="middle" font-size="12.5" fill="#4C5A55">양식파일 제출 후 아래 확인</text>
+  <text x="646" y="222" text-anchor="middle" font-size="12.5" fill="#4C5A55">양식파일 · 비고란에 대기번호 기재</text>
   <line x1="230" y1="236" x2="230" y2="258" stroke="#4C5A55" stroke-width="1.4" marker-end="url(#ar)"/>
   <text x="242" y="251" font-size="11" font-weight="600" fill="#AF3125">아니오</text>
 
@@ -297,7 +307,7 @@ section{scroll-margin-top:56px}
   <div class="sec-head"><span class="sec-num">03</span><h2>CASE별 제출 서류</h2><span class="sec-note">이력 양식파일은 전 CASE 공통</span></div>
   <div class="table-wrap">
   <table style="min-width:840px">
-    <thead><tr><th style="width:92px">CASE</th><th style="width:23%">작성 기준</th><th style="width:31%">제출 서류</th><th>판단 기준</th></tr></thead>
+    <thead><tr><th style="width:92px">CASE</th><th style="width:26%">작성 기준</th><th style="width:30%">제출 서류</th><th>판단 기준</th></tr></thead>
     <tbody>
       <tr><td class="case-k">CASE 1<span class="case-s">협력사 신고</span></td>
         <td>협력사가 금번 설치 건으로 신고한<br>행위신고증명서의 <b>행위 내용 변경 전</b> 수량<div class="sub" style="margin-top:4px">컨설팅결과서의 중복 수량 · 사업 최종 기설치 수량과 일치 필수</div></td>
@@ -313,7 +323,7 @@ section{scroll-margin-top:56px}
             <span class="it">③ K-아파트 기본정보 · 관리시설정보 <span class="tag req">비공용 포함 시 필수</span></span>
             <span class="it">④ 설계도면 <span class="tag">도면 기준 산정 시만</span></span></td></tr>
       <tr><td class="case-k">CASE 3<span class="case-s">기설치 없음</span></td>
-        <td>단지 내 기설치 수량이 전혀 없는 현장<div class="sub" style="margin-top:4px">비고란에 「기설치 이력 없음」 기재</div></td>
+        <td>단지 내 기설치 수량이 전혀 없는 현장<div class="sub" style="margin-top:4px">비고란(K열)에 「준공 이후 충전시설 설치 및 철거 이력 없음」 기재</div></td>
         <td><span class="it">① 이력 양식파일 <span class="tag req">필수</span></span></td>
         <td class="dash">−</td></tr>
       <tr><td class="case-k">CASE 4<span class="case-s">신고 비대상</span></td>
@@ -327,9 +337,10 @@ section{scroll-margin-top:56px}
           <div class="note-div"><b>증명서가 없다는 이유로 CASE 4 분류 금지</b><div class="sub" style="margin-top:4px">준공 시 설치되어 증명서가 없는 아파트는 <b>CASE 1·2</b> · 설계도면으로 수량 산정</div></div>
           <div class="note-div"><span class="tag">확보 가능분</span> — 구할 수 있는 자료를 최대한 확보<div class="sub" style="margin-top:4px">전부 갖출 필요 없음 · 기준은 <b>기설치 수량이 확인되는 자료인가</b> 하나 · 수량 미기재 회의록은 불인정</div></div></td></tr>
       <tr><td class="case-k">CASE 5<span class="case-s">전부 보조금분</span></td>
-        <td>기설치 충전기 전부가<br>보조금으로 설치된 현장</td>
-        <td><span class="it">① 이력 양식파일 <span class="tag req">필수</span></span></td>
-        <td>기준 — <b>기설치 충전기 100%가 보조금분인가</b><div class="note-div">비공용(보조금 미수령) 한 기라도 포함 시 CASE 5 아님<div class="sub" style="margin-top:4px"><b>보조금 충전기 몫까지 행위신고증명서 제출</b> · CASE 5라도 철거·교체 이력이 있으면 증빙자료 필요</div></div></td></tr>
+        <td>기설치 충전기 전부가<br>보조금으로 설치된 현장<div class="sub" style="margin-top:4px"><b>비고란(K열)에 사업연도 · 대기번호 기재</b><br>예) 보조사업으로 설치한 충전시설(2024년 1111번)<br>대기번호는 <b>한백에 문의</b></div></td>
+        <td><span class="it">① 이력 양식파일 <span class="tag req">필수</span></span>
+            <span class="it">② 설치 증빙 <span class="tag ok">제출 불필요</span><span class="sub" style="display:block">보조금 설치분은 행위신고증명서 등 설치 증빙을 제출하지 않습니다 · <b>비고란 대기번호 기재로 갈음</b></span></span></td>
+        <td>기준 — <b>기설치 충전기 100%가 보조금분인가</b><div class="note-div">비공용(보조금 미수령) 한 기라도 포함 시 CASE 5 아님<div class="sub" style="margin-top:4px">CASE 5라도 철거·교체 이력이 있으면 증빙자료 필요</div></div></td></tr>
       <tr class="total"><td colspan="4"><b>④ 설계도면</b> — 증명서로 비공용 충전기 수량을 확인할 수 없어 <b>도면 기준으로 산정할 때만</b> 제출 · 증명서로 수량이 확인되면 도면 제출 안 함 · 도면도 없으면 작성 제외 <span class="sub">(CASE 1 · 2)</span></td></tr>
       <tr class="total"><td colspan="4"><b>철거·교체 이력이 있으면 05번 항목의 서류가 추가</b> — CASE 1 · 2 · 4 · 5 공통, 보조금 여부와 무관</td></tr>
     </tbody>
@@ -384,7 +395,7 @@ section{scroll-margin-top:56px}
 </section>
 
 <section id="s06">
-  <div class="sec-head"><span class="sec-num">06</span><h2>양식 작성 방법</h2><span class="sec-note">B~G열만 입력<br>H·I열은 자동 계산</span></div>
+  <div class="sec-head"><span class="sec-num">06</span><h2>양식 작성 방법</h2><span class="sec-note">B~G · J · K열 입력<br>H·I열은 자동 계산</span></div>
   <p class="lead"><a class="dl-inline" href="/notices/files/legacy-charger-history-template.xlsx" download="(양식) 신청지점별 충전기 이력(260720)_최종.xlsx">⬇ 이력 양식파일(.xlsx) 다운로드</a></p>
 
   <div class="strip">
@@ -398,6 +409,12 @@ section{scroll-margin-top:56px}
     <div class="col auto"><div class="col-k">I</div><div class="col-b"><div class="col-n">수량 검증</div><div class="col-d">자동 · TRUE 확인</div></div></div>
   </div>
   <p class="legend"><span class="sw a"></span>직접 입력<span style="display:inline-block;width:18px"></span><span class="sw b"></span>자동 계산 · 입력 금지</p>
+
+  <h3>J · K열 — 행 입력과 별도로 기재</h3>
+  <table>
+    <tr><th style="width:118px"><code>J</code> 증빙 자료명</th><td>첨부하는 파일의 명칭을 기재합니다. 표기 형식은 <b>행위 구분_자료 종류</b> <span class="sub">(07번 참조)</span></td></tr>
+    <tr><th><code>K</code> 비고</th><td>기설치 이력이 없는 현장은 <b>전체 행(7행)</b>에 「준공 이후 충전시설 설치 및 철거 이력 없음」, 보조금으로 설치한 충전시설은 <b>사업연도 · 대기번호</b>를 기재합니다. <span class="sub">(CASE 3 · CASE 5 — 03번 참조)</span></td></tr>
+  </table>
 
   <h3>입력 규칙</h3>
   <table>
@@ -419,6 +436,7 @@ section{scroll-margin-top:56px}
 <section id="s07">
   <div class="sec-head"><span class="sec-num">07</span><h2>작성 예시</h2><span class="sec-note">증빙 자료명 표기 포함</span></div>
   <p class="lead">총 주차면 1,000면 · 보조금 한도 50기(5%)인 아파트. 준공 시 건설사가 설치한 자체 운영 충전기가 있는 현장입니다.</p>
+  <p class="legend" style="margin-bottom:10px"><b>D</b> 행위 기수 · <b>E</b> 내구연한 8년 초과 · <b>F</b> 8년 이내 임의 · <b>G</b> 8년 이내 불가피 <span style="display:inline-block;width:6px"></span>(06번 참조)</p>
   <table>
     <thead><tr><th style="width:38px">연번</th><th style="width:100px">B 행위 일자</th><th style="width:84px">C 구분</th><th class="num">D</th><th class="num">E</th><th class="num">F</th><th class="num">G</th><th>사유 및 증빙</th></tr></thead>
     <tbody>
@@ -451,7 +469,7 @@ section{scroll-margin-top:56px}
         <td>행위신고증명서 · 설계도면 <span class="sub">(도면 기준 산정 시)</span></td></tr>
       <tr><td class="case-k">CASE 3</td>
         <td class="dash">−</td>
-        <td><b>행 작성 없음</b><div class="sub" style="margin-top:4px">비고란에 「기설치 이력 없음」 기재</div></td>
+        <td><b>행 작성 없음</b><div class="sub" style="margin-top:4px">비고란(K열)에 「준공 이후 충전시설 설치 및 철거 이력 없음」 기재</div></td>
         <td class="dash">−</td></tr>
       <tr><td class="case-k">CASE 4</td>
         <td>확보한 자료에서 확인되는 수량</td>
@@ -459,8 +477,8 @@ section{scroll-margin-top:56px}
         <td>설치완료확인서 · 회의록 · 지자체 공문 · 전기안전점검필증</td></tr>
       <tr><td class="case-k">CASE 5</td>
         <td>보조금 설치분 <b>전량</b></td>
-        <td>전부 기설치로 산정</td>
-        <td>행위신고증명서</td></tr>
+        <td>전부 기설치로 산정<div class="sub" style="margin-top:4px">비고란(K열)에 <b>사업연도 · 대기번호</b> 기재</div></td>
+        <td>설치 증빙 <span class="tag ok">제출 불필요</span><div class="sub" style="margin-top:4px">철거·교체 이력이 있으면 05번 서류를 기재</div></td></tr>
       <tr class="total"><td colspan="4">철거·교체 이력이 있으면 <b>입대의 의결서 · 제조연월일 증빙</b>이 CASE와 무관하게 추가 — 05번 항목</td></tr>
     </tbody>
   </table>

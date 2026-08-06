@@ -130,6 +130,7 @@ export default function NicePage() {
           </CustomerInfoSection>
 
           <ContractInfoSection
+            watch={watch}
             register={register}
             errors={errors}
             installQtyPlaceholder="3"

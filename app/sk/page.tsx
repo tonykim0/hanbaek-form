@@ -129,6 +129,7 @@ export default function SkPage() {
           </CustomerInfoSection>
 
           <ContractInfoSection
+            watch={watch}
             register={register}
             errors={errors}
             installQtyPlaceholder="3"

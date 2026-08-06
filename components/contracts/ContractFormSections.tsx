@@ -19,6 +19,7 @@ import {
   SubGroup,
 } from '@/components/contracts/FormControls';
 import { YEAR_OPTIONS } from '@/lib/contract-form';
+import { roadAddressError, roadAddressWarning } from '@/lib/address';
 import {
   formatKoreanBizIdInput,
   isBizIdComplete,
@@ -96,6 +97,11 @@ export function CustomerInfoSection<TFieldValues extends CommonContractFields>({
     bizIdValue && isBizIdComplete(bizIdValue) && !isValidKoreanBizId(bizIdValue)
       ? '⚠ 체크섬 불일치 — 사업자등록번호 오타 여부를 확인해주세요'
       : undefined;
+  // 지번주소가 확실하면 오류로 막고, 애매하면 경고만 (형식만 보므로)
+  const addrValue = watch
+    ? (watch('custAddr' as Path<TFieldValues>) as unknown as string)
+    : undefined;
+  const addrWarning = roadAddressWarning(addrValue ?? '');
   const bizIdRegistration = register('custBizId' as Path<TFieldValues>, {
     required: '필수',
     validate: (value) =>
@@ -152,9 +158,13 @@ export function CustomerInfoSection<TFieldValues extends CommonContractFields>({
           label="주소 (도로명)"
           required
           error={fieldError(errors, 'custAddr' as Path<TFieldValues>)}
+          warning={addrWarning}
         >
           <input
-            {...register('custAddr' as Path<TFieldValues>, { required: '필수' })}
+            {...register('custAddr' as Path<TFieldValues>, {
+              required: '필수',
+              validate: (value) => roadAddressError(String(value ?? '')) ?? true,
+            })}
             className={inputCls}
             placeholder={addressPlaceholder}
           />
@@ -194,6 +204,7 @@ export function CustomerInfoSection<TFieldValues extends CommonContractFields>({
 export function ContractInfoSection<TFieldValues extends CommonContractFields>({
   register,
   errors,
+  watch,
   installQtyPlaceholder,
   contractTermLabels = { seven: '7년', ten: '10년' },
   gridClassName = 'grid grid-cols-2 gap-4',
@@ -203,6 +214,7 @@ export function ContractInfoSection<TFieldValues extends CommonContractFields>({
 }: {
   register: UseFormRegister<TFieldValues>;
   errors: FieldErrors<TFieldValues>;
+  watch?: UseFormWatch<TFieldValues>;
   installQtyPlaceholder: string;
   contractTermLabels?: { seven: string; ten: string };
   gridClassName?: string;
@@ -210,6 +222,10 @@ export function ContractInfoSection<TFieldValues extends CommonContractFields>({
   extraGridFields?: React.ReactNode;
   contractTermHint?: React.ReactNode;
 }) {
+  const installAddrValue = watch
+    ? (watch('installAddr' as Path<TFieldValues>) as unknown as string)
+    : undefined;
+  const installAddrWarning = roadAddressWarning(installAddrValue ?? '');
   return (
     <Section title="2. 계약 정보">
       <Field
@@ -221,9 +237,15 @@ export function ContractInfoSection<TFieldValues extends CommonContractFields>({
             </span>
           </>
         }
+        error={fieldError(errors, 'installAddr' as Path<TFieldValues>)}
+        warning={installAddrWarning}
       >
         <input
-          {...register('installAddr' as Path<TFieldValues>)}
+          {...register('installAddr' as Path<TFieldValues>, {
+            // 설치장소는 「지하 1층」 등 위치 표기가 필요할 수 있어 상세주소 허용
+            validate: (value) =>
+              roadAddressError(String(value ?? ''), { allowDetail: true }) ?? true,
+          })}
           className={inputCls}
           placeholder="고객사 주소와 같으면 비워두세요"
         />

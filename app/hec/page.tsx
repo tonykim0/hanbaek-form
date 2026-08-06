@@ -184,6 +184,7 @@ export default function HecPage() {
           </CustomerInfoSection>
 
           <ContractInfoSection
+            watch={watch}
             register={register}
             errors={errors}
             installQtyPlaceholder="7"

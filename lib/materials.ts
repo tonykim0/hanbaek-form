@@ -67,7 +67,7 @@ function toMaterialFile(blob: {
   const dot = fileName.lastIndexOf('.');
   const ext = dot > 0 ? fileName.slice(dot + 1) : '';
   const uploadedAt = new Date(blob.uploadedAt).getTime();
-  const parsed = parseDisplayTitle(fileName);
+  const parsed = parseDisplayTitle(fileName, group);
 
   return {
     group,

@@ -119,19 +119,37 @@ function parseCompactDate(value: string): string | null {
 }
 
 /**
+ * 자료명 앞에 붙는 운영사 이름 — 이미 운영사 카드 안에 있으므로 제목에서 뺍니다.
+ * 제조사·제품명(현대케피코 · 나이스차저 등)은 정보이므로 넣지 않습니다.
+ */
+const GROUP_TITLE_ALIASES: Record<string, string[]> = {
+  pluglink: ['플러그링크'],
+  hec: ['현대엔지니어링', '현대ENG'],
+  nice: ['NICE인프라(주)', 'NICE인프라', '나이스인프라(주)', '나이스인프라'],
+  sk: ['SK일렉링크', 'SKEL', 'SK일렉링크(주)'],
+};
+
+/** 제목 앞뒤에 남은 구분자를 정리 */
+function trimSeparators(value: string): string {
+  return value.replace(/^[\s_\-·,]+/, '').replace(/[\s_\-·,]+$/, '').trim();
+}
+
+/**
  * 파일명을 화면용 자료명으로 다듬습니다. 실제 파일명(다운로드되는 이름)은 그대로입니다.
  *
- *   1. 현대케피코_카탈로그.pdf            → 현대케피코 카탈로그          (번호 1)
- *   20260325_현대엔지니어링_제안서.pdf     → 현대엔지니어링 제안서        (문서일 2026. 03. 25.)
- *   260317_브로슈어 [아파트영업용]_최종.pdf → 브로슈어 [아파트영업용] 최종 (문서일 2026. 03. 17.)
+ *   1. 현대케피코_카탈로그.pdf                  → 현대케피코 카탈로그          (번호 1)
+ *   20260325_현대엔지니어링_완속사업제안서.pdf   → 완속사업제안서               (문서일 2026. 03. 25.)
+ *   [플러그링크] 브로슈어_에바3.pdf              → 브로슈어 에바3
+ *   NICE인프라(주)_제안서_공동주택_260801.pdf    → 제안서 공동주택              (문서일 2026. 08. 01.)
  *
  * 자동 규칙으로 부족하면 관리자 화면에서 이름을 직접 바꿀 수 있습니다.
  */
-export function parseDisplayTitle(fileName: string): ParsedTitle {
+export function parseDisplayTitle(fileName: string, groupKey?: string): ParsedTitle {
   const dot = fileName.lastIndexOf('.');
-  let stem = dot > 0 ? fileName.slice(0, dot) : fileName;
+  const original = dot > 0 ? fileName.slice(0, dot) : fileName;
+  let stem = original;
 
-  // 선행 정렬번호 — 「1. 」 「2) 」
+  // 1) 선행 정렬번호 — 「1. 」 「2) 」
   let order: number | null = null;
   const numbered = stem.match(/^(\d{1,2})[.)]\s+/);
   if (numbered) {
@@ -139,20 +157,62 @@ export function parseDisplayTitle(fileName: string): ParsedTitle {
     stem = stem.slice(numbered[0].length);
   }
 
-  // 선행 날짜 — 「260317_」 「20260325_」
+  // 2) 선행 날짜 — 「260317_」 「20260325_」
   let docDate: string | null = null;
-  const dated = stem.match(/^(\d{8}|\d{6})[_\-. ]/);
-  if (dated) {
-    const parsed = parseCompactDate(dated[1]);
+  const leadingDate = stem.match(/^(\d{8}|\d{6})[_\-. ]/);
+  if (leadingDate) {
+    const parsed = parseCompactDate(leadingDate[1]);
     if (parsed) {
       docDate = parsed;
-      stem = stem.slice(dated[0].length);
+      stem = stem.slice(leadingDate[0].length);
     }
   }
 
-  const title = stem.replace(/_/g, ' ').replace(/\s+/g, ' ').trim();
+  stem = stem.replace(/_/g, ' ').replace(/\s+/g, ' ').trim();
 
-  return { title: title || (dot > 0 ? fileName.slice(0, dot) : fileName), order, docDate };
+  // 3) 끝에 붙은 날짜 — 「… 260801」 「…(260804)」 「… 26.01.01」
+  if (!docDate) {
+    const trailingCompact = stem.match(/[\s(-]+(\d{8}|\d{6})\)?$/);
+    const trailingDotted = stem.match(/[\s(-]+(\d{2})\.(\d{2})\.(\d{2})\)?$/);
+    if (trailingCompact) {
+      const parsed = parseCompactDate(trailingCompact[1]);
+      if (parsed) {
+        docDate = parsed;
+        stem = stem.slice(0, trailingCompact.index);
+      }
+    } else if (trailingDotted) {
+      const parsed = parseCompactDate(
+        `${trailingDotted[1]}${trailingDotted[2]}${trailingDotted[3]}`
+      );
+      if (parsed) {
+        docDate = parsed;
+        stem = stem.slice(0, trailingDotted.index);
+      }
+    }
+  }
+
+  // 4) 운영사 이름이 앞에 반복되면 제거 — 「NICE인프라(주) 제안서」 「[플러그링크] 브로슈어」
+  for (const alias of (groupKey && GROUP_TITLE_ALIASES[groupKey]) || []) {
+    const bracketed = `[${alias}]`;
+    let next: string | null = null;
+    if (stem.startsWith(bracketed)) next = stem.slice(bracketed.length);
+    else if (stem.startsWith(alias)) next = stem.slice(alias.length);
+    if (next !== null) {
+      const trimmed = trimSeparators(next);
+      // 이름만 남는 파일(예: 플러그링크.pdf)은 그대로 둡니다
+      if (trimmed) {
+        stem = trimmed;
+        break;
+      }
+    }
+  }
+
+  // 5) 문서일을 따로 뽑았으면 앞의 「26년」 표기는 중복이므로 제거
+  if (docDate) stem = stem.replace(/^\d{2}년\s+/, '');
+
+  const title = trimSeparators(stem).replace(/\s+/g, ' ');
+
+  return { title: title || original, order, docDate };
 }
 
 /**

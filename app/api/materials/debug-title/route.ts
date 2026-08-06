@@ -5,6 +5,7 @@
  * 문자열 변환만 하며 저장소에는 접근하지 않습니다. 확인이 끝나면 삭제합니다.
  */
 import { NextResponse } from 'next/server';
+import { getMaterials } from '@/lib/materials';
 import { parseDisplayTitle } from '@/lib/materials-meta';
 
 export const dynamic = 'force-dynamic';
@@ -14,9 +15,17 @@ export async function GET(request: Request) {
   const name = url.searchParams.get('name') ?? '';
   const group = url.searchParams.get('group') ?? undefined;
 
+  // 페이지와 똑같은 경로(getMaterials)로도 계산해 비교합니다
+  const { groups } = await getMaterials();
+  const viaPage = groups
+    .flatMap((g) => g.categories.flatMap((c) => c.files))
+    .slice(0, 4)
+    .map((f) => ({ title: f.title, docDate: f.docDate, fileName: f.fileName }));
+
   return NextResponse.json({
     input: { name, group },
     parsed: parseDisplayTitle(name, group),
+    viaPage,
     build: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? 'local',
   });
 }

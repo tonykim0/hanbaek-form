@@ -19,6 +19,7 @@ import {
   formatSize,
   groupLabel,
   orderIndex,
+  parseDisplayTitle,
   type MaterialCategory,
   type MaterialFile,
   type MaterialGroup,
@@ -66,12 +67,15 @@ function toMaterialFile(blob: {
   const dot = fileName.lastIndexOf('.');
   const ext = dot > 0 ? fileName.slice(dot + 1) : '';
   const uploadedAt = new Date(blob.uploadedAt).getTime();
+  const parsed = parseDisplayTitle(fileName);
 
   return {
     group,
     category,
     file: {
-      title: dot > 0 ? fileName.slice(0, dot) : fileName,
+      title: parsed.title,
+      order: parsed.order,
+      docDate: parsed.docDate,
       fileName,
       pathname: blob.pathname,
       url: blob.url,
@@ -131,7 +135,12 @@ export async function getMaterials(): Promise<MaterialsResult> {
         .map(([categoryKey, files]) => ({
           key: categoryKey,
           label: categoryLabel(categoryKey),
-          files: files.sort((a, b) => a.title.localeCompare(b.title, 'ko')),
+          // 「1. 2. 3.」처럼 번호가 붙은 자료가 먼저, 번호 순으로. 나머지는 이름순
+          files: files.sort(
+            (a, b) =>
+              (a.order ?? Number.MAX_SAFE_INTEGER) - (b.order ?? Number.MAX_SAFE_INTEGER) ||
+              a.title.localeCompare(b.title, 'ko')
+          ),
         }))
         .sort(
           (a, b) =>

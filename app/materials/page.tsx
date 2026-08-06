@@ -86,7 +86,11 @@ export default async function MaterialsPage() {
                                 {file.title}
                               </p>
                               <p className="text-xs text-gray-400 mt-0.5">
-                                {[file.ext, file.size, file.uploaded]
+                                {[
+                                  file.ext,
+                                  file.size,
+                                  file.docDate ? `문서일 ${file.docDate}` : file.uploaded,
+                                ]
                                   .filter(Boolean)
                                   .join(' · ')}
                               </p>

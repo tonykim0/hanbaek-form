@@ -115,6 +115,42 @@ export default function MaterialsAdmin({ groups }: { groups: MaterialGroup[] }) 
     }
   }
 
+  async function handleRename(url: string, fileName: string) {
+    if (!password) {
+      setMessage({ kind: 'err', text: '관리자 비밀번호를 입력해주세요.' });
+      return;
+    }
+
+    const nextName = window.prompt(
+      '새 파일명을 입력하세요. 확장자는 빼도 됩니다.\n(이 이름이 자료실에 그대로 표시됩니다)',
+      fileName
+    );
+    if (nextName === null) return;
+    if (!nextName.trim() || nextName === fileName) return;
+
+    setBusy(true);
+    setMessage(null);
+    try {
+      const res = await fetch('/api/materials/rename', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password, url, newFileName: nextName }),
+      });
+      const data = (await res.json().catch(() => null)) as {
+        error?: string;
+        pathname?: string;
+      } | null;
+      if (!res.ok) throw new Error(data?.error ?? '이름을 바꾸지 못했습니다.');
+
+      setMessage({ kind: 'ok', text: '이름을 바꿨습니다.' });
+      router.refresh();
+    } catch (error) {
+      setMessage({ kind: 'err', text: (error as Error).message });
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function handleDelete(url: string, title: string) {
     if (!password) {
       setMessage({ kind: 'err', text: '관리자 비밀번호를 입력해주세요.' });
@@ -290,17 +326,36 @@ export default function MaterialsAdmin({ groups }: { groups: MaterialGroup[] }) 
                               {f.title}
                             </p>
                             <p className="text-xs text-gray-400 mt-0.5">
-                              {[f.ext, f.size, f.uploaded].filter(Boolean).join(' · ')}
+                              {[
+                                f.ext,
+                                f.size,
+                                f.docDate ? `문서일 ${f.docDate}` : f.uploaded,
+                              ]
+                                .filter(Boolean)
+                                .join(' · ')}
+                            </p>
+                            <p className="text-[11px] text-gray-300 mt-0.5 truncate">
+                              {f.fileName}
                             </p>
                           </div>
-                          <button
-                            type="button"
-                            onClick={() => handleDelete(f.url, f.title)}
-                            disabled={busy}
-                            className="flex-none text-xs font-semibold text-red-600 border border-red-200 hover:bg-red-50 disabled:opacity-40 rounded-lg px-3 py-1.5 transition"
-                          >
-                            삭제
-                          </button>
+                          <div className="flex-none flex items-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => handleRename(f.url, f.fileName)}
+                              disabled={busy}
+                              className="text-xs font-semibold text-gray-600 border border-gray-200 hover:bg-gray-50 disabled:opacity-40 rounded-lg px-3 py-1.5 transition"
+                            >
+                              이름 바꾸기
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDelete(f.url, f.title)}
+                              disabled={busy}
+                              className="text-xs font-semibold text-red-600 border border-red-200 hover:bg-red-50 disabled:opacity-40 rounded-lg px-3 py-1.5 transition"
+                            >
+                              삭제
+                            </button>
+                          </div>
                         </li>
                       ))}
                     </ul>

@@ -152,9 +152,9 @@ export function parseDisplayTitle(fileName: string, groupKey?: string): ParsedTi
   const original = dot > 0 ? normalized.slice(0, dot) : normalized;
   let stem = original;
 
-  // 1) 선행 정렬번호 — 「1. 」 「2) 」
+  // 1) 선행 정렬번호 — 「1. 」 「2.」(공백 없음) 「1.1. 」 「3) 」
   let order: number | null = null;
-  const numbered = stem.match(/^(\d{1,2})[.)]\s+/);
+  const numbered = stem.match(/^(\d{1,2})(?:\.\d{1,2})*[.)]\s*/);
   if (numbered) {
     order = Number(numbered[1]);
     stem = stem.slice(numbered[0].length);
@@ -172,6 +172,13 @@ export function parseDisplayTitle(fileName: string, groupKey?: string): ParsedTi
   }
 
   stem = stem.replace(/_/g, ' ').replace(/\s+/g, ' ').trim();
+
+  // 2-1) 내려받을 때 붙는 중복 표시 — 「 (1)」 「 - 복사본」 「 사본」
+  stem = stem
+    .replace(/\s*\(\d{1,2}\)$/, '')
+    .replace(/\s*[-–]\s*복사본$/, '')
+    .replace(/\s*복사본$/, '')
+    .trim();
 
   // 3) 끝에 붙은 날짜 — 「… 260801」 「…(260804)」 「… 26.01.01」
   if (!docDate) {
@@ -194,14 +201,23 @@ export function parseDisplayTitle(fileName: string, groupKey?: string): ParsedTi
     }
   }
 
-  // 4) 운영사 이름이 앞에 반복되면 제거 — 「NICE인프라(주) 제안서」 「[플러그링크] 브로슈어」
+  // 4) 운영사 이름이 반복되면 제거 — 이미 운영사 카드 안에 있으므로 중복입니다.
+  //    「[플러그링크]」 「(SKEL)」처럼 묶인 형태는 어디에 있든 지우고,
+  //    괄호 없는 이름은 맨 앞에 있을 때만 지웁니다(문장 중간의 상호를 건드리지 않도록).
   for (const alias of (groupKey && GROUP_TITLE_ALIASES[groupKey]) || []) {
-    const bracketed = `[${alias}]`;
-    let next: string | null = null;
-    if (stem.startsWith(bracketed)) next = stem.slice(bracketed.length);
-    else if (stem.startsWith(alias)) next = stem.slice(alias.length);
-    if (next !== null) {
-      const trimmed = trimSeparators(next);
+    const withoutWrapped = stem
+      .split(`[${alias}]`)
+      .join(' ')
+      .split(`(${alias})`)
+      .join(' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    if (withoutWrapped && withoutWrapped !== stem) {
+      stem = withoutWrapped;
+      break;
+    }
+    if (stem.startsWith(alias)) {
+      const trimmed = trimSeparators(stem.slice(alias.length));
       // 이름만 남는 파일(예: 플러그링크.pdf)은 그대로 둡니다
       if (trimmed) {
         stem = trimmed;

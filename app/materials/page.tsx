@@ -6,6 +6,8 @@ import { getMaterials } from '@/lib/materials';
 export const metadata: Metadata = {
   title: '영업자료 · 시방서 자료실 | 한백 전기차충전사업',
   description: '운영사별 영업자료와 시방서를 내려받는 곳',
+  // 어떤 커밋이 배포됐는지 확인용 (화면에는 보이지 않음)
+  other: { build: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? 'local' },
 };
 
 // 자료를 올리면 배포 없이 바로 보이도록 매 요청마다 목록을 읽습니다

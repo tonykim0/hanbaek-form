@@ -14,6 +14,39 @@
  *       경기도 광주시 오포읍 문형리 산 21
  */
 
+/**
+ * 카카오 우편번호 서비스는 시·도를 축약형(경기 · 서울)으로 돌려줍니다.
+ * 계약서에는 정식 명칭으로 들어가야 해서 펴 줍니다.
+ */
+const SIDO_FULL_NAME: Record<string, string> = {
+  서울: '서울특별시',
+  부산: '부산광역시',
+  대구: '대구광역시',
+  인천: '인천광역시',
+  광주: '광주광역시',
+  대전: '대전광역시',
+  울산: '울산광역시',
+  세종: '세종특별자치시',
+  경기: '경기도',
+  강원: '강원특별자치도',
+  충북: '충청북도',
+  충남: '충청남도',
+  전북: '전북특별자치도',
+  전남: '전라남도',
+  경북: '경상북도',
+  경남: '경상남도',
+  제주: '제주특별자치도',
+};
+
+/** 검색으로 고른 도로명주소를 계약서 표기에 맞게 정리 */
+export function normalizeRoadAddress(raw: string): string {
+  const value = (raw ?? '').replace(/\s+/g, ' ').trim();
+  if (!value) return '';
+  const [first, ...rest] = value.split(' ');
+  const full = SIDO_FULL_NAME[first];
+  return full && rest.length > 0 ? [full, ...rest].join(' ') : value;
+}
+
 /** 「…대로/로/길」 뒤에 건물번호(숫자)가 오는가 */
 const ROAD_PATTERN = /(?:^|[\s,])[가-힣A-Za-z0-9]*(?:대로|로|길)\s*\d/;
 

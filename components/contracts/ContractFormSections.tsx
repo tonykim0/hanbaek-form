@@ -9,7 +9,9 @@ import type {
   UseFormSetValue,
   UseFormWatch,
 } from 'react-hook-form';
-import AddressSearchButton from '@/components/contracts/AddressSearchButton';
+import AddressSearchButton, {
+  useAddressSearch,
+} from '@/components/contracts/AddressSearchButton';
 import {
   ChoiceGroup,
   contractInputClass,
@@ -107,6 +109,14 @@ export function CustomerInfoSection<TFieldValues extends CommonContractFields>({
     ? (watch('custAddr' as Path<TFieldValues>) as unknown as string)
     : undefined;
   const addrWarning = roadAddressWarning(addrValue ?? '');
+  // 주소는 검색으로만 입력받습니다 (입력칸 클릭 · 버튼 모두 검색창을 엽니다)
+  const { open: openAddressSearch } = useAddressSearch((address) =>
+    setValue?.(
+      'custAddr' as Path<TFieldValues>,
+      address as PathValue<TFieldValues, Path<TFieldValues>>,
+      { shouldValidate: true, shouldDirty: true }
+    )
+  );
   const bizIdRegistration = register('custBizId' as Path<TFieldValues>, {
     required: '필수',
     validate: (value) =>
@@ -168,22 +178,27 @@ export function CustomerInfoSection<TFieldValues extends CommonContractFields>({
           <div className="flex gap-2">
             <input
               {...register('custAddr' as Path<TFieldValues>, {
-                required: '필수',
+                required: '주소 검색으로 선택해주세요',
                 validate: (value) => roadAddressError(String(value ?? '')) ?? true,
               })}
-              className={`${inputCls} min-w-0 flex-1`}
-              placeholder={addressPlaceholder}
+              // 오타 · 없는 주소 · 지번주소가 들어가지 않도록 검색으로만 입력받습니다
+              readOnly={Boolean(setValue)}
+              onClick={setValue ? openAddressSearch : undefined}
+              className={`${inputCls} min-w-0 flex-1 ${
+                setValue ? 'cursor-pointer bg-gray-50' : ''
+              }`}
+              placeholder={
+                setValue ? '주소 검색으로 선택해주세요' : addressPlaceholder
+              }
             />
             {setValue && (
-              <AddressSearchButton
-                onSelect={(address) =>
-                  setValue(
-                    'custAddr' as Path<TFieldValues>,
-                    address as PathValue<TFieldValues, Path<TFieldValues>>,
-                    { shouldValidate: true, shouldDirty: true }
-                  )
-                }
-              />
+              <button
+                type="button"
+                onClick={openAddressSearch}
+                className="flex-none rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-700 transition hover:border-brand-300 hover:text-brand-700"
+              >
+                주소 검색
+              </button>
             )}
           </div>
         </Field>

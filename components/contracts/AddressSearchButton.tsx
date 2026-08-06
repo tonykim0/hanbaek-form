@@ -1,14 +1,18 @@
 'use client';
 
 import { useCallback, useState } from 'react';
+import { normalizeRoadAddress } from '@/lib/address';
 
 /**
- * 카카오(다음) 우편번호 서비스 주소 검색 버튼.
+ * 카카오(다음) 우편번호 서비스 주소 검색.
  *
  * 직접 타이핑하면 오타 · 없는 주소 · 지번주소가 그대로 들어가므로,
- * 검색해서 고른 도로명주소를 채워 넣습니다. 별도 API 키가 필요 없습니다.
+ * 검색해서 고른 도로명주소만 채워 넣습니다. 별도 API 키가 필요 없습니다.
  *
- * 스크립트는 버튼을 처음 누를 때만 불러옵니다(페이지 로딩에 영향 없음).
+ * 넘겨주는 값은 도로명주소뿐입니다 — 건물명 · 우편번호 · 층/호는 제외하고,
+ * 시·도 축약형(경기 · 서울)은 정식 명칭으로 펴서 돌려줍니다.
+ *
+ * 스크립트는 검색을 처음 열 때만 불러옵니다(페이지 로딩에 영향 없음).
  */
 const POSTCODE_SCRIPT_SRC =
   'https://t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js';
@@ -62,18 +66,12 @@ function loadPostcodeScript(): Promise<void> {
   });
 }
 
-export default function AddressSearchButton({
-  onSelect,
-  label = '주소 검색',
-}: {
-  /** 고른 도로명주소 (건물명 제외, 상세주소 제외) */
-  onSelect: (address: string) => void;
-  label?: string;
-}) {
+/** 주소 검색 창 열기 — 버튼과 입력칸 클릭에서 같이 씁니다 */
+export function useAddressSearch(onSelect: (address: string) => void) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const openSearch = useCallback(async () => {
+  const open = useCallback(async () => {
     setError(null);
     setLoading(true);
     try {
@@ -82,10 +80,10 @@ export default function AddressSearchButton({
 
       new window.daum.Postcode({
         oncomplete: (data) => {
-          // 도로명주소 우선, 없으면(예외적인 경우) 지번주소로 대체
+          // 도로명주소만 사용 (건물명 · 상세주소 제외)
           const address =
             data.roadAddress || data.autoRoadAddress || data.jibunAddress || '';
-          if (address) onSelect(address);
+          if (address) onSelect(normalizeRoadAddress(address));
         },
       }).open({ popupTitle: '주소 검색' });
     } catch (e) {
@@ -95,11 +93,23 @@ export default function AddressSearchButton({
     }
   }, [onSelect]);
 
+  return { open, loading, error };
+}
+
+export default function AddressSearchButton({
+  onSelect,
+  label = '주소 검색',
+}: {
+  onSelect: (address: string) => void;
+  label?: string;
+}) {
+  const { open, loading, error } = useAddressSearch(onSelect);
+
   return (
     <>
       <button
         type="button"
-        onClick={openSearch}
+        onClick={open}
         disabled={loading}
         className="flex-none rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-700 transition hover:border-brand-300 hover:text-brand-700 disabled:opacity-50"
       >

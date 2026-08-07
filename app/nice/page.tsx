@@ -120,7 +120,7 @@ export default function NicePage() {
             </RadioField>
           </Section>
 
-          <CustomerInfoSection setValue={setValue} register={register} errors={errors} watch={watch}>
+          <CustomerInfoSection register={register} errors={errors} watch={watch}>
             <Field label="사업자등록증상 대표자" required error={errors.custRepresentative?.message}>
               <input
                 {...register('custRepresentative', { required: '대표자명은 필수입니다' })}

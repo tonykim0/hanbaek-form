@@ -162,7 +162,6 @@ export default function HecPage() {
           </Section>
 
           <CustomerInfoSection
-            setValue={setValue}
             register={register}
             errors={errors}
             watch={watch}

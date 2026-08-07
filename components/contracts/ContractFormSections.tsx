@@ -9,9 +9,7 @@ import type {
   UseFormSetValue,
   UseFormWatch,
 } from 'react-hook-form';
-import AddressSearchButton, {
-  useAddressSearch,
-} from '@/components/contracts/AddressSearchButton';
+import AddressSearchButton from '@/components/contracts/AddressSearchButton';
 import {
   ChoiceGroup,
   contractInputClass,
@@ -87,7 +85,6 @@ export function CustomerInfoSection<TFieldValues extends CommonContractFields>({
   register,
   errors,
   watch,
-  setValue,
   addressPlaceholder = '예: 서울특별시 강남구 테헤란로 1',
   telPlaceholder = '02-1234-5678',
   children,
@@ -96,7 +93,6 @@ export function CustomerInfoSection<TFieldValues extends CommonContractFields>({
   register: UseFormRegister<TFieldValues>;
   errors: FieldErrors<TFieldValues>;
   watch?: UseFormWatch<TFieldValues>;
-  setValue?: UseFormSetValue<TFieldValues>;
   addressPlaceholder?: string;
   telPlaceholder?: string;
   children?: React.ReactNode;
@@ -118,14 +114,6 @@ export function CustomerInfoSection<TFieldValues extends CommonContractFields>({
     ? (watch('custAddr' as Path<TFieldValues>) as unknown as string)
     : undefined;
   const addrNotice = bizAddressNotice(addrValue ?? '');
-  // 도로명주소일 때는 검색으로 채우는 게 정확해서 버튼을 함께 둡니다
-  const { open: openAddressSearch } = useAddressSearch((address) =>
-    setValue?.(
-      'custAddr' as Path<TFieldValues>,
-      address as PathValue<TFieldValues, Path<TFieldValues>>,
-      { shouldValidate: true, shouldDirty: true }
-    )
-  );
   const bizIdRegistration = register('custBizId' as Path<TFieldValues>, {
     required: '필수',
     validate: (value) =>
@@ -184,25 +172,17 @@ export function CustomerInfoSection<TFieldValues extends CommonContractFields>({
           error={fieldError(errors, 'custAddr' as Path<TFieldValues>)}
           warning={addrNotice}
         >
-          <div className="flex gap-2">
-            <input
-              {...register('custAddr' as Path<TFieldValues>, {
-                required: '주소는 필수입니다',
-              })}
-              // 사업자등록증에 지번주소로 적혀 있는 경우가 있어 직접 입력을 허용합니다
-              className={`${inputCls} min-w-0 flex-1`}
-              placeholder={addressPlaceholder}
-            />
-            {setValue && (
-              <button
-                type="button"
-                onClick={openAddressSearch}
-                className="flex-none rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-700 transition hover:border-brand-300 hover:text-brand-700"
-              >
-                주소 검색
-              </button>
-            )}
-          </div>
+          {/*
+            주소 검색을 두지 않습니다 — 사업자등록증에 지번주소로 적혀 있는 경우가
+            있어, 검색으로 고른 도로명주소가 아니라 등록증에 적힌 그대로 받아야 합니다.
+          */}
+          <input
+            {...register('custAddr' as Path<TFieldValues>, {
+              required: '주소는 필수입니다',
+            })}
+            className={inputCls}
+            placeholder={addressPlaceholder}
+          />
         </Field>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

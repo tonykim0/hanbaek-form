@@ -110,7 +110,6 @@ export default function App() {
           </Section>
 
           <CustomerInfoSection
-            setValue={setValue}
             register={register}
             errors={errors}
             watch={watch}

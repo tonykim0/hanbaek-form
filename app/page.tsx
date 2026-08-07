@@ -27,6 +27,18 @@ const lookups = [
   },
 ];
 
+/**
+ * 안내문 — 자료실 아래에 붙습니다.
+ * public/notices/ 의 정적 HTML 이라 새 탭으로 엽니다.
+ */
+const notices = [
+  {
+    href: '/notices/legacy-charger-history.html',
+    title: '기설치 충전기 이력 작성 및 증빙자료 제출 안내',
+    date: '2026. 07. 29.',
+  },
+];
+
 const updates = [
   {
     date: '2026. 08. 07.',
@@ -232,6 +244,34 @@ export default function Home() {
               cta="자료실 열기"
               tone="amber"
             />
+
+            {notices.map((notice) => (
+              <a
+                key={notice.href}
+                href={notice.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="group flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-4 transition hover:border-amber-300"
+              >
+                <span className="flex-none rounded-lg bg-amber-50 px-2 py-1 text-[10px] font-black tracking-[0.1em] text-amber-700 ring-1 ring-amber-100">
+                  안내
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block break-keep text-sm font-bold leading-snug text-slate-900 group-hover:text-amber-800">
+                    {notice.title}
+                  </span>
+                  <span className="mt-0.5 block text-xs tabular-nums text-slate-400">
+                    {notice.date}
+                  </span>
+                </span>
+                <span
+                  aria-hidden
+                  className="flex-none text-slate-300 transition group-hover:text-amber-700"
+                >
+                  ↗
+                </span>
+              </a>
+            ))}
           </aside>
         </div>
 

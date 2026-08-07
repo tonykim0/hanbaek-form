@@ -79,7 +79,7 @@ export default function KaptApartmentExplorer({
           아파트 정보 조회
         </h1>
         <p className="mt-2 text-sm text-slate-500">
-          K-apt 우리단지 기본정보와 전기차 관리시설정보를 한 화면에서 확인합니다.
+          K-apt 우리단지 기본정보와 전기차 시설정보를 한 화면에서 확인합니다.
         </p>
       </header>
 
@@ -195,105 +195,169 @@ export default function KaptApartmentExplorer({
               </p>
             </div>
 
-            <section className="border-t border-slate-200">
-              <div className="flex items-center gap-3 px-5 pb-2 pt-5 sm:px-6">
-                <span className="grid h-8 w-8 flex-none place-items-center rounded-lg bg-brand-50 text-[10px] font-black text-brand-700">
-                  01
-                </span>
-                <div>
-                  <h3 className="text-sm font-black text-slate-900">우리단지 기본정보 · 관리시설정보</h3>
-                  <p className="mt-0.5 text-[11px] text-slate-500">
-                    단지 기본사항과 전기차 관련 관리시설정보를 함께 표시합니다.
-                  </p>
-                </div>
-              </div>
-
-              <dl className="grid grid-cols-1 px-5 pb-5 sm:grid-cols-2 sm:px-6">
-                {detail.basicInfo.map((information) => {
-                  const wide =
-                    information.label.includes('주소') || information.label.includes('시행사');
-
-                  return (
-                    <div
-                      key={information.label}
-                      className={`min-w-0 border-b border-slate-100 px-2 py-3.5 ${
-                        wide ? 'sm:col-span-2' : ''
-                      }`}
-                    >
-                      <dt className="text-[11px] text-slate-500">{information.label}</dt>
-                      <dd className="mt-1 break-words text-[13px] font-bold leading-5 text-slate-900">
-                        {information.value}
-                      </dd>
-                    </div>
-                  );
-                })}
-              </dl>
-
-              <div className="border-t border-slate-100 px-5 pb-5 pt-5 sm:px-6">
-                <div className="mb-3">
-                  <h4 className="text-sm font-black text-slate-900">전기차 관리시설정보</h4>
-                  <p className="mt-1 text-[11px] text-slate-500">
-                    차량, 전용 주차면, 개방시간과 충전기 설치 상세
-                  </p>
-                </div>
-                <dl className="grid grid-cols-1 gap-x-5 rounded-xl border border-brand-200 bg-[#fbfefc] px-4 py-1 sm:grid-cols-2">
-                  {detail.electricVehicle.overview.map((information) => (
-                    <div key={information.label} className="min-w-0 border-b border-brand-100 py-3">
-                      <dt className="text-[11px] text-slate-500">{information.label}</dt>
-                      <dd className="mt-1 break-words text-[13px] font-bold leading-5 text-slate-900">
-                        {information.value}
-                      </dd>
-                    </div>
-                  ))}
-                </dl>
-
-                <div className="mb-2 mt-5 flex items-center justify-between gap-3">
-                  <h4 className="text-xs font-black text-slate-900">충전기 상세</h4>
-                  <span className="text-[10px] text-slate-500">
-                    {detail.electricVehicle.chargers.length}개 설치 유형
+            <div className="space-y-5 border-t border-slate-200 bg-slate-50/70 p-4 sm:p-6">
+              <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                <div className="flex items-center gap-3 border-b border-slate-100 bg-slate-50 px-4 py-4 sm:px-5">
+                  <span className="grid h-9 w-9 flex-none place-items-center rounded-xl bg-slate-800 text-sm font-black text-white shadow-sm">
+                    1
                   </span>
+                  <div>
+                    <h3 className="text-base font-black tracking-[-0.02em] text-slate-900">
+                      우리단지 기본정보
+                    </h3>
+                    <p className="mt-0.5 text-[11px] text-slate-500">
+                      주소, 규모, 건축 및 관리 기본사항
+                    </p>
+                  </div>
                 </div>
 
-                {detail.electricVehicle.chargers.length ? (
-                  <div className="overflow-x-auto rounded-xl border border-slate-200">
-                    <table className="w-full min-w-[46rem] border-collapse text-[11px]">
-                      <thead>
-                        <tr className="bg-slate-50 text-left text-slate-500">
-                          <th className="px-3 py-3 font-bold">구분</th>
-                          <th className="px-3 py-3 font-bold">설치유형</th>
-                          <th className="px-3 py-3 font-bold">충전기타입</th>
-                          <th className="px-3 py-3 font-bold">충전속도</th>
-                          <th className="px-3 py-3 font-bold">설치대수</th>
-                          <th className="px-3 py-3 font-bold">충전사업자</th>
-                          <th className="px-3 py-3 font-bold">연락처</th>
-                        </tr>
-                      </thead>
-                      <tbody>
+                <dl className="grid grid-cols-1 gap-3 p-4 sm:grid-cols-2 sm:p-5">
+                  {detail.basicInfo.map((information) => {
+                    const wide =
+                      information.label.includes('주소') || information.label.includes('시행사');
+
+                    return (
+                      <div
+                        key={information.label}
+                        className={`min-w-0 rounded-xl border border-slate-200 bg-white px-4 py-3.5 ${
+                          wide ? 'sm:col-span-2' : ''
+                        }`}
+                      >
+                        <dt className="text-[11px] font-semibold text-slate-500">
+                          {information.label}
+                        </dt>
+                        <dd className="mt-1.5 break-words text-sm font-black leading-5 text-slate-900">
+                          {information.value}
+                        </dd>
+                      </div>
+                    );
+                  })}
+                </dl>
+              </section>
+
+              <section className="overflow-hidden rounded-2xl border border-brand-200 bg-white shadow-sm">
+                <div className="flex items-center gap-3 border-b border-brand-100 bg-brand-50 px-4 py-4 sm:px-5">
+                  <span className="grid h-9 w-9 flex-none place-items-center rounded-xl bg-brand-700 text-sm font-black text-white shadow-sm">
+                    2
+                  </span>
+                  <div>
+                    <h3 className="text-base font-black tracking-[-0.02em] text-slate-900">
+                      전기차 시설정보
+                    </h3>
+                    <p className="mt-0.5 text-[11px] text-slate-500">
+                      전기차 주차면, 이용시간과 충전기 설치 상세
+                    </p>
+                  </div>
+                </div>
+
+                <div className="p-4 sm:p-5">
+                  <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    {detail.electricVehicle.overview.map((information) => (
+                      <div
+                        key={information.label}
+                        className="min-w-0 rounded-xl border border-brand-100 bg-[#fbfefc] px-4 py-3.5"
+                      >
+                        <dt className="text-[11px] font-semibold leading-4 text-slate-500">
+                          {information.label}
+                        </dt>
+                        <dd className="mt-1.5 break-words text-sm font-black leading-5 text-slate-900">
+                          {information.value}
+                        </dd>
+                      </div>
+                    ))}
+                  </dl>
+
+                  <div className="mb-3 mt-6 flex items-center justify-between gap-3 border-b border-slate-100 pb-3">
+                    <div>
+                      <h4 className="text-sm font-black text-slate-900">충전기 상세</h4>
+                      <p className="mt-0.5 text-[10px] text-slate-500">
+                        위치와 충전 방식, 운영사업자 정보
+                      </p>
+                    </div>
+                    <span className="rounded-full bg-brand-50 px-2.5 py-1 text-[10px] font-bold text-brand-700">
+                      {detail.electricVehicle.chargers.length}개 설치 유형
+                    </span>
+                  </div>
+
+                  {detail.electricVehicle.chargers.length ? (
+                    <>
+                      <div className="grid gap-3 md:hidden">
                         {detail.electricVehicle.chargers.map((charger) => (
-                          <tr key={charger.id} className="border-t border-slate-100 text-slate-700">
-                            <td className="px-3 py-3">{charger.location}</td>
-                            <td className="px-3 py-3">{charger.installationType}</td>
-                            <td className="px-3 py-3">{charger.chargerType}</td>
-                            <td className="px-3 py-3">{charger.speed}</td>
-                            <td className="whitespace-nowrap px-3 py-3 font-black text-brand-700">
-                              {charger.count === null
-                                ? '-'
-                                : `${charger.count.toLocaleString('ko-KR')}대`}
-                            </td>
-                            <td className="px-3 py-3">{charger.operator}</td>
-                            <td className="px-3 py-3">{charger.operatorPhone}</td>
-                          </tr>
+                          <article key={charger.id} className="rounded-xl border border-slate-200 p-4">
+                            <div className="flex items-start justify-between gap-3">
+                              <div>
+                                <p className="text-xs font-black text-slate-900">
+                                  {charger.location} · {charger.installationType}
+                                </p>
+                                <p className="mt-1 text-[11px] leading-4 text-slate-500">
+                                  {charger.chargerType}
+                                </p>
+                              </div>
+                              <span className="rounded-lg bg-brand-50 px-2.5 py-1 text-xs font-black text-brand-700">
+                                {charger.count === null
+                                  ? '-'
+                                  : `${charger.count.toLocaleString('ko-KR')}대`}
+                              </span>
+                            </div>
+                            <dl className="mt-4 grid grid-cols-2 gap-3 border-t border-slate-100 pt-3 text-[11px]">
+                              <div>
+                                <dt className="text-slate-400">충전속도</dt>
+                                <dd className="mt-1 font-bold text-slate-700">{charger.speed}</dd>
+                              </div>
+                              <div>
+                                <dt className="text-slate-400">충전사업자</dt>
+                                <dd className="mt-1 font-bold text-slate-700">{charger.operator}</dd>
+                              </div>
+                              <div className="col-span-2">
+                                <dt className="text-slate-400">연락처</dt>
+                                <dd className="mt-1 font-bold text-slate-700">{charger.operatorPhone}</dd>
+                              </div>
+                            </dl>
+                          </article>
                         ))}
-                      </tbody>
-                    </table>
-                  </div>
-                ) : (
-                  <div className="rounded-xl border border-dashed border-slate-200 px-5 py-7 text-center text-xs text-slate-500">
-                    K-apt에 등록된 충전기별 상세정보가 없습니다.
-                  </div>
-                )}
-              </div>
-            </section>
+                      </div>
+
+                      <div className="hidden overflow-x-auto rounded-xl border border-slate-200 md:block">
+                        <table className="w-full min-w-[46rem] border-collapse text-[11px]">
+                          <thead>
+                            <tr className="bg-slate-50 text-left text-slate-500">
+                              <th className="px-3 py-3 font-bold">구분</th>
+                              <th className="px-3 py-3 font-bold">설치유형</th>
+                              <th className="px-3 py-3 font-bold">충전기타입</th>
+                              <th className="px-3 py-3 font-bold">충전속도</th>
+                              <th className="px-3 py-3 font-bold">설치대수</th>
+                              <th className="px-3 py-3 font-bold">충전사업자</th>
+                              <th className="px-3 py-3 font-bold">연락처</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {detail.electricVehicle.chargers.map((charger) => (
+                              <tr key={charger.id} className="border-t border-slate-100 text-slate-700">
+                                <td className="px-3 py-3">{charger.location}</td>
+                                <td className="px-3 py-3">{charger.installationType}</td>
+                                <td className="px-3 py-3">{charger.chargerType}</td>
+                                <td className="px-3 py-3">{charger.speed}</td>
+                                <td className="whitespace-nowrap px-3 py-3 font-black text-brand-700">
+                                  {charger.count === null
+                                    ? '-'
+                                    : `${charger.count.toLocaleString('ko-KR')}대`}
+                                </td>
+                                <td className="px-3 py-3">{charger.operator}</td>
+                                <td className="px-3 py-3">{charger.operatorPhone}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="rounded-xl border border-dashed border-slate-200 px-5 py-7 text-center text-xs text-slate-500">
+                      K-apt에 등록된 충전기별 상세정보가 없습니다.
+                    </div>
+                  )}
+                </div>
+              </section>
+            </div>
 
             <p className="border-t border-slate-200 bg-slate-50 px-5 py-3 text-[10px] leading-5 text-slate-400 sm:px-6">
               출처: K-apt 공동주택관리정보시스템 공개 단지정보 · 단지코드{' '}
@@ -314,7 +378,7 @@ export default function KaptApartmentExplorer({
               {loadingDetail ? '단지 정보를 불러오는 중입니다' : '검색 결과에서 단지를 선택해주세요'}
             </h2>
             <p className="mt-2 text-xs leading-5 text-slate-500">
-              우리단지 기본정보와 전기차 관리시설정보가 한 화면에 표시됩니다.
+              우리단지 기본정보와 전기차 시설정보가 한 화면에 표시됩니다.
             </p>
           </section>
         )}

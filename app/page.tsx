@@ -139,12 +139,12 @@ export default function Home() {
               href="/kapt"
               className="group rounded-2xl border border-slate-200 bg-[#f8fbff] p-5 transition hover:border-sky-300"
             >
-              <span className="text-xs font-bold tracking-[0.12em] text-sky-700">LOOKUP</span>
+              <span className="text-xs font-bold tracking-[0.12em] text-sky-700">K-APT</span>
               <h2 className="mt-2 text-lg font-black tracking-[-0.02em] text-slate-900">
-                아파트 정보 조회
+                K-apt 아파트 정보 조회
               </h2>
               <p className="mt-2 text-sm leading-5 text-slate-500">
-                K-apt 기본정보와 전기차 충전시설을 확인하세요.
+                단지 기본정보와 전기차 시설정보를 한눈에 확인하세요.
               </p>
               <span className="mt-4 inline-flex items-center gap-1 text-sm font-bold text-sky-800 group-hover:underline">
                 조회하러 가기 <span aria-hidden>→</span>

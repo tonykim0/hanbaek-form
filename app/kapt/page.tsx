@@ -4,7 +4,7 @@ import KaptApartmentExplorer from '@/components/KaptApartmentExplorer';
 
 export const metadata: Metadata = {
   title: '아파트 정보 조회 | 한백 전기차충전사업',
-  description: '아파트명이나 주소로 K-apt 기본정보와 전기차 관리시설정보를 확인합니다.',
+  description: '아파트명이나 주소로 K-apt 기본정보와 전기차 시설정보를 확인합니다.',
 };
 
 export default function KaptPage() {

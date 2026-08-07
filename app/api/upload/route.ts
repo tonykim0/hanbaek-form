@@ -9,6 +9,15 @@ import { generateClientTokenFromReadWriteToken } from '@vercel/blob/client';
 import { NextResponse } from 'next/server';
 
 const INTAKE_UPLOAD_PATH_RE = /^intake-\d+\.zip$/;
+/** 계약서류 스캔 PDF → 입력폼 역추출 (/api/import-form) 용 업로드 */
+const FORM_IMPORT_PATH_RE = /^form-import-\d+\.pdf$/;
+
+const ZIP_CONTENT_TYPES = [
+  'application/zip',
+  'application/x-zip-compressed',
+  'application/octet-stream',
+];
+const PDF_CONTENT_TYPES = ['application/pdf', 'application/octet-stream'];
 
 export async function POST(request: Request) {
   try {
@@ -16,7 +25,10 @@ export async function POST(request: Request) {
       pathname?: string;
     };
 
-    if (!pathname || !INTAKE_UPLOAD_PATH_RE.test(pathname)) {
+    const isIntake = !!pathname && INTAKE_UPLOAD_PATH_RE.test(pathname);
+    const isFormImport = !!pathname && FORM_IMPORT_PATH_RE.test(pathname);
+
+    if (!pathname || (!isIntake && !isFormImport)) {
       return NextResponse.json(
         { error: '업로드 경로가 올바르지 않습니다.' },
         { status: 400 }
@@ -30,12 +42,10 @@ export async function POST(request: Request) {
       token: process.env.BLOB_READ_WRITE_TOKEN!,
       pathname,
       validUntil,
-      allowedContentTypes: [
-        'application/zip',
-        'application/x-zip-compressed',
-        'application/octet-stream',
-      ],
-      maximumSizeInBytes: 100 * 1024 * 1024, // 100MB
+      allowedContentTypes: isFormImport ? PDF_CONTENT_TYPES : ZIP_CONTENT_TYPES,
+      maximumSizeInBytes: isFormImport
+        ? 30 * 1024 * 1024 // 스캔 PDF — Claude 입력 한도에 맞춘 상한
+        : 100 * 1024 * 1024,
     });
 
     return NextResponse.json({ token: clientToken });

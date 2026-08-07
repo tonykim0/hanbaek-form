@@ -14,18 +14,21 @@ import {
   RadioField,
   Section,
 } from '@/components/contracts/FormControls';
+import ImportPanel from '@/components/contracts/ImportPanel';
 import {
   ContractPageShell,
   FormActions,
   type SubmitStatus,
 } from '@/components/contracts/PageChrome';
-import {
-  buildContractFilename,
-  DEFAULT_YEAR,
-  formatAdvancedSuccessMessage,
-} from '@/lib/contract-form';
+import { DEFAULT_YEAR, formatAdvancedSuccessMessage } from '@/lib/contract-form';
 import { downloadBlob } from '@/lib/download';
+import {
+  applyImportedFields,
+  IMPORT_FIELD_KEYS,
+  type FormImportResult,
+} from '@/lib/form-import';
 import { NiceFormData } from '@/lib/schema-nice';
+import { useDocScope } from '@/lib/use-doc-scope';
 
 const defaultValues: Partial<NiceFormData> = {
   businessType: 'subsidy',
@@ -74,6 +77,8 @@ export default function NicePage() {
   } = useForm<NiceFormData>({ defaultValues });
 
   const [status, setStatus] = useState<SubmitStatus | null>(null);
+  // NICE 템플릿에는 사진대지·체크리스트가 없어 토글을 감춥니다.
+  const { docScope, finalize } = useDocScope();
 
   const buildingType = watch('buildingType');
   const dupFast = watch('dupFast');
@@ -81,20 +86,24 @@ export default function NicePage() {
   const dupDist = watch('dupDist');
   const dupOutlet = watch('dupOutlet');
 
+  const applyImported = (result: FormImportResult) =>
+    applyImportedFields(result, setValue, IMPORT_FIELD_KEYS.nice);
+
   const onSubmit = async (data: NiceFormData) => {
     setStatus(null);
     try {
       const { fillNiceTemplate } = await import('@/lib/fillDocx-nice');
       const result = await fillNiceTemplate(data);
-      const filename = buildContractFilename(
-        data.contractYear,
-        data.businessType === 'invest' ? '계약서류_NICE자체투자' : '계약서류_NICE',
-        data.custName,
-      );
-      downloadBlob(result.blob, filename);
+      const output = await finalize(result.blob, {
+        contractYear: data.contractYear,
+        custName: data.custName,
+        documentLabel:
+          data.businessType === 'invest' ? '계약서류_NICE자체투자' : '계약서류_NICE',
+      });
+      downloadBlob(output.blob, output.filename);
       setStatus({
         kind: 'success',
-        msg: formatAdvancedSuccessMessage(result, filename),
+        msg: formatAdvancedSuccessMessage(result, output.filename) + output.note,
       });
       if (result.unmatchedIds.length > 0) {
         console.warn('Unmatched SDT IDs (template drift):', result.unmatchedIds);
@@ -113,6 +122,8 @@ export default function NicePage() {
           onSubmit={handleSubmit(onSubmit)}
           className="space-y-4 pb-2"
         >
+          <ImportPanel cpo="nice" onApply={applyImported} />
+
           <Section title="사업구분">
             <RadioField label="계약 유형" hint="선택에 따라 생성되는 계약서 양식이 달라집니다 (입력 항목은 동일)">
               <Radio name="businessType" value="subsidy" register={register} label="보조금사업" />
@@ -171,7 +182,11 @@ export default function NicePage() {
             dupOutlet={dupOutlet}
           />
 
-          <FormActions status={status} isSubmitting={isSubmitting} />
+          <FormActions
+            status={status}
+            isSubmitting={isSubmitting}
+            docScope={docScope}
+          />
         </form>
 
     </ContractPageShell>

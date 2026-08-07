@@ -15,18 +15,21 @@ import {
   Section,
 } from '@/components/contracts/FormControls';
 import type { Path, UseFormRegister } from 'react-hook-form';
+import ImportPanel from '@/components/contracts/ImportPanel';
 import {
   ContractPageShell,
   FormActions,
   type SubmitStatus,
 } from '@/components/contracts/PageChrome';
-import {
-  buildContractFilename,
-  DEFAULT_YEAR,
-  formatAdvancedSuccessMessage,
-} from '@/lib/contract-form';
+import { DEFAULT_YEAR, formatAdvancedSuccessMessage } from '@/lib/contract-form';
 import { downloadBlob } from '@/lib/download';
+import {
+  applyImportedFields,
+  IMPORT_FIELD_KEYS,
+  type FormImportResult,
+} from '@/lib/form-import';
 import { HecFormData } from '@/lib/schema-hec';
+import { useDocScope } from '@/lib/use-doc-scope';
 
 const defaultValues: Partial<HecFormData> = {
   businessType: 'subsidy',
@@ -115,6 +118,8 @@ export default function HecPage() {
   } = useForm<HecFormData>({ defaultValues });
 
   const [status, setStatus] = useState<SubmitStatus | null>(null);
+  // HEC 템플릿만 별지7호 뒤에 사진대지([별지1])·사전 체크리스트([별지2])가 붙습니다.
+  const { docScope, finalize } = useDocScope({ showAttachmentToggle: true });
 
   const buildingType = watch('buildingType');
   const dupFast = watch('dupFast');
@@ -122,20 +127,24 @@ export default function HecPage() {
   const dupDist = watch('dupDist');
   const dupOutlet = watch('dupOutlet');
 
+  const applyImported = (result: FormImportResult) =>
+    applyImportedFields(result, setValue, IMPORT_FIELD_KEYS.hec);
+
   const onSubmit = async (data: HecFormData) => {
     setStatus(null);
     try {
       const { fillHecTemplate } = await import('@/lib/fillDocx-hec');
       const result = await fillHecTemplate(data);
-      const filename = buildContractFilename(
-        data.contractYear,
-        data.businessType === 'invest' ? '계약서류_HEC자체투자' : '계약서류_HEC',
-        data.custName,
-      );
-      downloadBlob(result.blob, filename);
+      const output = await finalize(result.blob, {
+        contractYear: data.contractYear,
+        custName: data.custName,
+        documentLabel:
+          data.businessType === 'invest' ? '계약서류_HEC자체투자' : '계약서류_HEC',
+      });
+      downloadBlob(output.blob, output.filename);
       setStatus({
         kind: 'success',
-        msg: formatAdvancedSuccessMessage(result, filename),
+        msg: formatAdvancedSuccessMessage(result, output.filename) + output.note,
       });
       if (result.unmatchedIds.length > 0) {
         console.warn('Unmatched SDT IDs (template drift):', result.unmatchedIds);
@@ -154,6 +163,8 @@ export default function HecPage() {
           onSubmit={handleSubmit(onSubmit)}
           className="space-y-4 pb-2"
         >
+          <ImportPanel cpo="hec" onApply={applyImported} />
+
           <Section title="사업구분">
             <RadioField label="계약 유형" hint="선택에 따라 생성되는 계약서 양식이 달라집니다 (입력 항목은 동일)">
               <Radio name="businessType" value="subsidy" register={register} label="보조금사업" />
@@ -224,7 +235,11 @@ export default function HecPage() {
             </div>
           </Section>
 
-          <FormActions status={status} isSubmitting={isSubmitting} />
+          <FormActions
+            status={status}
+            isSubmitting={isSubmitting}
+            docScope={docScope}
+          />
         </form>
 
     </ContractPageShell>

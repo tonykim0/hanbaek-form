@@ -8,18 +8,21 @@ import {
   CustomerInfoSection,
 } from '@/components/contracts/ContractFormSections';
 import { Radio, RadioField, Section } from '@/components/contracts/FormControls';
+import ImportPanel from '@/components/contracts/ImportPanel';
 import {
   ContractPageShell,
   FormActions,
   type SubmitStatus,
 } from '@/components/contracts/PageChrome';
-import {
-  buildContractFilename,
-  DEFAULT_YEAR,
-  formatBasicSuccessMessage,
-} from '@/lib/contract-form';
+import { DEFAULT_YEAR, formatBasicSuccessMessage } from '@/lib/contract-form';
 import { downloadBlob } from '@/lib/download';
+import {
+  applyImportedFields,
+  IMPORT_FIELD_KEYS,
+  type FormImportResult,
+} from '@/lib/form-import';
 import { ContractFormData } from '@/lib/schema';
+import { useDocScope } from '@/lib/use-doc-scope';
 
 const defaultValues: Partial<ContractFormData> = {
   businessType: 'subsidy',
@@ -64,6 +67,8 @@ export default function App() {
   } = useForm<ContractFormData>({ defaultValues });
 
   const [status, setStatus] = useState<SubmitStatus | null>(null);
+  // 플러그링크 템플릿에는 사진대지·체크리스트가 없어 토글을 감춥니다.
+  const { docScope, finalize } = useDocScope();
 
   const buildingType = watch('buildingType');
   const dupFast = watch('dupFast');
@@ -71,16 +76,23 @@ export default function App() {
   const dupDist = watch('dupDist');
   const dupOutlet = watch('dupOutlet');
 
+  const applyImported = (result: FormImportResult) =>
+    applyImportedFields(result, setValue, IMPORT_FIELD_KEYS.pluglink);
+
   const onSubmit = async (data: ContractFormData) => {
     setStatus(null);
     try {
       const { fillContractTemplate } = await import('@/lib/fillDocx');
       const result = await fillContractTemplate(data);
-      const filename = buildContractFilename(data.contractYear, '계약서류', data.custName);
-      downloadBlob(result.blob, filename);
+      const output = await finalize(result.blob, {
+        contractYear: data.contractYear,
+        custName: data.custName,
+        documentLabel: '계약서류',
+      });
+      downloadBlob(output.blob, output.filename);
       setStatus({
         kind: 'success',
-        msg: formatBasicSuccessMessage(result, filename),
+        msg: formatBasicSuccessMessage(result, output.filename) + output.note,
       });
       if (result.unmatchedIds.length > 0) {
         console.warn('Unmatched SDT IDs (template drift):', result.unmatchedIds);
@@ -102,6 +114,8 @@ export default function App() {
           onSubmit={handleSubmit(onSubmit)}
           className="space-y-4 pb-2"
         >
+          <ImportPanel cpo="pluglink" onApply={applyImported} />
+
           <Section title="사업구분">
             <RadioField label="계약 유형" hint="선택에 따라 생성되는 계약서 양식이 달라집니다 (입력 항목은 동일)">
               <Radio name="businessType" value="subsidy" register={register} label="보조금사업" />
@@ -136,7 +150,11 @@ export default function App() {
             dupOutlet={dupOutlet}
           />
 
-          <FormActions status={status} isSubmitting={isSubmitting} />
+          <FormActions
+            status={status}
+            isSubmitting={isSubmitting}
+            docScope={docScope}
+          />
         </form>
 
     </ContractPageShell>

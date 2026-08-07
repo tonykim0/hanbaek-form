@@ -123,15 +123,12 @@ export function bizAddressNotice(raw: string): string | undefined {
 /**
  * 계약서에 넣을 설치장소 주소.
  *
- * 설치장소를 비워두면 고객사 주소를 씁니다. 입력 화면에서 고객사 주소가
- * 도로명주소가 아닐 때는 설치장소를 필수로 받으므로(isRoadAddress 참고),
- * 이 경로로 지번주소가 계약서에 들어가지 않습니다.
+ * 사업자등록증 주소(custAddr)로 대체하지 않습니다 — 사업자등록증에는 지번주소가
+ * 적혀 있을 수 있고, 계약서 설치장소는 건축물대장상 도로명주소여야 합니다.
+ * 그래서 입력 화면에서 설치장소를 필수로 받습니다.
  */
-export function resolveInstallAddr(form: {
-  installAddr: string;
-  custAddr: string;
-}): string {
-  return form.installAddr.trim() || form.custAddr;
+export function resolveInstallAddr(form: { installAddr: string }): string {
+  return form.installAddr.trim();
 }
 
 /**

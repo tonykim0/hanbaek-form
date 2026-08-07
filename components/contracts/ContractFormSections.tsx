@@ -24,7 +24,6 @@ import {
 import { YEAR_OPTIONS } from '@/lib/contract-form';
 import {
   bizAddressNotice,
-  isRoadAddress,
   roadAddressError,
   roadAddressWarning,
 } from '@/lib/address';
@@ -243,44 +242,29 @@ export function ContractInfoSection<TFieldValues extends CommonContractFields>({
     ? (watch('installAddr' as Path<TFieldValues>) as unknown as string)
     : undefined;
   const installAddrWarning = roadAddressWarning(installAddrValue ?? '');
-  /**
-   * 설치장소를 비우면 고객사 주소가 그대로 들어갑니다. 사업자등록증 주소가
-   * 도로명주소가 아니면(지번 · 상세주소 포함) 그대로 쓸 수 없으므로 필수로 받습니다.
-   */
-  const custAddrValue = watch
-    ? (watch('custAddr' as Path<TFieldValues>) as unknown as string)
-    : undefined;
-  const needsInstallAddr =
-    (custAddrValue ?? '').trim() !== '' && !isRoadAddress(custAddrValue ?? '');
-  const installAddrNotice =
-    installAddrWarning ??
-    (needsInstallAddr && !(installAddrValue ?? '').trim()
-      ? '사업자등록증 주소가 도로명주소가 아니어서 비워둘 수 없습니다 — 건축물대장상 도로명주소를 입력해주세요'
-      : undefined);
   return (
     <Section title="2. 계약 정보">
+      {/*
+        설치장소는 사업자등록증 주소를 끌어오지 않고 반드시 직접 받습니다 —
+        사업자등록증 주소는 지번주소일 수 있고, 계약서 설치장소는 건축물대장상
+        도로명주소여야 합니다.
+      */}
       <Field
         label="건축물대장 주소 (설치장소)"
-        required={needsInstallAddr}
+        required
         error={fieldError(errors, 'installAddr' as Path<TFieldValues>)}
-        warning={installAddrNotice}
+        warning={installAddrWarning}
       >
         <div className="flex gap-2">
           <input
             {...register('installAddr' as Path<TFieldValues>, {
-              required: needsInstallAddr
-                ? '사업자등록증 주소를 그대로 쓸 수 없습니다 — 건축물대장상 도로명주소를 입력해주세요'
-                : false,
+              required: '건축물대장상 도로명주소를 입력해주세요',
               // 설치장소는 「지하 1층」 등 위치 표기가 필요할 수 있어 상세주소 허용
               validate: (value) =>
                 roadAddressError(String(value ?? ''), { allowDetail: true }) ?? true,
             })}
             className={`${inputCls} min-w-0 flex-1`}
-            placeholder={
-              needsInstallAddr
-                ? '건축물대장상 도로명주소를 입력해주세요'
-                : '고객사 주소와 같으면 비워두세요'
-            }
+            placeholder="건축물대장상 도로명주소 (사업자등록증 주소와 달라도 그대로)"
           />
           {setValue && (
             <AddressSearchButton

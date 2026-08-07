@@ -1,7 +1,13 @@
 import Link from 'next/link';
 import Image from 'next/image';
 
-type ActiveSection = 'home' | 'contracts' | 'intake' | 'materials' | 'kapt';
+type ActiveSection =
+  | 'home'
+  | 'contracts'
+  | 'intake'
+  | 'materials'
+  | 'kapt'
+  | 'charger-history';
 
 const navItems: Array<{
   href: string;
@@ -13,6 +19,12 @@ const navItems: Array<{
   { href: '/intake', label: '계약서 접수', shortLabel: '접수', section: 'intake' },
   { href: '/materials', label: '자료실', shortLabel: '자료실', section: 'materials' },
   { href: '/kapt', label: '아파트 조회', shortLabel: '단지조회', section: 'kapt' },
+  {
+    href: '/charger-history',
+    label: '이력조회',
+    shortLabel: '이력',
+    section: 'charger-history',
+  },
 ];
 
 export default function SiteHeader({ active }: { active: ActiveSection }) {

@@ -17,7 +17,7 @@ import { normalizeRoadAddress } from '@/lib/address';
 const POSTCODE_SCRIPT_SRC =
   'https://t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js';
 
-interface PostcodeData {
+export interface PostcodeData {
   /** 도로명주소 — 시도 + 시군구 + 도로명 + 건물번호 */
   roadAddress: string;
   /** 지번주소 (도로명주소가 없는 예외적인 경우의 대비용) */
@@ -66,8 +66,15 @@ function loadPostcodeScript(): Promise<void> {
   });
 }
 
-/** 주소 검색 창 열기 — 버튼과 입력칸 클릭에서 같이 씁니다 */
-export function useAddressSearch(onSelect: (address: string) => void) {
+/**
+ * 주소 검색 창 열기 — 버튼과 입력칸 클릭에서 같이 씁니다.
+ *
+ * onSelect 의 두 번째 인자로 검색 원본을 함께 넘깁니다. 계약서 입력은 도로명주소만
+ * 쓰지만, 이력조회는 지번주소도 함께 필요해서입니다.
+ */
+export function useAddressSearch(
+  onSelect: (address: string, data?: PostcodeData) => void
+) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -83,7 +90,7 @@ export function useAddressSearch(onSelect: (address: string) => void) {
           // 도로명주소만 사용 (건물명 · 상세주소 제외)
           const address =
             data.roadAddress || data.autoRoadAddress || data.jibunAddress || '';
-          if (address) onSelect(normalizeRoadAddress(address));
+          if (address) onSelect(normalizeRoadAddress(address), data);
         },
       }).open({ popupTitle: '주소 검색' });
     } catch (e) {
@@ -100,7 +107,7 @@ export default function AddressSearchButton({
   onSelect,
   label = '주소 검색',
 }: {
-  onSelect: (address: string) => void;
+  onSelect: (address: string, data?: PostcodeData) => void;
   label?: string;
 }) {
   const { open, loading, error } = useAddressSearch(onSelect);

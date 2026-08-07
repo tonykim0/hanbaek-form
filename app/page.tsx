@@ -31,6 +31,13 @@ const cpos = [
 const updates = [
   {
     date: '2026. 08. 07.',
+    title: '충전기 · 보조금 이력 조회 신설',
+    href: '/charger-history',
+    note: '기준일 2026. 08. 05.',
+    isNew: true,
+  },
+  {
+    date: '2026. 08. 07.',
     title: '아파트 정보 조회(K-apt) 내부 기능으로 통합',
     href: '/kapt',
     isNew: true,
@@ -132,6 +139,22 @@ export default function Home() {
               </p>
               <span className="mt-4 inline-flex text-sm font-bold text-amber-800 group-hover:underline">
                 자료실 열기 →
+              </span>
+            </Link>
+
+            <Link
+              href="/charger-history"
+              className="group rounded-2xl border border-slate-200 bg-[#f8fbff] p-5 transition hover:border-sky-300"
+            >
+              <span className="text-xs font-bold tracking-[0.12em] text-sky-700">LOOKUP</span>
+              <h2 className="mt-2 text-lg font-black tracking-[-0.02em] text-slate-900">
+                충전기 · 보조금 이력 조회
+              </h2>
+              <p className="mt-2 text-sm leading-5 text-slate-500">
+                주소로 기설치 충전기와 보조금 지원 이력을 확인하세요.
+              </p>
+              <span className="mt-4 inline-flex text-sm font-bold text-sky-800 group-hover:underline">
+                조회하러 가기 →
               </span>
             </Link>
 

@@ -31,8 +31,8 @@ const cpos = [
 const updates = [
   {
     date: '2026. 08. 07.',
-    title: '아파트 정보 조회(K-apt) 연결',
-    href: 'https://hanbaek-apartment-info.tonykim1.chatgpt.site/',
+    title: '아파트 정보 조회(K-apt) 내부 기능으로 통합',
+    href: '/kapt',
     isNew: true,
   },
   {
@@ -135,10 +135,8 @@ export default function Home() {
               </span>
             </Link>
 
-            <a
-              href="https://hanbaek-apartment-info.tonykim1.chatgpt.site/"
-              target="_blank"
-              rel="noopener noreferrer"
+            <Link
+              href="/kapt"
               className="group rounded-2xl border border-slate-200 bg-[#f8fbff] p-5 transition hover:border-sky-300"
             >
               <span className="text-xs font-bold tracking-[0.12em] text-sky-700">LOOKUP</span>
@@ -149,9 +147,9 @@ export default function Home() {
                 K-apt 기본정보와 전기차 충전시설을 확인하세요.
               </p>
               <span className="mt-4 inline-flex items-center gap-1 text-sm font-bold text-sky-800 group-hover:underline">
-                조회하러 가기 <span aria-hidden>↗</span>
+                조회하러 가기 <span aria-hidden>→</span>
               </span>
-            </a>
+            </Link>
           </aside>
         </div>
 

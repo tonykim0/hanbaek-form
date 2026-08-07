@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 
-type ActiveSection = 'home' | 'contracts' | 'intake' | 'materials';
+type ActiveSection = 'home' | 'contracts' | 'intake' | 'materials' | 'kapt';
 
 const navItems: Array<{
   href: string;
@@ -12,6 +12,7 @@ const navItems: Array<{
   { href: '/#contracts', label: '계약서 작성', shortLabel: '계약서', section: 'contracts' },
   { href: '/intake', label: '계약서 접수', shortLabel: '접수', section: 'intake' },
   { href: '/materials', label: '자료실', shortLabel: '자료실', section: 'materials' },
+  { href: '/kapt', label: '아파트 조회', shortLabel: '단지조회', section: 'kapt' },
 ];
 
 export default function SiteHeader({ active }: { active: ActiveSection }) {

@@ -1,30 +1,29 @@
 import Link from 'next/link';
 import SiteHeader from '@/components/SiteHeader';
 
+/** 계약서 작성 — 운영사별 */
 const cpos = [
+  { name: '플러그링크', code: 'PL', href: '/pluglink' },
+  { name: '현대엔지니어링', code: 'HEC', href: '/hec' },
+  { name: '나이스인프라', code: 'NICE', href: '/nice' },
+  { name: 'SK일렉링크', code: 'SK', href: '/sk' },
+];
+
+/** 조회 — 영업 전 현장 확인용 */
+const lookups = [
   {
-    name: '플러그링크',
-    code: 'PL',
-    href: '/pluglink',
-    description: '보조금 · 자체투자',
+    href: '/charger-history',
+    eyebrow: 'CHARGER',
+    title: '충전기 · 보조금 이력',
+    description: '주소로 기설치 충전기와 보조금 지원 이력을 확인합니다.',
+    cta: '주소로 조회',
   },
   {
-    name: '현대엔지니어링',
-    code: 'HEC',
-    href: '/hec',
-    description: '보조금 · 자체투자',
-  },
-  {
-    name: '나이스인프라',
-    code: 'NICE',
-    href: '/nice',
-    description: '보조금 · 자체투자',
-  },
-  {
-    name: 'SK일렉링크',
-    code: 'SK',
-    href: '/sk',
-    description: '보조금 · 자체투자',
+    href: '/kapt',
+    eyebrow: 'K-APT',
+    title: '아파트 단지 정보',
+    description: '단지 기본정보와 전기차 충전시설 현황을 확인합니다.',
+    cta: '단지명으로 조회',
   },
 ];
 
@@ -67,112 +66,172 @@ const updates = [
   },
 ];
 
+/** 섹션 머리말 — 아이브로우 + 제목을 같은 리듬으로 */
+function SectionHead({
+  eyebrow,
+  title,
+  hint,
+  tone = 'brand',
+}: {
+  eyebrow: string;
+  title: string;
+  hint?: string;
+  tone?: 'brand' | 'sky';
+}) {
+  return (
+    <div className="mb-4 flex items-end justify-between gap-4">
+      <div>
+        <p
+          className={`text-xs font-bold tracking-[0.14em] ${
+            tone === 'sky' ? 'text-sky-700' : 'text-brand-700'
+          }`}
+        >
+          {eyebrow}
+        </p>
+        <h2 className="mt-1 text-2xl font-black tracking-[-0.03em] text-slate-900">{title}</h2>
+      </div>
+      {hint && <p className="shrink-0 text-xs text-slate-400">{hint}</p>}
+    </div>
+  );
+}
+
+/**
+ * 기능 카드 — 조회 · 자료실이 같은 형태를 씁니다.
+ * 「보러 가기」 줄은 mt-auto 로 내려, 카드 높이가 달라도 한 줄에 맞춰집니다.
+ */
+const TONES = {
+  sky: {
+    eyebrow: 'text-sky-700',
+    surface: 'bg-[#f8fbff]',
+    border: 'hover:border-sky-300',
+    cta: 'text-sky-800',
+  },
+  amber: {
+    eyebrow: 'text-amber-700',
+    surface: 'bg-[#fffdf8]',
+    border: 'hover:border-amber-300',
+    cta: 'text-amber-800',
+  },
+} as const;
+
+function FeatureCard({
+  href,
+  eyebrow,
+  title,
+  description,
+  cta,
+  tone,
+}: {
+  href: string;
+  eyebrow: string;
+  title: string;
+  description: string;
+  cta: string;
+  tone: keyof typeof TONES;
+}) {
+  const t = TONES[tone];
+  return (
+    <Link
+      href={href}
+      className={`group flex flex-col rounded-2xl border border-slate-200 ${t.surface} p-5 transition ${t.border}`}
+    >
+      <span className={`text-[11px] font-bold tracking-[0.12em] ${t.eyebrow}`}>{eyebrow}</span>
+      <h3 className="mt-2 text-lg font-black tracking-[-0.02em] text-slate-900">{title}</h3>
+      <p className="mt-2 text-sm leading-5 text-slate-500">{description}</p>
+      <span
+        className={`mt-auto inline-flex items-center gap-1 pt-4 text-sm font-bold ${t.cta} group-hover:underline`}
+      >
+        {cta}
+        <span aria-hidden className="transition group-hover:translate-x-0.5">
+          →
+        </span>
+      </span>
+    </Link>
+  );
+}
+
 export default function Home() {
   return (
     <div className="min-h-screen bg-[#f7f8f4] text-slate-900">
       <SiteHeader active="home" />
 
       <main className="mx-auto max-w-6xl px-5 pb-16 pt-10 sm:px-6 sm:pt-14">
-        <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
-          <section id="contracts" className="scroll-mt-24">
-            <div className="mb-4 flex items-end justify-between gap-4">
-              <div>
-                <p className="text-xs font-bold tracking-[0.14em] text-brand-700">CONTRACT</p>
-                <h2 className="mt-1 text-2xl font-black tracking-[-0.03em] text-slate-900">
-                  계약서 작성
-                </h2>
+        <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_19rem] lg:items-start">
+          <div className="flex flex-col gap-10">
+            <section id="contracts" className="scroll-mt-24">
+              <SectionHead eyebrow="CONTRACT" title="계약서 작성" hint="운영사를 선택하세요" />
+              <div className="grid gap-3 sm:grid-cols-2">
+                {cpos.map((cpo) => (
+                  <Link
+                    key={cpo.href}
+                    href={cpo.href}
+                    className="group relative flex min-h-32 flex-col rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_10px_30px_-24px_rgba(15,23,42,0.5)] transition duration-200 hover:-translate-y-0.5 hover:border-brand-300 hover:shadow-[0_18px_36px_-24px_rgba(49,106,64,0.55)]"
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <span className="flex h-10 min-w-10 items-center justify-center rounded-xl bg-brand-50 px-2 text-xs font-black text-brand-700 ring-1 ring-brand-100">
+                        {cpo.code}
+                      </span>
+                      <span
+                        aria-hidden
+                        className="text-xl text-slate-300 transition group-hover:translate-x-1 group-hover:text-brand-600"
+                      >
+                        →
+                      </span>
+                    </div>
+                    <h3 className="mt-auto pt-5 text-lg font-bold tracking-[-0.02em] text-slate-900">
+                      {cpo.name}
+                    </h3>
+                    <p className="mt-1 text-sm text-slate-500">보조금 · 자체투자</p>
+                  </Link>
+                ))}
               </div>
-              <p className="text-xs text-slate-400">운영사를 선택하세요</p>
-            </div>
+            </section>
 
-            <div className="grid gap-3 sm:grid-cols-2">
-              {cpos.map((cpo) => (
-                <Link
-                  key={cpo.href}
-                  href={cpo.href}
-                  className="group relative min-h-36 overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_10px_30px_-24px_rgba(15,23,42,0.5)] transition duration-200 hover:-translate-y-0.5 hover:border-brand-300 hover:shadow-[0_18px_36px_-24px_rgba(49,106,64,0.55)]"
-                >
-                  <div className="flex items-start justify-between gap-4">
-                    <span className="flex h-10 min-w-10 items-center justify-center rounded-xl bg-brand-50 px-2 text-xs font-black text-brand-700 ring-1 ring-brand-100">
-                      {cpo.code}
-                    </span>
-                    <span aria-hidden className="text-xl text-slate-300 transition group-hover:translate-x-1 group-hover:text-brand-600">
-                      →
-                    </span>
-                  </div>
-                  <h3 className="mt-5 text-lg font-bold tracking-[-0.02em] text-slate-900">
-                    {cpo.name}
-                  </h3>
-                  <p className="mt-1 text-sm text-slate-500">{cpo.description}</p>
-                </Link>
-              ))}
-            </div>
-          </section>
+            <section id="lookup" className="scroll-mt-24">
+              <SectionHead
+                eyebrow="LOOKUP"
+                title="현장 조회"
+                hint="영업 전 확인"
+                tone="sky"
+              />
+              <div className="grid gap-3 sm:grid-cols-2">
+                {lookups.map((item) => (
+                  <FeatureCard key={item.href} {...item} tone="sky" />
+                ))}
+              </div>
+            </section>
+          </div>
 
           <aside className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1">
+            <h2 className="sr-only">바로가기</h2>
+
             <Link
               href="/intake"
-              className="group rounded-2xl bg-brand-700 p-5 text-white shadow-[0_16px_35px_-24px_rgba(34,69,45,0.9)] transition hover:bg-brand-800"
+              className="group flex flex-col rounded-2xl bg-brand-700 p-5 text-white shadow-[0_16px_35px_-24px_rgba(34,69,45,0.9)] transition hover:bg-brand-800"
             >
-              <span className="inline-flex rounded-full bg-white/10 px-2.5 py-1 text-[11px] font-bold text-brand-100">
+              <span className="inline-flex self-start rounded-full bg-white/10 px-2.5 py-1 text-[11px] font-bold text-brand-100">
                 NEXT STEP
               </span>
-              <h2 className="mt-5 text-xl font-black tracking-[-0.03em]">작성 완료본 접수</h2>
+              <h3 className="mt-4 text-xl font-black tracking-[-0.03em]">작성 완료본 접수</h3>
               <p className="mt-2 text-sm leading-5 text-brand-100">
                 현장별 서류를 하나의 ZIP으로 묶어 접수합니다.
               </p>
-              <span className="mt-5 inline-flex items-center gap-2 text-sm font-bold">
-                접수 시작 <span className="transition group-hover:translate-x-1">→</span>
+              <span className="mt-auto inline-flex items-center gap-1 pt-4 text-sm font-bold">
+                접수 시작
+                <span aria-hidden className="transition group-hover:translate-x-0.5">
+                  →
+                </span>
               </span>
             </Link>
 
-            <Link
+            <FeatureCard
               href="/materials"
-              className="group rounded-2xl border border-slate-200 bg-[#fffdf8] p-5 transition hover:border-amber-300"
-            >
-              <span className="text-xs font-bold tracking-[0.12em] text-amber-700">RESOURCES</span>
-              <h2 className="mt-2 text-lg font-black tracking-[-0.02em] text-slate-900">
-                영업자료 · 시방서
-              </h2>
-              <p className="mt-2 text-sm leading-5 text-slate-500">
-                운영사별 최신 자료를 검색하고 내려받으세요.
-              </p>
-              <span className="mt-4 inline-flex text-sm font-bold text-amber-800 group-hover:underline">
-                자료실 열기 →
-              </span>
-            </Link>
-
-            <Link
-              href="/charger-history"
-              className="group rounded-2xl border border-slate-200 bg-[#f8fbff] p-5 transition hover:border-sky-300"
-            >
-              <span className="text-xs font-bold tracking-[0.12em] text-sky-700">LOOKUP</span>
-              <h2 className="mt-2 text-lg font-black tracking-[-0.02em] text-slate-900">
-                충전기 · 보조금 이력 조회
-              </h2>
-              <p className="mt-2 text-sm leading-5 text-slate-500">
-                주소로 기설치 충전기와 보조금 지원 이력을 확인하세요.
-              </p>
-              <span className="mt-4 inline-flex text-sm font-bold text-sky-800 group-hover:underline">
-                조회하러 가기 →
-              </span>
-            </Link>
-
-            <Link
-              href="/kapt"
-              className="group rounded-2xl border border-slate-200 bg-[#f8fbff] p-5 transition hover:border-sky-300"
-            >
-              <span className="text-xs font-bold tracking-[0.12em] text-sky-700">K-APT</span>
-              <h2 className="mt-2 text-lg font-black tracking-[-0.02em] text-slate-900">
-                K-apt 아파트 정보 조회
-              </h2>
-              <p className="mt-2 text-sm leading-5 text-slate-500">
-                단지 기본정보와 전기차 시설정보를 한눈에 확인하세요.
-              </p>
-              <span className="mt-4 inline-flex items-center gap-1 text-sm font-bold text-sky-800 group-hover:underline">
-                조회하러 가기 <span aria-hidden>→</span>
-              </span>
-            </Link>
+              eyebrow="RESOURCES"
+              title="영업자료 · 시방서"
+              description="운영사별 최신 자료를 검색하고 내려받습니다."
+              cta="자료실 열기"
+              tone="amber"
+            />
           </aside>
         </div>
 
@@ -185,35 +244,42 @@ export default function Home() {
             <span className="text-xs text-slate-400">최근 변경사항</span>
           </div>
           <ul className="divide-y divide-slate-100">
-            {updates.map((update) => (
-              <li key={`${update.date}-${update.title}`} className="grid gap-1 px-5 py-4 sm:grid-cols-[7.5rem_minmax(0,1fr)_auto] sm:items-center sm:gap-4 sm:px-6">
-                <span className="flex items-center gap-2 text-xs tabular-nums text-slate-400">
-                  {update.date}
-                  {update.isNew && (
-                    <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-black text-amber-800">
-                      NEW
+            {updates.map((update) => {
+              // 공지(정적 HTML)만 새 탭으로 엽니다
+              const isNotice = update.href?.startsWith('/notices/');
+              return (
+                <li
+                  key={`${update.date}-${update.title}`}
+                  className="grid gap-1 px-5 py-4 sm:grid-cols-[7.5rem_minmax(0,1fr)_auto] sm:items-center sm:gap-4 sm:px-6"
+                >
+                  <span className="flex items-center gap-2 text-xs tabular-nums text-slate-400">
+                    {update.date}
+                    {update.isNew && (
+                      <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-black text-amber-800">
+                        NEW
+                      </span>
+                    )}
+                  </span>
+                  {update.href ? (
+                    <Link
+                      href={update.href}
+                      target={isNotice ? '_blank' : undefined}
+                      rel={isNotice ? 'noopener noreferrer' : undefined}
+                      className="text-sm font-semibold leading-5 text-slate-700 hover:text-brand-700 hover:underline"
+                    >
+                      {update.title}
+                    </Link>
+                  ) : (
+                    <p className="text-sm font-medium leading-5 text-slate-700">{update.title}</p>
+                  )}
+                  {update.note && (
+                    <span className="justify-self-start rounded-md bg-slate-100 px-2 py-1 text-[11px] font-semibold text-slate-600 sm:justify-self-end">
+                      {update.note}
                     </span>
                   )}
-                </span>
-                {update.href ? (
-                  <Link
-                    href={update.href}
-                    target={update.href.startsWith('/notices/') ? '_blank' : undefined}
-                    rel={update.href.startsWith('/notices/') ? 'noopener noreferrer' : undefined}
-                    className="text-sm font-semibold leading-5 text-slate-700 hover:text-brand-700 hover:underline"
-                  >
-                    {update.title}
-                  </Link>
-                ) : (
-                  <p className="text-sm font-medium leading-5 text-slate-700">{update.title}</p>
-                )}
-                {update.note && (
-                  <span className="justify-self-start rounded-md bg-brand-50 px-2 py-1 text-[11px] font-semibold text-brand-700 sm:justify-self-end">
-                    {update.note}
-                  </span>
-                )}
-              </li>
-            ))}
+                </li>
+              );
+            })}
           </ul>
         </section>
       </main>

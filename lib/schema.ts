@@ -12,6 +12,7 @@
  * v2 spec에 없으므로 매핑하지 않음. Word에서 수동 토글.
  */
 
+import { resolveInstallAddr } from './address';
 import { formatKoreanBizId } from './bizid';
 
 // ─────────────────────────────────────────────
@@ -251,7 +252,7 @@ function etcLabel(bt: BuildingType, custom = ''): string {
 }
 
 export function buildSdtMaps(form: ContractFormData): SdtMaps {
-  const installAddr = form.installAddr.trim() || form.custAddr;
+  const installAddr = resolveInstallAddr(form);
   const custBizId = formatKoreanBizId(form.custBizId);
   // smart charger qty always equals install qty in v2
   const smartQty = form.installQty;

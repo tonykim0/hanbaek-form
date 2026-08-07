@@ -8,6 +8,7 @@ import {
   buildHecSdtMaps,
   SdtMaps,
 } from './schema-hec';
+import { resolveInstallAddr } from './address';
 import { formatKoreanBizId } from './bizid';
 
 export type NiceFormData = Omit<
@@ -54,7 +55,7 @@ export function formatNiceContractTerm(
 }
 
 export function buildNiceInstallLocation(form: NiceFormData): string {
-  const baseAddr = form.installAddr.trim() || form.custAddr;
+  const baseAddr = resolveInstallAddr(form);
   const detail = form.installDetailLocation.trim();
   return detail ? `${baseAddr} / 상세위치 : ${detail}` : baseAddr;
 }

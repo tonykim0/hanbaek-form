@@ -6,6 +6,7 @@
  * (these sections have no SDTs — we replace hardcoded sample text directly).
  */
 
+import { resolveInstallAddr } from './address';
 import { formatKoreanBizId } from './bizid';
 
 // ─────────────────────────────────────────────
@@ -214,7 +215,7 @@ function etcLabel(bt: BuildingType, custom = ''): string {
 }
 
 export function buildHecSdtMaps(form: HecFormData): SdtMaps {
-  const installAddr = form.installAddr.trim() || form.custAddr;
+  const installAddr = resolveInstallAddr(form);
   const custBizId = formatKoreanBizId(form.custBizId);
   const smartQty = form.installQty;
   const surveyDate = `${form.contractYear}년 ${form.contractMonth}월 ${form.contractDay}일`;
@@ -397,7 +398,7 @@ export function buildHecParagraphReplacements(form: HecFormData): TextReplacemen
  * We find the label cell and fill the adjacent empty cell.
  */
 export function buildHeaderTableMap(form: HecFormData): Record<string, string> {
-  const installAddr = form.installAddr.trim() || form.custAddr;
+  const installAddr = resolveInstallAddr(form);
 
   return {
     // 부지제공자 info (first group, lines ~155–651)

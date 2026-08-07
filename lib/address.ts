@@ -1,8 +1,12 @@
 /**
  * 도로명주소 형식 판별.
  *
- * 계약서에는 도로명주소를 적어야 하는데 지번주소(…동 123-45)가 그대로
- * 입력되는 경우가 있어, 입력 단계에서 걸러내기 위한 용도입니다.
+ * 두 주소는 성격이 다릅니다.
+ *   · 고객사 주소 — 사업자등록증에 적힌 그대로. 지번주소 · 상세주소도 그대로 씁니다.
+ *   · 설치장소 주소 — 반드시 건축물대장상 도로명주소. 지번주소는 막습니다.
+ * 그래서 고객사 주소가 도로명이 아닐 때는 설치장소를 따로 받아야 합니다
+ * (설치장소를 비우면 고객사 주소가 그대로 들어가기 때문입니다).
+ *
  * 행정 데이터 조회 없이 형식만 보므로, 확실한 경우에만 오류로 막고
  * 애매한 경우는 경고만 띄웁니다.
  *
@@ -84,6 +88,50 @@ export function classifyAddress(raw: string): AddressKind {
   if (ROAD_PATTERN.test(value)) return 'road';
   if (JIBUN_PATTERN.test(value)) return 'jibun';
   return 'unknown';
+}
+
+/**
+ * 설치장소로 쓸 수 있는 도로명주소인가 — 「도로명 + 건물번호」가 확인되고
+ * 층 · 호 같은 상세주소가 붙어 있지 않은 경우.
+ *
+ * 설치장소를 비우면 고객사 주소가 그대로 들어가므로, 이 값이 false 면
+ * 설치장소를 따로 입력받아야 합니다.
+ */
+export function isRoadAddress(raw: string): boolean {
+  return classifyAddress(raw) === 'road' && !hasDetailAddress(raw);
+}
+
+/**
+ * 고객사 주소(사업자등록증상 주소) 안내.
+ *
+ * 사업자등록증에 적힌 주소는 지번 · 상세주소일 수 있으므로 막지 않습니다.
+ * 다만 그런 경우 설치장소를 따로 적어야 해서 알려줍니다.
+ */
+export function bizAddressNotice(raw: string): string | undefined {
+  const value = (raw ?? '').trim();
+  if (!value || isRoadAddress(value)) return undefined;
+  const kind = classifyAddress(value);
+  const what =
+    kind === 'jibun'
+      ? '지번주소'
+      : hasDetailAddress(value)
+        ? '상세주소가 포함된 주소'
+        : '도로명주소가 아닐 수 있는 주소';
+  return `${what}입니다 — 사업자등록증 그대로 두고, 아래 「건축물대장 주소 (설치장소)」를 입력해주세요`;
+}
+
+/**
+ * 계약서에 넣을 설치장소 주소.
+ *
+ * 설치장소를 비워두면 고객사 주소를 씁니다. 입력 화면에서 고객사 주소가
+ * 도로명주소가 아닐 때는 설치장소를 필수로 받으므로(isRoadAddress 참고),
+ * 이 경로로 지번주소가 계약서에 들어가지 않습니다.
+ */
+export function resolveInstallAddr(form: {
+  installAddr: string;
+  custAddr: string;
+}): string {
+  return form.installAddr.trim() || form.custAddr;
 }
 
 /**

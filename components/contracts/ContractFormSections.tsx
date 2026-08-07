@@ -24,7 +24,12 @@ import {
   SubGroup,
 } from '@/components/contracts/FormControls';
 import { YEAR_OPTIONS } from '@/lib/contract-form';
-import { roadAddressError, roadAddressWarning } from '@/lib/address';
+import {
+  bizAddressNotice,
+  isRoadAddress,
+  roadAddressError,
+  roadAddressWarning,
+} from '@/lib/address';
 import {
   formatKoreanBizIdInput,
   isBizIdComplete,
@@ -104,12 +109,16 @@ export function CustomerInfoSection<TFieldValues extends CommonContractFields>({
     bizIdValue && isBizIdComplete(bizIdValue) && !isValidKoreanBizId(bizIdValue)
       ? '⚠ 체크섬 불일치 — 사업자등록번호 오타 여부를 확인해주세요'
       : undefined;
-  // 지번주소가 확실하면 오류로 막고, 애매하면 경고만 (형식만 보므로)
+  /**
+   * 고객사 주소는 사업자등록증에 적힌 그대로 받습니다 — 지번주소 · 상세주소도
+   * 그대로 씁니다. 대신 도로명주소가 아니면 설치장소를 따로 적어야 해서
+   * (설치장소를 비우면 이 주소가 그대로 들어갑니다) 안내만 띄웁니다.
+   */
   const addrValue = watch
     ? (watch('custAddr' as Path<TFieldValues>) as unknown as string)
     : undefined;
-  const addrWarning = roadAddressWarning(addrValue ?? '');
-  // 주소는 검색으로만 입력받습니다 (입력칸 클릭 · 버튼 모두 검색창을 엽니다)
+  const addrNotice = bizAddressNotice(addrValue ?? '');
+  // 도로명주소일 때는 검색으로 채우는 게 정확해서 버튼을 함께 둡니다
   const { open: openAddressSearch } = useAddressSearch((address) =>
     setValue?.(
       'custAddr' as Path<TFieldValues>,
@@ -170,26 +179,19 @@ export function CustomerInfoSection<TFieldValues extends CommonContractFields>({
           />
         </Field>
         <Field
-          label="주소 (도로명)"
+          label="사업자등록증 주소"
           required
           error={fieldError(errors, 'custAddr' as Path<TFieldValues>)}
-          warning={addrWarning}
+          warning={addrNotice}
         >
           <div className="flex gap-2">
             <input
               {...register('custAddr' as Path<TFieldValues>, {
-                required: '주소 검색으로 선택해주세요',
-                validate: (value) => roadAddressError(String(value ?? '')) ?? true,
+                required: '주소는 필수입니다',
               })}
-              // 오타 · 없는 주소 · 지번주소가 들어가지 않도록 검색으로만 입력받습니다
-              readOnly={Boolean(setValue)}
-              onClick={setValue ? openAddressSearch : undefined}
-              className={`${inputCls} min-w-0 flex-1 ${
-                setValue ? 'cursor-pointer bg-gray-50' : ''
-              }`}
-              placeholder={
-                setValue ? '주소 검색으로 선택해주세요' : addressPlaceholder
-              }
+              // 사업자등록증에 지번주소로 적혀 있는 경우가 있어 직접 입력을 허용합니다
+              className={`${inputCls} min-w-0 flex-1`}
+              placeholder={addressPlaceholder}
             />
             {setValue && (
               <button
@@ -261,29 +263,44 @@ export function ContractInfoSection<TFieldValues extends CommonContractFields>({
     ? (watch('installAddr' as Path<TFieldValues>) as unknown as string)
     : undefined;
   const installAddrWarning = roadAddressWarning(installAddrValue ?? '');
+  /**
+   * 설치장소를 비우면 고객사 주소가 그대로 들어갑니다. 사업자등록증 주소가
+   * 도로명주소가 아니면(지번 · 상세주소 포함) 그대로 쓸 수 없으므로 필수로 받습니다.
+   */
+  const custAddrValue = watch
+    ? (watch('custAddr' as Path<TFieldValues>) as unknown as string)
+    : undefined;
+  const needsInstallAddr =
+    (custAddrValue ?? '').trim() !== '' && !isRoadAddress(custAddrValue ?? '');
+  const installAddrNotice =
+    installAddrWarning ??
+    (needsInstallAddr && !(installAddrValue ?? '').trim()
+      ? '사업자등록증 주소가 도로명주소가 아니어서 비워둘 수 없습니다 — 건축물대장상 도로명주소를 입력해주세요'
+      : undefined);
   return (
     <Section title="2. 계약 정보">
       <Field
-        label={
-          <>
-            설치장소 주소{' '}
-            <span className="text-red-600 font-normal">
-              (신청자 주소와 실제 설치주소 구분을 꼭 해주세요)
-            </span>
-          </>
-        }
+        label="건축물대장 주소 (설치장소)"
+        required={needsInstallAddr}
         error={fieldError(errors, 'installAddr' as Path<TFieldValues>)}
-        warning={installAddrWarning}
+        warning={installAddrNotice}
       >
         <div className="flex gap-2">
           <input
             {...register('installAddr' as Path<TFieldValues>, {
+              required: needsInstallAddr
+                ? '사업자등록증 주소를 그대로 쓸 수 없습니다 — 건축물대장상 도로명주소를 입력해주세요'
+                : false,
               // 설치장소는 「지하 1층」 등 위치 표기가 필요할 수 있어 상세주소 허용
               validate: (value) =>
                 roadAddressError(String(value ?? ''), { allowDetail: true }) ?? true,
             })}
             className={`${inputCls} min-w-0 flex-1`}
-            placeholder="고객사 주소와 같으면 비워두세요"
+            placeholder={
+              needsInstallAddr
+                ? '건축물대장상 도로명주소를 입력해주세요'
+                : '고객사 주소와 같으면 비워두세요'
+            }
           />
           {setValue && (
             <AddressSearchButton

@@ -167,7 +167,37 @@ export default function Home() {
     <div className="min-h-screen bg-[#f7f8f4] text-slate-900">
       <SiteHeader active="home" />
 
-      <main className="mx-auto max-w-6xl px-5 pb-16 pt-10 sm:px-6 sm:pt-14">
+      <main className="mx-auto max-w-6xl px-5 pb-16 pt-8 sm:px-6 sm:pt-10">
+        {notices.length > 0 && (
+          <section aria-label="안내" className="mb-8 flex flex-col gap-2">
+            {notices.map((notice) => (
+              <a
+                key={notice.href}
+                href={notice.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="group flex items-center gap-3 rounded-2xl border border-amber-200 bg-[#fffdf8] px-4 py-3.5 transition hover:border-amber-400 hover:bg-[#fffaf0] sm:px-5"
+              >
+                <span className="flex-none rounded-lg bg-amber-100 px-2 py-1 text-[10px] font-black tracking-[0.1em] text-amber-800">
+                  안내
+                </span>
+                <span className="min-w-0 flex-1 break-keep text-sm font-bold leading-snug text-slate-900 group-hover:text-amber-900">
+                  {notice.title}
+                </span>
+                <span className="hidden flex-none text-xs tabular-nums text-slate-400 sm:block">
+                  {notice.date}
+                </span>
+                <span
+                  aria-hidden
+                  className="flex-none text-amber-700 transition group-hover:translate-x-0.5"
+                >
+                  ↗
+                </span>
+              </a>
+            ))}
+          </section>
+        )}
+
         <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_19rem] lg:items-start">
           <div className="flex flex-col gap-10">
             <section id="contracts" className="scroll-mt-24">
@@ -245,33 +275,6 @@ export default function Home() {
               tone="amber"
             />
 
-            {notices.map((notice) => (
-              <a
-                key={notice.href}
-                href={notice.href}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="group flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-4 transition hover:border-amber-300"
-              >
-                <span className="flex-none rounded-lg bg-amber-50 px-2 py-1 text-[10px] font-black tracking-[0.1em] text-amber-700 ring-1 ring-amber-100">
-                  안내
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block break-keep text-sm font-bold leading-snug text-slate-900 group-hover:text-amber-800">
-                    {notice.title}
-                  </span>
-                  <span className="mt-0.5 block text-xs tabular-nums text-slate-400">
-                    {notice.date}
-                  </span>
-                </span>
-                <span
-                  aria-hidden
-                  className="flex-none text-slate-300 transition group-hover:text-amber-700"
-                >
-                  ↗
-                </span>
-              </a>
-            ))}
           </aside>
         </div>
 

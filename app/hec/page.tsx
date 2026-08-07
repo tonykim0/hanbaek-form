@@ -29,6 +29,7 @@ import {
   type FormImportResult,
 } from '@/lib/form-import';
 import { HecFormData } from '@/lib/schema-hec';
+import { useInternalMode } from '@/lib/use-internal-mode';
 import { useDocScope } from '@/lib/use-doc-scope';
 
 const defaultValues: Partial<HecFormData> = {
@@ -120,6 +121,8 @@ export default function HecPage() {
   const [status, setStatus] = useState<SubmitStatus | null>(null);
   // HEC 템플릿만 별지7호 뒤에 사진대지([별지1])·사전 체크리스트([별지2])가 붙습니다.
   const { docScope, finalize } = useDocScope({ showAttachmentToggle: true });
+  // 협력사 스캔본 판독은 담당자 전용 — ?import=1 일 때만 노출합니다.
+  const internalMode = useInternalMode();
 
   const buildingType = watch('buildingType');
   const dupFast = watch('dupFast');
@@ -163,7 +166,7 @@ export default function HecPage() {
           onSubmit={handleSubmit(onSubmit)}
           className="space-y-4 pb-2"
         >
-          <ImportPanel cpo="hec" onApply={applyImported} />
+          {internalMode && <ImportPanel cpo="hec" onApply={applyImported} />}
 
           <Section title="사업구분">
             <RadioField label="계약 유형" hint="선택에 따라 생성되는 계약서 양식이 달라집니다 (입력 항목은 동일)">
@@ -235,10 +238,14 @@ export default function HecPage() {
             </div>
           </Section>
 
+          {/*
+            「컨설팅결과서만」도 재발행 도구라 담당자 모드에서만 보입니다 —
+            협력사·영업자에게는 이 화면이 기능 추가 이전과 똑같이 보입니다.
+          */}
           <FormActions
             status={status}
             isSubmitting={isSubmitting}
-            docScope={docScope}
+            docScope={internalMode ? docScope : undefined}
           />
         </form>
 

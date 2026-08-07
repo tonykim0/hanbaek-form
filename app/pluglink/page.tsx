@@ -22,6 +22,7 @@ import {
   type FormImportResult,
 } from '@/lib/form-import';
 import { ContractFormData } from '@/lib/schema';
+import { useInternalMode } from '@/lib/use-internal-mode';
 import { useDocScope } from '@/lib/use-doc-scope';
 
 const defaultValues: Partial<ContractFormData> = {
@@ -69,6 +70,8 @@ export default function App() {
   const [status, setStatus] = useState<SubmitStatus | null>(null);
   // 플러그링크 템플릿에는 사진대지·체크리스트가 없어 토글을 감춥니다.
   const { docScope, finalize } = useDocScope();
+  // 협력사 스캔본 판독은 담당자 전용 — ?import=1 일 때만 노출합니다.
+  const internalMode = useInternalMode();
 
   const buildingType = watch('buildingType');
   const dupFast = watch('dupFast');
@@ -114,7 +117,7 @@ export default function App() {
           onSubmit={handleSubmit(onSubmit)}
           className="space-y-4 pb-2"
         >
-          <ImportPanel cpo="pluglink" onApply={applyImported} />
+          {internalMode && <ImportPanel cpo="pluglink" onApply={applyImported} />}
 
           <Section title="사업구분">
             <RadioField label="계약 유형" hint="선택에 따라 생성되는 계약서 양식이 달라집니다 (입력 항목은 동일)">
@@ -150,10 +153,14 @@ export default function App() {
             dupOutlet={dupOutlet}
           />
 
+          {/*
+            「컨설팅결과서만」도 재발행 도구라 담당자 모드에서만 보입니다 —
+            협력사·영업자에게는 이 화면이 기능 추가 이전과 똑같이 보입니다.
+          */}
           <FormActions
             status={status}
             isSubmitting={isSubmitting}
-            docScope={docScope}
+            docScope={internalMode ? docScope : undefined}
           />
         </form>
 

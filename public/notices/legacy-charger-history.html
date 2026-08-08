@@ -16,7 +16,7 @@
   --amber:#8A5B12; --amber-pale:#FBF2E1; --amber-line:#E0C596;
 }
 *{box-sizing:border-box}
-html{-webkit-text-size-adjust:100%;scroll-behavior:smooth}
+html{scroll-behavior:smooth}
 body{margin:0;background:var(--panel);color:var(--ink);
   font-family:'IBM Plex Sans KR',system-ui,sans-serif;
   font-weight:400;line-height:1.78;font-size:15px;
@@ -82,7 +82,7 @@ tr.row-add th{background:var(--signal-pale)}
 .it{display:block;margin-bottom:5px}
 .it:last-child{margin-bottom:0}
 .quote{margin-top:6px;padding:7px 10px;background:var(--panel-deep);border-left:2px solid var(--ink-faint);font-size:13px}
-.table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:0 0 14px}
+.table-wrap{overflow-x:auto;margin:0 0 14px}
 .table-wrap table{margin-bottom:0}
 
 /* — 콜아웃 — */
@@ -254,7 +254,7 @@ code{font-family:'IBM Plex Mono',monospace;font-size:12.5px;background:var(--pan
     <span class="it">작성 수량은 <b>컨설팅결과서의 중복 수량 · 엑셀 최종 기설치 수량과 일치</b>해야 합니다. <span class="tag">공동주택 2개 줄</span></span>
     <span class="it"><b>증빙자료를 확보하지 못했더라도 파악된 이력은 엑셀에 모두 작성합니다.</b> 증빙이 없다는 이유로 이력을 빼고 제출하면 안 됩니다.</span>
     <span class="it">기설치 <b>비공용 충전기</b>(보조금 없이 설치된 충전기)가 증명서에 표기되지 않은 경우 <b>설계도면 기준으로 수량 산정</b>합니다. 증명서·도면 <b>어느 쪽으로도 수량을 산정할 수 없는 경우에 한해</b> 작성에서 제외합니다 <span class="sub">— 이력 전량 작성 원칙의 유일한 예외</span>.</span>
-    <span class="it">일반 충전기 외에 <b>과금형 콘센트(4기당 1기)</b> · <b>테슬라 슈퍼차저(1기당 1기)</b> · <b>월 커넥터(1기당 1기)</b>도 기설치 수량으로 차감됩니다. 이력에서 누락하지 마십시오.</span>
+    <span class="it">일반 충전기 외에 <b>과금형 콘센트</b> · <b>테슬라 슈퍼차저</b> · <b>월 커넥터</b>도 기설치 수량으로 차감됩니다. 이력에서 누락하지 마십시오.<div class="sub" style="margin-top:4px">과금형 콘센트는 <b>4기당 1기</b>로 환산하며, 4기로 나누어떨어지지 않으면 <b>반올림</b>합니다 <span class="tag">1기→0 · 2기→1 · 3기→1 · 8기→2</span>. 테슬라 슈퍼차저 · 월 커넥터는 <b>1기당 1기</b>입니다.</div></span>
     <span class="it">누적 총 수량으로만 표기되어 있어도(예: 총 20기) 고객측에 확인하여 <b>설치 연도 · 신청 일자별로 구분</b> 작성하십시오 <span class="sub">(예: 19년도 10기 / 20년도 10기)</span>.</span>
   </div>
   <div class="note"><span class="note-k">운영사 무관</span>이력 양식파일은 <b>한국환경공단이 만들어 각 운영사가 배포</b>하는 <b>동일한 파일</b>입니다. SK일렉링크 · 플러그링크 등 운영사가 달라도 양식과 작성 기준은 같습니다. 위 「양식 다운로드」에서 받으시면 됩니다.</div>
@@ -366,7 +366,7 @@ code{font-family:'IBM Plex Mono',monospace;font-size:12.5px;background:var(--pan
 
 <script>
 (function(){
-  // 넓은 표는 가로 스크롤 컨테이너로 감싸기
+  // 시트 폭을 넘는 표는 가로 스크롤 컨테이너로 감싸기
   document.querySelectorAll('table').forEach(function(t){
     if (t.closest('.table-wrap')) return;
     var wrap = document.createElement('div');

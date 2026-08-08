@@ -34,7 +34,7 @@ const lookups = [
 const notices = [
   {
     href: '/notices/legacy-charger-history.html',
-    title: '기설치 충전기 이력 작성 및 증빙자료 제출 안내',
+    title: '신청지점별 충전기 설치이력 제출 안내',
     date: '2026. 07. 29.',
   },
 ];
@@ -60,7 +60,7 @@ const updates = [
   },
   {
     date: '2026. 07. 29.',
-    title: '기설치 충전기 이력 작성 및 증빙자료 제출 안내',
+    title: '신청지점별 충전기 설치이력 제출 안내',
     href: '/notices/legacy-charger-history.html',
   },
   {

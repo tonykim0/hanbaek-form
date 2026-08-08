@@ -35,11 +35,18 @@ const notices = [
   {
     href: '/notices/legacy-charger-history.html',
     title: '신청지점별 충전기 설치이력 제출 안내',
-    date: '2026. 07. 29.',
+    date: '2026. 08. 09.',
   },
 ];
 
 const updates = [
+  {
+    date: '2026. 08. 09.',
+    title: '신청지점별 충전기 설치이력 제출 안내 전면 개편',
+    href: '/notices/legacy-charger-history.html',
+    note: '상황별 작성 요령 · 증빙 인정 예시 · 반려 사유 추가',
+    isNew: true,
+  },
   {
     date: '2026. 08. 07.',
     title: '충전기 · 보조금 이력 조회 신설',
@@ -60,7 +67,7 @@ const updates = [
   },
   {
     date: '2026. 07. 29.',
-    title: '신청지점별 충전기 설치이력 제출 안내',
+    title: '기설치 충전기 이력 작성 및 증빙자료 제출 안내 최초 게시',
     href: '/notices/legacy-charger-history.html',
   },
   {

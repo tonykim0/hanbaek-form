@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=1010">
+<meta name="viewport" content="width=1320">
 <title>신청지점별 충전기 설치이력 제출 안내 | 한백</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -21,11 +21,11 @@ body{margin:0;background:var(--panel);color:var(--ink);
   font-family:'IBM Plex Sans KR',system-ui,sans-serif;
   font-weight:400;line-height:1.78;font-size:15px;
   word-break:keep-all;overflow-wrap:break-word;-webkit-font-smoothing:antialiased}
-.sheet{max-width:960px;margin:0 auto;background:var(--paper);padding:0 0 56px;box-shadow:0 0 0 1px var(--rule)}
-.pad{padding:0 48px}
+.sheet{max-width:1240px;margin:0 auto;background:var(--paper);padding:0 0 56px;box-shadow:0 0 0 1px var(--rule)}
+.pad{padding:0 56px}
 
 /* — masthead — */
-.masthead{border-bottom:3px solid var(--brand);padding:26px 48px 22px}
+.masthead{border-bottom:3px solid var(--brand);padding:26px 56px 22px}
 .mast-row{display:flex;align-items:flex-start;gap:18px}
 .logo{width:42px;height:auto;flex:none;margin-top:1px}
 .mast-txt{flex:1 1 340px;min-width:0}
@@ -33,14 +33,14 @@ h1{font-size:25px;font-weight:600;letter-spacing:-.02em;margin:0;line-height:1.3
 .mast-sub{color:var(--ink-soft);font-size:13.5px;margin-top:6px}
 
 /* — 상단 요약 — */
-.brief{background:var(--brand-pale);border-bottom:1px solid var(--brand-line);padding:18px 48px 20px}
-.brief-lead{margin:0 0 10px;font-size:15.5px;line-height:1.7}
+.brief{background:var(--brand-pale);border-bottom:1px solid var(--brand-line);padding:18px 56px 20px}
+.brief-lead{margin:0 0 10px;font-size:15.5px;line-height:1.7;max-width:960px}
 .brief-list{margin:0;padding-left:18px;font-size:13.5px;color:var(--ink-soft)}
 .brief-list li{margin-bottom:3px}
 .brief-list b{color:var(--ink)}
 
 /* — 목차 — */
-.toc{position:sticky;top:0;z-index:10;display:flex;align-items:center;gap:8px;background:var(--paper);border-bottom:1px solid var(--rule);padding:9px 24px}
+.toc{position:sticky;top:0;z-index:10;display:flex;align-items:center;gap:8px;background:var(--paper);border-bottom:1px solid var(--rule);padding:9px 32px}
 .toc-links{flex:1 1 auto;min-width:0;display:flex;gap:5px;overflow-x:auto;scrollbar-width:thin}
 .toc-links a{flex:none;display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:var(--ink-soft);text-decoration:none;padding:5px 11px;border:1px solid var(--rule);border-radius:999px;white-space:nowrap;transition:border-color .15s,color .15s,background .15s}
 .toc-links a:hover,.toc-links a.active{border-color:var(--brand);background:var(--brand-pale);color:var(--brand-deep)}
@@ -58,7 +58,7 @@ h1{font-size:25px;font-weight:600;letter-spacing:-.02em;margin:0;line-height:1.3
 .blk-note{margin-left:auto;font-size:12px;color:var(--ink-faint)}
 h3{font-size:15px;font-weight:600;margin:22px 0 8px}
 p{margin:0 0 12px}
-.lead{color:var(--ink-soft)}
+.lead{color:var(--ink-soft);max-width:960px}
 .foot{font-size:13px;color:var(--ink-soft);margin:10px 0 0}
 
 /* — STEP — */
@@ -196,46 +196,47 @@ code{font-family:'IBM Plex Mono',monospace;font-size:12.5px;background:var(--pan
   <h3>A. 내 현장은 어느 줄인가 — 위에서부터 읽어 <u>처음 해당하는 줄 하나</u></h3>
   <div class="table-wrap">
   <table style="min-width:880px">
-    <thead><tr><th style="width:23%">상황</th><th style="width:37%">엑셀 작성 방법</th><th>취합 서류</th></tr></thead>
+    <thead><tr><th style="width:29%">상황 · 이 줄이 맞는지</th><th style="width:31%">엑셀에 쓸 것</th><th>낼 서류</th></tr></thead>
     <tbody>
       <tr>
-        <td><b>충전기 이력이<br>전혀 없음</b><span class="case-s">한 대도 없던 현장</span></td>
+        <td><b>충전기 이력이 전혀 없음</b>
+          <div class="sub" style="margin-top:5px"><b>준공 시 설치분도 없고</b>, 준공 이후 설치·철거·교체도 없는 현장입니다.<br>충전기가 실제로 있는데 환산 결과가 0기가 되는 경우는 <b>이 줄이 아닙니다</b>.</div></td>
         <td><b>행 작성 없음.</b> 「전체」 행(7행) 비고란(K열)에 아래 문구 기재
-          <div class="quote">준공 이후 충전시설 설치 및 철거 이력 없음</div>
-          <div class="sub" style="margin-top:5px"><b>준공 시 설치분도 없고</b>, 준공 이후 설치·철거·교체도 없는 현장입니다. 충전기가 실제로 있는데 환산 결과가 0기가 되는 경우는 <b>이 줄이 아닙니다</b>.</div></td>
+          <div class="quote">준공 이후 충전시설 설치 및 철거 이력 없음</div></td>
         <td><span class="tag ok">제출 불필요</span> <span class="sub">엑셀만 제출</span></td></tr>
 
       <tr>
-        <td><b>금번 설치 건으로<br>행위신고 완료</b><span class="case-s">행위신고 대상 공동주택</span></td>
-        <td>해당 행위신고증명서의 <b>「행위 내용 변경 전」 수량</b>
-          <div class="sub" style="margin-top:5px">판정 축은 <b>누가 신고했는가가 아니라 금번 설치 건인가</b>입니다. 같은 단지에서 과거에 <b>다른 운영사 건</b>으로 신고했다면, 신고한 협력사가 우리 회사여도 <b>아래 줄</b>에 해당합니다. 금번 건 증명서가 있으면 과거 증명서 유무와 무관하게 이 줄입니다.</div></td>
+        <td><b>금번 설치 건으로 행위신고 완료</b><span class="case-s">행위신고 대상 공동주택</span>
+          <div class="sub" style="margin-top:5px">판정 축은 <b>누가 신고했는가가 아니라 금번 설치 건인가</b>입니다.<br>금번 건 증명서가 있으면 과거 증명서 유무와 무관하게 이 줄입니다.<br>과거에 <b>다른 운영사 건</b>으로 신고했다면, 신고한 협력사가 우리 회사여도 <b>아래 줄</b>입니다.</div></td>
+        <td>해당 행위신고증명서의<br><b>「행위 내용 변경 전」 수량</b></td>
         <td><span class="it">행위신고증명서 <span class="tag req">필수</span><span class="sub" style="display:block">금번 설치 건</span></span>
             <span class="it">K-아파트 기본정보 · 관리시설정보 <span class="tag req">비공용 포함 시 필수</span></span>
             <span class="it">설계도면 <span class="tag">겹침표 ⓒ 해당 시</span></span></td></tr>
 
       <tr>
-        <td><b>금번 건이 아닌<br>기존 증명서만 있음</b><span class="case-s">행위신고 대상 공동주택</span><span class="sub" style="display:block;margin-top:3px">타사 · 단지 신고분</span></td>
-        <td><b>설치 직전 최종 증명서</b>의 <b>「행위 변경 후」 수량</b>
-          <div class="sub" style="margin-top:5px">증명서를 직접 발급받을 수 없으므로, <b>관리사무소 · 입주자대표회의를 통해</b> 해당 단지에서 운영 중인 CPO사에 발급을 요청하십시오. 단지 측이 요청 주체가 될 때 회신율이 높습니다.</div></td>
+        <td><b>금번 건이 아닌 기존 증명서만 있음</b><span class="case-s">행위신고 대상 공동주택 · 타사 · 단지 신고분</span>
+          <div class="sub" style="margin-top:5px">금번 설치 건으로 신고한 증명서가 <b>없는</b> 경우입니다.</div></td>
+        <td><b>설치 직전 최종 증명서</b>의<br><b>「행위 변경 후」 수량</b></td>
         <td><span class="it">행위신고증명서 <span class="tag req">필수</span><span class="sub" style="display:block">설치 직전 최종본</span></span>
             <span class="it">K-아파트 기본정보 · 관리시설정보 <span class="tag req">비공용 포함 시 필수</span></span>
-            <span class="it">설계도면 <span class="tag">겹침표 ⓒ 해당 시</span></span></td></tr>
+            <span class="it">설계도면 <span class="tag">겹침표 ⓒ 해당 시</span></span>
+            <div class="sub" style="margin-top:6px"><b>증명서 확보 방법</b> — 직접 발급받을 수 없으므로 <b>관리사무소 · 입주자대표회의를 통해</b> 해당 단지에서 운영 중인 CPO사에 요청하십시오. 단지 측이 요청 주체가 될 때 회신율이 높습니다.</div></td></tr>
 
       <tr>
-        <td><b>수량을 읽을 증명서가<br>한 장도 없음</b><span class="case-s">행위신고 대상 공동주택</span><span class="sub" style="display:block;margin-top:3px">준공 시 건설사 설치 등</span></td>
-        <td><b>설계도면이 수량의 1차 근거</b>입니다. 도면에서 확인되는 기수로 행을 작성합니다.
-          <div class="sub" style="margin-top:5px">B열은 계약서 등으로 설치일이 확인되면 그 날짜를, 확인이 불가하면 <b>K-아파트 사용승인일</b>을 씁니다.</div>
+        <td><b>수량을 읽을 증명서가 한 장도 없음</b><span class="case-s">행위신고 대상 공동주택 · 준공 시 건설사 설치 등</span>
           <div class="sub" style="margin-top:5px"><b>증명서가 한 장이라도 있으면 위 두 줄입니다.</b></div></td>
+        <td><b>설계도면</b>에서 확인되는 기수로 행을 작성합니다.
+          <div class="sub" style="margin-top:5px">B열은 계약서 등으로 설치일이 확인되면 그 날짜를, 확인이 불가하면 <b>K-아파트 사용승인일</b>을 씁니다.</div></td>
         <td><span class="it">설계도면 <span class="tag req">필수</span><span class="sub" style="display:block">수량의 1차 근거</span></span>
             <span class="it">K-아파트 기본정보 · 관리시설정보 <span class="tag req">필수</span><span class="sub" style="display:block">사용승인일 확인용</span></span></td></tr>
 
       <tr>
-        <td><b>행위신고 비대상</b><span class="case-s">공동주택이 아닌 모든 현장</span><span class="sub" style="display:block;margin-top:3px">오피스텔 · 상가 · 지식산업센터 · 사업장 등</span></td>
+        <td><b>행위신고 비대상</b><span class="case-s">공동주택이 아닌 모든 현장 · 오피스텔 · 상가 · 지식산업센터 · 사업장 등</span>
+          <div class="sub" style="margin-top:5px"><b>증명서가 없다는 이유로 이 줄을 고르면 안 됩니다.</b> 공동주택은 증명서가 없어도 위 세 줄 중 하나입니다.<br>반대로 공동주택이 아니면 증명서가 있어도 이 줄입니다.</div></td>
         <td>일반 지점과 <b>동일하게 이력 작성</b>
-          <div class="sub" style="margin-top:5px">B열에는 <b>각 행의 설치 시점</b>을 씁니다. 계약서 등으로 설치일이 확인되면 그 날짜를, 확인이 불가한 행(예: 준공 시 설치분)에만 <b>사용승인일</b>을 씁니다.</div>
-          <div class="sub" style="margin-top:5px"><b>증명서가 없다는 이유로 이 줄을 고르면 안 됩니다.</b> 공동주택은 증명서가 없어도 위 세 줄 중 하나입니다. 반대로 공동주택이 아니면 증명서가 있어도 이 줄이며, 증명서는 증빙으로 함께 제출합니다.</div></td>
+          <div class="sub" style="margin-top:5px">B열에는 <b>각 행의 설치 시점</b>을 씁니다. 계약서 등으로 확인되면 그 날짜를, 확인이 불가한 행(예: 준공 시 설치분)에만 <b>사용승인일</b>을 씁니다.</div></td>
         <td><span class="tag req">제출 필요</span> <span class="sub">비대상이어도 면제 아님</span>
-          <div class="sub" style="margin-top:5px"><b>수집 가능한 자료를 최대한 확보</b>하여 제출합니다. 자료가 많을수록 수량 인정이 유리합니다. 기준은 하나 — <b>그 자료로 기설치 수량이 확인되는가</b>. 인정되는 자료는 <b>아래 「증빙서류 인정 예시」</b> 참조.</div></td></tr>
+          <div class="sub" style="margin-top:5px"><b>수집 가능한 자료를 최대한 확보</b>하여 제출합니다. 기준은 하나 — <b>그 자료로 기설치 수량이 확인되는가</b>. 인정되는 자료는 <b>아래 「증빙서류 인정 예시」</b> 참조.<br>증명서를 갖고 있다면 증빙으로 함께 제출합니다.</div></td></tr>
     </tbody>
   </table>
   </div>
@@ -244,11 +245,11 @@ code{font-family:'IBM Plex Mono',monospace;font-size:12.5px;background:var(--pan
   <p class="lead" style="font-size:13.5px">아래는 상황이 아니라 위 줄에 <b>얹히는 조건</b>입니다. 「충전기 이력이 전혀 없음」 줄을 고른 현장에는 적용되지 않습니다.</p>
   <div class="table-wrap">
   <table style="min-width:880px">
-    <thead><tr><th style="width:23%">추가 조건</th><th style="width:37%">엑셀에 더할 것</th><th>더 낼 서류</th></tr></thead>
+    <thead><tr><th style="width:29%">추가 조건</th><th style="width:31%">엑셀에 더할 것</th><th>더 낼 서류</th></tr></thead>
     <tbody>
       <tr class="row-add">
-        <td><b>ⓐ 환경부 보조사업으로<br>설치한 분이 있음</b><span class="case-s">전부이든 일부이든</span></td>
-        <td><b>설치 이력 행은 일반 지점과 동일하게 모두 작성</b>합니다. 행을 생략하는 것이 아닙니다.
+        <td><b>ⓐ 환경부 보조사업으로 설치한 분이 있음</b><span class="case-s">전부이든 일부이든</span></td>
+        <td><b>설치 이력 행은 모두 작성</b>합니다. 행을 생략하는 것이 아닙니다.
           <div class="sub" style="margin-top:5px">여기에 더해 <b>보조사업으로 설치한 행</b>의 비고란(K열)에 <b>사업연도 + 대기번호</b>를 기재합니다.</div>
           <div class="quote">보조사업으로 설치한 충전시설(2024년 1111번)</div>
           <div class="sub" style="margin-top:5px">대기번호는 <b>한백에 문의</b>하십시오.</div></td>
@@ -257,10 +258,11 @@ code{font-family:'IBM Plex Mono',monospace;font-size:12.5px;background:var(--pan
           <div class="sub" style="margin-top:5px">아래 <b>ⓑ가 함께 해당하면 이 면제는 적용되지 않습니다.</b></div></td></tr>
 
       <tr class="row-add">
-        <td><b>ⓑ 철거 · 교체<br>이력이 있음</b></td>
+        <td><b>ⓑ 철거 · 교체 이력이 있음</b></td>
         <td><b>위 표의 기재 방식을 대체합니다.</b> 증명서상 최종 수량을 한 줄로 쓰지 말고, <b>설치 · 철거 · 교체를 행위별로 행을 나누어</b> 기재하십시오.
-          <div class="sub" style="margin-top:5px">위 표에서 읽은 수량은 <b>전체(7행) D열과 맞춰보는 기준</b>이 됩니다. 예) 2019년 신규 20기 + 2024년 철거 5기 → 전체 D = 15</div>
-          <div class="sub" style="margin-top:5px">각 철거·교체 행은 D열 기수를 사유에 따라 <b>E · F · G열로 배분</b>합니다 <span class="sub">(3번 참조)</span>. 철거·교체 수량도 기설치로 산정됩니다 — 다만 <b>내구연한 8년을 초과한 철거분(E열)은 제외</b>됩니다. 예) 8년 이내 철거 5기 + 교체 설치 5기 = <b>기설치 10기</b></div></td>
+          <div class="sub" style="margin-top:5px">각 철거·교체 행은 D열 기수를 사유에 따라 <b>E · F · G열로 배분</b>합니다. 배분 기준은 <b>3번</b>.</div>
+          <div class="sub" style="margin-top:5px">위 표에서 읽은 수량은 <b>전체(7행) D열 검산 기준</b>입니다. 예) 2019년 신규 20기 + 2024년 철거 5기 → 전체 D = 15</div>
+          <div class="sub" style="margin-top:5px">철거·교체 수량도 기설치로 산정됩니다 — 다만 <b>8년 초과 철거분(E열)은 제외</b>. 예) 8년 이내 철거 5기 + 교체 5기 = <b>기설치 10기</b></div></td>
         <td><span class="tag req">제출 필요</span> <span class="sub">보조금 설치분이어도 동일 · ⓐ의 면제 무효</span>
           <div class="it" style="margin-top:5px">행위신고 · 허가 증명서 일체 <span class="sub">+ 관련 입대의 의결서</span></div>
           <div class="it">제조연월일 증빙 <span class="sub">(아래 「제조일 증빙」)</span></div>
@@ -268,9 +270,9 @@ code{font-family:'IBM Plex Mono',monospace;font-size:12.5px;background:var(--pan
           <div class="sub" style="margin-top:5px">기설치 수량에서 <b>제외를 희망하는 행</b>은 비고란(K열)에 <b>제외 사유를 명기</b>하십시오.</div></td></tr>
 
       <tr class="row-add">
-        <td><b>ⓒ 비공용 충전기가<br>증명서에 없음</b><span class="case-s">위 공동주택 두 줄에만 겹침</span></td>
-        <td>증명서 수량만 쓰면 기설치가 <b>과소 집계</b>됩니다. 증명서에 잡히지 않는 비공용 충전기는 <b>설계도면 기준으로 수량을 산정</b>하여 행을 추가하십시오.
-          <div class="sub" style="margin-top:5px">증명서 · 도면 <b>어느 쪽으로도 수량을 산정할 수 없는 경우에 한해</b> 작성에서 제외합니다 — 이력 전량 작성 원칙의 유일한 예외입니다.</div></td>
+        <td><b>ⓒ 비공용 충전기가 증명서에 없음</b><span class="case-s">위 공동주택 두 줄에만 겹침</span></td>
+        <td>증명서 수량만 쓰면 기설치가 <b>과소 집계</b>됩니다. 증명서에 잡히지 않는 비공용 충전기는 <b>설계도면 기준으로 산정</b>하여 행을 추가하십시오.
+          <div class="sub" style="margin-top:5px">증명서 · 도면 <b>어느 쪽으로도 산정할 수 없는 경우에 한해</b> 작성에서 제외합니다 — 이력 전량 작성 원칙의 유일한 예외입니다.</div></td>
         <td><span class="it">설계도면 <span class="tag req">도면 기준 산정 시 필수</span></span>
           <div class="sub" style="margin-top:5px">도면 기준으로 산정한 수량도 <b>컨설팅결과서의 중복 수량과 일치</b>해야 합니다.</div></td></tr>
     </tbody>

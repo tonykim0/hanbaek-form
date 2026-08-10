@@ -272,15 +272,18 @@ export function DupRow<TFieldValues extends FieldValues>({
   qtyName,
   label,
   qtyEnabled,
+  hint,
 }: {
   register: UseFormRegister<TFieldValues>;
   checkboxName: Path<TFieldValues>;
   qtyName: Path<TFieldValues>;
   label: string;
   qtyEnabled: boolean;
+  hint?: ReactNode;
 }) {
   return (
-    <div className="flex items-center gap-2">
+    // hint가 붙는 행은 좁은 화면에서 줄바꿈되어야 가로 넘침이 없습니다
+    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
       <input
         type="checkbox"
         {...register(checkboxName)}
@@ -298,6 +301,7 @@ export function DupRow<TFieldValues extends FieldValues>({
         }`}
       />
       <span className="text-sm text-gray-500">기</span>
+      {hint && <span className="text-xs text-amber-700 leading-snug">{hint}</span>}
     </div>
   );
 }
@@ -376,6 +380,11 @@ export function DuplicateInstallFieldset<TFieldValues extends DuplicateInstallFi
           qtyName={'dupOutletQty' as Path<TFieldValues>}
           label="과금형 콘센트"
           qtyEnabled={dupOutlet}
+          hint={
+            <>
+              <b>실제 기수</b> 그대로 — 4기당 1기 환산값 아님 (12기 → 12)
+            </>
+          }
         />
         <div className="flex items-center gap-2 pt-1">
           <input

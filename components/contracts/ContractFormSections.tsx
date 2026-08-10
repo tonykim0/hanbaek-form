@@ -264,7 +264,7 @@ export function ContractInfoSection<TFieldValues extends CommonContractFields>({
                 roadAddressError(String(value ?? ''), { allowDetail: true }) ?? true,
             })}
             className={`${inputCls} min-w-0 flex-1`}
-            placeholder="건축물대장상 도로명주소 (사업자등록증 주소와 달라도 그대로)"
+            placeholder="건축물대장상 도로명주소 (사업자등록증 주소와 달라도 건축물대장상 주소 그대로 기재)"
           />
           {setValue && (
             <AddressSearchButton

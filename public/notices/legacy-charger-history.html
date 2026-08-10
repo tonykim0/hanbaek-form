@@ -213,7 +213,8 @@ a.lk::after{content:'↗';font-size:.85em;margin-left:2px;color:var(--ink-faint)
   <div class="note"><span class="note-k">먼저 알아둘 것</span>
     <span class="it">증빙이 불필요해도 <b>이력 엑셀은 모든 지점 반드시 제출</b>합니다. 증빙을 확보하지 못했더라도 <b>파악된 이력은 모두 작성</b>합니다.</span>
     <span class="it"><b>비공용 충전기</b> = 보조금을 받지 않고 설치된 충전기. <b>기설치 수량에 포함</b>됩니다.</span>
-    <span class="it">작성 수량은 <b>컨설팅결과서의 중복 수량 · 엑셀 최종 기설치 수량과 일치</b>해야 합니다<span class="sub">(공동주택)</span>. 누적 총 수량으로만 표기되어 있어도 <b>설치 연도 · 신청 일자별로 행을 나눕니다</b> <span class="sub">(예: 19년도 10기 / 20년도 10기)</span>.</span>
+    <span class="it"><b>공동주택</b> — 작성 수량은 <b>컨설팅결과서의 중복 수량 · 엑셀 최종 기설치 수량과 일치</b>해야 합니다.</span>
+    <span class="it">누적 총 수량으로만 표기되어 있어도 <b>설치 연도 · 신청 일자별로 행을 나눕니다</b> <span class="sub">(예: 19년도 10기 / 20년도 10기)</span>.</span>
     <span class="it">과금형 콘센트 <b>4기당 1기</b>(반올림 — 1기→0 · 2기→1 · 3기→1 · 8기→2) · 테슬라 슈퍼차저 · 월 커넥터 <b>1기당 1기</b>도 차감됩니다. <b>D열엔 실제 기수, K열에 환산값</b> <span class="sub">— 예) 콘센트 12기 → D열 12, K열 「과금형 콘센트 12기(환산 3기)」</span></span>
   </div>
 
@@ -224,6 +225,7 @@ a.lk::after{content:'↗';font-size:.85em;margin-left:2px;color:var(--ink-faint)
 
       <tr class="q"><td colspan="3">
         <div class="q-h"><span class="q-k">질문 1</span><span class="q-t">준공 이후 충전기 설치 · 철거 이력이 있습니까?</span><span class="q-go">있으면 ↓ 질문 2</span></div>
+        <div class="q-w"><b>준공 시 건설사가 설치한 분도 「있음」입니다.</b> 우리 회사가 시공하지 않은 설치 · 철거도 전부 포함합니다.</div>
       </td></tr>
       <tr>
         <td><span class="ty">1</span><b>이력이 전혀 없음</b><span class="case-s">준공 시 설치분도 없음</span></td>
@@ -241,7 +243,7 @@ a.lk::after{content:'↗';font-size:.85em;margin-left:2px;color:var(--ink-faint)
           <div class="quote">보조사업으로 설치한 충전시설(2024년 1111번)</div>
           <div class="sub" style="margin-top:4px"><a class="lk" href="/charger-history" target="_blank" rel="noopener">충전기 · 보조금 이력 조회</a>에서 현장 주소로 확인 — 「보조금 신청번호」 <code>2024-1111</code> 이 곧 「2024년 1111번」입니다. 조회되지 않으면 <b>한백에 문의</b>.</div></td>
         <td><span class="tag ok">없음</span> <span class="sub">설치 증빙 면제</span>
-          <div class="sub" style="margin-top:4px">면제는 <b>설치 증빙뿐</b> · 수량은 기설치에 그대로 산입 · <b>철거 · 교체 이력이 있으면 면제 무효</b></div></td></tr>
+          <div class="sub" style="margin-top:4px">면제는 <b>설치 증빙뿐</b> · 수량은 기설치에 그대로 산입</div></td></tr>
 
       <tr class="q"><td colspan="3">
         <div class="q-h"><span class="q-k">질문 3</span><span class="q-t">행위신고 대상 공동주택입니까?</span><span class="q-go">공동주택이면 ↓ 질문 4</span></div>
@@ -250,9 +252,9 @@ a.lk::after{content:'↗';font-size:.85em;margin-left:2px;color:var(--ink-faint)
       <tr>
         <td><span class="ty">3</span><b>행위신고 비대상</b><span class="case-s">공동주택이 아닌 모든 현장</span></td>
         <td>일반 지점과 <b>동일하게 작성</b><div class="sub" style="margin-top:4px">B열은 각 행의 설치 시점, 불가하면 사용승인일</div></td>
-        <td><b>수집 가능한 자료 전부</b> <span class="tag req">필수</span> <span class="sub">비대상이어도 면제 아님</span>
-          <div class="note-div" style="margin-top:7px"><b>전기안전점검필증</b>으로 <span class="tag ok">승인 가능</span></div>
-          <div class="sub" style="margin-top:6px">그 밖에 계약서 · 재산대장(고정자산관리대장) · 입주자대표회의 회의록 · 지자체 공문 · 설치완료확인서 · 전기공사 준공확인서 · 설계도면 등 <b>확보되는 만큼 최대한</b></div></td></tr>
+        <td><b>수집 가능한 자료 전부</b> <span class="tag req">필수</span> <span class="sub">행위신고 비대상이라는 이유로는 면제 아님</span>
+          <div class="sub" style="margin-top:5px">계약서 · 재산대장(고정자산관리대장) · 입주자대표회의 회의록 · 지자체 공문 · 설치완료확인서 · 전기공사 준공확인서 · 설계도면 등 <b>확보되는 만큼 최대한</b></div>
+          <div class="note-div" style="margin-top:7px"><b>전기안전점검필증</b>으로 <span class="tag ok">승인 가능</span></div></td></tr>
 
       <tr class="q"><td colspan="3">
         <div class="q-h"><span class="q-k">질문 4</span><span class="q-t">수량을 읽을 행위신고증명서가 있습니까?</span><span class="q-go">아래 셋 중 하나</span></div>
@@ -262,13 +264,13 @@ a.lk::after{content:'↗';font-size:.85em;margin-left:2px;color:var(--ink-faint)
         <td><span class="ty">4</span><b>금번 건으로 행위신고 완료</b><span class="case-s">행위신고 대상 공동주택</span></td>
         <td>그 증명서의 <b>「행위 내용 변경 전」 수량</b>
           <div class="note-div" style="margin-top:7px"><b>증명서에 비공용 충전기가 없으면</b><div class="sub" style="margin-top:4px"><b>설계도면 기준으로 산정</b>해 행을 추가합니다. 증명서 · 도면 어느 쪽으로도 불가한 수량만 작성 제외.</div></div></td>
-        <td>행위신고증명서 <span class="tag req">필수</span><br>K-아파트 기본정보 · 관리시설정보 <span class="tag cond">비공용 시</span><br>설계도면 <span class="tag cond">비공용이 증명서에 없을 때</span></td></tr>
+        <td>행위신고증명서 <span class="tag req">필수</span><br>K-아파트 기본정보 · 관리시설정보 <span class="tag req">필수</span><br>설계도면 <span class="tag cond">비공용이 증명서에 없을 때</span></td></tr>
 
       <tr>
-        <td><span class="ty">5</span><b>타사 · 단지 신고분</b><span class="case-s">행위신고 대상 공동주택 · 금번 건이 아닌 기존 증명서만 있음</span></td>
+        <td><span class="ty">5</span><b>금번 건이 아닌 기존 증명서만</b><span class="case-s">행위신고 대상 공동주택 · 타사 · 단지 신고분</span></td>
         <td><b>설치 직전 최종 증명서</b>의 <b>「행위 변경 후」 수량</b>
           <div class="note-div" style="margin-top:7px"><b>증명서에 비공용 충전기가 없으면</b><div class="sub" style="margin-top:4px"><b>설계도면 기준으로 산정</b>해 행을 추가합니다. 증명서 · 도면 어느 쪽으로도 불가한 수량만 작성 제외.</div></div></td>
-        <td>행위신고증명서 <span class="tag req">필수</span> <span class="sub">(설치 직전 최종본)</span><br>K-아파트 기본정보 · 관리시설정보 <span class="tag cond">비공용 시</span><br>설계도면 <span class="tag cond">비공용이 증명서에 없을 때</span>
+        <td>행위신고증명서 <span class="tag req">필수</span> <span class="sub">(설치 직전 최종본)</span><br>K-아파트 기본정보 · 관리시설정보 <span class="tag req">필수</span><br>설계도면 <span class="tag cond">비공용이 증명서에 없을 때</span>
           <div class="sub" style="margin-top:4px">직접 발급 불가 — <b>관리사무소 · 입대의를 통해</b> 운영 중인 CPO사에 요청</div></td></tr>
 
       <tr>
@@ -280,16 +282,8 @@ a.lk::after{content:'↗';font-size:.85em;margin-left:2px;color:var(--ink-faint)
   </table>
   </div>
 
-  <h3>철거 · 교체 이력이 있는 현장 <span class="sub" style="font-weight:400">— 위에서 정한 유형에 이어서 추가로 적용합니다 <span style="opacity:.75">(유형 <span class="ty" style="width:15px;height:15px;font-size:10px;margin:0 1px">1</span> 은 해당 없음)</span></span></h3>
-  <p class="lead"><b>행위별로 행을 나누어</b> 기재합니다(한 줄로 쓰지 않음). <b>E · F · G 배분 · 내구연한 산정 기준은 양식 파일</b>의 「유의 사항」·「작성 방법」·「증빙 자료」에 예시와 함께 들어 있습니다.</p>
-
-  <div class="note amber"><span class="note-k">추가로 제출할 서류</span>
-    <span class="it">행위신고 · 허가 증명서 일체 + <b>입대의 의결서</b></span>
-    <span class="it"><b>제조연월일 증빙</b> <span class="sub">(명판 사진 · 전기공사 준공확인서 · 전기공급계약서(개시일 명시) · 제조사 보증서)</span></span>
-    <span class="it">불가피한 사유 주장 시 <b>사유 증빙</b> · 제외 희망 행은 K열에 <b>제외 사유 명기</b></span>
-  </div>
-
   <p class="legend"><b>증빙 인정 조건</b> &nbsp;회의록은 <b>기설치 수량이 기입</b>되어야 하고, 지자체 공문은 「설치 기수」·「철거 기수」 <b>문구가 포함</b>되어야 하며, 전기공사 준공확인서는 <b>설치 배치도가 확인</b>되어야 합니다.</p>
+
 </section>
 
 <section class="blk" id="b3">
@@ -297,7 +291,7 @@ a.lk::after{content:'↗';font-size:.85em;margin-left:2px;color:var(--ink-faint)
   <table class="chk">
     <tbody>
       <tr><td class="bx"><input type="checkbox"></td><td><b><code>I</code>열(수량 검증)이 전 행 TRUE</b> <span class="sub">FALSE는 E·F·G 합계가 D와 다르다는 뜻</span></td></tr>
-      <tr><td class="bx"><input type="checkbox"></td><td><b>수량이 컨설팅결과서와 일치</b> <span class="sub">설계도면 기준 산정분 포함</span></td></tr>
+      <tr><td class="bx"><input type="checkbox"></td><td><b>수량이 컨설팅결과서와 일치</b> <span class="sub">공동주택 · 설계도면 기준 산정분 포함</span></td></tr>
       <tr><td class="bx"><input type="checkbox"></td><td><b>연도 · 신청 일자별로 행이 나뉘어 있음</b></td></tr>
       <tr><td class="bx"><input type="checkbox"></td><td><b><code>J</code>열에 증빙 자료명 기재</b> <span class="sub">형식 — <code>1. 신규 설치_설계도면</code> · <code>2. 교체 설치_행위신고증명서</code> · <code>3. 철거_행위허가증명서</code></span></td></tr>
     </tbody>

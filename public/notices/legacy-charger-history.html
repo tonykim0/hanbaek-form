@@ -117,22 +117,13 @@ code{font-family:'IBM Plex Mono',monospace;font-size:12.5px;background:var(--pan
 .sw.a{background:#DCE8E0}
 .sw.b{background:var(--panel)}
 
-/* — 유형 정하기 — */
-.ask{border:1px solid var(--rule);background:var(--paper)}
-.ask-r{display:flex;align-items:stretch;border-top:1px solid var(--rule)}
-.ask-r:first-child{border-top:0}
-.ask-q{flex:0 0 262px;padding:10px 13px 11px;background:var(--panel-deep);border-right:1px solid var(--rule)}
-.ask-k{font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.1em;color:var(--brand-deep);font-weight:600}
-.ask-t{font-size:13.5px;font-weight:600;line-height:1.45;margin-top:2px}
-.ask-w{font-size:11.5px;color:var(--ink-soft);line-height:1.55;margin-top:6px}
-.ask-a{flex:1 1 auto;display:flex;min-width:0}
-.ans{flex:1 1 0;min-width:0;padding:10px 13px 11px;border-left:1px solid var(--rule)}
-.ans:first-child{border-left:0}
-.ans-q{font-size:11.5px;color:var(--ink-faint);font-weight:500}
-.ans-r{font-size:13px;font-weight:600;line-height:1.45;margin-top:3px}
-.ans-d{font-size:11.5px;color:var(--ink-soft);line-height:1.55;margin-top:4px}
-.ans.go{background:var(--panel);flex:0 0 132px}
-.ans.go .ans-r{color:var(--ink-faint);font-weight:500}
+/* — 판정 질문 행 — */
+tr.q td{background:var(--brand-pale);border-top:2px solid var(--brand);border-bottom-color:var(--brand-line);padding:8px 11px 9px}
+.q-h{display:flex;align-items:baseline;gap:9px}
+.q-k{flex:none;font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.1em;color:var(--brand-deep);font-weight:600}
+.q-t{font-size:14px;font-weight:600;letter-spacing:-.01em}
+.q-go{margin-left:auto;flex:none;font-size:11.5px;color:var(--brand-deep);font-weight:500;white-space:nowrap}
+.q-w{font-size:11.5px;color:var(--ink-soft);line-height:1.55;margin-top:5px}
 .tag.cond{border-color:var(--amber-line);background:var(--amber-pale);color:var(--amber)}
 .ty{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;flex:none;border-radius:3px;background:var(--brand-deep);color:#fff;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;vertical-align:-2px;margin-right:6px}
 
@@ -159,13 +150,12 @@ code{font-family:'IBM Plex Mono',monospace;font-size:12.5px;background:var(--pan
   .blk-h,h2,h3{break-after:avoid}
   .note,.strip,.steps{break-inside:avoid}
   .table-wrap{overflow:visible}
-  .table-wrap table,.table-wrap .ask{min-width:0 !important}
+  .table-wrap table{min-width:0 !important}
   table{font-size:9pt}
   th,td{padding:5px 6px}
   thead{display:table-header-group}
   tr{break-inside:avoid}
-  .ask-r{break-inside:avoid}
-  .ask-q{flex-basis:200px}
+  tr.q td{break-after:avoid}
 }
 </style>
 </head>
@@ -213,7 +203,7 @@ code{font-family:'IBM Plex Mono',monospace;font-size:12.5px;background:var(--pan
 </section>
 
 <section class="blk" id="b2">
-  <div class="blk-h"><span class="blk-n">2</span><h2>상황별 취합 서류와 작성 기준</h2><span class="blk-note">질문 넷 → 유형 하나</span></div>
+  <div class="blk-h"><span class="blk-n">2</span><h2>상황별 취합 서류와 작성 기준</h2><span class="blk-note">위에서부터 질문에 답하면 유형 하나</span></div>
 
   <div class="note"><span class="note-k">먼저 알아둘 것</span>
     <span class="it">증빙이 불필요해도 <b>이력 엑셀은 모든 지점 반드시 제출</b>합니다. 증빙을 확보하지 못했더라도 <b>파악된 이력은 모두 작성</b>합니다.</span>
@@ -222,109 +212,24 @@ code{font-family:'IBM Plex Mono',monospace;font-size:12.5px;background:var(--pan
     <span class="it">과금형 콘센트 <b>4기당 1기</b>(반올림 — 1기→0 · 2기→1 · 3기→1 · 8기→2) · 테슬라 슈퍼차저 · 월 커넥터 <b>1기당 1기</b>도 차감됩니다. <b>D열엔 실제 기수, K열에 환산값</b> <span class="sub">— 예) 콘센트 12기 → D열 12, K열 「과금형 콘센트 12기(환산 3기)」</span></span>
   </div>
 
-  <h3>유형 정하기</h3>
-  <div class="table-wrap">
-  <div class="ask" style="min-width:880px">
-
-    <div class="ask-r">
-      <div class="ask-q">
-        <div class="ask-k">질문 1</div>
-        <div class="ask-t">준공 이후 충전기 설치 · 철거 이력이 있습니까?</div>
-      </div>
-      <div class="ask-a">
-        <div class="ans">
-          <div class="ans-q">전혀 없음</div>
-          <div class="ans-r"><span class="ty">1</span>이력이 전혀 없음</div>
-          <div class="ans-d">여기서 끝 — 엑셀만 제출합니다.</div>
-        </div>
-        <div class="ans go">
-          <div class="ans-q">있음</div>
-          <div class="ans-r">↓ 질문 2로</div>
-        </div>
-      </div>
-    </div>
-
-    <div class="ask-r">
-      <div class="ask-q">
-        <div class="ask-k">질문 2</div>
-        <div class="ask-t">기설치 충전기 중 보조사업<span class="sub">(환경부 보조금)</span> 설치분은?</div>
-        <div class="ask-w">보조금을 받지 않은 충전기가 <b>한 기라도</b> 있으면 「전부」가 아닙니다.</div>
-      </div>
-      <div class="ask-a">
-        <div class="ans">
-          <div class="ans-q">전부</div>
-          <div class="ans-r"><span class="ty">2</span>전부가 보조사업 설치분</div>
-          <div class="ans-d">여기서 끝 — 설치 증빙이 면제됩니다.</div>
-        </div>
-        <div class="ans">
-          <div class="ans-q">일부만</div>
-          <div class="ans-r">↓ 질문 3으로 <span class="sub">— 단, 아래를 함께 적용</span></div>
-          <div class="ans-d">보조사업으로 설치한 <b>그 행에만</b> K열에 <b>사업연도 + 대기번호</b>를 병기하면 <b>그 행의 설치 증빙만 면제</b>됩니다.</div>
-        </div>
-        <div class="ans go">
-          <div class="ans-q">없음</div>
-          <div class="ans-r">↓ 질문 3으로</div>
-        </div>
-      </div>
-    </div>
-
-    <div class="ask-r">
-      <div class="ask-q">
-        <div class="ask-k">질문 3</div>
-        <div class="ask-t">행위신고 대상 공동주택입니까?</div>
-        <div class="ask-w"><b>증명서가 없다는 이유로 「비대상」을 고르면 안 됩니다.</b> 공동주택은 증명서가 없어도 질문 4로 갑니다.</div>
-      </div>
-      <div class="ask-a">
-        <div class="ans">
-          <div class="ans-q">아니오 — 공동주택이 아닌 모든 현장</div>
-          <div class="ans-r"><span class="ty">6</span>행위신고 비대상</div>
-          <div class="ans-d">여기서 끝 — 비대상이어도 증빙이 면제되지는 않습니다.</div>
-        </div>
-        <div class="ans go">
-          <div class="ans-q">예 — 공동주택</div>
-          <div class="ans-r">↓ 질문 4로</div>
-        </div>
-      </div>
-    </div>
-
-    <div class="ask-r">
-      <div class="ask-q">
-        <div class="ask-k">질문 4</div>
-        <div class="ask-t">수량을 읽을 행위신고증명서가 있습니까?</div>
-        <div class="ask-w">판정 축은 <b>누가 신고했는가가 아니라 금번 설치 건인가</b>입니다. 과거 <b>다른 운영사 건</b>으로 신고했다면 신고한 협력사가 우리 회사여도 <b>4번</b>입니다.</div>
-      </div>
-      <div class="ask-a">
-        <div class="ans">
-          <div class="ans-q">금번 설치 건으로 신고 완료</div>
-          <div class="ans-r"><span class="ty">3</span>금번 건으로 행위신고 완료</div>
-        </div>
-        <div class="ans">
-          <div class="ans-q">금번 건이 아닌 기존 증명서만</div>
-          <div class="ans-r"><span class="ty">4</span>타사 · 단지 신고분</div>
-        </div>
-        <div class="ans">
-          <div class="ans-q">한 장도 없음</div>
-          <div class="ans-r"><span class="ty">5</span>증명서가 한 장도 없음</div>
-          <div class="ans-d">준공 시 건설사 설치 등</div>
-        </div>
-      </div>
-    </div>
-
-  </div>
-  </div>
-
-  <h3>유형별 작성 · 제출 서류</h3>
   <div class="table-wrap">
   <table style="min-width:880px">
-    <thead><tr><th style="width:29%">유형</th><th style="width:32%">엑셀에 쓸 것</th><th>제출할 서류</th></tr></thead>
+    <thead><tr><th style="width:29%">상황</th><th style="width:32%">엑셀에 쓸 것</th><th>제출할 서류</th></tr></thead>
     <tbody>
 
+      <tr class="q"><td colspan="3">
+        <div class="q-h"><span class="q-k">질문 1</span><span class="q-t">준공 이후 충전기 설치 · 철거 이력이 있습니까?</span><span class="q-go">있으면 ↓ 질문 2</span></div>
+      </td></tr>
       <tr>
         <td><span class="ty">1</span><b>이력이 전혀 없음</b><span class="case-s">준공 시 설치분도 없음</span></td>
         <td><b>행 작성 없음.</b> 「전체」 행(7행) K열에 기재
           <div class="quote">준공 이후 충전시설 설치 및 철거 이력 없음</div></td>
         <td><span class="tag ok">없음</span> <span class="sub">엑셀만 제출</span></td></tr>
 
+      <tr class="q"><td colspan="3">
+        <div class="q-h"><span class="q-k">질문 2</span><span class="q-t">기설치 충전기 중 보조사업<span class="sub">(환경부 보조금)</span> 설치분은?</span><span class="q-go">일부만 · 없음 ↓ 질문 3</span></div>
+        <div class="q-w">보조금을 받지 않은 충전기가 <b>한 기라도</b> 있으면 「전부」가 아닙니다. <b>일부만</b>이라면 아래 어느 유형으로 가든, 보조사업으로 설치한 <b>그 행에만</b> K열에 <b>사업연도 + 대기번호</b>를 병기해 <b>그 행의 설치 증빙만 면제</b>받습니다.</div>
+      </td></tr>
       <tr>
         <td><span class="ty">2</span><b>전부가 보조사업 설치분</b><span class="case-s">100%가 환경부 보조금</span></td>
         <td>설치 이력 행은 <b>모두 작성</b>(생략 아님) + 해당 행 K열에 <b>사업연도 + 대기번호</b>
@@ -333,30 +238,38 @@ code{font-family:'IBM Plex Mono',monospace;font-size:12.5px;background:var(--pan
         <td><span class="tag ok">없음</span> <span class="sub">설치 증빙 면제</span>
           <div class="sub" style="margin-top:4px">면제는 <b>설치 증빙뿐</b> · 수량은 기설치에 그대로 산입 · <b>철거 · 교체 이력이 있으면 면제 무효</b></div></td></tr>
 
+      <tr class="q"><td colspan="3">
+        <div class="q-h"><span class="q-k">질문 3</span><span class="q-t">행위신고 대상 공동주택입니까?</span><span class="q-go">공동주택이면 ↓ 질문 4</span></div>
+        <div class="q-w"><b>증명서가 없다는 이유로 「비대상」을 고르면 안 됩니다.</b> 공동주택은 증명서가 없어도 질문 4로 갑니다.</div>
+      </td></tr>
       <tr>
-        <td><span class="ty">3</span><b>금번 건으로 행위신고 완료</b><span class="case-s">행위신고 대상 공동주택</span></td>
+        <td><span class="ty">3</span><b>행위신고 비대상</b><span class="case-s">공동주택이 아닌 모든 현장</span></td>
+        <td>일반 지점과 <b>동일하게 작성</b><div class="sub" style="margin-top:4px">B열은 각 행의 설치 시점, 불가하면 사용승인일</div></td>
+        <td><span class="tag req">수집 가능한 자료 전부</span> <span class="sub">비대상이어도 면제 아님</span>
+          <div class="note-div" style="margin-top:7px"><b>전기안전점검필증</b>으로 <span class="tag ok">승인 가능</span></div>
+          <div class="sub" style="margin-top:6px">그 밖에 계약서 · 재산대장 · 회의록 · 지자체 공문 · 설치완료확인서 등 <b>확보되는 만큼 최대한</b></div></td></tr>
+
+      <tr class="q"><td colspan="3">
+        <div class="q-h"><span class="q-k">질문 4</span><span class="q-t">수량을 읽을 행위신고증명서가 있습니까?</span><span class="q-go">아래 셋 중 하나</span></div>
+        <div class="q-w">판정 축은 <b>누가 신고했는가가 아니라 금번 설치 건인가</b>입니다. 과거 <b>다른 운영사 건</b>으로 신고했다면 신고한 협력사가 우리 회사여도 <b>5번</b>입니다.</div>
+      </td></tr>
+      <tr>
+        <td><span class="ty">4</span><b>금번 건으로 행위신고 완료</b><span class="case-s">행위신고 대상 공동주택</span></td>
         <td>그 증명서의 <b>「행위 내용 변경 전」 수량</b>
           <div class="note-div" style="margin-top:7px"><b>증명서에 비공용 충전기가 없으면</b><div class="sub" style="margin-top:4px"><b>설계도면 기준으로 산정</b>해 행을 추가합니다. 증명서 · 도면 어느 쪽으로도 불가한 수량만 작성 제외.</div></div></td>
         <td>행위신고증명서 <span class="tag req">필수</span><br>K-아파트 기본정보 · 관리시설정보 <span class="tag cond">비공용 시</span><br>설계도면 <span class="tag cond">비공용이 증명서에 없을 때</span></td></tr>
 
       <tr>
-        <td><span class="ty">4</span><b>타사 · 단지 신고분</b><span class="case-s">행위신고 대상 공동주택 · 금번 건이 아닌 기존 증명서만 있음</span></td>
+        <td><span class="ty">5</span><b>타사 · 단지 신고분</b><span class="case-s">행위신고 대상 공동주택 · 금번 건이 아닌 기존 증명서만 있음</span></td>
         <td><b>설치 직전 최종 증명서</b>의 <b>「행위 변경 후」 수량</b>
           <div class="note-div" style="margin-top:7px"><b>증명서에 비공용 충전기가 없으면</b><div class="sub" style="margin-top:4px"><b>설계도면 기준으로 산정</b>해 행을 추가합니다. 증명서 · 도면 어느 쪽으로도 불가한 수량만 작성 제외.</div></div></td>
         <td>행위신고증명서 <span class="tag req">필수</span> <span class="sub">(설치 직전 최종본)</span><br>K-아파트 기본정보 · 관리시설정보 <span class="tag cond">비공용 시</span><br>설계도면 <span class="tag cond">비공용이 증명서에 없을 때</span>
           <div class="sub" style="margin-top:4px">직접 발급 불가 — <b>관리사무소 · 입대의를 통해</b> 운영 중인 CPO사에 요청</div></td></tr>
 
       <tr>
-        <td><span class="ty">5</span><b>증명서가 한 장도 없음</b><span class="case-s">행위신고 대상 공동주택 · 준공 시 건설사 설치 등</span></td>
+        <td><span class="ty">6</span><b>증명서가 한 장도 없음</b><span class="case-s">행위신고 대상 공동주택 · 준공 시 건설사 설치 등</span></td>
         <td><b>설계도면</b>에서 확인되는 기수<div class="sub" style="margin-top:4px">B열은 확인되는 설치일, 불가하면 사용승인일</div></td>
         <td>설계도면 <span class="tag req">필수</span><br>K-아파트 기본정보 · 관리시설정보 <span class="tag req">필수</span></td></tr>
-
-      <tr>
-        <td><span class="ty">6</span><b>행위신고 비대상</b><span class="case-s">공동주택이 아닌 모든 현장</span></td>
-        <td>일반 지점과 <b>동일하게 작성</b><div class="sub" style="margin-top:4px">B열은 각 행의 설치 시점, 불가하면 사용승인일</div></td>
-        <td><span class="tag req">수집 가능한 자료 전부</span> <span class="sub">비대상이어도 면제 아님</span>
-          <div class="note-div" style="margin-top:7px"><b>전기안전점검필증</b>으로 <span class="tag ok">승인 가능</span></div>
-          <div class="sub" style="margin-top:6px">그 밖에 계약서 · 재산대장 · 회의록 · 지자체 공문 · 설치완료확인서 등 <b>확보되는 만큼 최대한</b></div></td></tr>
 
     </tbody>
   </table>

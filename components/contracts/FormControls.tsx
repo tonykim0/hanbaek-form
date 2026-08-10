@@ -336,6 +336,19 @@ export function DuplicateInstallFieldset<TFieldValues extends DuplicateInstallFi
         </span>
       </label>
       <div className="space-y-2 border border-gray-200 rounded p-3 bg-gray-50">
+        {/*
+          이 칸은 별지7호 6번 「중복설치 여부」 = 컨설팅결과서의 중복 수량입니다.
+          기설치 이력 엑셀의 최종 기설치 수량과 어긋나면 반려 사유가 됩니다.
+        */}
+        <div className="rounded border border-amber-200 bg-amber-50 px-2.5 py-2">
+          <p className="text-sm font-semibold text-amber-800">
+            기설치 이력 엑셀과 숫자가 정확히 일치해야 합니다
+          </p>
+          <p className="text-xs leading-relaxed text-amber-700 mt-0.5">
+            한 기라도 다르면 반려됩니다. 엑셀의 <b>최종 기설치 수량</b>을 그대로
+            옮겨 적어주세요.
+          </p>
+        </div>
         <DupRow
           register={register}
           checkboxName={'dupFast' as Path<TFieldValues>}

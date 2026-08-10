@@ -124,6 +124,9 @@ tr.q td{background:var(--brand-pale);border-top:2px solid var(--brand);border-bo
 .q-t{font-size:14px;font-weight:600;letter-spacing:-.01em}
 .q-go{margin-left:auto;flex:none;font-size:11.5px;color:var(--brand-deep);font-weight:500;white-space:nowrap}
 .q-w{font-size:11.5px;color:var(--ink-soft);line-height:1.55;margin-top:5px}
+a.lk{color:var(--brand-deep);font-weight:600;text-decoration:none;border-bottom:1px solid var(--brand-line);padding-bottom:1px;white-space:nowrap}
+a.lk:hover{border-bottom-color:var(--brand-deep)}
+a.lk::after{content:'↗';font-size:.85em;margin-left:2px;color:var(--ink-faint)}
 .tag.cond{border-color:var(--amber-line);background:var(--amber-pale);color:var(--amber)}
 .ty{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;flex:none;border-radius:3px;background:var(--brand-deep);color:#fff;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;vertical-align:-2px;margin-right:6px}
 
@@ -156,6 +159,8 @@ tr.q td{background:var(--brand-pale);border-top:2px solid var(--brand);border-bo
   thead{display:table-header-group}
   tr{break-inside:avoid}
   tr.q td{break-after:avoid}
+  a.lk{white-space:normal;border-bottom:0}
+  a.lk::after{content:' (hanbaek-form.vercel.app/charger-history)';font-weight:400;color:var(--ink-faint)}
 }
 </style>
 </head>
@@ -228,13 +233,13 @@ tr.q td{background:var(--brand-pale);border-top:2px solid var(--brand);border-bo
 
       <tr class="q"><td colspan="3">
         <div class="q-h"><span class="q-k">질문 2</span><span class="q-t">기설치 충전기 중 보조사업<span class="sub">(환경부 보조금)</span> 설치분은?</span><span class="q-go">일부만 · 없음 ↓ 질문 3</span></div>
-        <div class="q-w">보조금을 받지 않은 충전기가 <b>한 기라도</b> 있으면 「전부」가 아닙니다. <b>일부만</b>이라면 아래 어느 유형으로 가든, 보조사업으로 설치한 <b>그 행에만</b> K열에 <b>사업연도 + 대기번호</b>를 병기해 <b>그 행의 설치 증빙만 면제</b>받습니다.</div>
+        <div class="q-w">보조금을 받지 않은 충전기가 <b>한 기라도</b> 있으면 「전부」가 아닙니다. <b>일부만</b>이라면 아래 어느 유형으로 가든, 보조사업으로 설치한 <b>그 행에만</b> K열에 <b>사업연도 + 대기번호</b>를 병기해 <b>그 행의 설치 증빙만 면제</b>받습니다. 사업연도 · 대기번호는 <a class="lk" href="/charger-history" target="_blank" rel="noopener">충전기 · 보조금 이력 조회</a>에서 확인합니다.</div>
       </td></tr>
       <tr>
         <td><span class="ty">2</span><b>전부가 보조사업 설치분</b><span class="case-s">100%가 환경부 보조금</span></td>
         <td>설치 이력 행은 <b>모두 작성</b>(생략 아님) + 해당 행 K열에 <b>사업연도 + 대기번호</b>
           <div class="quote">보조사업으로 설치한 충전시설(2024년 1111번)</div>
-          <div class="sub" style="margin-top:4px">대기번호는 <b>한백에 문의</b></div></td>
+          <div class="sub" style="margin-top:4px"><a class="lk" href="/charger-history" target="_blank" rel="noopener">충전기 · 보조금 이력 조회</a>에서 현장 주소로 확인 — 「보조금 신청번호」 <code>2024-1111</code> 이 곧 「2024년 1111번」입니다. 조회되지 않으면 <b>한백에 문의</b>.</div></td>
         <td><span class="tag ok">없음</span> <span class="sub">설치 증빙 면제</span>
           <div class="sub" style="margin-top:4px">면제는 <b>설치 증빙뿐</b> · 수량은 기설치에 그대로 산입 · <b>철거 · 교체 이력이 있으면 면제 무효</b></div></td></tr>
 

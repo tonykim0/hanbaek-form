@@ -18,37 +18,28 @@ import {
   type SubsidySummary,
 } from '@/lib/subsidy-history';
 
-function ApplyTable({ summary }: { summary: SubsidySummary }) {
+/**
+ * 신청 이력 — 한 건을 한 줄로.
+ *   2021년 · 대기번호 4384 · 1기 · 완속충전기 · 공사완료 2021-11-16
+ */
+function ApplyList({ summary }: { summary: SubsidySummary }) {
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full min-w-[32rem] text-left text-sm">
-        <thead>
-          <tr className="border-b border-slate-200 text-[11px] font-bold tracking-wide text-slate-500">
-            <th className="py-2 pr-3 font-bold">사업연도</th>
-            <th className="py-2 pr-3 font-bold">대기번호</th>
-            <th className="py-2 pr-3 font-bold">신청대수</th>
-            <th className="py-2 pr-3 font-bold">충전기유형</th>
-            <th className="py-2 pr-3 font-bold">공사완료</th>
-            <th className="py-2 font-bold">최초지급서류</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-slate-100">
-          {summary.rows.map(([year, waitNo, qty, type, doneAt, paidAt], i) => (
-            <tr key={`${year}-${waitNo}-${i}`}>
-              <td className="py-2 pr-3 tabular-nums text-slate-700">{year}</td>
-              <td className="py-2 pr-3 tabular-nums text-slate-600">{waitNo || '—'}</td>
-              <td className="py-2 pr-3 tabular-nums font-semibold text-slate-900">
-                {qty}
-                <span className="ml-0.5 text-[11px] font-medium text-slate-400">기</span>
-              </td>
-              <td className="py-2 pr-3 text-slate-600">{type || '—'}</td>
-              <td className="py-2 pr-3 tabular-nums text-slate-600">{doneAt || '—'}</td>
-              <td className="py-2 tabular-nums text-slate-600">{paidAt || '—'}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+    <ul className="space-y-1 text-sm text-slate-700">
+      {summary.rows.map(([year, waitNo, qty, type, doneAt, paidAt], i) => (
+        <li key={`${year}-${waitNo}-${i}`} className="tabular-nums">
+          <span className="font-semibold text-slate-900">{year}년</span>
+          {' · 대기번호 '}
+          {waitNo || '—'}
+          {' · '}
+          <span className="font-semibold text-slate-900">{qty}기</span>
+          {type ? ` · ${type}` : ''}
+          {doneAt ? ` · 공사완료 ${doneAt}` : ''}
+          {paidAt ? (
+            <span className="text-slate-400">{` · 최초지급서류 ${paidAt}`}</span>
+          ) : null}
+        </li>
+      ))}
+    </ul>
   );
 }
 
@@ -76,30 +67,9 @@ function Matched({
         </p>
       </div>
 
-      <dl className="grid gap-3 border-t border-slate-100 px-5 py-4 text-sm sm:grid-cols-3">
-        <div>
-          <dt className="text-[11px] font-bold tracking-wide text-slate-500">사업연도</dt>
-          <dd className="mt-1 font-semibold tabular-nums text-slate-900">
-            {summary.years.join(', ')}
-          </dd>
-        </div>
-        <div>
-          <dt className="text-[11px] font-bold tracking-wide text-slate-500">공사완료</dt>
-          <dd className="mt-1 font-semibold tabular-nums text-slate-900">
-            {summary.completed}/{summary.count}건
-          </dd>
-        </div>
-        <div>
-          <dt className="text-[11px] font-bold tracking-wide text-slate-500">충전기유형</dt>
-          <dd className="mt-1 text-slate-900">
-            {summary.types.map((t) => `${t.name} ${t.qty}기`).join(' · ') || '—'}
-          </dd>
-        </div>
-      </dl>
-
       <div className="border-t border-slate-100 px-5 py-4">
         <p className="mb-2 text-[11px] font-bold tracking-wide text-slate-500">신청 이력</p>
-        <ApplyTable summary={summary} />
+        <ApplyList summary={summary} />
       </div>
 
       {result.by !== '도로명' && (

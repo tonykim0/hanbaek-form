@@ -103,6 +103,15 @@ function Stat({
   );
 }
 
+/**
+ * 보조금 신청번호 「2022-595」 → 사업연도 2022 · 대기번호 595.
+ * 형식이 다르면 쪼개지 않고 원본 그대로 대기번호 칸에 둡니다.
+ */
+function splitApplyNo(applyNo: string): { year: string; no: string } {
+  const m = /^(\d{4})-(\d+)$/.exec(applyNo.trim());
+  return m ? { year: m[1], no: m[2] } : { year: '', no: applyNo.trim() };
+}
+
 function HistoryTable({ summary }: { summary: Summary }) {
   return (
     <div className="overflow-x-auto">
@@ -112,12 +121,15 @@ function HistoryTable({ summary }: { summary: Summary }) {
             <th className="py-2 pr-3 font-bold">설치시기</th>
             <th className="py-2 pr-3 font-bold">대수</th>
             <th className="py-2 pr-3 font-bold">구분</th>
-            <th className="py-2 pr-3 font-bold">보조금 신청번호</th>
+            <th className="py-2 pr-3 font-bold">사업연도</th>
+            <th className="py-2 pr-3 font-bold">대기번호</th>
             <th className="py-2 font-bold">운영기관</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-100">
-          {summary.rows.map(([year, month, qty, code, applyNo, operator, fast], i) => (
+          {summary.rows.map(([year, month, qty, code, applyNo, operator, fast], i) => {
+            const apply = splitApplyNo(applyNo);
+            return (
             <tr key={`${year}-${month}-${code}-${applyNo}-${operator}-${i}`}>
               <td className="py-2 pr-3 tabular-nums text-slate-700">
                 {year}
@@ -140,10 +152,14 @@ function HistoryTable({ summary }: { summary: Summary }) {
                   {SUBSIDY_CODE[code] ?? code}
                 </span>
               </td>
-              <td className="py-2 pr-3 tabular-nums text-slate-600">{applyNo || '—'}</td>
+              <td className="py-2 pr-3 tabular-nums font-semibold text-slate-700">
+                {apply.year ? `${apply.year}년` : '—'}
+              </td>
+              <td className="py-2 pr-3 tabular-nums text-slate-600">{apply.no || '—'}</td>
               <td className="py-2 text-slate-600">{operator || '—'}</td>
             </tr>
-          ))}
+            );
+          })}
         </tbody>
       </table>
     </div>
@@ -198,7 +214,7 @@ function MatchedResult({ result }: { result: Extract<LookupResult, { status: '�
 
       <dl className="grid gap-3 border-t border-slate-100 px-5 py-4 text-sm sm:grid-cols-2">
         <div>
-          <dt className="text-[11px] font-bold tracking-wide text-slate-500">보조금 신청연도</dt>
+          <dt className="text-[11px] font-bold tracking-wide text-slate-500">보조금 사업연도</dt>
           <dd className="mt-1 font-semibold tabular-nums text-slate-900">
             {summary.applyYears.length > 0 ? summary.applyYears.join(', ') : '없음'}
           </dd>
@@ -206,7 +222,7 @@ function MatchedResult({ result }: { result: Extract<LookupResult, { status: '�
         <div>
           <dt className="text-[11px] font-bold tracking-wide text-slate-500">운영기관</dt>
           <dd className="mt-1 text-slate-900">
-            {summary.operators.map((o) => `${o.name} ${o.qty}기`).join(' · ') || '—'}
+            {summary.operators.map((o) => `${o.name}(${o.qty})`).join(' · ') || '—'}
           </dd>
         </div>
       </dl>

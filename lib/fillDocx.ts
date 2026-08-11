@@ -19,6 +19,12 @@ const UNCHECKED_GLYPH = '\u2610'; // ☐
 const CHECKED_FONT = '맑은 고딕';
 const UNCHECKED_FONT = 'MS Gothic';
 
+// Word's built-in "Placeholder Text" character style (styles.xml). Only this
+// rStyle gets stripped on fill — the template's other character styles
+// (스타일1/스타일(9pt)/스타일(10pt)/스타일(12pt)) carry the field's font size,
+// so removing them blindly would blow every filled value up to the 11pt default.
+const PLACEHOLDER_STYLE_ID = 'af0';
+
 /**
  * Read the SDT id from a <w:sdt> element. Returns null if missing.
  */
@@ -75,11 +81,19 @@ function fillTextSdt(sdt: Element, value: string): boolean {
     if (rprList.length === 0) continue;
     const rpr = rprList[0];
 
-    const tagsToRemove = ['i', 'iCs', 'color', 'u', 'rStyle'];
+    const tagsToRemove = ['i', 'iCs', 'color', 'u'];
     for (const tag of tagsToRemove) {
       const elems = rpr.getElementsByTagNameNS(W_NS, tag);
       while (elems.length > 0) {
         elems[0].parentNode?.removeChild(elems[0]);
+      }
+    }
+
+    // rStyle: drop only the placeholder style, keep the size-bearing ones
+    const rStyles = rpr.getElementsByTagNameNS(W_NS, 'rStyle');
+    for (let j = rStyles.length - 1; j >= 0; j--) {
+      if (rStyles[j].getAttributeNS(W_NS, 'val') === PLACEHOLDER_STYLE_ID) {
+        rStyles[j].parentNode?.removeChild(rStyles[j]);
       }
     }
   }
@@ -150,6 +164,36 @@ function toggleCheckboxSdt(sdt: Element, checked: boolean): boolean {
   }
 
   return true;
+}
+
+/** Drop <w:lock> from every content control so fields stay retypable in Word. */
+function unlockSdts(doc: Document): void {
+  const locks = doc.getElementsByTagNameNS(W_NS, 'lock');
+  for (let i = locks.length - 1; i >= 0; i--) {
+    locks[i].parentNode?.removeChild(locks[i]);
+  }
+}
+
+/**
+ * The pluglink templates ship with <w:documentProtection w:edit="readOnly"/>,
+ * which makes the downloaded contract uneditable in Word. Drop it so the filled
+ * document can still be touched up by hand.
+ */
+async function unlockDocument(zip: JSZip): Promise<void> {
+  const settingsFile = zip.file('word/settings.xml');
+  if (!settingsFile) return;
+  const xml = await settingsFile.async('string');
+
+  const doc = new DOMParser().parseFromString(xml, 'application/xml');
+  if (doc.getElementsByTagName('parsererror').length > 0) return;
+
+  const protections = doc.getElementsByTagNameNS(W_NS, 'documentProtection');
+  if (protections.length === 0) return;
+  for (let i = protections.length - 1; i >= 0; i--) {
+    protections[i].parentNode?.removeChild(protections[i]);
+  }
+
+  zip.file('word/settings.xml', new XMLSerializer().serializeToString(doc));
 }
 
 export interface FillResult {
@@ -234,9 +278,13 @@ export async function fillContractTemplate(
   const unmatchedIds = allMapped.filter((id) => !seenIds.has(id));
 
   // 6. Serialize and write back
+  unlockSdts(doc);
   const serializer = new XMLSerializer();
   const newXml = serializer.serializeToString(doc);
   zip.file('word/document.xml', newXml);
+
+  // 6-1. Lift the template's read-only protection
+  await unlockDocument(zip);
 
   // 7. Generate output blob
   const blob = await zip.generateAsync({

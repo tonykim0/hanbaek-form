@@ -23,9 +23,10 @@ export default function ChargerHistoryPage() {
             충전기 · 보조금 이력 조회
           </h1>
           <p className="mt-2 text-sm leading-6 text-slate-500">
-            현장 주소로 두 DB 를 함께 조회해 맞대 봅니다 — <b>DB1 기관충전소</b>(등록 현황)와{' '}
-            <b>DB2 보조금 명부</b>({subsidyMeta.years} 신청). 보조금 이력이 있으면 신규 신청 대수 ·
-            기설치 이력 작성에 그대로 반영해야 합니다.
+            현장 주소로 두 DB 를 각각 조회해 <b>따로</b> 보여줍니다 — <b>DB1 기관충전소</b>(기존 ·
+            등록 현황), <b>DB2 보조금 명부</b>(신규 · {subsidyMeta.years} 신청). 두 DB 는 출처 ·
+            시점이 달라 값을 합치지 않습니다. 보조금 이력이 있으면 신규 신청 대수 · 기설치 이력
+            작성에 그대로 반영해야 합니다.
           </p>
         </header>
 

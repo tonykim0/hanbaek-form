@@ -49,26 +49,14 @@ function useShardLoader<R>(base: string) {
 
 /**
  * 어느 DB 에서 나온 결과인지 밝히는 구역 제목.
- * 두 DB 는 출처 · 시점이 달라 값을 섞지 않고 구역을 나눠 따로 보여줍니다.
+ * 두 DB 는 같은 성격의 보조금 이력 자료라 이름을 따로 붙이지 않고 번호로만 가릅니다.
  */
-function SourceHeading({
-  tag,
-  name,
-  note,
-  className,
-}: {
-  tag: string;
-  name: string;
-  note: string;
-  className: string;
-}) {
+function SourceHeading({ tag, className }: { tag: string; className: string }) {
   return (
-    <div className="flex flex-wrap items-center gap-2 px-1 pt-1">
+    <div className="px-1 pt-1">
       <span className={`rounded px-1.5 py-0.5 text-[10px] font-black tracking-wide ${className}`}>
         {tag}
       </span>
-      <span className="text-sm font-bold text-slate-800">{name}</span>
-      <span className="text-xs text-slate-500">{note}</span>
     </div>
   );
 }
@@ -183,7 +171,7 @@ function MatchedResult({ result }: { result: Extract<LookupResult, { status: '�
             verdict.tone === 'warn' ? 'text-amber-700' : 'text-brand-700'
           }`}
         >
-          기관충전소 등록 현황
+          DB1 조회 결과
         </p>
         <h2
           className={`mt-1 text-xl font-black tracking-[-0.03em] ${
@@ -256,7 +244,7 @@ function EmptyResult({
   const isMismatch = result.status === '시군구불일치';
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-5">
-      <p className="text-[11px] font-bold tracking-[0.14em] text-brand-700">기관충전소 등록 현황</p>
+      <p className="text-[11px] font-bold tracking-[0.14em] text-brand-700">DB1 조회 결과</p>
       <h2 className="mt-1 text-xl font-black tracking-[-0.03em] text-slate-900">
         {isMismatch ? '입력한 시 · 군에는 기록이 없습니다' : '등록된 충전기 기록이 없습니다'}
       </h2>
@@ -381,12 +369,7 @@ export default function ChargerHistoryLookup({
 
       {result && (
         <section className="flex flex-col gap-2">
-          <SourceHeading
-            tag="DB1"
-            name="기관충전소"
-            note="기존 DB · 등록 현황"
-            className="bg-sky-100 text-sky-800"
-          />
+          <SourceHeading tag="DB1" className="bg-sky-100 text-sky-800" />
           {result.status === '매칭' ? (
             <MatchedResult result={result} />
           ) : (
@@ -402,12 +385,7 @@ export default function ChargerHistoryLookup({
 
       {subsidy && (
         <section className="flex flex-col gap-2">
-          <SourceHeading
-            tag="DB2"
-            name="보조금 명부"
-            note={`신규 DB · ${subsidyMeta.years} 보조금 신청`}
-            className="bg-amber-100 text-amber-800"
-          />
+          <SourceHeading tag="DB2" className="bg-amber-100 text-amber-800" />
           <SubsidyHistoryResult result={subsidy} meta={subsidyMeta} />
         </section>
       )}

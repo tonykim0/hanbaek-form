@@ -76,7 +76,7 @@ function Matched({ result }: { result: Extract<LookupResult<SubsidyRecord>, { st
   return (
     <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
       <div className="bg-amber-50 px-5 py-4">
-        <p className="text-[11px] font-bold tracking-[0.14em] text-amber-700">보조금 신청이력</p>
+        <p className="text-[11px] font-bold tracking-[0.14em] text-amber-700">DB2 조회 결과</p>
         <h2 className="mt-1 text-xl font-black tracking-[-0.03em] text-amber-900">
           보조금 신청 기록이 있습니다 — {summary.years.join(', ')}년 {summary.count}건 ·{' '}
           {summary.units.toLocaleString('ko-KR')}기
@@ -121,7 +121,7 @@ function Empty({
   return (
     <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
      <div className="p-5">
-      <p className="text-[11px] font-bold tracking-[0.14em] text-slate-500">보조금 신청이력</p>
+      <p className="text-[11px] font-bold tracking-[0.14em] text-slate-500">DB2 조회 결과</p>
       <h2 className="mt-1 text-lg font-black tracking-[-0.03em] text-slate-900">
         {isMismatch
           ? '입력한 시 · 군에는 신청 기록이 없습니다'
@@ -132,7 +132,7 @@ function Empty({
           ? `같은 도로명 · 번호가 ${result.candidates
               .map(regionText)
               .join(', ')}에 있습니다. 주소의 시 · 군을 다시 확인해주세요.`
-          : '2017~2024년 보조금 신청 명부에 이 주소가 없습니다.'}
+          : 'DB2 에 이 주소의 보조금 신청 기록이 없습니다.'}
       </p>
       </div>
       <AppliedStat applied={0} />
@@ -155,7 +155,7 @@ export default function SubsidyHistoryResult({
       <p className="px-1 text-xs leading-5 text-slate-400">
         {meta.years} · 신청 {meta.rows.toLocaleString('ko-KR')}건 ·{' '}
         {meta.units.toLocaleString('ko-KR')}기 · {meta.addresses.toLocaleString('ko-KR')}개 주소.
-        보조금 신청 명부를 그대로 집계한 값입니다.
+        원본을 그대로 집계한 값입니다.
       </p>
     </div>
   );

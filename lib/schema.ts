@@ -93,7 +93,6 @@ const TEXT_IDS = {
   custEmail_main: '967321462',
   // 본 계약서 — 계약 정보
   installAddr_main: '-1244179184',
-  contractTerm_main: '431938047',
   installQty_main: '1216165470',
   contractMonth_main: '1214539629',
   contractDay_main: '-772481185',
@@ -111,13 +110,6 @@ const TEXT_IDS = {
   custAddr_seal: '-296913556',
   contractMonth_seal: '693811433',
   contractDay_seal: '-1878540111',
-  // 행위신고 업무대행 동의서 — v2 폼에서 입력받지 않음, 빈 값으로 클리어
-  apartmentName: '-234317306',
-  managerTel: '-1697459294',
-  managerBirth: '1791007271',
-  managerName: '-1316109819',
-  contractMonth_act: '455301447',
-  contractDay_act: '-1267931261',
   // 별지 5호 — 환경공단 신청서
   custName_b5_apt: '831731575',
   parkingLotCount_b5: '1461920188',
@@ -140,9 +132,6 @@ const TEXT_IDS = {
   custTel_b7: '-189372705',
   custAddr_b7: '-1528866009',
   smartQty_b7: '-1335375053',
-  // 별지7호/5호 11kW~30kW 수량 — 신규 양식에서 추가된 필드(항상 공란 처리)
-  qty11to30_b7: '313466420',
-  qty11to30_b5: '1751003065',
   parkingLotCount_b7: '350158903',
   installAddr_b7: '1954517277',
   // 조사자 (별지 7호)
@@ -226,8 +215,6 @@ const PROMO_IDS = {
   stage2Block: '900000210', // [72] 2단계 불릿 (블록 SDT, 7년이면 제거)
   intro: '900000211', // [69] 제1항 도입부
   stage1: '900000212', // [71] 1단계 불릿
-  total: '900000213', // [74] 총 프로모션 기간
-  autoswitch: '900000214', // [76] 자동 전환 문장
 } as const;
 
 // ─────────────────────────────────────────────
@@ -267,7 +254,6 @@ export function buildSdtMaps(form: ContractFormData): SdtMaps {
     [TEXT_IDS.custTel_main]: form.custTel,
     [TEXT_IDS.custEmail_main]: form.custEmail,
     [TEXT_IDS.installAddr_main]: installAddr,
-    [TEXT_IDS.contractTerm_main]: form.contractTerm,
     [TEXT_IDS.installQty_main]: form.installQty,
     [TEXT_IDS.contractMonth_main]: form.contractMonth,
     [TEXT_IDS.contractDay_main]: form.contractDay,
@@ -293,15 +279,6 @@ export function buildSdtMaps(form: ContractFormData): SdtMaps {
     '900000204': form.contractYear, // 본계약 계약일 연도
     '900000205': form.contractYear, // 합의서(체결일 인용) 연도
     '900000206': form.contractYear, // 합의서 서명 연도
-    '900000207': form.contractYear, // 행위신고 업무대행 동의서 연도
-
-    // 행위신고 업무대행 동의서 — v2 폼에서 입력받지 않음, 빈 값으로 클리어
-    [TEXT_IDS.apartmentName]: '',
-    [TEXT_IDS.managerTel]: '',
-    [TEXT_IDS.managerBirth]: '',
-    [TEXT_IDS.managerName]: '',
-    [TEXT_IDS.contractMonth_act]: form.contractMonth,
-    [TEXT_IDS.contractDay_act]: form.contractDay,
 
     [TEXT_IDS.custName_b5_apt]: form.custName,
     [TEXT_IDS.parkingLotCount_b5]: form.parkingLotCount,
@@ -324,8 +301,6 @@ export function buildSdtMaps(form: ContractFormData): SdtMaps {
     [TEXT_IDS.custTel_b7]: form.custTel,
     [TEXT_IDS.custAddr_b7]: form.custAddr,
     [TEXT_IDS.smartQty_b7]: smartQty,
-    [TEXT_IDS.qty11to30_b7]: '',
-    [TEXT_IDS.qty11to30_b5]: '',
     [TEXT_IDS.parkingLotCount_b7]: form.parkingLotCount,
     [TEXT_IDS.installAddr_b7]: installAddr,
 

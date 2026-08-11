@@ -246,6 +246,42 @@ function fillHeaderTable(doc: Document, labelMap: Record<string, string>): numbe
   return filled;
 }
 
+/**
+ * Drop <w:lock> from every content control so the recipient can retype a field
+ * in Word (템플릿의 완속충전기 수량 SDT가 contentLocked 상태로 들어 있다).
+ */
+function unlockSdts(doc: Document): void {
+  const locks = doc.getElementsByTagNameNS(W_NS, 'lock');
+  for (let i = locks.length - 1; i >= 0; i--) {
+    locks[i].parentNode?.removeChild(locks[i]);
+  }
+}
+
+/**
+ * Drop any document-level protection (읽기 전용 / 쓰기 보호) from settings.xml
+ * so the filled contract stays editable in Word.
+ */
+async function unlockDocument(zip: JSZip): Promise<void> {
+  const settingsFile = zip.file('word/settings.xml');
+  if (!settingsFile) return;
+  const xml = await settingsFile.async('string');
+
+  const doc = new DOMParser().parseFromString(xml, 'application/xml');
+  if (doc.getElementsByTagName('parsererror').length > 0) return;
+
+  let changed = false;
+  for (const tag of ['documentProtection', 'writeProtection']) {
+    const elems = doc.getElementsByTagNameNS(W_NS, tag);
+    for (let i = elems.length - 1; i >= 0; i--) {
+      elems[i].parentNode?.removeChild(elems[i]);
+      changed = true;
+    }
+  }
+  if (!changed) return;
+
+  zip.file('word/settings.xml', new XMLSerializer().serializeToString(doc));
+}
+
 export interface FillResult {
   blob: Blob;
   filledSdtText: number;
@@ -352,9 +388,13 @@ export async function fillNiceTemplate(form: NiceFormData): Promise<FillResult> 
     }
   }
 
+  unlockSdts(doc);
+
   const serializer = new XMLSerializer();
   const newXml = serializer.serializeToString(doc);
   zip.file('word/document.xml', newXml);
+
+  await unlockDocument(zip);
 
   const blob = await zip.generateAsync({
     type: 'blob',

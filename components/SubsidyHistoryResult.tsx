@@ -19,6 +19,58 @@ import {
 } from '@/lib/subsidy-history';
 
 /**
+ * A · B 두 값을 나란히.
+ * A 는 이 DB(보조금 명부)의 신청대수 합계, B 는 DB1(기관충전소)의 등록 완속 대수라
+ * 출처가 서로 다릅니다. 어느 DB 에서 온 숫자인지 태그로 밝힙니다.
+ */
+function AbStats({ applied, registeredSlow }: { applied: number; registeredSlow: number }) {
+  const tiles = [
+    {
+      tag: 'DB2',
+      chip: 'bg-amber-100 text-amber-800',
+      label: '보조금 이력 합계 (A)',
+      value: applied,
+      tone: applied > 0 ? 'warn' : 'plain',
+    },
+    {
+      tag: 'DB1',
+      chip: 'bg-sky-100 text-sky-800',
+      label: '현재 등록 완속 (B)',
+      value: registeredSlow,
+      tone: 'plain',
+    },
+  ] as const;
+
+  return (
+    <div className="grid grid-cols-2 gap-2 border-t border-slate-100 p-4">
+      {tiles.map((t) => (
+        <div
+          key={t.label}
+          className={`rounded-xl border p-3 ${
+            t.tone === 'warn' ? 'border-amber-200 bg-amber-50' : 'border-slate-200 bg-white'
+          }`}
+        >
+          <p className="flex items-center gap-1 text-[11px] font-semibold text-slate-500">
+            <span className={`rounded px-1 py-0.5 text-[10px] font-black tracking-wide ${t.chip}`}>
+              {t.tag}
+            </span>
+            {t.label}
+          </p>
+          <p
+            className={`mt-1 text-2xl font-black tabular-nums tracking-[-0.03em] ${
+              t.tone === 'warn' ? 'text-amber-800' : 'text-slate-900'
+            }`}
+          >
+            {t.value.toLocaleString('ko-KR')}
+            <span className="ml-0.5 text-xs font-bold text-slate-400">기</span>
+          </p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/**
  * 신청 이력 — 한 건을 한 줄로.
  *   2021년 · 대기번호 4384 · 1기 · 완속충전기 · 공사완료 2021-11-16
  */
@@ -45,8 +97,10 @@ function ApplyList({ summary }: { summary: SubsidySummary }) {
 
 function Matched({
   result,
+  registeredSlow,
 }: {
   result: Extract<LookupResult<SubsidyRecord>, { status: '매칭' }>;
+  registeredSlow: number;
 }) {
   const { record } = result;
   const summary = summarizeSubsidy(record);
@@ -66,6 +120,8 @@ function Matched({
           {record.ad} · {regionText(result.regionKey)}
         </p>
       </div>
+
+      <AbStats applied={summary.units} registeredSlow={registeredSlow} />
 
       <div className="border-t border-slate-100 px-5 py-4">
         <p className="mb-2 text-[11px] font-bold tracking-wide text-slate-500">신청 이력</p>
@@ -90,12 +146,15 @@ function Matched({
 
 function Empty({
   result,
+  registeredSlow,
 }: {
   result: Extract<LookupResult<SubsidyRecord>, { status: '무매칭' | '시군구불일치' }>;
+  registeredSlow: number;
 }) {
   const isMismatch = result.status === '시군구불일치';
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5">
+    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+     <div className="p-5">
       <p className="text-[11px] font-bold tracking-[0.14em] text-slate-500">보조금 신청이력</p>
       <h2 className="mt-1 text-lg font-black tracking-[-0.03em] text-slate-900">
         {isMismatch
@@ -109,6 +168,8 @@ function Empty({
               .join(', ')}에 있습니다. 주소의 시 · 군을 다시 확인해주세요.`
           : '2017~2024년 보조금 신청 명부에 이 주소가 없습니다.'}
       </p>
+      </div>
+      <AbStats applied={0} registeredSlow={registeredSlow} />
     </div>
   );
 }
@@ -116,15 +177,22 @@ function Empty({
 export default function SubsidyHistoryResult({
   result,
   meta,
+  registeredSlow,
 }: {
   result: LookupResult<SubsidyRecord> | null;
   meta: SubsidyMeta;
+  /** DB1(기관충전소)의 등록 완속 대수 — B 값. DB1 에 기록이 없으면 0 */
+  registeredSlow: number;
 }) {
   if (!result) return null;
 
   return (
     <div className="flex flex-col gap-2">
-      {result.status === '매칭' ? <Matched result={result} /> : <Empty result={result} />}
+      {result.status === '매칭' ? (
+        <Matched result={result} registeredSlow={registeredSlow} />
+      ) : (
+        <Empty result={result} registeredSlow={registeredSlow} />
+      )}
       <p className="px-1 text-xs leading-5 text-slate-400">
         {meta.years} · 신청 {meta.rows.toLocaleString('ko-KR')}건 ·{' '}
         {meta.units.toLocaleString('ko-KR')}기 · {meta.addresses.toLocaleString('ko-KR')}개 주소.

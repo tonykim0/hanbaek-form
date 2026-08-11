@@ -408,7 +408,11 @@ export default function ChargerHistoryLookup({
             note={`신규 DB · ${subsidyMeta.years} 보조금 신청`}
             className="bg-amber-100 text-amber-800"
           />
-          <SubsidyHistoryResult result={subsidy} meta={subsidyMeta} />
+          <SubsidyHistoryResult
+            result={subsidy}
+            meta={subsidyMeta}
+            registeredSlow={result?.status === '매칭' ? summarize(result.record).slow : 0}
+          />
         </section>
       )}
     </div>

@@ -3,8 +3,8 @@
 /**
  * 「EV 보조금 신청이력(2017~2024)」 조회 결과 카드.
  *
- * 기관충전소 결과와 나란히, 그러나 따로 보여줍니다 — 두 자료의 출처 · 시점이
- * 달라 한쪽에만 있는 현장이 흔하기 때문입니다.
+ * 이 카드는 보조금 명부(DB2) 값만 다룹니다. DB1(기관충전소) 값은 절대 섞지 않습니다
+ * — 두 DB 는 출처 · 시점이 달라 섞으면 어느 자료의 숫자인지 읽히지 않습니다.
  */
 
 import {
@@ -19,53 +19,27 @@ import {
 } from '@/lib/subsidy-history';
 
 /**
- * A · B 두 값을 나란히.
- * A 는 이 DB(보조금 명부)의 신청대수 합계, B 는 DB1(기관충전소)의 등록 완속 대수라
- * 출처가 서로 다릅니다. 어느 DB 에서 온 숫자인지 태그로 밝힙니다.
+ * 이 DB 의 신청대수 합계 (A).
+ * B(현재 등록 완속)는 DB1 값이므로 여기에 두지 않습니다 — 두 DB 는 섞지 않습니다.
  */
-function AbStats({ applied, registeredSlow }: { applied: number; registeredSlow: number }) {
-  const tiles = [
-    {
-      tag: 'DB2',
-      chip: 'bg-amber-100 text-amber-800',
-      label: '보조금 이력 합계 (A)',
-      value: applied,
-      tone: applied > 0 ? 'warn' : 'plain',
-    },
-    {
-      tag: 'DB1',
-      chip: 'bg-sky-100 text-sky-800',
-      label: '현재 등록 완속 (B)',
-      value: registeredSlow,
-      tone: 'plain',
-    },
-  ] as const;
-
+function AppliedStat({ applied }: { applied: number }) {
   return (
-    <div className="grid grid-cols-2 gap-2 border-t border-slate-100 p-4">
-      {tiles.map((t) => (
-        <div
-          key={t.label}
-          className={`rounded-xl border p-3 ${
-            t.tone === 'warn' ? 'border-amber-200 bg-amber-50' : 'border-slate-200 bg-white'
+    <div className="border-t border-slate-100 p-4">
+      <div
+        className={`rounded-xl border p-3 ${
+          applied > 0 ? 'border-amber-200 bg-amber-50' : 'border-slate-200 bg-white'
+        }`}
+      >
+        <p className="text-[11px] font-semibold text-slate-500">보조금 이력 합계 (A)</p>
+        <p
+          className={`mt-1 text-2xl font-black tabular-nums tracking-[-0.03em] ${
+            applied > 0 ? 'text-amber-800' : 'text-slate-900'
           }`}
         >
-          <p className="flex items-center gap-1 text-[11px] font-semibold text-slate-500">
-            <span className={`rounded px-1 py-0.5 text-[10px] font-black tracking-wide ${t.chip}`}>
-              {t.tag}
-            </span>
-            {t.label}
-          </p>
-          <p
-            className={`mt-1 text-2xl font-black tabular-nums tracking-[-0.03em] ${
-              t.tone === 'warn' ? 'text-amber-800' : 'text-slate-900'
-            }`}
-          >
-            {t.value.toLocaleString('ko-KR')}
-            <span className="ml-0.5 text-xs font-bold text-slate-400">기</span>
-          </p>
-        </div>
-      ))}
+          {applied.toLocaleString('ko-KR')}
+          <span className="ml-0.5 text-xs font-bold text-slate-400">기</span>
+        </p>
+      </div>
     </div>
   );
 }
@@ -95,13 +69,7 @@ function ApplyList({ summary }: { summary: SubsidySummary }) {
   );
 }
 
-function Matched({
-  result,
-  registeredSlow,
-}: {
-  result: Extract<LookupResult<SubsidyRecord>, { status: '매칭' }>;
-  registeredSlow: number;
-}) {
+function Matched({ result }: { result: Extract<LookupResult<SubsidyRecord>, { status: '매칭' }> }) {
   const { record } = result;
   const summary = summarizeSubsidy(record);
 
@@ -121,7 +89,7 @@ function Matched({
         </p>
       </div>
 
-      <AbStats applied={summary.units} registeredSlow={registeredSlow} />
+      <AppliedStat applied={summary.units} />
 
       <div className="border-t border-slate-100 px-5 py-4">
         <p className="mb-2 text-[11px] font-bold tracking-wide text-slate-500">신청 이력</p>
@@ -146,10 +114,8 @@ function Matched({
 
 function Empty({
   result,
-  registeredSlow,
 }: {
   result: Extract<LookupResult<SubsidyRecord>, { status: '무매칭' | '시군구불일치' }>;
-  registeredSlow: number;
 }) {
   const isMismatch = result.status === '시군구불일치';
   return (
@@ -169,7 +135,7 @@ function Empty({
           : '2017~2024년 보조금 신청 명부에 이 주소가 없습니다.'}
       </p>
       </div>
-      <AbStats applied={0} registeredSlow={registeredSlow} />
+      <AppliedStat applied={0} />
     </div>
   );
 }
@@ -177,26 +143,19 @@ function Empty({
 export default function SubsidyHistoryResult({
   result,
   meta,
-  registeredSlow,
 }: {
   result: LookupResult<SubsidyRecord> | null;
   meta: SubsidyMeta;
-  /** DB1(기관충전소)의 등록 완속 대수 — B 값. DB1 에 기록이 없으면 0 */
-  registeredSlow: number;
 }) {
   if (!result) return null;
 
   return (
     <div className="flex flex-col gap-2">
-      {result.status === '매칭' ? (
-        <Matched result={result} registeredSlow={registeredSlow} />
-      ) : (
-        <Empty result={result} registeredSlow={registeredSlow} />
-      )}
+      {result.status === '매칭' ? <Matched result={result} /> : <Empty result={result} />}
       <p className="px-1 text-xs leading-5 text-slate-400">
         {meta.years} · 신청 {meta.rows.toLocaleString('ko-KR')}건 ·{' '}
         {meta.units.toLocaleString('ko-KR')}기 · {meta.addresses.toLocaleString('ko-KR')}개 주소.
-        DB1(기관충전소)과는 별개의 명부라 한쪽에만 있는 현장이 있습니다.
+        보조금 신청 명부를 그대로 집계한 값입니다.
       </p>
     </div>
   );

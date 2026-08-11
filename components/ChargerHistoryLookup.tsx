@@ -202,8 +202,8 @@ function MatchedResult({ result }: { result: Extract<LookupResult, { status: '�
       </div>
 
       <div className="grid grid-cols-2 gap-2 border-t border-slate-100 p-4 sm:grid-cols-4">
-        <Stat label="완속" value={summary.slow} />
-        <Stat label="급속" value={summary.fast} />
+        <Stat label="현재 등록 완속 (B)" value={summary.slow} />
+        <Stat label="현재 등록 급속" value={summary.fast} />
         <Stat
           label="보조금 설치"
           value={summary.subsidized}
@@ -408,11 +408,7 @@ export default function ChargerHistoryLookup({
             note={`신규 DB · ${subsidyMeta.years} 보조금 신청`}
             className="bg-amber-100 text-amber-800"
           />
-          <SubsidyHistoryResult
-            result={subsidy}
-            meta={subsidyMeta}
-            registeredSlow={result?.status === '매칭' ? summarize(result.record).slow : 0}
-          />
+          <SubsidyHistoryResult result={subsidy} meta={subsidyMeta} />
         </section>
       )}
     </div>

@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "next lint",
     "index:charger": "node --max-old-space-size=6144 scripts/build-charger-index.ts",
+    "index:subsidy": "node --max-old-space-size=6144 scripts/build-subsidy-index.ts",
     "index:charger:verify": "node --max-old-space-size=6144 scripts/verify-charger-index.ts"
   },
   "dependencies": {

@@ -1,0 +1,9 @@
+{
+  "source": "2026-07-30_ev보조금이력_2017-2024_v2_all.csv",
+  "years": "2017~2024",
+  "rows": 56084,
+  "units": 270996,
+  "addresses": 39471,
+  "sites": 39633,
+  "shardCount": 256
+}

@@ -72,10 +72,14 @@ function setRunPropertyValue(rPr: Element, localName: string, value: string): vo
   prop.setAttributeNS(W_NS, 'w:val', value);
 }
 
-function setFilledTextSize(run: Element): void {
+function setRunSize(run: Element, size: string): void {
   const rPr = ensureRunProperties(run);
-  setRunPropertyValue(rPr, 'sz', FILLED_TEXT_SIZE);
-  setRunPropertyValue(rPr, 'szCs', FILLED_TEXT_SIZE);
+  setRunPropertyValue(rPr, 'sz', size);
+  setRunPropertyValue(rPr, 'szCs', size);
+}
+
+function setFilledTextSize(run: Element): void {
+  setRunSize(run, FILLED_TEXT_SIZE);
 }
 
 function setFilledTextSizeForText(text: Element): void {
@@ -175,11 +179,17 @@ function findRunProperties(node: Element): Element | null {
   return rPrs.length > 0 ? rPrs[0] : null;
 }
 
-function appendTextRun(doc: Document, para: Element, value: string, styleSource: Element): void {
+function appendTextRun(
+  doc: Document,
+  para: Element,
+  value: string,
+  styleSource: Element,
+  size: string = FILLED_TEXT_SIZE
+): void {
   const run = doc.createElementNS(W_NS, 'w:r');
   const rPr = findRunProperties(styleSource);
   if (rPr) run.appendChild(rPr.cloneNode(true));
-  setFilledTextSize(run);
+  setRunSize(run, size);
 
   const tElem = doc.createElementNS(W_NS, 'w:t');
   tElem.setAttributeNS(XML_NS, 'xml:space', 'preserve');
@@ -201,6 +211,61 @@ function setParagraphText(para: Element, value: string): void {
   for (let i = 1; i < texts.length; i++) {
     texts[i].textContent = '';
   }
+}
+
+// 「주요 계약사항」 표의 1~10행은 trHeight hRule="exact" 라서 값이 두 줄이 되면
+// 두 번째 줄이 그대로 잘려 안 보인다. 긴 주소·법인명이 사라지지 않도록,
+// 한 줄에 안 들어갈 때만 9pt → 8pt → 7pt 로 한 단계씩 줄여서 채운다.
+const HEADER_FIT_SIZES = ['18', '16', '14']; // 9pt / 8pt / 7pt (half-point units)
+const CELL_MARGIN_TWIP = 108;                // Word 기본 좌우 셀 여백
+const FIT_SAFETY = 0.95;                     // 폭 추정 오차 여유
+
+/** 값 문자열의 대략적인 렌더링 폭(twip). 한글은 1em, ASCII는 약 0.55em. */
+function estimateTextWidth(text: string, halfPoints: string): number {
+  const em = (Number(halfPoints) / 2) * 20;
+  let width = 0;
+  for (const ch of text) {
+    width += ch.codePointAt(0)! < 0x1100 ? em * 0.55 : em;
+  }
+  return width;
+}
+
+/** 셀의 본문 사용 가능 폭(twip). tcW가 없으면 null. */
+function cellUsableWidth(cell: Element): number | null {
+  const tcPr = getDirectChild(cell, 'tcPr');
+  const tcW = tcPr ? getDirectChild(tcPr, 'tcW') : null;
+  const raw = tcW?.getAttributeNS(W_NS, 'w');
+  const width = raw ? Number(raw) : NaN;
+  if (!Number.isFinite(width) || width <= 0) return null;
+  return width - 2 * CELL_MARGIN_TWIP;
+}
+
+/** 높이가 고정(hRule="exact")된 행이면 그 trHeight 엘리먼트를 돌려준다. */
+function getExactRowHeight(row: Element): Element | null {
+  const trPr = getDirectChild(row, 'trPr');
+  const height = trPr ? getDirectChild(trPr, 'trHeight') : null;
+  if (!height) return null;
+  return height.getAttributeNS(W_NS, 'hRule') === 'exact' ? height : null;
+}
+
+/**
+ * 고정 높이 행에 들어갈 값의 글자 크기를 정한다.
+ * 7pt 로도 한 줄에 못 담으면 그 행만 높이 고정을 풀어(atLeast) 잘리는 대신 늘어나게 한다.
+ */
+function fitSizeForCell(value: string, cell: Element, row: Element): string {
+  const height = getExactRowHeight(row);
+  if (!height) return FILLED_TEXT_SIZE;
+
+  const usable = cellUsableWidth(cell);
+  if (usable === null) return FILLED_TEXT_SIZE;
+
+  const budget = usable * FIT_SAFETY;
+  for (const size of HEADER_FIT_SIZES) {
+    if (estimateTextWidth(value, size) <= budget) return size;
+  }
+
+  height.setAttributeNS(W_NS, 'w:hRule', 'atLeast');
+  return HEADER_FIT_SIZES[HEADER_FIT_SIZES.length - 1];
 }
 
 /**
@@ -232,7 +297,9 @@ function fillHeaderTable(doc: Document, labelMap: Record<string, string>): numbe
 
         // Insert text into the first paragraph
         const para = valueParagraphs[0];
-        appendTextRun(doc, para, labelMap[labelText], cells[c]);
+        const value = labelMap[labelText];
+        const size = fitSizeForCell(value, valueCell, rows[r]);
+        appendTextRun(doc, para, value, cells[c], size);
         filled++;
       }
     }
@@ -258,6 +325,42 @@ function findAncestor(node: Node, localName: string): Element | null {
 // ─────────────────────────────────────────────
 // Main fill function
 // ─────────────────────────────────────────────
+
+/**
+ * Drop <w:lock> from every content control so the recipient can retype a field
+ * in Word (템플릿의 완속충전기 수량 SDT가 contentLocked 상태로 들어 있다).
+ */
+function unlockSdts(doc: Document): void {
+  const locks = doc.getElementsByTagNameNS(W_NS, 'lock');
+  for (let i = locks.length - 1; i >= 0; i--) {
+    locks[i].parentNode?.removeChild(locks[i]);
+  }
+}
+
+/**
+ * Drop any document-level protection (읽기 전용 / 쓰기 보호) from settings.xml
+ * so the filled contract stays editable in Word.
+ */
+async function unlockDocument(zip: JSZip): Promise<void> {
+  const settingsFile = zip.file('word/settings.xml');
+  if (!settingsFile) return;
+  const xml = await settingsFile.async('string');
+
+  const doc = new DOMParser().parseFromString(xml, 'application/xml');
+  if (doc.getElementsByTagName('parsererror').length > 0) return;
+
+  let changed = false;
+  for (const tag of ['documentProtection', 'writeProtection']) {
+    const elems = doc.getElementsByTagNameNS(W_NS, tag);
+    for (let i = elems.length - 1; i >= 0; i--) {
+      elems[i].parentNode?.removeChild(elems[i]);
+      changed = true;
+    }
+  }
+  if (!changed) return;
+
+  zip.file('word/settings.xml', new XMLSerializer().serializeToString(doc));
+}
 
 export interface FillResult {
   blob: Blob;
@@ -368,9 +471,13 @@ export async function fillHecTemplate(form: HecFormData): Promise<FillResult> {
   }
 
   // 9. Serialize and write back
+  unlockSdts(doc);
   const serializer = new XMLSerializer();
   const newXml = serializer.serializeToString(doc);
   zip.file('word/document.xml', newXml);
+
+  // 9-1. Lift any read-only protection carried by the template
+  await unlockDocument(zip);
 
   // 10. Generate output blob
   const blob = await zip.generateAsync({

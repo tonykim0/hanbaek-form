@@ -298,15 +298,19 @@ export interface SiteRecord {
   h: HistoryRow[];
 }
 
-/** 한 「도로명|건물번호」에 걸린 지역별 기록 — 키는 「시도|시군구」 */
-export type Bucket = Record<string, SiteRecord>;
+/**
+ * 한 「도로명|건물번호」에 걸린 지역별 기록 — 키는 「시도|시군구」.
+ * 기록의 모양(R)은 데이터마다 달라서 타입 인자로 받습니다
+ * (기관충전소 = SiteRecord, 보조금 신청이력 = lib/subsidy-history 의 기록).
+ */
+export type Bucket<R = SiteRecord> = Record<string, R>;
 
 /** 지번으로 도로명 키를 찾아가는 포인터 — [조회 키, 지역 키] */
 export type JibunPointer = [key: string, regionKey: string];
 
-export interface Shard {
+export interface Shard<R = SiteRecord> {
   /** 조회 키(「도로명|건물번호」) → 지역별 기록 */
-  k: Record<string, Bucket>;
+  k: Record<string, Bucket<R>>;
   /**
    * 지번 키(「J:법정동|번지」) → 지역별 포인터.
    * 원본의 도로명 표기가 흔들려 도로명으로 못 찾는 현장을 지번으로 찾기 위한
@@ -435,14 +439,14 @@ export function regionText(regionKey: string): string {
   return [sido, sgg].filter(Boolean).join(' ') || '(지역 미상)';
 }
 
-export type LookupResult =
+export type LookupResult<R = SiteRecord> =
   | {
       status: '매칭';
       by: MatchBy;
       parsed: ParsedAddress;
       /** 찾은 기록의 「시도|시군구」 */
       regionKey: string;
-      record: SiteRecord;
+      record: R;
       /** 같은 도로명 · 번호에 걸린 다른 지역 (표기 확인용) */
       otherRegions: string[];
     }
@@ -455,7 +459,7 @@ export type LookupResult =
   | { status: '무매칭'; parsed: ParsedAddress | null };
 
 /** 샤드를 내려받는 함수 — 화면은 fetch, 검증 스크립트는 파일 읽기를 넘깁니다 */
-export type ShardLoader = (shard: string) => Promise<Shard>;
+export type ShardLoader<R = SiteRecord> = (shard: string) => Promise<Shard<R>>;
 
 /**
  * 시군구 표기가 조금 달라도 같은 곳으로 볼 수 있는가.
@@ -471,15 +475,18 @@ function regionLooksSame(input: ParsedAddress, regionKey: string): boolean {
 }
 
 /**
- * 주소로 충전기 · 보조금 이력을 찾습니다.
+ * 주소로 인덱스에서 기록을 찾습니다.
  *
  * 도로명 → (표기가 조금 다른) 도로명 → 지번 순으로 시도하고, 그래도 없으면
  * 같은 도로명 · 번호가 있는 다른 시군구를 후보로 돌려줍니다.
+ *
+ * 같은 규칙으로 만든 인덱스면 기록의 모양과 상관없이 씁니다 — 기관충전소와
+ * 보조금 신청이력이 이 사다리를 공유합니다.
  */
-export async function lookupChargerHistory(
+export async function lookupSiteHistory<R>(
   input: { road: string; jibun?: string },
-  load: ShardLoader
-): Promise<LookupResult> {
+  load: ShardLoader<R>
+): Promise<LookupResult<R>> {
   // 인덱스와 같은 순서로 봅니다 (두 칸의 내용이 바뀐 원본 행에 대비)
   const road = parseRoadAddress(input.road) ?? parseRoadAddress(input.jibun ?? '');
 
@@ -550,4 +557,12 @@ export async function lookupChargerHistory(
     return { status: '무매칭', parsed: road };
   }
   return { status: '무매칭', parsed: jibun };
+}
+
+/** 「기관충전소」 인덱스 조회 */
+export function lookupChargerHistory(
+  input: { road: string; jibun?: string },
+  load: ShardLoader
+): Promise<LookupResult> {
+  return lookupSiteHistory<SiteRecord>(input, load);
 }

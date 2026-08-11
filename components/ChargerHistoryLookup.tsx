@@ -2,6 +2,8 @@
 
 import { useCallback, useRef, useState } from 'react';
 import { useAddressSearch } from '@/components/contracts/AddressSearchButton';
+import HistoryComparison from '@/components/HistoryComparison';
+import SubsidyHistoryResult from '@/components/SubsidyHistoryResult';
 import {
   DATA_BASE,
   lookupChargerHistory,
@@ -12,26 +14,36 @@ import {
   type IndexMeta,
   type LookupResult,
   type Shard,
+  type SiteRecord,
   type Summary,
 } from '@/lib/charger-history';
+import {
+  lookupSubsidyHistory,
+  SUBSIDY_DATA_BASE,
+  type SubsidyMeta,
+  type SubsidyRecord,
+} from '@/lib/subsidy-history';
 
 /* --------------------------------------------------------------- 샤드 읽기 */
 
-function useShardLoader() {
-  // 같은 샤드를 두 번 내려받지 않도록 화면에 남겨 둡니다
-  const cache = useRef(new Map<string, Promise<Shard>>());
+/** 샤드 JSON 을 내려받아 화면에 캐시해 둡니다 (같은 샤드 재요청 방지) */
+function useShardLoader<R>(base: string) {
+  const cache = useRef(new Map<string, Promise<Shard<R>>>());
 
-  return useCallback(async (shard: string): Promise<Shard> => {
-    const hit = cache.current.get(shard);
-    if (hit) return hit;
-    const promise = fetch(`${DATA_BASE}/${shard}.json`).then((res) => {
-      if (!res.ok) throw new Error(`조회 데이터를 불러오지 못했습니다 (${res.status})`);
-      return res.json() as Promise<Shard>;
-    });
-    cache.current.set(shard, promise);
-    promise.catch(() => cache.current.delete(shard));
-    return promise;
-  }, []);
+  return useCallback(
+    async (shard: string): Promise<Shard<R>> => {
+      const hit = cache.current.get(shard);
+      if (hit) return hit;
+      const promise = fetch(`${base}/${shard}.json`).then((res) => {
+        if (!res.ok) throw new Error(`조회 데이터를 불러오지 못했습니다 (${res.status})`);
+        return res.json() as Promise<Shard<R>>;
+      });
+      cache.current.set(shard, promise);
+      promise.catch(() => cache.current.delete(shard));
+      return promise;
+    },
+    [base]
+  );
 }
 
 /* ------------------------------------------------------------------ 조각들 */
@@ -130,7 +142,7 @@ function MatchedResult({ result }: { result: Extract<LookupResult, { status: '�
             verdict.tone === 'warn' ? 'text-amber-700' : 'text-brand-700'
           }`}
         >
-          조회 결과
+          기관충전소 등록 현황
         </p>
         <h2
           className={`mt-1 text-xl font-black tracking-[-0.03em] ${
@@ -203,7 +215,7 @@ function EmptyResult({
   const isMismatch = result.status === '시군구불일치';
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-5">
-      <p className="text-[11px] font-bold tracking-[0.14em] text-brand-700">조회 결과</p>
+      <p className="text-[11px] font-bold tracking-[0.14em] text-brand-700">기관충전소 등록 현황</p>
       <h2 className="mt-1 text-xl font-black tracking-[-0.03em] text-slate-900">
         {isMismatch ? '입력한 시 · 군에는 기록이 없습니다' : '등록된 충전기 기록이 없습니다'}
       </h2>
@@ -230,11 +242,19 @@ function EmptyResult({
 
 /* -------------------------------------------------------------------- 본체 */
 
-export default function ChargerHistoryLookup({ meta }: { meta: IndexMeta }) {
-  const load = useShardLoader();
+export default function ChargerHistoryLookup({
+  meta,
+  subsidyMeta,
+}: {
+  meta: IndexMeta;
+  subsidyMeta: SubsidyMeta;
+}) {
+  const loadCharger = useShardLoader<SiteRecord>(DATA_BASE);
+  const loadSubsidy = useShardLoader<SubsidyRecord>(SUBSIDY_DATA_BASE);
   const [road, setRoad] = useState('');
   const [jibun, setJibun] = useState('');
   const [result, setResult] = useState<LookupResult | null>(null);
+  const [subsidy, setSubsidy] = useState<LookupResult<SubsidyRecord> | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -243,15 +263,22 @@ export default function ChargerHistoryLookup({ meta }: { meta: IndexMeta }) {
       setBusy(true);
       setError(null);
       setResult(null);
+      setSubsidy(null);
       try {
-        setResult(await lookupChargerHistory(input, load));
+        // 두 자료는 별개라 나란히 조회합니다 (한쪽에만 있는 현장이 흔합니다)
+        const [charger, subsidyResult] = await Promise.all([
+          lookupChargerHistory(input, loadCharger),
+          lookupSubsidyHistory(input, loadSubsidy),
+        ]);
+        setResult(charger);
+        setSubsidy(subsidyResult);
       } catch (e) {
         setError((e as Error).message);
       } finally {
         setBusy(false);
       }
     },
-    [load]
+    [loadCharger, loadSubsidy]
   );
 
   const { open, loading, error: searchError } = useAddressSearch((address, data) => {
@@ -311,16 +338,31 @@ export default function ChargerHistoryLookup({ meta }: { meta: IndexMeta }) {
         )}
       </div>
 
-      {result?.status === '매칭' && <MatchedResult result={result} />}
-      {(result?.status === '무매칭' || result?.status === '시군구불일치') && (
-        <EmptyResult result={result} />
+      {result && subsidy && (
+        <HistoryComparison
+          charger={result}
+          subsidy={subsidy}
+          meta={meta}
+          subsidyMeta={subsidyMeta}
+        />
       )}
 
-      <p className="px-1 text-xs leading-5 text-slate-400">
-        기준일 {meta.asOf} · 충전기 {meta.rows.toLocaleString('ko-KR')}기 ·{' '}
-        {meta.addresses.toLocaleString('ko-KR')}개 주소. 「기관충전소」 원본을 그대로 집계한
-        값이므로, 원본에 등록되지 않은 설치분은 나오지 않습니다.
-      </p>
+      {result && (
+        <div className="flex flex-col gap-2">
+          {result.status === '매칭' ? (
+            <MatchedResult result={result} />
+          ) : (
+            <EmptyResult result={result} />
+          )}
+          <p className="px-1 text-xs leading-5 text-slate-400">
+            기관충전소 기준일 {meta.asOf} · 충전기 {meta.rows.toLocaleString('ko-KR')}기 ·{' '}
+            {meta.addresses.toLocaleString('ko-KR')}개 주소. 원본을 그대로 집계한 값이므로, 원본에
+            등록되지 않은 설치분은 나오지 않습니다.
+          </p>
+        </div>
+      )}
+
+      <SubsidyHistoryResult result={subsidy} meta={subsidyMeta} />
     </div>
   );
 }

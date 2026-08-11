@@ -2,7 +2,9 @@ import type { Metadata } from 'next';
 import ChargerHistoryLookup from '@/components/ChargerHistoryLookup';
 import SiteHeader from '@/components/SiteHeader';
 import type { IndexMeta } from '@/lib/charger-history';
+import type { SubsidyMeta } from '@/lib/subsidy-history';
 import meta from '@/public/data/charger-history/meta.json';
+import subsidyMeta from '@/public/data/subsidy-history/meta.json';
 
 export const metadata: Metadata = {
   title: '충전기 · 보조금 이력 조회 | 한백 전기차충전사업',
@@ -21,12 +23,13 @@ export default function ChargerHistoryPage() {
             충전기 · 보조금 이력 조회
           </h1>
           <p className="mt-2 text-sm leading-6 text-slate-500">
-            현장 주소로 기설치 충전기와 보조금 지원 이력을 확인합니다. 보조금 이력이 있으면 신규
-            신청 대수 · 기설치 이력 작성에 그대로 반영해야 합니다.
+            현장 주소로 기설치 충전기와 보조금 지원 이력을 확인합니다. 「기관충전소」와 「보조금
+            신청이력({subsidyMeta.years})」 두 자료를 각각 조회해 따로 보여줍니다. 보조금 이력이
+            있으면 신규 신청 대수 · 기설치 이력 작성에 그대로 반영해야 합니다.
           </p>
         </header>
 
-        <ChargerHistoryLookup meta={meta as IndexMeta} />
+        <ChargerHistoryLookup meta={meta as IndexMeta} subsidyMeta={subsidyMeta as SubsidyMeta} />
 
         <footer className="mt-8 text-center text-xs text-slate-400">
           한백 EV Infra Solutions

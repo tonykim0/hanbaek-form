@@ -85,6 +85,7 @@ export interface ImportedFormFields {
   dupOutlet: boolean | null;
   dupOutletQty: string | null;
   dupKiosk: boolean | null;
+  dupNone: boolean | null;
 
   // HEC 전용
   evCount: string | null;
@@ -288,6 +289,7 @@ export const FIELD_LABELS: Record<ImportedFieldKey, string> = {
   dupOutlet: '중복설치 과금형콘센트',
   dupOutletQty: '중복설치 과금형콘센트 수량',
   dupKiosk: '중복설치 키오스크',
+  dupNone: '중복설치 해당사항 없음',
   evCount: '전기차 등록대수',
   siteTotalSlow: '총 설치대수(완속)',
   siteTotalFast: '총 설치대수(급속)',

@@ -35,6 +35,7 @@ const REQUIRED_FOR_OUTPUT: readonly ImportedFieldKey[] = [
   'surveyorCompany',
   'surveyorName',
   'surveyorTel',
+  'dupNone',
 ];
 
 export default function NiceTwoPageAutoReissue() {
@@ -321,7 +322,7 @@ function toNiceFormData(result: FormImportResult): NiceFormData {
     surveyorName: f.surveyorName ?? '',
     surveyorTel: f.surveyorTel ?? '',
     parkingLotCount: f.parkingLotCount ?? '',
-    siteCategory: f.siteCategory ?? undefined,
+    siteCategory: f.siteCategory ?? '',
     buildingType: f.buildingType ?? '',
     buildingTypeEtc: f.buildingTypeEtc ?? '',
     installLocIndoor: f.installLocIndoor ?? false,
@@ -341,6 +342,7 @@ function toNiceFormData(result: FormImportResult): NiceFormData {
     dupOutlet: f.dupOutlet ?? false,
     dupOutletQty: f.dupOutletQty ?? '',
     dupKiosk: f.dupKiosk ?? false,
+    dupNone: f.dupNone ?? false,
     custRepresentative: f.custRepresentative ?? '',
     installDetailLocation: f.installDetailLocation ?? '',
     siteTotalSlow: f.siteTotalSlow ?? '',

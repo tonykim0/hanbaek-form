@@ -119,6 +119,7 @@ const FIELD_PROPERTIES: Record<ImportedFieldKey, unknown> = {
   dupOutlet: nBool(),
   dupOutletQty: nStr(),
   dupKiosk: nBool(),
+  dupNone: nBool(),
 
   evCount: nStr(),
   siteTotalSlow: nStr(),

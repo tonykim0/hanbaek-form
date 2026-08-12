@@ -40,7 +40,7 @@ const CHECKBOX_GUIDE: Array<[label: string, mapping: string]> = [
   ['소유주와의 관계', '본인→"self" / 가족→"family" / 지인→"friend" / 직원→"employee" / 무관→"none"'],
   ['전력인입', '모자분할→powerMoja / 한전불입→powerHanjeon (둘 다 체크 가능)'],
   ['설치타입', '벽부형→installTypeWall / 스탠드→installTypeStand (둘 다 체크 가능)'],
-  ['6번 중복설치', '급속충전기→dupFast+dupFastQty / 완속충전기→dupSlow+dupSlowQty / 전력분배형→dupDist+dupDistQty / 과금형콘센트→dupOutlet+dupOutletQty / 키오스크→dupKiosk. 「해당사항 없음」이 체크면 전부 false'],
+  ['6번 중복설치', '급속충전기→dupFast+dupFastQty / 완속충전기→dupSlow+dupSlowQty / 전력분배형→dupDist+dupDistQty / 과금형콘센트→dupOutlet+dupOutletQty / 키오스크→dupKiosk / 「해당사항 없음」→dupNone. 빈 체크박스는 false이며, dupNone이 체크돼도 개별 항목은 보이는 그대로 판독'],
 ];
 
 export function buildFormImportPrompt(options: {
@@ -160,6 +160,7 @@ JSON 하나만 출력하세요. 마크다운 코드블록·설명문 없이 순�
     "dupOutlet": false,
     "dupOutletQty": "",
     "dupKiosk": false,
+    "dupNone": true,
     "evCount": "",
     "siteTotalSlow": "",
     "siteTotalFast": ""

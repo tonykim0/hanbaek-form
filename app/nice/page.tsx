@@ -14,7 +14,7 @@ import {
   RadioField,
   Section,
 } from '@/components/contracts/FormControls';
-import ImportPanel from '@/components/contracts/ImportPanel';
+import NiceTwoPageAutoReissue from '@/components/contracts/NiceTwoPageAutoReissue';
 import {
   ContractPageShell,
   FormActions,
@@ -22,13 +22,8 @@ import {
 } from '@/components/contracts/PageChrome';
 import { DEFAULT_YEAR, formatAdvancedSuccessMessage } from '@/lib/contract-form';
 import { downloadBlob } from '@/lib/download';
-import {
-  applyImportedFields,
-  IMPORT_FIELD_KEYS,
-  type FormImportResult,
-} from '@/lib/form-import';
 import { NiceFormData } from '@/lib/schema-nice';
-import { useInternalMode } from '@/lib/use-internal-mode';
+import { useInternalModeState } from '@/lib/use-internal-mode';
 import { useDocScope } from '@/lib/use-doc-scope';
 
 const defaultValues: Partial<NiceFormData> = {
@@ -81,16 +76,13 @@ export default function NicePage() {
   // NICE 템플릿에는 사진대지·체크리스트가 없어 토글을 감춥니다.
   const { docScope, finalize } = useDocScope();
   // 협력사 스캔본 판독은 담당자 전용 — ?import=1 일 때만 노출합니다.
-  const internalMode = useInternalMode();
+  const internalMode = useInternalModeState();
 
   const buildingType = watch('buildingType');
   const dupFast = watch('dupFast');
   const dupSlow = watch('dupSlow');
   const dupDist = watch('dupDist');
   const dupOutlet = watch('dupOutlet');
-
-  const applyImported = (result: FormImportResult) =>
-    applyImportedFields(result, setValue, IMPORT_FIELD_KEYS.nice);
 
   const onSubmit = async (data: NiceFormData) => {
     setStatus(null);
@@ -119,14 +111,30 @@ export default function NicePage() {
     }
   };
 
+  if (internalMode === null) {
+    return (
+      <ContractPageShell title="나이스인프라">
+        <div className="rounded-2xl border border-slate-200 bg-white px-5 py-8 text-center text-sm font-semibold text-slate-500">
+          화면을 불러오는 중입니다...
+        </div>
+      </ContractPageShell>
+    );
+  }
+
+  if (internalMode) {
+    return (
+      <ContractPageShell title="나이스인프라 2개 서류 자동 재발행">
+        <NiceTwoPageAutoReissue />
+      </ContractPageShell>
+    );
+  }
+
   return (
     <ContractPageShell title="나이스인프라 계약서 자동생성">
         <form
           onSubmit={handleSubmit(onSubmit)}
           className="space-y-4 pb-2"
         >
-          {internalMode && <ImportPanel cpo="nice" onApply={applyImported} />}
-
           <Section title="사업구분">
             <RadioField label="계약 유형" hint="선택에 따라 생성되는 계약서 양식이 달라집니다 (입력 항목은 동일)">
               <Radio name="businessType" value="subsidy" register={register} label="보조금사업" />

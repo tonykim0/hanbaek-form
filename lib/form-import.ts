@@ -36,6 +36,7 @@ export interface ImportedFormFields {
   // 계약
   installAddr: string | null;
   installQty: string | null;
+  installQty11to30: string | null;
   contractTerm: '7' | '10' | null;
   contractYear: string | null;
   contractMonth: string | null;
@@ -52,7 +53,10 @@ export interface ImportedFormFields {
 
   // 별지7호 사전 현장 컨설팅 결과서
   parkingLotCount: string | null;
+  /** 별지5호·7호의 「장소」 체크 — 건물형태와 별개입니다. */
+  siteCategory: 'apartment' | 'business' | 'small_business' | 'etc' | null;
   buildingType:
+    | 'danok'
     | 'apartment'
     | 'yeonlip'
     | 'sangga'
@@ -251,6 +255,7 @@ export const FIELD_LABELS: Record<ImportedFieldKey, string> = {
   siteManager: '현장 담당자',
   installAddr: '건축물대장 주소(설치장소)',
   installQty: '설치수량',
+  installQty11to30: '11~30kW 설치수량',
   contractTerm: '계약기간',
   contractYear: '계약연도',
   contractMonth: '계약월',
@@ -263,10 +268,11 @@ export const FIELD_LABELS: Record<ImportedFieldKey, string> = {
   surveyorName: '조사자명',
   surveyorTel: '조사자 연락처',
   parkingLotCount: '보유 주차면수',
+  siteCategory: '설치장소 구분',
   buildingType: '건물형태',
   buildingTypeEtc: '건물형태(직접입력)',
   installLocIndoor: '설치위치 실내·지하',
-  installLocOutdoor: '설치위치 실외·노상',
+  installLocOutdoor: '설치위치 실외, 노상',
   ownership: '소유여부',
   ownerRelation: '소유주와의 관계',
   powerMoja: '전력인입 모자분할',

@@ -15,6 +15,10 @@ const W_NS = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
 
 /** 「별지 제7호 서식」 — 결과서 시작 */
 const REPORT_ANCHOR = '별지제7호';
+/** 「별지 제5호 서식」 — 설치신청서 시작 */
+const APPLICATION_ANCHOR = '별지제5호';
+/** NICE 설치신청서 다음 문서 시작 — 이 앞까지만 설치신청서로 남깁니다. */
+const APPLICATION_END_ANCHORS = ['직인사용동의서', '개인정보수집'];
 /** [별지 1] 사진대지 / [별지 2] 사전 체크리스트 — 결과서에 딸린 별지 시작 */
 const ATTACHMENT_ANCHORS = ['별지1]', '별지2]'];
 
@@ -33,6 +37,16 @@ export interface SliceResult {
   hasAttachments: boolean;
 }
 
+export interface SelectedDocumentsSliceResult {
+  blob: Blob;
+  /** 설치신청서 구간에서 남긴 body 자식 수 */
+  applicationKept: number;
+  /** 사전현장컨설팅 결과서 구간에서 남긴 body 자식 수 */
+  consultingKept: number;
+  /** 잘라낸 body 자식 수 */
+  dropped: number;
+}
+
 /** 문단·표의 모든 <w:t>를 이어 붙이고 공백을 없앤 문자열 (앵커 비교용) */
 function normalizedText(node: Element): string {
   const texts = node.getElementsByTagNameNS(W_NS, 't');
@@ -41,28 +55,43 @@ function normalizedText(node: Element): string {
   return out.replace(/\s| |　/g, '');
 }
 
-export async function sliceConsultingReport(
-  source: Blob,
-  options: SliceOptions = {}
-): Promise<SliceResult> {
-  const includeAttachments = options.includeAttachments ?? true;
+function hasPageBreak(node: Element): boolean {
+  const breaks = node.getElementsByTagNameNS(W_NS, 'br');
+  for (let i = 0; i < breaks.length; i++) {
+    if (breaks[i].getAttributeNS(W_NS, 'type') === 'page') return true;
+  }
+  return false;
+}
 
+function removeBookmarks(body: Element): void {
+  // 잘라낸 구간에 짝이 남은 북마크 표식을 제거합니다 (Word 경고 방지).
+  for (const tag of ['bookmarkStart', 'bookmarkEnd'] as const) {
+    const marks = body.getElementsByTagNameNS(W_NS, tag);
+    while (marks.length > 0) marks[0].parentNode?.removeChild(marks[0]);
+  }
+}
+
+async function loadDocument(source: Blob): Promise<{
+  zip: JSZip;
+  doc: Document;
+  body: Element;
+  children: Element[];
+  trailingSectPr: Element | null;
+}> {
   const zip = await JSZip.loadAsync(await source.arrayBuffer());
   const documentFile = zip.file('word/document.xml');
-  if (!documentFile) {
-    throw new Error('문서에서 document.xml을 찾을 수 없습니다');
-  }
+  if (!documentFile) throw new Error('문서에서 document.xml을 찾을 수 없습니다');
 
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(await documentFile.async('string'), 'application/xml');
+  const doc = new DOMParser().parseFromString(
+    await documentFile.async('string'),
+    'application/xml'
+  );
   if (doc.getElementsByTagName('parsererror').length > 0) {
     throw new Error('XML 파싱 실패');
   }
 
   const bodies = doc.getElementsByTagNameNS(W_NS, 'body');
-  if (bodies.length === 0) {
-    throw new Error('문서 본문(w:body)을 찾을 수 없습니다');
-  }
+  if (bodies.length === 0) throw new Error('문서 본문(w:body)을 찾을 수 없습니다');
   const body = bodies[0];
 
   const children: Element[] = [];
@@ -70,10 +99,92 @@ export async function sliceConsultingReport(
     children.push(child);
   }
 
-  // 마지막 자식이 w:sectPr(용지·여백·머리글 설정)이면 항상 남깁니다.
   const last = children[children.length - 1];
   const trailingSectPr =
     last && last.namespaceURI === W_NS && last.localName === 'sectPr' ? last : null;
+
+  return { zip, doc, body, children, trailingSectPr };
+}
+
+async function saveDocument(zip: JSZip, doc: Document): Promise<Blob> {
+  zip.file('word/document.xml', new XMLSerializer().serializeToString(doc));
+  return zip.generateAsync({
+    type: 'blob',
+    mimeType:
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    compression: 'DEFLATE',
+  });
+}
+
+/**
+ * 채워진 NICE 보조금 템플릿에서 최신 별지5호 설치신청서와 별지7호
+ * 사전현장컨설팅 결과서만 남깁니다. 두 서류 사이에는 템플릿의 기존 페이지
+ * 나눔을 보존하므로 결과물은 각 서류 1페이지씩, 총 2페이지가 됩니다.
+ */
+export async function sliceNiceApplicationAndConsulting(
+  source: Blob
+): Promise<SelectedDocumentsSliceResult> {
+  const { zip, doc, body, children, trailingSectPr } = await loadDocument(source);
+  const contentEnd = trailingSectPr ? children.length - 1 : children.length;
+
+  const applicationStart = children.findIndex(
+    (child) => child !== trailingSectPr && normalizedText(child).includes(APPLICATION_ANCHOR)
+  );
+  if (applicationStart < 0) {
+    throw new Error('최신 NICE 템플릿에서 별지5호 설치신청서를 찾을 수 없습니다');
+  }
+
+  const reportStart = children.findIndex(
+    (child) => child !== trailingSectPr && normalizedText(child).includes(REPORT_ANCHOR)
+  );
+  if (reportStart < 0) {
+    throw new Error('최신 NICE 템플릿에서 별지7호 사전현장컨설팅 결과서를 찾을 수 없습니다');
+  }
+
+  const applicationEnd = children.findIndex(
+    (child, index) =>
+      index > applicationStart &&
+      index < reportStart &&
+      APPLICATION_END_ANCHORS.some((anchor) => normalizedText(child).includes(anchor))
+  );
+  if (applicationEnd < 0) {
+    throw new Error('NICE 설치신청서의 끝 경계를 찾을 수 없습니다');
+  }
+
+  // 별지7호 앞의 기존 페이지 나눔 문단을 함께 보존합니다.
+  const reportBreak =
+    reportStart > 0 && hasPageBreak(children[reportStart - 1])
+      ? reportStart - 1
+      : reportStart;
+
+  const keep = new Set<number>();
+  for (let i = applicationStart; i < applicationEnd; i++) keep.add(i);
+  for (let i = reportBreak; i < contentEnd; i++) keep.add(i);
+
+  let dropped = 0;
+  for (let i = 0; i < children.length; i++) {
+    const child = children[i];
+    if (child === trailingSectPr || keep.has(i)) continue;
+    body.removeChild(child);
+    dropped++;
+  }
+
+  removeBookmarks(body);
+  return {
+    blob: await saveDocument(zip, doc),
+    applicationKept: applicationEnd - applicationStart,
+    consultingKept: contentEnd - reportStart,
+    dropped,
+  };
+}
+
+export async function sliceConsultingReport(
+  source: Blob,
+  options: SliceOptions = {}
+): Promise<SliceResult> {
+  const includeAttachments = options.includeAttachments ?? true;
+
+  const { zip, doc, body, children, trailingSectPr } = await loadDocument(source);
 
   const start = children.findIndex(
     (c) => c !== trailingSectPr && normalizedText(c).includes(REPORT_ANCHOR)
@@ -105,21 +216,8 @@ export async function sliceConsultingReport(
     dropped++;
   }
 
-  // 잘라낸 구간에 짝이 남은 북마크 표식을 제거합니다 (Word 경고 방지).
-  for (const tag of ['bookmarkStart', 'bookmarkEnd'] as const) {
-    const marks = body.getElementsByTagNameNS(W_NS, tag);
-    while (marks.length > 0) marks[0].parentNode?.removeChild(marks[0]);
-  }
-
-  const serializer = new XMLSerializer();
-  zip.file('word/document.xml', serializer.serializeToString(doc));
-
-  const blob = await zip.generateAsync({
-    type: 'blob',
-    mimeType:
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    compression: 'DEFLATE',
-  });
+  removeBookmarks(body);
+  const blob = await saveDocument(zip, doc);
 
   return {
     blob,

@@ -13,27 +13,29 @@
 const FIELD_GUIDE: Array<[field: string, where: string]> = [
   ['custName', '계약서 「부지제공자/서비스이용자」 상호 · 별지5호 「신청자」 · 별지7호 1번 「성명」. 사업자등록증상 법인명(예: OO아파트 입주자대표회의)'],
   ['custBizId', '계약서·별지5호의 사업자등록번호 또는 공동주택 고유번호. 숫자 10자리'],
-  ['custAddr', '계약서 부지제공자 「주소」 = 사업자등록증 주소. 지번주소·상세주소여도 적힌 그대로'],
+  ['custAddr', '계약서 부지제공자 「주소」 또는 별지7호 1번 신청자 정보 「주소」 = 사업자등록증 주소. 지번주소·상세주소여도 적힌 그대로'],
   ['custTel', '계약서 전화번호 · 별지5호 「연락처」 (관리사무소 전화번호)'],
   ['custEmail', '계약서 부지제공자 이메일. 영업자·CPO 이메일이 아니라 고객(현장) 이메일'],
   ['custRepresentative', '사업자등록증상 대표자 · 직인사용 동의서 「대표자」 (예: 관리소장 이름)'],
   ['siteManager', '현장 담당자 직함/이름 (예: 관리소장). 없으면 ""'],
   ['installAddr', '별지5호 「도로명 주소」 · 별지7호 4번 「주소」 = 건축물대장 주소. 계약서 「설치장소」와 같은 값'],
   ['installQty', '설치 충전기 수량. 별지5호 「희망수량 7kW 이상~11kW 미만 (  )기」 = 별지7호 2번 같은 칸. 숫자만'],
+  ['installQty11to30', '별지5호·별지7호 「11kW 이상~30kW 미만 (  )기」 수량. 숫자만. 비어 있으면 ""'],
   ['contractTerm', '계약서 계약기간. 7년 → "7", 10년 → "10". 84개월 → "7", 120개월 → "10"'],
   ['contractYear/Month/Day', '계약일(= 조사일). 계약서 체결일 또는 별지5호 신청일 또는 별지7호 7번 조사일. 각각 숫자 문자열 (월·일은 앞의 0 없이)'],
   ['installDetailLocation', 'NICE 계약서 제1조 설치위치의 「상세위치 : …」 부분 (예: 지하 1층 주차장). 없으면 ""'],
   ['salesCompany/Name/Tel', '별지5호 「모집대행사」 표의 회사명 · 담당자명 · 연락처'],
   ['surveyorCompany/Name/Tel', '별지7호 7번 「조사자」 표의 상호 · 성명 · 연락처'],
   ['parkingLotCount', '별지5호 「보유 주차면수」 = 별지7호 3번 「주차면 수」. 숫자만'],
+  ['siteCategory', '별지5호 「설치 희망지」와 별지7호 4번 「장소」의 체크. 공동주택→"apartment", 사업장→"business", 소상공인→"small_business", 기타→"etc". 건물형태와 혼동하지 마세요'],
   ['evCount', '전기차 수량 공문 등의 전기차 등록대수. 없으면 ""'],
   ['siteTotalSlow/siteTotalFast', '별지2 사전 체크리스트 헤더 「충전시설 설치대수」의 완속/급속 기수. 없으면 ""'],
 ];
 
 /** 별지7호 체크박스 → 폼 필드. 체크 판독 규칙과 함께 넣습니다. */
 const CHECKBOX_GUIDE: Array<[label: string, mapping: string]> = [
-  ['건물형태', '단독주택→"etc_custom"(buildingTypeEtc="단독주택") / 아파트→"apartment" / 연립주택→"yeonlip" / 상가→"sangga" / 기타→"etc_custom"'],
-  ['설치위치', '실내,지하→installLocIndoor / 실외,노상→installLocOutdoor (둘 다 체크 가능)'],
+  ['건물형태', '단독주택→"danok" / 아파트→"apartment" / 연립주택→"yeonlip" / 상가→"sangga" / 기타→"etc_custom"'],
+  ['설치위치', '실내,지하→installLocIndoor / 실외, 노상→installLocOutdoor (둘 다 체크 가능)'],
   ['소유여부', '소유→"own" / 임대→"rent"'],
   ['소유주와의 관계', '본인→"self" / 가족→"family" / 지인→"friend" / 직원→"employee" / 무관→"none"'],
   ['전력인입', '모자분할→powerMoja / 한전불입→powerHanjeon (둘 다 체크 가능)'],
@@ -86,6 +88,7 @@ ${CHECKBOX_GUIDE.map(([l, m]) => `- **${l}** — ${m}`).join('\n')}
 - 수량·주차면수·연월일: 숫자만 담은 문자열 (예: "7", "545", "2026", "4", "9"). 「7기」→"7", 「545면」→"545".
 - 월·일은 앞에 0을 붙이지 마세요 ("04" ❌ → "4" ⭕).
 - 주소: 서류에 적힌 그대로. 임의로 도로명주소로 바꾸거나 상세주소를 떼지 마세요.
+- siteCategory(장소)와 buildingType(건물형태)은 별개의 체크 항목이므로 서로 추정하지 말고 각각 판독하세요.
 - businessType: 별지5호 설치신청서가 서류에 있으면 "subsidy", 보조금 언급이 없는 순수 임대·운영 계약이면 "invest". 판단 불가면 "".
 - buildingType이 "etc_*" 계열이면 buildingTypeEtc에 실제 시설명을 넣으세요 (예: "오피스텔", "지식산업센터", "관공서", "대학교").
   오피스텔→"etc_officetel", 지식산업센터→"etc_knowledge", 관공서→"etc_government", 그 외→"etc_custom".
@@ -124,6 +127,7 @@ JSON 하나만 출력하세요. 마크다운 코드블록·설명문 없이 순�
     "siteManager": "관리소장",
     "installAddr": "광주광역시 북구 대자실로 22",
     "installQty": "7",
+    "installQty11to30": "",
     "contractTerm": "7",
     "contractYear": "2026",
     "contractMonth": "4",
@@ -136,6 +140,7 @@ JSON 하나만 출력하세요. 마크다운 코드블록·설명문 없이 순�
     "surveyorName": "김종혁",
     "surveyorTel": "010-3627-7047",
     "parkingLotCount": "545",
+    "siteCategory": "apartment",
     "buildingType": "apartment",
     "buildingTypeEtc": "",
     "installLocIndoor": true,

@@ -74,6 +74,7 @@ const FIELD_PROPERTIES: Record<ImportedFieldKey, unknown> = {
 
   installAddr: nStr(),
   installQty: nStr(),
+  installQty11to30: nStr(),
   contractTerm: nEnum(['7', '10']),
   contractYear: nStr(),
   contractMonth: nStr(),
@@ -88,7 +89,9 @@ const FIELD_PROPERTIES: Record<ImportedFieldKey, unknown> = {
   surveyorTel: nStr(),
 
   parkingLotCount: nStr(),
+  siteCategory: nEnum(['apartment', 'business', 'small_business', 'etc']),
   buildingType: nEnum([
+    'danok',
     'apartment',
     'yeonlip',
     'sangga',
@@ -356,6 +359,7 @@ async function limitPages(
 
 const DIGIT_FIELDS: readonly ImportedFieldKey[] = [
   'installQty',
+  'installQty11to30',
   'contractYear',
   'contractMonth',
   'contractDay',
@@ -372,7 +376,9 @@ const DIGIT_FIELDS: readonly ImportedFieldKey[] = [
 const ENUM_VALUES: Partial<Record<ImportedFieldKey, readonly string[]>> = {
   businessType: ['subsidy', 'invest'],
   contractTerm: ['7', '10'],
+  siteCategory: ['apartment', 'business', 'small_business', 'etc'],
   buildingType: [
+    'danok',
     'apartment',
     'yeonlip',
     'sangga',

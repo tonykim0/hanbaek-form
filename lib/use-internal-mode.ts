@@ -12,8 +12,8 @@
 import { useEffect, useState } from 'react';
 import { INTERNAL_MODE_PARAM } from './internal-mode';
 
-export function useInternalMode(): boolean {
-  const [enabled, setEnabled] = useState(false);
+export function useInternalModeState(): boolean | null {
+  const [enabled, setEnabled] = useState<boolean | null>(null);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -21,4 +21,8 @@ export function useInternalMode(): boolean {
   }, []);
 
   return enabled;
+}
+
+export function useInternalMode(): boolean {
+  return useInternalModeState() ?? false;
 }

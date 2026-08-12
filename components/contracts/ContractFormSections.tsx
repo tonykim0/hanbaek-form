@@ -438,7 +438,7 @@ export function ConsultingSection<TFieldValues extends CommonContractFields>({
       <SubGroup label="설치 조건">
         <ChoiceGroup label="설치위치" hint="중복 선택 가능" inline>
           <PillCheckbox register={register} name={'installLocIndoor' as Path<TFieldValues>} label="실내·지하" />
-          <PillCheckbox register={register} name={'installLocOutdoor' as Path<TFieldValues>} label="실외·노상" />
+          <PillCheckbox register={register} name={'installLocOutdoor' as Path<TFieldValues>} label="실외, 노상" />
         </ChoiceGroup>
 
         <ChoiceGroup label="전력인입" hint="중복 선택 가능" inline>

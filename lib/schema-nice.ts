@@ -18,6 +18,10 @@ export type NiceFormData = Omit<
   // 사업구분 — 보조금사업(subsidy) / 자체투자(invest). 생성 템플릿만 달라짐.
   businessType: 'subsidy' | 'invest';
   installDetailLocation: string;
+  /** 자동 재발행용: 별지5호·7호 장소 체크를 건물형태와 별도로 보존 */
+  siteCategory?: 'apartment' | 'business' | 'small_business' | 'etc';
+  /** 자동 재발행용: 11kW 이상~30kW 미만 수량 */
+  installQty11to30?: string;
 };
 
 const NICE_UNIT_PRICE = 3_600_000;
@@ -28,6 +32,26 @@ const NICE_CONTRACT_AMOUNT_ID = '900000042';
 
 export function buildNiceSdtMaps(form: NiceFormData): SdtMaps {
   const maps = buildHecSdtMaps(form as unknown as HecFormData);
+  // NICE 자동 재발행에서는 별지5호의 모집대행사와 별지7호의 조사자가
+  // 서로 다를 수 있으므로 조사자 칸에는 surveyor* 필드를 그대로 사용한다.
+  maps.text['1414659046'] = form.surveyorCompany;
+  maps.text['-632096669'] = form.surveyorTel;
+  maps.text['140012807'] = form.surveyorName;
+  maps.text['1751003065'] = form.installQty11to30 ?? '';
+  maps.text['313466420'] = form.installQty11to30 ?? '';
+
+  if (form.siteCategory) {
+    const categoryIds = {
+      apartment: ['2085950294', '-322042069'],
+      business: ['550437745', '-629096557'],
+      small_business: ['868034671', '850464996'],
+      etc: ['-176436175', '-697774570'],
+    } as const;
+    for (const ids of Object.values(categoryIds)) {
+      for (const id of ids) maps.checkbox[id] = false;
+    }
+    for (const id of categoryIds[form.siteCategory]) maps.checkbox[id] = true;
+  }
   // 직인동의서 상호/주소/대표자/날짜는 기존 seal SDT id(900000001/2/3/4)로 채워짐.
   maps.text[NICE_CONTRACT_QTY_ID] = form.installQty;
   maps.text[NICE_CONTRACT_AMOUNT_ID] = computeNiceContractAmount(form.installQty);
@@ -90,7 +114,7 @@ export function buildNiceParagraphReplacements(form: NiceFormData): TextReplacem
 
 export function buildNiceTextReplacements(_form: NiceFormData): TextReplacement[] {
   // 직인동의서 주소/대표자/날짜는 SDT(900000002/3/4)로 전환됨.
-  // 별지7호 '실외,지상' 오타는 템플릿에서 이미 수정됨.
+  // 별지7호 설치위치 표기는 템플릿에서 '실외, 노상'으로 통일됨.
   return [];
 }
 

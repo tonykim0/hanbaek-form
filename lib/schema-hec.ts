@@ -13,7 +13,7 @@ import { formatKoreanBizId } from './bizid';
 // Form data shape (pluglink fields + 4 HEC-only)
 // ─────────────────────────────────────────────
 
-export type BuildingType = 'apartment' | 'yeonlip' | 'sangga' | 'etc_officetel' | 'etc_knowledge' | 'etc_government' | 'etc_custom';
+export type BuildingType = '' | 'danok' | 'apartment' | 'yeonlip' | 'sangga' | 'etc_officetel' | 'etc_knowledge' | 'etc_government' | 'etc_custom';
 export type Ownership = 'own' | 'rent' | '';
 export type OwnerRelation = 'self' | 'family' | 'friend' | 'employee' | 'none' | '';
 
@@ -316,7 +316,7 @@ export function buildHecSdtMaps(form: HecFormData): SdtMaps {
     [CB_IDS.b5_loc2_biz]: isBiz,
     [CB_IDS.b5_loc2_etc]: isEtc,
 
-    [CB_IDS.bldDanok]: false,
+    [CB_IDS.bldDanok]: form.buildingType === 'danok',
     [CB_IDS.bldApt]: form.buildingType === 'apartment',
     [CB_IDS.bldYeonlip]: form.buildingType === 'yeonlip',
     [CB_IDS.bldSangga]: form.buildingType === 'sangga',

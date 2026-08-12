@@ -160,7 +160,7 @@ const CB_IDS = {
 
   // 설치위치
   locIndoor: '1703440318',     // 실내,지하
-  locOutdoor: '2078551633',    // 실외,노상
+  locOutdoor: '2078551633',    // 실외, 노상
 
   // 소유여부
   ownOwn: '1315296875',        // 소유 (template default ■)

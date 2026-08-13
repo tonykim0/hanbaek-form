@@ -31,6 +31,11 @@ export interface HecFormData {
   // 2. 계약 정보
   installAddr: string;
   installQty: string;
+  /** 자동 재발행 시 원본 별지5호·7호의 11~30kW 수량을 보존 */
+  installQty11to30?: string;
+  powerSharingKw?: string;
+  powerSharingQty?: string;
+  powerSharingCableQty?: string;
   contractTerm: '7' | '10';
   contractYear: string;
   contractMonth: string;
@@ -46,6 +51,8 @@ export interface HecFormData {
 
   // 4. 사전 현장 컨설팅 결과서 (별지7호)
   parkingLotCount: string;
+  /** 자동 재발행 시 「장소」 체크를 건물형태와 별도로 보존 */
+  siteCategory?: '' | 'apartment' | 'business' | 'small_business' | 'etc';
   buildingType: BuildingType;
   /** buildingType === 'etc_custom' 일 때 직접 입력한 건물형태 (예: 대학교, 병원) */
   buildingTypeEtc: string;
@@ -57,6 +64,8 @@ export interface HecFormData {
   // 전력인입 — 중복 선택 가능
   powerMoja: boolean;
   powerHanjeon: boolean;
+  highVoltageConfirmed?: boolean;
+  lowVoltageConfirmed?: boolean;
   installTypeWall: boolean;
   installTypeStand: boolean;
 
@@ -70,6 +79,12 @@ export interface HecFormData {
   dupOutlet: boolean;
   dupOutletQty: string;
   dupKiosk: boolean;
+  dupKioskQty?: string;
+  /** 자동 재발행 시 원본의 「해당사항 없음」 체크를 그대로 보존 */
+  dupNone?: boolean;
+
+  /** 원본 문서의 조사자·장소 체크를 추정 없이 복원하는 자동 재발행 모드 */
+  preserveDocumentFields?: boolean;
 
   // HEC 전용 필드
   custRepresentative: string;
@@ -253,14 +268,20 @@ export function buildHecSdtMaps(form: HecFormData): SdtMaps {
     [TEXT_IDS.custTel_b7]: form.custTel,
     [TEXT_IDS.custAddr_b7]: form.custAddr,
     [TEXT_IDS.smartQty_b7]: smartQty,
-    [TEXT_IDS.qty11to30_b7]: '',
-    [TEXT_IDS.qty11to30_b5]: '',
+    [TEXT_IDS.qty11to30_b7]: form.installQty11to30 ?? '',
+    [TEXT_IDS.qty11to30_b5]: form.installQty11to30 ?? '',
     [TEXT_IDS.parkingLotCount_b7]: form.parkingLotCount,
     [TEXT_IDS.installAddr_b7]: installAddr,
 
-    [TEXT_IDS.surveyorCompany]: form.salesCompany,
-    [TEXT_IDS.surveyorTel]: form.salesTel,
-    [TEXT_IDS.surveyorName]: form.salesName,
+    [TEXT_IDS.surveyorCompany]: form.preserveDocumentFields
+      ? form.surveyorCompany
+      : form.salesCompany,
+    [TEXT_IDS.surveyorTel]: form.preserveDocumentFields
+      ? form.surveyorTel
+      : form.salesTel,
+    [TEXT_IDS.surveyorName]: form.preserveDocumentFields
+      ? form.surveyorName
+      : form.salesName,
     [TEXT_IDS.surveyDate]: surveyDate,
 
     // 직인사용 동의서 (SDT)
@@ -340,8 +361,12 @@ export function buildHecSdtMaps(form: HecFormData): SdtMaps {
     [CB_IDS.typeWall]: form.installTypeWall,
     [CB_IDS.typeStand]: form.installTypeStand,
 
-    [CB_IDS.highVoltConfirm]: form.powerMoja,
-    [CB_IDS.lowVoltConfirm]: form.powerHanjeon,
+    [CB_IDS.highVoltConfirm]: form.preserveDocumentFields
+      ? (form.highVoltageConfirmed ?? false)
+      : form.powerMoja,
+    [CB_IDS.lowVoltConfirm]: form.preserveDocumentFields
+      ? (form.lowVoltageConfirmed ?? false)
+      : form.powerHanjeon,
 
     [CB_IDS.dupFast]: form.dupFast,
     [CB_IDS.dupSlow]: form.dupSlow,
@@ -353,6 +378,22 @@ export function buildHecSdtMaps(form: HecFormData): SdtMaps {
   const anyDup =
     form.dupFast || form.dupSlow || form.dupDist || form.dupOutlet || form.dupKiosk;
   checkbox[CB_IDS.dupNone] = !anyDup;
+
+  if (form.siteCategory !== undefined) {
+    const categoryIds = {
+      apartment: [CB_IDS.b5_loc1_apt, CB_IDS.b5_loc2_apt],
+      business: [CB_IDS.b5_loc1_biz, CB_IDS.b5_loc2_biz],
+      small_business: ['868034671', '850464996'],
+      etc: [CB_IDS.b5_loc1_etc, CB_IDS.b5_loc2_etc],
+    } as const;
+    for (const ids of Object.values(categoryIds)) {
+      for (const id of ids) checkbox[id] = false;
+    }
+    if (form.siteCategory) {
+      for (const id of categoryIds[form.siteCategory]) checkbox[id] = true;
+    }
+  }
+  if (form.dupNone !== undefined) checkbox[CB_IDS.dupNone] = form.dupNone;
 
   return { text, checkbox };
 }

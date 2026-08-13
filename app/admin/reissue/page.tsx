@@ -18,10 +18,10 @@ export const metadata: Metadata = {
  */
 
 const CPOS: Array<{ path: string; name: string; note: string }> = [
-  { path: '/hec', name: '현대엔지니어링', note: '사진대지 · 사전 체크리스트 포함 가능' },
-  { path: '/nice', name: '나이스인프라', note: '별지7호 1장' },
-  { path: '/sk', name: 'SK일렉링크', note: '별지7호 1장' },
-  { path: '/pluglink', name: '플러그링크', note: '별지7호 1장' },
+  { path: '/hec', name: '현대엔지니어링', note: '설치신청서 + 컨설팅결과서 자동 재발행' },
+  { path: '/nice', name: '나이스인프라', note: '설치신청서 + 컨설팅결과서 자동 재발행' },
+  { path: '/sk', name: 'SK일렉링크', note: '설치신청서 + 컨설팅결과서 자동 재발행' },
+  { path: '/pluglink', name: '플러그링크', note: '설치신청서 + 컨설팅결과서 자동 재발행' },
 ];
 
 export default function ReissuePage() {
@@ -41,7 +41,7 @@ export default function ReissuePage() {
             <div>
               <h1 className="text-2xl font-bold text-gray-900">서류 재발행 (담당자)</h1>
               <p className="text-sm text-gray-500 mt-1">
-                협력사 스캔본 판독 · 사전현장컨설팅결과서 단독 출력
+                기존 설치신청서·사전현장컨설팅결과서를 최신 양식으로 자동 변환
               </p>
             </div>
           </div>
@@ -51,18 +51,9 @@ export default function ReissuePage() {
           <h2 className="text-base font-semibold text-gray-900 mb-2">쓰는 순서</h2>
           <ol className="list-decimal ml-5 space-y-1.5 text-sm text-gray-700">
             <li>아래에서 운영사를 골라 엽니다.</li>
-            <li>
-              상단 「협력사 서류로 자동 채우기」에 협력사가 보내온 계약서류 스캔 PDF를
-              올리고 <b>판독해서 폼 채우기</b>를 누릅니다.
-            </li>
-            <li>
-              「서류에서 발견된 문제」 · 「판독이 불확실한 항목」 · 「비어 있는 필수 항목」을
-              원본과 대조해 고칩니다.
-            </li>
-            <li>
-              <b>계약서 생성 및 다운로드</b>(전체 · 신양식) 또는{' '}
-              <b>컨설팅결과서만</b>으로 뽑습니다.
-            </li>
+            <li>기존 별지5호 설치신청서 PDF와 별지7호 결과서 PDF를 각각 넣습니다.</li>
+            <li><b>두 문서 판독 후 최신 DOCX 다운로드</b>를 누릅니다.</li>
+            <li>자동 다운로드된 2페이지 DOCX와 화면의 판독 확인사항을 원본과 대조합니다.</li>
           </ol>
         </section>
 
@@ -104,7 +95,7 @@ export default function ReissuePage() {
               접근 차단이 아니라 화면 분리입니다 — 주소를 아는 사람은 열 수 있습니다.
               판독은 AI 호출 비용이 드니 링크를 외부에 공유하지 마세요.
             </li>
-            <li>판독값은 참고용입니다. 생성 전에 반드시 원본과 대조하세요.</li>
+            <li>판독값은 참고용입니다. 생성된 DOCX를 반드시 원본과 대조하세요.</li>
           </ul>
         </div>
       </main>

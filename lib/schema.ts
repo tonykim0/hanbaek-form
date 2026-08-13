@@ -19,7 +19,7 @@ import { formatKoreanBizId } from './bizid';
 // Form data shape
 // ─────────────────────────────────────────────
 
-export type BuildingType = 'apartment' | 'yeonlip' | 'sangga' | 'etc_officetel' | 'etc_knowledge' | 'etc_government' | 'etc_custom';
+export type BuildingType = '' | 'danok' | 'apartment' | 'yeonlip' | 'sangga' | 'etc_officetel' | 'etc_knowledge' | 'etc_government' | 'etc_custom';
 export type Ownership = 'own' | 'rent' | '';
 export type OwnerRelation = 'self' | 'family' | 'friend' | 'employee' | 'none' | '';
 
@@ -38,6 +38,10 @@ export interface ContractFormData {
   // 2. 계약 정보 (계약일 = 조사일, 항상 동일)
   installAddr: string;
   installQty: string;
+  installQty11to30?: string;
+  powerSharingKw?: string;
+  powerSharingQty?: string;
+  powerSharingCableQty?: string;
   contractTerm: '7' | '10';
   contractYear: string;
   contractMonth: string;
@@ -53,6 +57,7 @@ export interface ContractFormData {
 
   // 4. 사전 현장 컨설팅 결과서 (별지7호)
   parkingLotCount: string;
+  siteCategory?: '' | 'apartment' | 'business' | 'small_business' | 'etc';
   buildingType: BuildingType;
   /** buildingType === 'etc_custom' 일 때 직접 입력한 건물형태 (예: 대학교, 병원) */
   buildingTypeEtc: string;
@@ -64,6 +69,8 @@ export interface ContractFormData {
   // 전력인입 — 중복 선택 가능
   powerMoja: boolean;
   powerHanjeon: boolean;
+  highVoltageConfirmed?: boolean;
+  lowVoltageConfirmed?: boolean;
   installTypeWall: boolean;
   installTypeStand: boolean;
 
@@ -77,6 +84,9 @@ export interface ContractFormData {
   dupOutlet: boolean;
   dupOutletQty: string;
   dupKiosk: boolean;
+  dupKioskQty?: string;
+  dupNone?: boolean;
+  preserveDocumentFields?: boolean;
 }
 
 // ─────────────────────────────────────────────
@@ -200,13 +210,13 @@ const CB_IDS = {
   // 별지5호 — 설치 희망지 (Row 0): 공동주택/사업장/소상공인/기타
   b5_loc1_apt: '2085950294',     // 공동주택
   b5_loc1_biz: '550437745',      // 사업장
-  // (소상공인 868034671 — form 매핑 없음)
+  b5_loc1_small: '868034671',     // 소상공인
   b5_loc1_etc: '-176436175',     // 기타
 
   // 별지5호 — 장소 (Row 1): 공동주택/사업장/소상공인/기타
   b5_loc2_apt: '-322042069',     // 공동주택
   b5_loc2_biz: '-629096557',     // 사업장
-  // (소상공인 850464996 — form 매핑 없음)
+  b5_loc2_small: '850464996',     // 소상공인
   b5_loc2_etc: '-697774570',     // 기타
 } as const;
 
@@ -304,9 +314,15 @@ export function buildSdtMaps(form: ContractFormData): SdtMaps {
     [TEXT_IDS.parkingLotCount_b7]: form.parkingLotCount,
     [TEXT_IDS.installAddr_b7]: installAddr,
 
-    [TEXT_IDS.surveyorCompany]: form.salesCompany,
-    [TEXT_IDS.surveyorTel]: form.salesTel,
-    [TEXT_IDS.surveyorName]: form.salesName,
+    [TEXT_IDS.surveyorCompany]: form.preserveDocumentFields
+      ? form.surveyorCompany
+      : form.salesCompany,
+    [TEXT_IDS.surveyorTel]: form.preserveDocumentFields
+      ? form.surveyorTel
+      : form.salesTel,
+    [TEXT_IDS.surveyorName]: form.preserveDocumentFields
+      ? form.surveyorName
+      : form.salesName,
     [TEXT_IDS.surveyDate]: surveyDate,
 
     // 중복설치 수량 — 체크된 항목만 값, 미체크는 빈 문자열
@@ -327,7 +343,7 @@ export function buildSdtMaps(form: ContractFormData): SdtMaps {
   // ─── Checkboxes ───
   const checkbox: Record<string, boolean> = {
     // 건물형태 — 라디오 (별지7호)
-    [CB_IDS.bldDanok]: false,
+    [CB_IDS.bldDanok]: form.buildingType === 'danok',
     [CB_IDS.bldApt]: form.buildingType === 'apartment',
     [CB_IDS.bldYeonlip]: form.buildingType === 'yeonlip',
     [CB_IDS.bldSangga]: form.buildingType === 'sangga',
@@ -370,8 +386,12 @@ export function buildSdtMaps(form: ContractFormData): SdtMaps {
     [CB_IDS.typeStand]: form.installTypeStand,
 
     // 5번 cascade from 전력인입
-    [CB_IDS.highVoltConfirm]: form.powerMoja,
-    [CB_IDS.lowVoltConfirm]: form.powerHanjeon,
+    [CB_IDS.highVoltConfirm]: form.preserveDocumentFields
+      ? (form.highVoltageConfirmed ?? false)
+      : form.powerMoja,
+    [CB_IDS.lowVoltConfirm]: form.preserveDocumentFields
+      ? (form.lowVoltageConfirmed ?? false)
+      : form.powerHanjeon,
 
     // 6번 중복설치
     [CB_IDS.dupFast]: form.dupFast,
@@ -385,6 +405,22 @@ export function buildSdtMaps(form: ContractFormData): SdtMaps {
   const anyDup =
     form.dupFast || form.dupSlow || form.dupDist || form.dupOutlet || form.dupKiosk;
   checkbox[CB_IDS.dupNone] = !anyDup;
+
+  if (form.siteCategory !== undefined) {
+    const categoryIds = {
+      apartment: [CB_IDS.b5_loc1_apt, CB_IDS.b5_loc2_apt],
+      business: [CB_IDS.b5_loc1_biz, CB_IDS.b5_loc2_biz],
+      small_business: [CB_IDS.b5_loc1_small, CB_IDS.b5_loc2_small],
+      etc: [CB_IDS.b5_loc1_etc, CB_IDS.b5_loc2_etc],
+    } as const;
+    for (const ids of Object.values(categoryIds)) {
+      for (const id of ids) checkbox[id] = false;
+    }
+    if (form.siteCategory) {
+      for (const id of categoryIds[form.siteCategory]) checkbox[id] = true;
+    }
+  }
+  if (form.dupNone !== undefined) checkbox[CB_IDS.dupNone] = form.dupNone;
 
   // ─── 합의서 단계별 프로모션 — 계약기간 조건부 (신규 계약서 문구) ───
   // 7년: 180일 149원 단일 / 10년: 1단계 180일 149원 + 2단계 180일 249원

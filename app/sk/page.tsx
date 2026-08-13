@@ -14,7 +14,7 @@ import {
   RadioField,
   Section,
 } from '@/components/contracts/FormControls';
-import ImportPanel from '@/components/contracts/ImportPanel';
+import CpoTwoPageAutoReissue from '@/components/contracts/NiceTwoPageAutoReissue';
 import {
   ContractPageShell,
   FormActions,
@@ -22,13 +22,8 @@ import {
 } from '@/components/contracts/PageChrome';
 import { DEFAULT_YEAR, formatAdvancedSuccessMessage } from '@/lib/contract-form';
 import { downloadBlob } from '@/lib/download';
-import {
-  applyImportedFields,
-  IMPORT_FIELD_KEYS,
-  type FormImportResult,
-} from '@/lib/form-import';
 import { SkFormData } from '@/lib/schema-sk';
-import { useInternalMode } from '@/lib/use-internal-mode';
+import { useInternalModeState } from '@/lib/use-internal-mode';
 import { useDocScope } from '@/lib/use-doc-scope';
 
 const defaultValues: Partial<SkFormData> = {
@@ -78,18 +73,15 @@ export default function SkPage() {
 
   const [status, setStatus] = useState<SubmitStatus | null>(null);
   // SK 템플릿에는 사진대지·체크리스트가 없어 토글을 감춥니다.
-  const { docScope, finalize } = useDocScope();
+  const { finalize } = useDocScope();
   // 협력사 스캔본 판독은 담당자 전용 — ?import=1 일 때만 노출합니다.
-  const internalMode = useInternalMode();
+  const internalMode = useInternalModeState();
 
   const buildingType = watch('buildingType');
   const dupFast = watch('dupFast');
   const dupSlow = watch('dupSlow');
   const dupDist = watch('dupDist');
   const dupOutlet = watch('dupOutlet');
-
-  const applyImported = (result: FormImportResult) =>
-    applyImportedFields(result, setValue, IMPORT_FIELD_KEYS.sk);
 
   const onSubmit = async (data: SkFormData) => {
     setStatus(null);
@@ -118,14 +110,30 @@ export default function SkPage() {
     }
   };
 
+  if (internalMode === null) {
+    return (
+      <ContractPageShell title="SK일렉링크">
+        <div className="rounded-2xl border border-slate-200 bg-white px-5 py-8 text-center text-sm font-semibold text-slate-500">
+          화면을 불러오는 중입니다...
+        </div>
+      </ContractPageShell>
+    );
+  }
+
+  if (internalMode) {
+    return (
+      <ContractPageShell title="SK일렉링크 2개 서류 자동 재발행">
+        <CpoTwoPageAutoReissue cpo="sk" />
+      </ContractPageShell>
+    );
+  }
+
   return (
     <ContractPageShell title="SK일렉링크 계약서 자동생성">
         <form
           onSubmit={handleSubmit(onSubmit)}
           className="space-y-4 pb-2"
         >
-          {internalMode && <ImportPanel cpo="sk" onApply={applyImported} />}
-
           <Section title="사업구분">
             <RadioField label="계약 유형" hint="선택에 따라 생성되는 계약서 양식이 달라집니다 (입력 항목은 동일)">
               <Radio name="businessType" value="subsidy" register={register} label="보조금사업" />
@@ -161,14 +169,9 @@ export default function SkPage() {
             dupOutlet={dupOutlet}
           />
 
-          {/*
-            「컨설팅결과서만」도 재발행 도구라 담당자 모드에서만 보입니다 —
-            협력사·영업자에게는 이 화면이 기능 추가 이전과 똑같이 보입니다.
-          */}
           <FormActions
             status={status}
             isSubmitting={isSubmitting}
-            docScope={internalMode ? docScope : undefined}
           />
         </form>
 

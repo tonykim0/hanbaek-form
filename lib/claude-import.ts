@@ -75,6 +75,9 @@ const FIELD_PROPERTIES: Record<ImportedFieldKey, unknown> = {
   installAddr: nStr(),
   installQty: nStr(),
   installQty11to30: nStr(),
+  powerSharingKw: nStr(),
+  powerSharingQty: nStr(),
+  powerSharingCableQty: nStr(),
   contractTerm: nEnum(['7', '10']),
   contractYear: nStr(),
   contractMonth: nStr(),
@@ -107,6 +110,8 @@ const FIELD_PROPERTIES: Record<ImportedFieldKey, unknown> = {
   ownerRelation: nEnum(['self', 'family', 'friend', 'employee', 'none']),
   powerMoja: nBool(),
   powerHanjeon: nBool(),
+  highVoltageConfirmed: nBool(),
+  lowVoltageConfirmed: nBool(),
   installTypeWall: nBool(),
   installTypeStand: nBool(),
 
@@ -119,6 +124,7 @@ const FIELD_PROPERTIES: Record<ImportedFieldKey, unknown> = {
   dupOutlet: nBool(),
   dupOutletQty: nStr(),
   dupKiosk: nBool(),
+  dupKioskQty: nStr(),
   dupNone: nBool(),
 
   evCount: nStr(),
@@ -361,6 +367,9 @@ async function limitPages(
 const DIGIT_FIELDS: readonly ImportedFieldKey[] = [
   'installQty',
   'installQty11to30',
+  'powerSharingKw',
+  'powerSharingQty',
+  'powerSharingCableQty',
   'contractYear',
   'contractMonth',
   'contractDay',
@@ -369,6 +378,7 @@ const DIGIT_FIELDS: readonly ImportedFieldKey[] = [
   'dupSlowQty',
   'dupDistQty',
   'dupOutletQty',
+  'dupKioskQty',
   'evCount',
   'siteTotalSlow',
   'siteTotalFast',
@@ -407,6 +417,7 @@ function toResult(raw: unknown): Omit<FormImportResult, 'analyzedPages' | 'total
     ['dupSlow', 'dupSlowQty'],
     ['dupDist', 'dupDistQty'],
     ['dupOutlet', 'dupOutletQty'],
+    ['dupKiosk', 'dupKioskQty'],
   ];
   for (const [flag, qty] of dupPairs) {
     if (normalized[flag] === false) {

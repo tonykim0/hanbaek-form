@@ -12,12 +12,13 @@
 import JSZip from 'jszip';
 
 const W_NS = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
+const XML_NS = 'http://www.w3.org/XML/1998/namespace';
 
 /** 「별지 제7호 서식」 — 결과서 시작 */
 const REPORT_ANCHOR = '별지제7호';
 /** 「별지 제5호 서식」 — 설치신청서 시작 */
 const APPLICATION_ANCHOR = '별지제5호';
-/** NICE 설치신청서 다음 문서 시작 — 이 앞까지만 설치신청서로 남깁니다. */
+/** 설치신청서 다음 문서 시작 — 이 앞까지만 설치신청서로 남깁니다. */
 const APPLICATION_END_ANCHORS = ['직인사용동의서', '개인정보수집'];
 /** [별지 1] 사진대지 / [별지 2] 사전 체크리스트 — 결과서에 딸린 별지 시작 */
 const ATTACHMENT_ANCHORS = ['별지1]', '별지2]'];
@@ -47,6 +48,14 @@ export interface SelectedDocumentsSliceResult {
   dropped: number;
 }
 
+export interface SelectedDocumentValues {
+  installQty11to30?: string | null;
+  powerSharingKw?: string | null;
+  powerSharingQty?: string | null;
+  powerSharingCableQty?: string | null;
+  dupKioskQty?: string | null;
+}
+
 /** 문단·표의 모든 <w:t>를 이어 붙이고 공백을 없앤 문자열 (앵커 비교용) */
 function normalizedText(node: Element): string {
   const texts = node.getElementsByTagNameNS(W_NS, 't');
@@ -61,6 +70,126 @@ function hasPageBreak(node: Element): boolean {
     if (breaks[i].getAttributeNS(W_NS, 'type') === 'page') return true;
   }
   return false;
+}
+
+function createPageBreakParagraph(doc: Document): Element {
+  const paragraph = doc.createElementNS(W_NS, 'w:p');
+  const run = doc.createElementNS(W_NS, 'w:r');
+  const pageBreak = doc.createElementNS(W_NS, 'w:br');
+  pageBreak.setAttributeNS(W_NS, 'w:type', 'page');
+  run.appendChild(pageBreak);
+  paragraph.appendChild(run);
+  return paragraph;
+}
+
+function directTableCells(row: Element): Element[] {
+  const cells: Element[] = [];
+  for (let cell = row.firstElementChild; cell; cell = cell.nextElementSibling) {
+    if (cell.namespaceURI === W_NS && cell.localName === 'tc') cells.push(cell);
+  }
+  return cells;
+}
+
+function replaceCellText(cell: Element, value: string): void {
+  const texts = cell.getElementsByTagNameNS(W_NS, 't');
+  if (texts.length === 0) return;
+  texts[0].textContent = value;
+  texts[0].setAttributeNS(XML_NS, 'xml:space', 'preserve');
+  for (let i = 1; i < texts.length; i++) texts[i].textContent = '';
+}
+
+function hasAncestor(node: Node, localName: string): boolean {
+  let current = node.parentNode;
+  while (current) {
+    if (current.nodeType === 1 && (current as Element).localName === localName) return true;
+    current = current.parentNode;
+  }
+  return false;
+}
+
+function replaceKioskQuantity(row: Element, qty: string): void {
+  const texts = row.getElementsByTagNameNS(W_NS, 't');
+  const editable: Element[] = [];
+  for (let i = 0; i < texts.length; i++) {
+    if (!hasAncestor(texts[i], 'sdt')) editable.push(texts[i]);
+  }
+  const labelIndex = editable.findIndex((text) =>
+    (text.textContent ?? '').includes('키오스크')
+  );
+  if (labelIndex < 0) return;
+  editable[labelIndex].textContent = ` 키오스크(${qty}기)`;
+  editable[labelIndex].setAttributeNS(XML_NS, 'xml:space', 'preserve');
+  for (let i = labelIndex + 1; i < editable.length; i++) {
+    if ((editable[i].textContent ?? '').includes('해당사항')) break;
+    editable[i].textContent = '';
+  }
+}
+
+/** SDT가 없는 최신 양식 숫자 칸을 행 제목 기준으로 채웁니다. */
+function fillUncontrolledDocumentValues(
+  body: Element,
+  values: SelectedDocumentValues
+): void {
+  const rows = body.getElementsByTagNameNS(W_NS, 'tr');
+  let qty11Row = 0;
+  let sharingRow = 0;
+
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
+    const text = normalizedText(row);
+    const cells = directTableCells(row);
+    if (cells.length === 0) continue;
+
+    if (text.includes('11kW이상~30kW미만')) {
+      const qty = values.installQty11to30 ?? '';
+      replaceCellText(cells[cells.length - 1], qty11Row++ === 0 ? `${qty} 기` : `(${qty})기`);
+      continue;
+    }
+
+    if (text.includes('전력분배형') && text.includes('케이블')) {
+      const kw = values.powerSharingKw ?? '';
+      const qty = values.powerSharingQty ?? '';
+      const cables = values.powerSharingCableQty ?? '';
+      replaceCellText(
+        cells[cells.length - 1],
+        sharingRow++ === 0
+          ? `${kw}kW ${qty}기(케이블 ${cables}개)`
+          : `(${kw})kW (${qty})기 케이블 (${cables})개`
+      );
+      continue;
+    }
+
+    if (text.includes('키오스크(')) {
+      replaceKioskQuantity(row, values.dupKioskQty ?? '');
+    }
+  }
+}
+
+/**
+ * 플러그링크 최신 템플릿은 별지5호와 개인정보동의서가 한 표에 이어져 있습니다.
+ * 개인정보 제목이 시작되는 행부터 제거해 설치신청서 1페이지만 남깁니다.
+ */
+function trimEmbeddedPrivacyRows(
+  children: Element[],
+  applicationStart: number,
+  reportStart: number
+): void {
+  for (let i = applicationStart; i < reportStart; i++) {
+    const child = children[i];
+    if (child.namespaceURI !== W_NS || child.localName !== 'tbl') continue;
+
+    const rows: Element[] = [];
+    for (let row = child.firstElementChild; row; row = row.nextElementSibling) {
+      if (row.namespaceURI === W_NS && row.localName === 'tr') rows.push(row);
+    }
+    const privacyStart = rows.findIndex((row) =>
+      normalizedText(row).startsWith('개인정보수집')
+    );
+    if (privacyStart < 0) continue;
+    for (let row = privacyStart; row < rows.length; row++) {
+      rows[row].parentNode?.removeChild(rows[row]);
+    }
+  }
 }
 
 function removeBookmarks(body: Element): void {
@@ -117,12 +246,13 @@ async function saveDocument(zip: JSZip, doc: Document): Promise<Blob> {
 }
 
 /**
- * 채워진 NICE 보조금 템플릿에서 최신 별지5호 설치신청서와 별지7호
- * 사전현장컨설팅 결과서만 남깁니다. 두 서류 사이에는 템플릿의 기존 페이지
- * 나눔을 보존하므로 결과물은 각 서류 1페이지씩, 총 2페이지가 됩니다.
+ * 채워진 CPO 보조금 템플릿에서 최신 별지5호 설치신청서와 별지7호
+ * 사전현장컨설팅 결과서만 남깁니다. 현대의 뒤쪽 사진대지·체크리스트는 제외하고,
+ * 플러그링크 표 안에 붙은 개인정보동의서 행도 제거합니다.
  */
-export async function sliceNiceApplicationAndConsulting(
-  source: Blob
+export async function sliceApplicationAndConsulting(
+  source: Blob,
+  values: SelectedDocumentValues = {}
 ): Promise<SelectedDocumentsSliceResult> {
   const { zip, doc, body, children, trailingSectPr } = await loadDocument(source);
   const contentEnd = trailingSectPr ? children.length - 1 : children.length;
@@ -131,35 +261,48 @@ export async function sliceNiceApplicationAndConsulting(
     (child) => child !== trailingSectPr && normalizedText(child).includes(APPLICATION_ANCHOR)
   );
   if (applicationStart < 0) {
-    throw new Error('최신 NICE 템플릿에서 별지5호 설치신청서를 찾을 수 없습니다');
+    throw new Error('최신 템플릿에서 별지5호 설치신청서를 찾을 수 없습니다');
   }
 
   const reportStart = children.findIndex(
     (child) => child !== trailingSectPr && normalizedText(child).includes(REPORT_ANCHOR)
   );
   if (reportStart < 0) {
-    throw new Error('최신 NICE 템플릿에서 별지7호 사전현장컨설팅 결과서를 찾을 수 없습니다');
+    throw new Error('최신 템플릿에서 별지7호 사전현장컨설팅 결과서를 찾을 수 없습니다');
   }
 
-  const applicationEnd = children.findIndex(
+  fillUncontrolledDocumentValues(body, values);
+  trimEmbeddedPrivacyRows(children, applicationStart, reportStart);
+
+  // 별지7호 앞의 기존 페이지 나눔 문단을 보존합니다. 플러그링크처럼
+  // 명시적 나눔이 없는 템플릿은 새 페이지 나눔을 삽입합니다.
+  const hasExistingReportBreak =
+    reportStart > 0 && hasPageBreak(children[reportStart - 1]);
+  const reportBreak = hasExistingReportBreak ? reportStart - 1 : reportStart;
+  if (!hasExistingReportBreak) {
+    body.insertBefore(createPageBreakParagraph(doc), children[reportStart]);
+  }
+
+  const detectedApplicationEnd = children.findIndex(
     (child, index) =>
       index > applicationStart &&
       index < reportStart &&
-      APPLICATION_END_ANCHORS.some((anchor) => normalizedText(child).includes(anchor))
+      APPLICATION_END_ANCHORS.some((anchor) => normalizedText(child).startsWith(anchor))
   );
-  if (applicationEnd < 0) {
-    throw new Error('NICE 설치신청서의 끝 경계를 찾을 수 없습니다');
-  }
+  const applicationEnd =
+    detectedApplicationEnd >= 0 ? detectedApplicationEnd : reportBreak;
 
-  // 별지7호 앞의 기존 페이지 나눔 문단을 함께 보존합니다.
-  const reportBreak =
-    reportStart > 0 && hasPageBreak(children[reportStart - 1])
-      ? reportStart - 1
-      : reportStart;
+  const attachmentStart = children.findIndex(
+    (child, index) =>
+      index > reportStart &&
+      child !== trailingSectPr &&
+      ATTACHMENT_ANCHORS.some((anchor) => normalizedText(child).includes(anchor))
+  );
+  const reportEnd = attachmentStart >= 0 ? attachmentStart : contentEnd;
 
   const keep = new Set<number>();
   for (let i = applicationStart; i < applicationEnd; i++) keep.add(i);
-  for (let i = reportBreak; i < contentEnd; i++) keep.add(i);
+  for (let i = reportBreak; i < reportEnd; i++) keep.add(i);
 
   let dropped = 0;
   for (let i = 0; i < children.length; i++) {
@@ -173,10 +316,13 @@ export async function sliceNiceApplicationAndConsulting(
   return {
     blob: await saveDocument(zip, doc),
     applicationKept: applicationEnd - applicationStart,
-    consultingKept: contentEnd - reportStart,
+    consultingKept: reportEnd - reportStart,
     dropped,
   };
 }
+
+/** 기존 호출부 호환용 별칭 */
+export const sliceNiceApplicationAndConsulting = sliceApplicationAndConsulting;
 
 export async function sliceConsultingReport(
   source: Blob,

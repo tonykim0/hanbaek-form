@@ -14,7 +14,7 @@ import {
   RadioField,
   Section,
 } from '@/components/contracts/FormControls';
-import NiceTwoPageAutoReissue from '@/components/contracts/NiceTwoPageAutoReissue';
+import CpoTwoPageAutoReissue from '@/components/contracts/NiceTwoPageAutoReissue';
 import {
   ContractPageShell,
   FormActions,
@@ -74,7 +74,7 @@ export default function NicePage() {
 
   const [status, setStatus] = useState<SubmitStatus | null>(null);
   // NICE 템플릿에는 사진대지·체크리스트가 없어 토글을 감춥니다.
-  const { docScope, finalize } = useDocScope();
+  const { finalize } = useDocScope();
   // 협력사 스캔본 판독은 담당자 전용 — ?import=1 일 때만 노출합니다.
   const internalMode = useInternalModeState();
 
@@ -124,7 +124,7 @@ export default function NicePage() {
   if (internalMode) {
     return (
       <ContractPageShell title="나이스인프라 2개 서류 자동 재발행">
-        <NiceTwoPageAutoReissue />
+        <CpoTwoPageAutoReissue cpo="nice" />
       </ContractPageShell>
     );
   }
@@ -193,14 +193,9 @@ export default function NicePage() {
             dupOutlet={dupOutlet}
           />
 
-          {/*
-            「컨설팅결과서만」도 재발행 도구라 담당자 모드에서만 보입니다 —
-            협력사·영업자에게는 이 화면이 기능 추가 이전과 똑같이 보입니다.
-          */}
           <FormActions
             status={status}
             isSubmitting={isSubmitting}
-            docScope={internalMode ? docScope : undefined}
           />
         </form>
 

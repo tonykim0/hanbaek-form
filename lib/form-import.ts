@@ -37,6 +37,9 @@ export interface ImportedFormFields {
   installAddr: string | null;
   installQty: string | null;
   installQty11to30: string | null;
+  powerSharingKw: string | null;
+  powerSharingQty: string | null;
+  powerSharingCableQty: string | null;
   contractTerm: '7' | '10' | null;
   contractYear: string | null;
   contractMonth: string | null;
@@ -72,6 +75,8 @@ export interface ImportedFormFields {
   ownerRelation: 'self' | 'family' | 'friend' | 'employee' | 'none' | null;
   powerMoja: boolean | null;
   powerHanjeon: boolean | null;
+  highVoltageConfirmed: boolean | null;
+  lowVoltageConfirmed: boolean | null;
   installTypeWall: boolean | null;
   installTypeStand: boolean | null;
 
@@ -85,6 +90,7 @@ export interface ImportedFormFields {
   dupOutlet: boolean | null;
   dupOutletQty: string | null;
   dupKiosk: boolean | null;
+  dupKioskQty: string | null;
   dupNone: boolean | null;
 
   // HEC 전용
@@ -257,6 +263,9 @@ export const FIELD_LABELS: Record<ImportedFieldKey, string> = {
   installAddr: '건축물대장 주소(설치장소)',
   installQty: '설치수량',
   installQty11to30: '11~30kW 설치수량',
+  powerSharingKw: '전력분배형 용량(kW)',
+  powerSharingQty: '전력분배형 설치수량',
+  powerSharingCableQty: '전력분배형 케이블 수',
   contractTerm: '계약기간',
   contractYear: '계약연도',
   contractMonth: '계약월',
@@ -278,6 +287,8 @@ export const FIELD_LABELS: Record<ImportedFieldKey, string> = {
   ownerRelation: '소유주와의 관계',
   powerMoja: '전력인입 모자분할',
   powerHanjeon: '전력인입 한전불입',
+  highVoltageConfirmed: '고압 변압기 용량 확인',
+  lowVoltageConfirmed: '저압 계약전력 확인',
   installTypeWall: '설치타입 벽부형',
   installTypeStand: '설치타입 스탠드',
   dupFast: '중복설치 급속',
@@ -289,6 +300,7 @@ export const FIELD_LABELS: Record<ImportedFieldKey, string> = {
   dupOutlet: '중복설치 과금형콘센트',
   dupOutletQty: '중복설치 과금형콘센트 수량',
   dupKiosk: '중복설치 키오스크',
+  dupKioskQty: '중복설치 키오스크 수량',
   dupNone: '중복설치 해당사항 없음',
   evCount: '전기차 등록대수',
   siteTotalSlow: '총 설치대수(완속)',

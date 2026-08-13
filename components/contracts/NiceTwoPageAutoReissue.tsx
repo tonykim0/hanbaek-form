@@ -6,13 +6,46 @@ import { downloadBlob } from '@/lib/download';
 import {
   FIELD_LABELS,
   LOW_CONFIDENCE_THRESHOLD,
+  type CpoKey,
   type FormImportResult,
   type ImportedFieldKey,
 } from '@/lib/form-import';
 import { importFormFromPdf, type ImportPhase } from '@/lib/import-client';
+import type { ContractFormData } from '@/lib/schema';
+import type { HecFormData } from '@/lib/schema-hec';
 import type { NiceFormData } from '@/lib/schema-nice';
+import type { SkFormData } from '@/lib/schema-sk';
 
 type Slot = 'application' | 'consulting';
+
+interface AutoReissueConfig {
+  operatorName: string;
+  shortName: string;
+  defaultContractTerm: '7' | '10';
+}
+
+const CONFIG: Record<CpoKey, AutoReissueConfig> = {
+  hec: {
+    operatorName: '현대엔지니어링',
+    shortName: 'HEC',
+    defaultContractTerm: '7',
+  },
+  nice: {
+    operatorName: '나이스인프라',
+    shortName: 'NICE',
+    defaultContractTerm: '10',
+  },
+  sk: {
+    operatorName: 'SK일렉링크',
+    shortName: 'SK',
+    defaultContractTerm: '10',
+  },
+  pluglink: {
+    operatorName: '플러그링크',
+    shortName: '플러그링크',
+    defaultContractTerm: '7',
+  },
+};
 
 const REQUIRED_FOR_OUTPUT: readonly ImportedFieldKey[] = [
   'custName',
@@ -38,7 +71,8 @@ const REQUIRED_FOR_OUTPUT: readonly ImportedFieldKey[] = [
   'dupNone',
 ];
 
-export default function NiceTwoPageAutoReissue() {
+export default function CpoTwoPageAutoReissue({ cpo }: { cpo: CpoKey }) {
+  const config = CONFIG[cpo];
   const [application, setApplication] = useState<File | null>(null);
   const [consulting, setConsulting] = useState<File | null>(null);
   const [phase, setPhase] = useState<ImportPhase | { kind: 'generating' } | null>(null);
@@ -72,21 +106,29 @@ export default function NiceTwoPageAutoReissue() {
       const merged = await mergePdfs(application, consulting);
       const extracted = await importFormFromPdf({
         file: merged,
-        cpo: 'nice',
+        cpo,
         onPhase: setPhase,
       });
       ensureBothDocuments(extracted);
 
       setPhase({ kind: 'generating' });
-      const form = toNiceFormData(extracted);
-      const { fillNiceTemplate } = await import('@/lib/fillDocx-nice');
-      const { sliceNiceApplicationAndConsulting } = await import('@/lib/slice-docx');
-      const filled = await fillNiceTemplate(form);
-      const sliced = await sliceNiceApplicationAndConsulting(filled.blob);
+      const filled = await fillLatestTemplate(
+        cpo,
+        extracted,
+        config.defaultContractTerm
+      );
+      const { sliceApplicationAndConsulting } = await import('@/lib/slice-docx');
+      const sliced = await sliceApplicationAndConsulting(filled.blob, {
+        installQty11to30: extracted.fields.installQty11to30,
+        powerSharingKw: extracted.fields.powerSharingKw,
+        powerSharingQty: extracted.fields.powerSharingQty,
+        powerSharingCableQty: extracted.fields.powerSharingCableQty,
+        dupKioskQty: extracted.fields.dupKioskQty,
+      });
       const outputName = buildContractFilename(
-        form.contractYear || DEFAULT_YEAR,
-        'NICE_설치신청서_사전현장컨설팅결과서',
-        form.custName || '미확인현장'
+        filled.contractYear || DEFAULT_YEAR,
+        `${config.shortName}_설치신청서_사전현장컨설팅결과서`,
+        filled.custName || '미확인현장'
       );
 
       downloadBlob(sliced.blob, outputName);
@@ -115,13 +157,15 @@ export default function NiceTwoPageAutoReissue() {
   return (
     <section className="rounded-2xl border border-brand-200 bg-white shadow-sm">
       <div className="border-b border-brand-100 bg-brand-50 px-5 py-4">
-        <p className="text-xs font-black tracking-[0.12em] text-brand-700">NICE 자동 재발행</p>
+        <p className="text-xs font-black tracking-[0.12em] text-brand-700">
+          {config.shortName} 자동 재발행
+        </p>
         <h2 className="mt-1 text-xl font-black tracking-[-0.03em] text-slate-900">
           기존 2개 서류를 최신 양식으로 변환
         </h2>
         <p className="mt-2 text-sm leading-6 text-slate-600">
           설치신청서와 사전현장컨설팅 결과서 PDF를 각각 넣으면 내용을 자동 판독하고,
-          최신 NICE 양식의 해당 2페이지만 채운 DOCX를 바로 다운로드합니다.
+          최신 {config.operatorName} 양식의 해당 2페이지만 채운 DOCX를 바로 다운로드합니다.
         </p>
       </div>
 
@@ -149,7 +193,7 @@ export default function NiceTwoPageAutoReissue() {
           disabled={!application || !consulting || busy}
           className="w-full rounded-xl bg-brand-700 px-5 py-3.5 text-sm font-bold text-white transition hover:bg-brand-800 disabled:cursor-not-allowed disabled:bg-slate-300"
         >
-          {phase ? phaseText(phase) : '두 문서 판독 후 최신 DOCX 다운로드'}
+          {phase ? phaseText(phase, config.operatorName) : '두 문서 판독 후 최신 DOCX 다운로드'}
         </button>
 
         <p className="text-xs leading-5 text-slate-500">
@@ -257,10 +301,13 @@ function Notice({
   );
 }
 
-function phaseText(phase: ImportPhase | { kind: 'generating' }): string {
+function phaseText(
+  phase: ImportPhase | { kind: 'generating' },
+  operatorName: string
+): string {
   if (phase.kind === 'uploading') return `업로드 중... ${phase.percentage}%`;
   if (phase.kind === 'reading') return 'AI가 두 문서를 판독 중입니다...';
-  return '최신 NICE 양식으로 생성 중입니다...';
+  return `최신 ${operatorName} 양식으로 생성 중입니다...`;
 }
 
 async function mergePdfs(application: File, consulting: File): Promise<File> {
@@ -283,7 +330,7 @@ async function mergePdfs(application: File, consulting: File): Promise<File> {
   new Uint8Array(pdfBuffer).set(bytes);
   return new File(
     [pdfBuffer],
-    'NICE_설치신청서_사전현장컨설팅결과서.pdf',
+    '설치신청서_사전현장컨설팅결과서.pdf',
     { type: 'application/pdf' }
   );
 }
@@ -299,7 +346,27 @@ function ensureBothDocuments(result: FormImportResult): void {
   }
 }
 
-function toNiceFormData(result: FormImportResult): NiceFormData {
+type CommonAutoFormData = Omit<
+  ContractFormData,
+  'businessType' | 'contractTerm'
+> & {
+  businessType: 'subsidy';
+  contractTerm: '7' | '10';
+  installQty11to30: string;
+  powerSharingKw: string;
+  powerSharingQty: string;
+  powerSharingCableQty: string;
+  siteCategory: '' | 'apartment' | 'business' | 'small_business' | 'etc';
+  dupNone: boolean;
+  preserveDocumentFields: true;
+  siteTotalSlow: string;
+  siteTotalFast: string;
+};
+
+function toCommonFormData(
+  result: FormImportResult,
+  defaultContractTerm: '7' | '10'
+): CommonAutoFormData {
   const f = result.fields;
   return {
     businessType: 'subsidy',
@@ -311,7 +378,10 @@ function toNiceFormData(result: FormImportResult): NiceFormData {
     installAddr: f.installAddr ?? '',
     installQty: f.installQty ?? '',
     installQty11to30: f.installQty11to30 ?? '',
-    contractTerm: f.contractTerm ?? '10',
+    powerSharingKw: f.powerSharingKw ?? '',
+    powerSharingQty: f.powerSharingQty ?? '',
+    powerSharingCableQty: f.powerSharingCableQty ?? '',
+    contractTerm: f.contractTerm ?? defaultContractTerm,
     contractYear: f.contractYear ?? DEFAULT_YEAR,
     contractMonth: f.contractMonth ?? '',
     contractDay: f.contractDay ?? '',
@@ -331,6 +401,8 @@ function toNiceFormData(result: FormImportResult): NiceFormData {
     ownerRelation: f.ownerRelation ?? '',
     powerMoja: f.powerMoja ?? false,
     powerHanjeon: f.powerHanjeon ?? false,
+    highVoltageConfirmed: f.highVoltageConfirmed ?? false,
+    lowVoltageConfirmed: f.lowVoltageConfirmed ?? false,
     installTypeWall: f.installTypeWall ?? false,
     installTypeStand: f.installTypeStand ?? false,
     dupFast: f.dupFast ?? false,
@@ -342,10 +414,58 @@ function toNiceFormData(result: FormImportResult): NiceFormData {
     dupOutlet: f.dupOutlet ?? false,
     dupOutletQty: f.dupOutletQty ?? '',
     dupKiosk: f.dupKiosk ?? false,
+    dupKioskQty: f.dupKioskQty ?? '',
     dupNone: f.dupNone ?? false,
-    custRepresentative: f.custRepresentative ?? '',
-    installDetailLocation: f.installDetailLocation ?? '',
+    preserveDocumentFields: true,
     siteTotalSlow: f.siteTotalSlow ?? '',
     siteTotalFast: f.siteTotalFast ?? '',
   };
+}
+
+async function fillLatestTemplate(
+  cpo: CpoKey,
+  result: FormImportResult,
+  defaultContractTerm: '7' | '10'
+): Promise<{ blob: Blob; contractYear: string; custName: string }> {
+  const common = toCommonFormData(result, defaultContractTerm);
+  const f = result.fields;
+
+  if (cpo === 'hec') {
+    const form: HecFormData = {
+      ...common,
+      custRepresentative: f.custRepresentative ?? '',
+      siteManager: f.siteManager ?? '',
+      parkingSlotsSlow: '',
+      evCount: f.evCount ?? '',
+    };
+    const { fillHecTemplate } = await import('@/lib/fillDocx-hec');
+    const filled = await fillHecTemplate(form);
+    return { blob: filled.blob, contractYear: form.contractYear, custName: form.custName };
+  }
+
+  if (cpo === 'nice') {
+    const form: NiceFormData = {
+      ...common,
+      custRepresentative: f.custRepresentative ?? '',
+      installDetailLocation: f.installDetailLocation ?? '',
+    };
+    const { fillNiceTemplate } = await import('@/lib/fillDocx-nice');
+    const filled = await fillNiceTemplate(form);
+    return { blob: filled.blob, contractYear: form.contractYear, custName: form.custName };
+  }
+
+  if (cpo === 'sk') {
+    const form: SkFormData = {
+      ...common,
+      custRepresentative: f.custRepresentative ?? '',
+    };
+    const { fillSkTemplate } = await import('@/lib/fillDocx-sk');
+    const filled = await fillSkTemplate(form);
+    return { blob: filled.blob, contractYear: form.contractYear, custName: form.custName };
+  }
+
+  const form: ContractFormData = common;
+  const { fillContractTemplate } = await import('@/lib/fillDocx');
+  const filled = await fillContractTemplate(form);
+  return { blob: filled.blob, contractYear: form.contractYear, custName: form.custName };
 }

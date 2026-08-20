@@ -99,16 +99,26 @@ function loadUsers(): StoredUser[] {
  * DB 를 먼저 보고 없으면 파일로 내려간다 — 그래야 새 계정을 만들어도 기존 계정이 계속 되고,
  * DB 가 비어 있는 환경에서도 로그인이 살아 있다.
  *
- * ★「없음」과 「사용중지」를 가른다.★
- * 둘을 같은 답으로 두면 사용중지한 계정이 뒷단(AUTH_USERS·개발 시드)으로 넘어가 그대로
- * 로그인된다 — 같은 id 가 거기 남아 있는 한 화면에서 계정을 끌 수 없다는 뜻이다.
+ * ★네 가지 답을 가른다.★
+ * 「없음」과 「사용중지」를 같은 답으로 두면 사용중지한 계정이 뒷단(AUTH_USERS·개발 시드)으로
+ * 넘어가 그대로 로그인된다 — 같은 id 가 거기 남아 있는 한 화면에서 계정을 끌 수 없다.
  * 사용중지는 최종 판정이라 뒷단을 보지 않는다.
+ *
+ * 「없음」과 「못 봤음」도 가른다. 로그인은 둘 다 파일로 내려가면 되지만, 이미 로그인한
+ * 세션을 확인할 때는 갈린다 — DB 가 잠깐 끊긴 것을 「계정이 없어졌다」로 읽으면 그 순간
+ * 모두가 로그아웃된다(accountForSession).
  */
-async function findInDb(id: string): Promise<StoredUser | 'disabled' | null> {
-  if (!hasDatabase()) return null;
+type DbLookup = StoredUser | 'disabled' | 'missing' | 'unavailable';
+
+async function findInDb(id: string): Promise<DbLookup> {
+  /*
+   * DB 를 아예 안 쓰는 환경에서는 파일이 정본이므로 「없음」이다 — 「못 봤음」이 아니다.
+   * 「못 봤음」은 봐야 할 DB 가 있는데 못 본 것(아래 catch)만 가리킨다.
+   */
+  if (!hasDatabase()) return 'missing';
   try {
     const [row] = await getDb().select().from(users).where(eq(users.id, id)).limit(1);
-    if (!row) return null;
+    if (!row) return 'missing';
     if (!row.active) return 'disabled';
     return {
       id: row.id, name: row.name, role: row.role as Role, org: row.org,
@@ -117,8 +127,45 @@ async function findInDb(id: string): Promise<StoredUser | 'disabled' | null> {
   } catch (err) {
     // DB 가 잠깐 끊겼다고 로그인이 통째로 막히면 안 된다 — 파일 쪽으로 내려간다
     console.error('[auth] 계정 조회 실패, 파일 계정으로 넘어갑니다:', err);
-    return null;
+    return 'unavailable';
   }
+}
+
+/** 파일 쪽(AUTH_USERS·개발 시드)에 같은 id 가 있나 */
+const findInFile = (id: string): StoredUser | null =>
+  loadUsers().find((u) => u.id.toLowerCase() === id) ?? null;
+
+/**
+ * 세션에 실린 계정이 아직 쓸 수 있는가, 그리고 지금 값이 무엇인가.
+ *
+ * ★왜 필요한가★
+ * 세션은 서명된 쿠키 하나다(서버 저장소가 없다). 그래서 계정을 중지하거나 지워도 이미
+ * 발급된 쿠키는 만료(12시간)까지 그대로 통했다 — 지운 계정으로 화면이 계속 열렸다.
+ *
+ * 구분·소속도 여기서 다시 읽는다. 쿠키에 박힌 값을 그대로 믿으면, 관리자에서 협력사로
+ * 내린 계정이 12시간 동안 원가·마진을 계속 본다.
+ *
+ *   'gone'     중지·삭제됨 → 세션을 끊는다
+ *   'unknown'  DB 를 못 봤다 → 세션을 그대로 둔다. 한 번 끊긴 것으로 전원을 내보내지 않는다
+ */
+export async function accountForSession(
+  loginId: string
+): Promise<{ name: string; role: Role; org: string | null } | 'gone' | 'unknown'> {
+  const id = loginId.trim().toLowerCase();
+  const inDb = await findInDb(id);
+
+  if (inDb === 'disabled') return 'gone';
+  /* 못 본 것은 판정하지 않는다. 파일에 있으면 그 값을 쓰고, 없으면 세션을 그대로 둔다. */
+  if (inDb === 'unavailable') {
+    const file = findInFile(id);
+    return file ? { name: file.name, role: file.role, org: file.org } : 'unknown';
+  }
+  /* 확인했고 없다 — 파일에도 없으면 지워진 계정이다 */
+  if (inDb === 'missing') {
+    const file = findInFile(id);
+    return file ? { name: file.name, role: file.role, org: file.org } : 'gone';
+  }
+  return { name: inDb.name, role: inDb.role, org: inDb.org };
 }
 
 function assertAdmin(actor: Actor, what: string): void {
@@ -133,7 +180,9 @@ export const userStore: UserStore = {
     const id = loginId.trim().toLowerCase();
     const inDb = await findInDb(id);
     if (inDb === 'disabled') return null;
-    return inDb ?? loadUsers().find((u) => u.id.toLowerCase() === id) ?? null;
+    // 없거나 못 봤으면 파일로 내려간다 — DB 가 비어 있는 환경에서도 로그인이 살아 있어야 한다
+    if (inDb === 'missing' || inDb === 'unavailable') return findInFile(id);
+    return inDb;
   },
 
   async list() {

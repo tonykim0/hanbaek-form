@@ -330,6 +330,7 @@ function SiteHeader({
           placeholder="비우면 어느 업체도 아닌 현장"
           suggestions={knownOrgs}
         />
+        {/* 자체투자는 환경부 보조금을 받지 않는다 — 받을 대기번호가 없다 */}
         <EditableFact
           label="환경부 대기번호"
           value={project.envQueueNo}
@@ -338,6 +339,7 @@ function SiteHeader({
           field="value"
           method="POST"
           placeholder="2026-595"
+          na={project.bizType === '자체투자'}
         />
       </dl>
 

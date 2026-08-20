@@ -22,7 +22,8 @@ import { useState } from 'react';
 import { useAction } from '@/lib/use-action';
 
 export function EditableFact({
-  label, value, canEdit, url, field, method = 'PATCH', empty = '—', placeholder, suggestions = [],
+  label, value, canEdit, url, field, method = 'PATCH', empty = '—', placeholder,
+  suggestions = [], na = false,
 }: {
   label: string;
   value: string | null;
@@ -36,6 +37,14 @@ export function EditableFact({
   placeholder?: string;
   /** 눌러 넣을 후보 — 손으로 적으면 「에코일렉」과 「에코일렉 」이 갈린다 */
   suggestions?: string[];
+  /**
+   * 이 현장에는 해당없는 칸인가.
+   *
+   * 칸을 없애지 않는다 — 「빠뜨린 것」과 「원래 해당없는 것」은 다른 것이고,
+   * 칸이 사라지면 둘이 같은 모양이 된다(서류 목록에서 해당없음 칸을 남기는 것과 같은 이유).
+   * 고치는 자리는 주지 않는다 — 못 하는 일은 눌리지 않게 한다.
+   */
+  na?: boolean;
 }) {
   const { busy, error, setError, run } = useAction();
   const [editing, setEditing] = useState(false);
@@ -57,6 +66,15 @@ export function EditableFact({
     setDraft(value ?? '');
     setError(null);
   };
+
+  if (na) {
+    return (
+      <div className="flex items-baseline gap-1.5">
+        <dt className="text-tiny font-bold tracking-[0.04em] text-slate-400">{label}</dt>
+        <dd className="font-bold text-slate-300">해당없음</dd>
+      </div>
+    );
+  }
 
   if (editing) {
     return (

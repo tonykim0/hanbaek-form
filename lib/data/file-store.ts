@@ -319,6 +319,10 @@ export const fileRepository: ProjectRepository = {
     const records = await load();
     const r = records.find((x) => x.project.id === projectId);
     if (!r) throw new Error('현장을 찾을 수 없습니다.');
+    // 자체투자는 환경부 보조금을 받지 않는다 — 대기번호가 없다 (pg-store 와 같은 판정)
+    if (r.project.bizType === '자체투자' && value !== null) {
+      throw new Error('자체투자 현장은 환경부 대기번호가 없습니다.');
+    }
     if (r.project.envQueueNo === value) return;
     r.project.envQueueNo = value;
     r.lastProgressAt = new Date().toISOString().slice(0, 10);

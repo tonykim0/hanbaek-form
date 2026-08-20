@@ -239,6 +239,10 @@ export default function ProjectTable({
 function QueueCell({ p, canEdit }: { p: ProjectSummary; canEdit: boolean }) {
   const { busy, error, run } = useAction();
 
+  // 자체투자는 환경부 보조금을 받지 않는다 — 받을 대기번호가 없다
+  if (p.bizType === '자체투자') {
+    return <span className="text-slate-300">해당없음</span>;
+  }
   if (!canEdit) {
     return (
       <span className={`tabular-nums ${p.envQueueNo ? 'text-slate-700' : 'text-slate-300'}`}>

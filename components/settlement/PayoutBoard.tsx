@@ -1,18 +1,21 @@
 'use client';
 
 /**
- * 하도급사 지급관리 — 하도급사에게 내려줄 돈.
+ * 하도급사 지급관리 — 모아서 지급하는 자리.
+ *
+ * 회차 금액은 정해져 있다(지급할 총액의 1차 70% · 2차 잔액, lib/settlement.ts payoutStepsOf).
+ * 그래서 이 화면에서 사람이 하는 일은 하나다 — 지급할 회차를 골라 지급일 하나로 처리한다.
+ * 「8월 영업비를 한꺼번에」가 그것이다: 영업 필터 → 전체 선택 → 지급 처리.
  *
  * 축은 상대와 방향이다. 현장 하나가 두 줄이 된다 — 영업사에게 줄 돈과 시공사에게 줄 돈은
- * 받는 곳이 다르고 금액도 따로 나간다. 한 줄로 묶으면 「누구에게 얼마가 남았나」를
- * 셀 안에서 다시 쪼개 읽어야 한다.
- *
- * 금액의 세 값: 지급할 돈(계획 + 조정) · 나간 돈(원장의 지급 합) · 잔액.
- * 계획은 계약 라인의 단가에서 유도되고, 나간 돈은 원장(현장 상세의 정산 탭)에 적힌다.
- * 여기서는 적지 않는다 — 이 화면은 「어디에 얼마가 남았나」를 세는 자리다.
+ * 받는 곳이 다르고 따로 나간다.
  */
 import { useMemo, useState } from 'react';
-import type { SettlementSummary } from '@/types/project';
+import type { PayoutKind, SettlementSummary } from '@/types/project';
+import { payoutStepsOf } from '@/lib/settlement';
+import { today } from '@/lib/date';
+import { useAction } from '@/lib/use-action';
+import { Btn, Choice, Err } from '@/components/ui';
 import { CrossLink, Empty, Frame, SiteLink, Tile, won } from './parts';
 
 /** 지급 한 줄 — 현장 하나에 영업·시공 두 줄이 붙는다 */
@@ -21,40 +24,40 @@ interface Payout {
   projectId: string;
   projectName: string;
   cpo: string;
-  kind: '영업' | '시공';
+  kind: PayoutKind;
   org: string | null;
   /** 계획 = Σ(단가 × 대수) */
   plan: number;
-  /** 조정 합 — 자재비·추가공사비·차감·재정산 */
   adjust: number;
-  /** 나간 돈 — 원장의 지급 합 (회수는 음수로 이미 반영) */
   paid: number;
-  lastPaidAt: string | null;
+  step1At: string | null;
+  step2At: string | null;
   unpriced: number;
 }
 
 function payoutsOf(rows: SettlementSummary[]): Payout[] {
   return rows.flatMap((r) => [
     {
-      key: `${r.id}-영업`, projectId: r.id, projectName: r.name, cpo: r.cpo, kind: '영업' as const,
+      key: `${r.id}|영업비`, projectId: r.id, projectName: r.name, cpo: r.cpo, kind: '영업비' as const,
       org: r.salesOrg, plan: r.salesTotal, adjust: r.salesAdjust, paid: r.salesPaid,
-      lastPaidAt: r.salesLastPaidAt, unpriced: r.unpricedLines,
+      step1At: r.salesStep1At, step2At: r.salesStep2At, unpriced: r.unpricedLines,
     },
     {
-      key: `${r.id}-시공`, projectId: r.id, projectName: r.name, cpo: r.cpo, kind: '시공' as const,
+      key: `${r.id}|시공비`, projectId: r.id, projectName: r.name, cpo: r.cpo, kind: '시공비' as const,
       org: r.gcOrg, plan: r.consTotal, adjust: r.consAdjust, paid: r.consPaid,
-      lastPaidAt: r.consLastPaidAt, unpriced: r.unpricedLines,
+      step1At: r.consStep1At, step2At: r.consStep2At, unpriced: r.unpricedLines,
     },
   ]);
 }
 
-/** 지급할 돈 — 계획에 조정을 얹은 것 */
-const dueOf = (p: Payout): number => p.plan + p.adjust;
-/** 아직 안 나간 돈 */
-const remainingOf = (p: Payout): number => dueOf(p) - p.paid;
+const KIND_FILTERS = ['전체', '영업비', '시공비'] as const;
 
 export default function PayoutBoard({ rows }: { rows: SettlementSummary[] }) {
   const [org, setOrg] = useState<string | null>(null);
+  const [kindFilter, setKindFilter] = useState<(typeof KIND_FILTERS)[number]>('전체');
+  const [sel, setSel] = useState<Set<string>>(new Set());
+  const [at, setAt] = useState(today());
+  const { busy, error, run } = useAction();
 
   const payouts = useMemo(() => payoutsOf(rows), [rows]);
 
@@ -67,26 +70,21 @@ export default function PayoutBoard({ rows }: { rows: SettlementSummary[] }) {
   );
 
   /*
-   * ★받는 곳이 없는 줄은 합계에서 뺀다.★
-   *
-   * 한백이 계정 없는 업체의 건을 대신 접수하면서 업체명을 비우면, 그 현장도 영업·시공
-   * 두 줄이 생긴다. 그것을 합계에 넣으면 「잔액」이 줄 사람 없는 금액까지 세게 되고,
-   * 그 숫자는 한백이 현금 채무를 세는 숫자다.
-   *
-   * 없는 것으로 치지도 않는다. 따로 세어 경고로 세운다 — 업체를 지정하면 합계로 들어온다.
+   * ★받는 곳이 없는 줄은 합계에서 빼고, 지급 처리도 막는다.★
+   * 줄 사람이 정해지지 않은 돈을 내보낼 수는 없다 — 업체를 지정하면 들어온다.
    */
   const payable = useMemo(() => payouts.filter((p) => p.org !== null), [payouts]);
   const orphan = useMemo(() => payouts.filter((p) => p.org === null), [payouts]);
 
   const money = useMemo(() => {
-    const of = (kind: Payout['kind']) => payable.filter((p) => p.kind === kind);
-    const due = (list: Payout[]) => list.reduce((n, p) => n + dueOf(p), 0);
-    const remaining = (list: Payout[]) => list.reduce((n, p) => n + remainingOf(p), 0);
+    const of = (kind: PayoutKind) => payable.filter((p) => p.kind === kind);
+    const due = (list: Payout[]) => list.reduce((n, p) => n + p.plan + p.adjust, 0);
+    const remaining = (list: Payout[]) => list.reduce((n, p) => n + (p.plan + p.adjust - p.paid), 0);
     return {
-      salesDue: due(of('영업')),
-      salesRemaining: remaining(of('영업')),
-      consDue: due(of('시공')),
-      consRemaining: remaining(of('시공')),
+      salesDue: due(of('영업비')),
+      salesRemaining: remaining(of('영업비')),
+      consDue: due(of('시공비')),
+      consRemaining: remaining(of('시공비')),
       due: due(payable),
       remaining: remaining(payable),
       receivable: rows.reduce((n, r) => n + r.planTotal, 0),
@@ -98,8 +96,44 @@ export default function PayoutBoard({ rows }: { rows: SettlementSummary[] }) {
     };
   }, [payable, orphan, rows]);
 
-  // 「전체」에도 받는 곳 없는 줄은 안 섞는다 — 합계와 목록이 다른 것을 세면 안 맞는다
-  const shown = org === null ? payable : payable.filter((p) => p.org === org);
+  const shown = payable
+    .filter((p) => org === null || p.org === org)
+    .filter((p) => kindFilter === '전체' || p.kind === kindFilter);
+
+  /** 지금 지급할 회차가 있는 줄 — 체크할 수 있는 것 */
+  const openOf = (p: Payout) => payoutStepsOf(p.plan, p.adjust, p.paid).open;
+  const selectable = shown.filter((p) => openOf(p) !== null);
+  const selected = selectable.filter((p) => sel.has(p.key));
+  const selectedTotal = selected.reduce((n, p) => n + (openOf(p)?.amount ?? 0), 0);
+
+  const toggle = (key: string) =>
+    setSel((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+
+  const allShownSelected = selectable.length > 0 && selectable.every((p) => sel.has(p.key));
+  const toggleAll = () =>
+    setSel((prev) => {
+      const next = new Set(prev);
+      if (allShownSelected) selectable.forEach((p) => next.delete(p.key));
+      else selectable.forEach((p) => next.add(p.key));
+      return next;
+    });
+
+  async function pay() {
+    const ok = await run({
+      url: '/api/payouts',
+      body: { at, items: selected.map((p) => ({ projectId: p.projectId, kind: p.kind })) },
+      fail: '지급 처리에 실패했습니다.',
+    });
+    if (ok) setSel(new Set());
+  }
+
+  // 못 하는 이유를 버튼 이름에 적는다(화면 규칙 3)
+  const blocked = selected.length === 0 ? '선택 없음' : !at ? '지급일 미입력' : null;
 
   return (
     <div>
@@ -116,8 +150,8 @@ export default function PayoutBoard({ rows }: { rows: SettlementSummary[] }) {
       {money.orphanCount > 0 && (
         <p className="mb-4 rounded-xl border-l-[3px] border-amber-500 bg-amber-50/70 px-4 py-3 text-xs leading-relaxed text-amber-900">
           받는 곳이 정해지지 않은 지급 <b>{money.orphanCount}건</b> ({money.orphanSites.join(' · ')})
-          — 합계 {won(money.orphanDue)}원. <b>합계에서 빼 두었습니다.</b>{' '}
-          현장 상세의 현장 정보에서 영업사·시공사를 지정하면 합계로 들어옵니다.
+          — 합계 {won(money.orphanDue)}원. <b>합계에서 빼 두었고 지급 처리도 안 됩니다.</b>{' '}
+          현장 상세의 현장 정보에서 영업사·시공사를 지정하면 들어옵니다.
         </p>
       )}
 
@@ -128,45 +162,94 @@ export default function PayoutBoard({ rows }: { rows: SettlementSummary[] }) {
         </p>
       )}
 
-      {/* 받는 곳 고르기 — 한 번에 하나다. 여러 곳을 겹쳐 보는 일이 없다. */}
-      {orgs.length > 1 && (
-        <div className="mb-3 flex w-fit max-w-full gap-0.5 overflow-x-auto rounded-xl border border-slate-200 bg-white p-0.5">
-          {[null, ...orgs].map((o) => (
-            <button
-              key={o ?? '전체'}
-              type="button"
-              aria-current={org === o}
-              onClick={() => setOrg(o)}
-              className={`whitespace-nowrap rounded-[10px] px-3 py-1.5 text-small font-bold transition ${
-                org === o ? 'bg-brand-600 text-white' : 'text-slate-500 hover:text-slate-800'
-              }`}
-            >
-              {o ?? '전체'}
-            </button>
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        {/* 구분 고르기 — 「8월 영업비만 모아서」가 이 필터다 */}
+        <div className="flex gap-1">
+          {KIND_FILTERS.map((k) => (
+            <Choice key={k} on={kindFilter === k} onClick={() => setKindFilter(k)}>
+              {k}
+            </Choice>
           ))}
         </div>
-      )}
+
+        {/* 받는 곳 고르기 — 한 번에 하나다 */}
+        {orgs.length > 1 && (
+          <div className="flex w-fit max-w-full gap-0.5 overflow-x-auto rounded-xl border border-slate-200 bg-white p-0.5">
+            {[null, ...orgs].map((o) => (
+              <button
+                key={o ?? '전체'}
+                type="button"
+                aria-current={org === o}
+                onClick={() => setOrg(o)}
+                className={`whitespace-nowrap rounded-[10px] px-3 py-1.5 text-small font-bold transition ${
+                  org === o ? 'bg-brand-600 text-white' : 'text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                {o ?? '전체'}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* 지급 처리 — 선택한 회차들이 이 지급일 하나로 나간다 */}
+        <div className="ml-auto flex flex-wrap items-center gap-2">
+          <input
+            type="date"
+            value={at}
+            disabled={busy}
+            aria-label="지급일"
+            onChange={(e) => setAt(e.target.value)}
+            className="rounded-ctl border border-slate-200 bg-white px-2 py-1.5 text-small tabular-nums"
+          />
+          <Btn disabled={blocked !== null} busy={busy} busyLabel="지급 처리 중…" onClick={pay}>
+            {blocked ?? `선택 ${selected.length}건 ${won(selectedTotal)}원 지급 처리`}
+          </Btn>
+        </div>
+      </div>
+      <div className="mb-3 text-right"><Err>{error}</Err></div>
 
       {shown.length === 0 ? (
         <Empty />
       ) : (
-        <Frame min="960px">
+        <Frame min="1080px">
           <thead className="border-b border-slate-100 bg-slate-50 text-tiny font-bold tracking-[0.06em] text-slate-500">
             <tr>
+              <th className="w-10 px-3 py-2.5">
+                <input
+                  type="checkbox"
+                  aria-label="보이는 지급할 회차 전부 선택"
+                  checked={allShownSelected}
+                  disabled={selectable.length === 0 || busy}
+                  onChange={toggleAll}
+                />
+              </th>
               <th className="px-3 py-2.5 text-left">현장</th>
               <th className="px-3 py-2.5 text-left">구분</th>
               <th className="px-3 py-2.5 text-left">받는 곳</th>
-              <th className="px-3 py-2.5 text-right">지급할 돈</th>
-              <th className="px-3 py-2.5 text-right">나간 돈</th>
+              <th className="px-3 py-2.5 text-right">1차 70%</th>
+              <th className="px-3 py-2.5 text-right">2차 잔액</th>
               <th className="px-3 py-2.5 text-right">잔액</th>
-              <th className="px-3 py-2.5 text-left">최근 지급일</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {shown.map((p) => {
-              const remaining = remainingOf(p);
+              const steps = payoutStepsOf(p.plan, p.adjust, p.paid);
+              const remaining = steps.due - p.paid;
               return (
                 <tr key={p.key} className="transition hover:bg-brand-50/40">
+                  <td className="px-3 py-2.5 text-center">
+                    {steps.open ? (
+                      <input
+                        type="checkbox"
+                        aria-label={`${p.projectName} ${p.kind} ${steps.open.no}차 선택`}
+                        checked={sel.has(p.key)}
+                        disabled={busy}
+                        onChange={() => toggle(p.key)}
+                      />
+                    ) : (
+                      <span className="text-slate-300">—</span>
+                    )}
+                  </td>
                   <td className="px-3 py-2.5">
                     <SiteLink id={p.projectId} name={p.projectName} />
                     <p className="mt-0.5 text-tiny text-slate-400">{p.cpo}</p>
@@ -174,46 +257,47 @@ export default function PayoutBoard({ rows }: { rows: SettlementSummary[] }) {
                   <td className="px-3 py-2.5">
                     <span
                       className={`rounded-full px-2 py-0.5 text-tiny font-bold ${
-                        p.kind === '영업' ? 'bg-sky-100 text-sky-900' : 'bg-brand-100 text-brand-900'
+                        p.kind === '영업비' ? 'bg-sky-100 text-sky-900' : 'bg-brand-100 text-brand-900'
                       }`}
                     >
                       {p.kind}
                     </span>
-                  </td>
-                  <td className="px-3 py-2.5 text-slate-600">{p.org ?? '—'}</td>
-                  <td className="px-3 py-2.5 text-right font-bold tabular-nums text-slate-800">
-                    {won(dueOf(p))}
                     {p.adjust !== 0 && (
-                      <p className="text-micro font-semibold text-slate-400">
+                      <p className="mt-0.5 text-micro font-semibold text-slate-400">
                         조정 {p.adjust > 0 ? '+' : ''}{won(p.adjust)}
                       </p>
                     )}
                     {p.unpriced > 0 && (
-                      <span
-                        className="ml-1 whitespace-nowrap text-micro font-bold text-amber-700"
+                      <p
+                        className="mt-0.5 text-micro font-bold text-amber-700"
                         title="단가가 안 붙은 라인이 있어 실제보다 적습니다"
                       >
                         단가 미지정
-                      </span>
+                      </p>
                     )}
                   </td>
-                  <td className="px-3 py-2.5 text-right font-bold tabular-nums text-slate-700">
-                    {p.paid !== 0 ? won(p.paid) : <span className="text-slate-300">0원</span>}
-                  </td>
+                  <td className="px-3 py-2.5 text-slate-600">{p.org}</td>
+                  <StepCell
+                    amount={steps.open?.no === 1 ? steps.open.amount : steps.parts[0]}
+                    done={steps.step1Done}
+                    at={p.step1At}
+                    openNow={steps.open?.no === 1}
+                    waitLabel={null}
+                  />
+                  <StepCell
+                    amount={steps.open?.no === 2 ? steps.open.amount : steps.parts[1]}
+                    done={steps.step2Done}
+                    at={p.step2At}
+                    openNow={steps.open?.no === 2}
+                    waitLabel={steps.open?.no === 1 ? '1차 뒤' : null}
+                  />
                   <td
                     className={`px-3 py-2.5 text-right font-bold tabular-nums ${
                       remaining > 0 ? 'text-amber-800' : remaining < 0 ? 'text-red-700' : 'text-slate-300'
                     }`}
                   >
-                    {/* 음수 잔액은 더 준 것이다 — 회수하거나 재정산해야 하는 상태라 빨강 */}
+                    {/* 음수 잔액은 더 준 것이다 — 회수·재정산으로 풀어야 하는 상태라 빨강 */}
                     {remaining !== 0 ? won(remaining) : '—'}
-                  </td>
-                  <td
-                    className={`whitespace-nowrap px-3 py-2.5 tabular-nums ${
-                      p.lastPaidAt ? 'font-semibold text-brand-800' : 'text-slate-300'
-                    }`}
-                  >
-                    {p.lastPaidAt ?? '미지급'}
                   </td>
                 </tr>
               );
@@ -229,5 +313,29 @@ export default function PayoutBoard({ rows }: { rows: SettlementSummary[] }) {
         note="이 현장들에서 운영사에게 받을 기성은"
       />
     </div>
+  );
+}
+
+/**
+ * 회차 한 칸 — 금액과 상태.
+ * 상태는 셋: 지급일(끝) · 미지급(지금 지급할 차례) · 1차 뒤(아직 차례 아님).
+ * 원장 전의 기록으로 채워진 회차는 지급일이 없다 — 「기록 없음」이 아니라 —로 둔다.
+ */
+function StepCell({
+  amount, done, at, openNow, waitLabel,
+}: {
+  amount: number;
+  done: boolean;
+  at: string | null;
+  openNow: boolean;
+  waitLabel: string | null;
+}) {
+  return (
+    <td className="whitespace-nowrap px-3 py-2.5 text-right tabular-nums">
+      <span className={`font-bold ${done ? 'text-slate-400' : 'text-slate-800'}`}>{won(amount)}</span>
+      <p className={`text-micro ${done ? 'font-semibold text-brand-800' : openNow ? 'font-bold text-amber-700' : 'text-slate-300'}`}>
+        {done ? at ?? '지급됨' : openNow ? '미지급' : waitLabel ?? '—'}
+      </p>
+    </td>
   );
 }

@@ -172,13 +172,19 @@ const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 /**
  * 원장 입력 검사 — 저장소 세 벌이 같은 것을 봐야 하므로 여기 한 곳에 둔다.
  * 명목이 부호를 정한다: 회수·차감은 음수, 재정산만 양쪽 다 된다.
+ *
+ * manualOnly — 사람이 적는 길(조정·회수)인가. 1차·2차 회차 금액은 정해져 있어
+ * 수기로 못 적는다: 지급 처리(runPayoutBatch)가 계산해 넣는다.
  */
 export function checkPayoutEntry(input: {
   kind: unknown; category: unknown; amount: unknown; at: unknown; note?: unknown;
-}): string | null {
+}, opts: { manualOnly?: boolean } = {}): string | null {
   if (!PAYOUT_KINDS.includes(input.kind as PayoutKind)) return '구분(영업비/시공비)이 올바르지 않습니다.';
   const cat = CATEGORY_BY_KEY.get(input.category as PayoutCategory);
   if (!cat) return '명목이 올바르지 않습니다.';
+  if (opts.manualOnly && !cat.manual) {
+    return `${cat.key}은(는) 금액이 정해져 있어 손으로 적지 않습니다 — 지급 처리에서 기록됩니다.`;
+  }
   if (typeof input.amount !== 'number' || !Number.isInteger(input.amount) || input.amount === 0) {
     return '금액은 0 이 아닌 원 단위 정수여야 합니다.';
   }
@@ -189,6 +195,35 @@ export function checkPayoutEntry(input: {
     return '메모가 올바르지 않습니다.';
   }
   return null;
+}
+
+/**
+ * 회차 진행 — 금액은 정해져 있고 사람은 「언제 줬는가」만 정한다.
+ *
+ * 지급할 총액 = 계획(단가×대수) + 조정. 1차 = 그 70%(끝수 포함), 2차 = 잔액.
+ * covered(지급 합)가 1차 기준액을 넘으면 1차가 끝난 것이고, 총액을 넘으면 다 나간 것이다 —
+ * 원장 전의 기록(선금·차액)이 있어도 문턱으로 세므로 이중 지급이 안 생긴다.
+ */
+export function payoutStepsOf(plan: number, adjust: number, paid: number): {
+  /** 지급할 총액 = 계획 + 조정 */
+  due: number;
+  /** [1차, 2차] 기준액 — due 의 70/30, 끝수는 1차 */
+  parts: [number, number];
+  /** 지금 지급할 회차. null 이면 다 나갔거나(잔액 0·음수) 지급할 것이 없다. */
+  open: { no: 1 | 2; amount: number } | null;
+  step1Done: boolean;
+  step2Done: boolean;
+} {
+  const due = plan + adjust;
+  const [a, b] = due > 0 ? payInstallments(due) : [0, 0];
+  const step1Done = due > 0 && paid >= a;
+  const step2Done = due > 0 && paid >= due;
+  let open: { no: 1 | 2; amount: number } | null = null;
+  if (due > 0) {
+    if (!step1Done) open = { no: 1, amount: a - paid };
+    else if (!step2Done) open = { no: 2, amount: due - paid };
+  }
+  return { due, parts: [a, b], open, step1Done, step2Done };
 }
 
 /** 한쪽(영업비/시공비)의 원장 합 — 잔액 = 계획 + adjust − paid */

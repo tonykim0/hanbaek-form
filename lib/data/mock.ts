@@ -268,6 +268,9 @@ export const mockRepository: ProjectRepository = {
   async addPayoutEntry(): Promise<string> {
     throw new Error(READ_ONLY);
   },
+  async runPayoutBatch(): Promise<{ count: number; total: number }> {
+    throw new Error(READ_ONLY);
+  },
   async deletePayoutEntry(): Promise<void> {
     throw new Error(READ_ONLY);
   },

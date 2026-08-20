@@ -10,7 +10,7 @@ import { useState } from 'react';
 import type { PayoutCategory, PayoutEntry, PayoutKind, ProjectDetail, SettlementStep } from '@/types/project';
 import { PAYOUT_CATEGORIES, PAYOUT_KINDS } from '@/types/project';
 import {
-  entryTypeOf, payInstallments, payoutSideOf, recoveryRate, triggerSource, turnkeyUnit,
+  entryTypeOf, payoutSideOf, payoutStepsOf, recoveryRate, triggerSource, turnkeyUnit,
 } from '@/lib/settlement';
 import { today } from '@/lib/date';
 import type { Visibility } from '@/lib/roles';
@@ -351,9 +351,10 @@ function PaymentSection({
       <div className={`grid gap-2 ${sides.length > 1 ? 'sm:grid-cols-2' : ''}`}>
         {sides.map((side) => {
           const { adjust, paid } = payoutSideOf(entries, side.kind);
-          const due = side.plan + adjust;
-          const remaining = due - paid;
-          const parts = payInstallments(Math.max(0, due));
+          const steps = payoutStepsOf(side.plan, adjust, paid);
+          const remaining = steps.due - paid;
+          const stepAt = (cat: '1차' | '2차') =>
+            entries.find((e) => e.kind === side.kind && e.category === cat)?.at ?? null;
           return (
             <div key={side.kind} className="rounded-box border border-slate-200 p-4">
               <div className="flex flex-wrap items-baseline gap-2">
@@ -378,9 +379,25 @@ function PaymentSection({
                   </dd>
                 </div>
               </dl>
-              <p className="mt-2 border-t border-slate-100 pt-2 text-tiny tabular-nums text-slate-400">
-                회차 기준 1차 70% {won(parts[0])} · 2차 30% {won(parts[1])}
-              </p>
+              {/* 회차 금액은 정해져 있다 — 사람은 지급 처리(하도급사 지급관리)에서 언제 줬는가만 정한다 */}
+              <div className="mt-2 flex flex-col gap-0.5 border-t border-slate-100 pt-2 text-tiny tabular-nums">
+                {([1, 2] as const).map((no) => {
+                  const done = no === 1 ? steps.step1Done : steps.step2Done;
+                  const amount = steps.open?.no === no ? steps.open.amount : steps.parts[no - 1];
+                  const at = stepAt(`${no}차`);
+                  return (
+                    <p key={no} className="flex justify-between text-slate-500">
+                      <span>{no}차 {no === 1 ? '70%' : '잔액'}</span>
+                      <span className="font-semibold text-slate-700">
+                        {won(amount)}
+                        <span className={`ml-1.5 font-bold ${done ? 'text-brand-800' : steps.open?.no === no ? 'text-amber-700' : 'text-slate-300'}`}>
+                          {done ? at ?? '지급됨' : steps.open?.no === no ? '미지급' : '1차 뒤'}
+                        </span>
+                      </span>
+                    </p>
+                  );
+                })}
+              </div>
             </div>
           );
         })}
@@ -411,7 +428,7 @@ function Ledger({
 
   // 넣는 폼
   const [kind, setKind] = useState<PayoutKind>('영업비');
-  const [category, setCategory] = useState<PayoutCategory>('1차');
+  const [category, setCategory] = useState<PayoutCategory>('회수');
   const [amount, setAmount] = useState('');
   const [minus, setMinus] = useState(false); // 재정산만 방향을 고른다
   const [at, setAt] = useState(today());
@@ -530,13 +547,17 @@ function Ledger({
                 onChange={(e) => setCategory(e.target.value as PayoutCategory)}
                 className={FIELD_CELL}
               >
-                <optgroup label="지급 — 돈이 나갔다">
-                  {PAYOUT_CATEGORIES.filter((c) => c.type === '지급').map((c) => (
+                {/*
+                  * 예외만 적는다 — 회차(1차·2차)는 금액이 정해져 있어 「하도급사 지급관리」의
+                  * 지급 처리가 계산해 넣는다. 여기 열어두면 유도값과 어긋난 금액이 남는다.
+                  */}
+                <optgroup label="지급 — 돈이 움직였다">
+                  {PAYOUT_CATEGORIES.filter((c) => c.manual && c.type === '지급').map((c) => (
                     <option key={c.key} value={c.key}>{c.key}</option>
                   ))}
                 </optgroup>
                 <optgroup label="조정 — 줘야 할 금액이 바뀐다">
-                  {PAYOUT_CATEGORIES.filter((c) => c.type === '조정').map((c) => (
+                  {PAYOUT_CATEGORIES.filter((c) => c.manual && c.type === '조정').map((c) => (
                     <option key={c.key} value={c.key}>{c.key}</option>
                   ))}
                 </optgroup>

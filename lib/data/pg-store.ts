@@ -31,7 +31,7 @@ import { needsPreInstallCheck, PROCESS_DOCS } from '@/lib/doc-rules';
 import { asProcessStatus, canEnter } from '@/lib/process';
 import type { Actor, PaymentPatch, ProcessPatch, ProjectRepository } from './repository';
 import { checkPricingRule, duplicateOf, normalizePricingRule, pricingRuleId } from '@/lib/pricing-match';
-import { checkPayoutEntry } from '@/lib/settlement';
+import { checkPayoutEntry, payoutSideOf, payoutStepsOf } from '@/lib/settlement';
 import {
   ALL_DOC_KEYS, byStalled, contractStateFor, isProcessDocKind, payoutRowsOf, redactForViewer,
   settlementSummaryOf,
@@ -719,9 +719,67 @@ export const pgRepository: ProjectRepository = {
     });
   },
 
+  async runPayoutBatch(items, at: string, actor): Promise<{ count: number; total: number }> {
+    assertAdmin(actor, '지급 처리');
+    if (items.length === 0) throw new Error('지급할 항목이 없습니다.');
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(at)) throw new Error('지급일은 YYYY-MM-DD 형식이어야 합니다.');
+
+    // 금액 계산에 필요한 것: 라인 단가(계획)와 원장(조정·지급 합). 케이스는 불변이라 안전하다.
+    const rules = await ruleMap();
+    const ids = [...new Set(items.map((i) => i.projectId))];
+    const rows = await getDb().select().from(projects).where(inArray(projects.id, ids));
+    const records = new Map((await recordsOf(rows)).map((r) => [r.project.id, r]));
+
+    const db = getDb();
+    let total = 0;
+    await db.transaction(async (tx) => {
+      for (const item of items) {
+        const r = records.get(item.projectId);
+        if (!r) throw new Error(`현장을 찾을 수 없습니다 — ${item.projectId}`);
+        const name = r.project.name;
+
+        const plan = r.lines.reduce((n, l) => {
+          const rule = l.pricingRuleId ? rules.get(l.pricingRuleId) : null;
+          const unit = item.kind === '영업비' ? rule?.salesUnit : rule?.consUnit;
+          return n + (unit ?? 0) * l.qty;
+        }, 0);
+        const { adjust, paid } = payoutSideOf(r.payoutEntries ?? [], item.kind);
+        const { open } = payoutStepsOf(plan, adjust, paid);
+        if (!open) throw new Error(`${name} ${item.kind} — 지급할 회차가 없습니다 (잔액 0 이거나 이미 나갔습니다).`);
+
+        // 두 번 눌러도 두 번 안 나가게 — 같은 회차 줄이 이미 있으면 배치를 통째로 세운다
+        const category = `${open.no}차`;
+        const [dup] = await tx
+          .select({ id: payoutEntries.id })
+          .from(payoutEntries)
+          .where(and(
+            eq(payoutEntries.projectId, item.projectId),
+            eq(payoutEntries.kind, item.kind),
+            eq(payoutEntries.category, category)
+          ))
+          .limit(1);
+        if (dup) throw new Error(`${name} ${item.kind} ${category} — 이미 지급 처리된 회차입니다.`);
+
+        await tx.insert(payoutEntries).values({
+          id: crypto.randomUUID(), projectId: item.projectId,
+          kind: item.kind, category, amount: open.amount, at, note: null,
+          createdAt: stampOf(new Date()),
+        });
+        await tx.update(projects).set({ lastProgressAt: today() }).where(eq(projects.id, item.projectId));
+        await writeAudit(tx, {
+          projectId: item.projectId, actor, action: '지급 처리',
+          field: `${item.kind} ${category}`, oldValue: null, newValue: `${open.amount}원 · ${at}`,
+        });
+        total += open.amount;
+      }
+    });
+    return { count: items.length, total };
+  },
+
   async addPayoutEntry(projectId, input: NewPayoutEntry, actor): Promise<string> {
     assertAdmin(actor, '지급 기록');
-    const bad = checkPayoutEntry(input);
+    // 회차(1차·2차)는 여기로 못 들어온다 — 금액이 정해져 있어 runPayoutBatch 가 계산해 넣는다
+    const bad = checkPayoutEntry(input, { manualOnly: true });
     if (bad) throw new Error(bad);
     const note = typeof input.note === 'string' && input.note.trim() ? input.note.trim() : null;
 

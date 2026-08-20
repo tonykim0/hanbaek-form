@@ -404,17 +404,24 @@ export interface Settlement {
  * 자재비·추가공사비는 영업·시공이 분리된 채널에서만 생긴다(턴키 업체는 영업비·시공비
  * 안에서 해결). 영업자 부담이므로 시공비에 (+), 영업비에 차감(−) 두 건으로 적는다.
  */
+/*
+ * manual — 사람이 금액을 적을 수 있는 명목인가.
+ * 1차·2차 회차 금액은 정해져 있다(총 지급금액의 70%/30%) — 시스템이 계산해 넣고,
+ * 사람은 지급 처리(언제 줬는가)만 한다. 수기 입력을 열어두면 유도값과 어긋난 금액이
+ * 남고 어느 쪽이 맞는지 알 수 없게 된다 (한백 확인 2026-08-20).
+ * 선금·차액은 원장을 만들기 전의 기록용으로만 남긴다 — 새로 적을 수 없다.
+ */
 export const PAYOUT_CATEGORIES = [
-  { key: '1차', type: '지급', sign: 1 },
-  { key: '2차', type: '지급', sign: 1 },
-  { key: '선금', type: '지급', sign: 1 },
-  { key: '차액', type: '지급', sign: 1 },
-  { key: '회수', type: '지급', sign: -1 },
-  { key: '자재비', type: '조정', sign: 1 },
-  { key: '추가공사비', type: '조정', sign: 1 },
-  { key: '차감', type: '조정', sign: -1 },
+  { key: '1차', type: '지급', sign: 1, manual: false },
+  { key: '2차', type: '지급', sign: 1, manual: false },
+  { key: '선금', type: '지급', sign: 1, manual: false },
+  { key: '차액', type: '지급', sign: 1, manual: false },
+  { key: '회수', type: '지급', sign: -1, manual: true },
+  { key: '자재비', type: '조정', sign: 1, manual: true },
+  { key: '추가공사비', type: '조정', sign: 1, manual: true },
+  { key: '차감', type: '조정', sign: -1, manual: true },
   // 재정산은 방향이 정해져 있지 않다(추가 지급도, 감액도 있다) — 화면이 방향을 받는다
-  { key: '재정산', type: '조정', sign: 0 },
+  { key: '재정산', type: '조정', sign: 0, manual: true },
 ] as const;
 export type PayoutCategory = (typeof PAYOUT_CATEGORIES)[number]['key'];
 export type PayoutEntryType = (typeof PAYOUT_CATEGORIES)[number]['type'];
@@ -531,6 +538,11 @@ export interface SettlementSummary {
   consAdjust: number;
   consPaid: number;
   consLastPaidAt: string | null;
+  /** 회차 지급 기록(1차·2차)의 지급일 — 없으면 그 회차가 아직 안 나갔거나 원장 전의 기록이다 */
+  salesStep1At: string | null;
+  salesStep2At: string | null;
+  consStep1At: string | null;
+  consStep2At: string | null;
   payNote: string | null;
 }
 

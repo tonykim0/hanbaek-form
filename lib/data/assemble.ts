@@ -265,8 +265,17 @@ export function settlementSummaryOf(r: ProjectRecord, rules: RuleMap): Settlemen
     consAdjust: cons.adjust,
     consPaid: cons.paid,
     consLastPaidAt: cons.lastPaidAt,
+    salesStep1At: stepAt(d.payoutEntries, '영업비', '1차'),
+    salesStep2At: stepAt(d.payoutEntries, '영업비', '2차'),
+    consStep1At: stepAt(d.payoutEntries, '시공비', '1차'),
+    consStep2At: stepAt(d.payoutEntries, '시공비', '2차'),
     payNote: d.settlement.payNote,
   };
+}
+
+/** 회차 지급 기록의 지급일 — 지급 처리(runPayoutBatch)가 남긴 1차·2차 줄에서 읽는다 */
+function stepAt(entries: PayoutEntry[], kind: PayoutEntry['kind'], category: '1차' | '2차'): string | null {
+  return entries.find((e) => e.kind === kind && e.category === category)?.at ?? null;
 }
 
 /**

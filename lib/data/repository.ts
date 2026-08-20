@@ -12,7 +12,7 @@
  *     전부 보내놓고 화면에서 가리면 안 된다.
  */
 import type {
-  Court, DocStatus, IntakeDraft, LineAxes, NewPayoutEntry, NewPricingRule, PayoutRow, PreInstall, PricingRule,
+  Court, DocStatus, IntakeDraft, LineAxes, NewPayoutEntry, NewPricingRule, PayoutKind, PayoutRow, PreInstall, PricingRule,
   ProcessInfo, ProcessStatus, ProjectDetail, ProjectSummary, Settlement, SettlementSummary,
 } from '@/types/project';
 import type { Actor, Viewer } from '@/lib/auth/types';
@@ -214,10 +214,24 @@ export interface ProjectRepository {
   setPayment(projectId: string, patch: PaymentPatch, actor: Actor): Promise<void>;
 
   /**
-   * 지급 원장에 한 건을 넣는다. [한백 전용]
+   * 회차 지급 처리 — 지금 지급할 회차(1차/2차)를 모아서 한 지급일로 기록한다. [한백 전용]
    *
-   * 금액을 손으로 적는 유일한 자리다 — 계획(단가×대수)은 유도값이고, 실제로 나간 돈은
-   * 계획과 어긋난다(선금·차액·회수·차감). 검사는 lib/settlement.ts checkPayoutEntry.
+   * ★금액은 받지 않는다.★ 1차 = 지급할 총액(계획+조정)의 70%, 2차 = 잔액으로 정해져
+   * 있으므로 저장소가 계산해 넣는다(payoutStepsOf) — 수기 입력을 열어두면 유도값과
+   * 어긋난 금액이 남는다. 「8월 영업비를 한꺼번에」가 이 호출 하나다: 항목 여러 개,
+   * 지급일 하나. 전부 되거나 전부 안 된다 — 반쯤 지급된 배치는 어디까지 나갔는지 알 수 없다.
+   */
+  runPayoutBatch(
+    items: Array<{ projectId: string; kind: PayoutKind }>,
+    at: string,
+    actor: Actor
+  ): Promise<{ count: number; total: number }>;
+
+  /**
+   * 지급 원장에 예외 한 건을 넣는다. [한백 전용]
+   *
+   * 조정(자재비·추가공사비·차감·재정산)과 회수만 — 회차 금액(1차·2차)은 정해져 있어
+   * 여기로 못 들어온다(runPayoutBatch 가 계산해 넣는다). 검사는 checkPayoutEntry.
    */
   addPayoutEntry(projectId: string, input: NewPayoutEntry, actor: Actor): Promise<string>;
 

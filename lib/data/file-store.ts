@@ -19,7 +19,7 @@ import type { Actor, ProjectRepository } from './repository';
 import { canAccessProject, effectiveVisibility, normalizeOrg } from '@/lib/roles';
 import { asProcessStatus, canEnter } from '@/lib/process';
 import { stamp, today } from '@/lib/date';
-import { checkPayoutEntry } from '@/lib/settlement';
+import { checkPayoutEntry, payoutSideOf, payoutStepsOf } from '@/lib/settlement';
 import {
   ALL_DOC_KEYS, byStalled, contractStateFor, emptyProcess, emptySettlement, isProcessDocKind,
   payoutRowsOf,
@@ -341,9 +341,45 @@ export const fileRepository: ProjectRepository = {
     await save(records);
   },
 
+  async runPayoutBatch(items, at, actor): Promise<{ count: number; total: number }> {
+    if (actor.role !== 'admin') throw new Error('지급 처리는 한백 관리자만 할 수 있습니다.');
+    if (items.length === 0) throw new Error('지급할 항목이 없습니다.');
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(at)) throw new Error('지급일은 YYYY-MM-DD 형식이어야 합니다.');
+    const records = await load();
+    const rules = new Map((await loadRules()).map((r) => [r.id, r]));
+    let total = 0;
+    for (const item of items) {
+      const r = records.find((x) => x.project.id === item.projectId);
+      if (!r) throw new Error(`현장을 찾을 수 없습니다 — ${item.projectId}`);
+      const plan = r.lines.reduce((n, l) => {
+        const rule = l.pricingRuleId ? rules.get(l.pricingRuleId) : null;
+        const unit = item.kind === '영업비' ? rule?.salesUnit : rule?.consUnit;
+        return n + (unit ?? 0) * l.qty;
+      }, 0);
+      const entries = r.payoutEntries ?? [];
+      const { adjust, paid } = payoutSideOf(entries, item.kind);
+      const { open } = payoutStepsOf(plan, adjust, paid);
+      if (!open) throw new Error(`${r.project.name} ${item.kind} — 지급할 회차가 없습니다 (잔액 0 이거나 이미 나갔습니다).`);
+      const category = `${open.no}차` as const;
+      if (entries.some((e) => e.kind === item.kind && e.category === category)) {
+        throw new Error(`${r.project.name} ${item.kind} ${category} — 이미 지급 처리된 회차입니다.`);
+      }
+      r.payoutEntries = entries;
+      r.payoutEntries.push({
+        id: crypto.randomUUID(), projectId: item.projectId,
+        kind: item.kind, category, amount: open.amount, at, note: null, createdAt: stamp(),
+      });
+      r.lastProgressAt = today();
+      total += open.amount;
+    }
+    await save(records);
+    return { count: items.length, total };
+  },
+
   async addPayoutEntry(projectId, input, actor): Promise<string> {
     if (actor.role !== 'admin') throw new Error('지급 기록은 한백 관리자만 할 수 있습니다.');
-    const bad = checkPayoutEntry(input);
+    // 회차(1차·2차)는 여기로 못 들어온다 — 금액이 정해져 있어 runPayoutBatch 가 계산해 넣는다
+    const bad = checkPayoutEntry(input, { manualOnly: true });
     if (bad) throw new Error(bad);
     const records = await load();
     const r = records.find((x) => x.project.id === projectId);

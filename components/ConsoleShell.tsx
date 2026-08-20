@@ -102,7 +102,11 @@ const GROUPS: Group[] = [
       { href: '/admin/materials', label: '자료실 관리', short: '관리' },
       { href: '/admin/reissue', label: '서류 재발행', short: '재발' },
       { href: '/admin/accounts', label: '설정', short: '설정' },
-      { href: '/design', label: '디자인 기준', short: '디자' },
+      /*
+       * 디자인 기준(/design)은 메뉴에 없다 — 화면을 만드는 사람의 도구라서
+       * 주소를 아는 사람만 연다(한백 확인 2026-08-20). 페이지 자체는 (admin) 그룹에
+       * 그대로 있고, 부품(components/ui.tsx)의 정본 역할도 그대로다.
+       */
     ],
   },
 ];

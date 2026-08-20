@@ -25,14 +25,20 @@ const FORMS: Array<{ path: string; cpo: string; note: string }> = [
 export default async function ContractsPage() {
   const session = await getSessionUser();
   if (!session) redirect('/login?next=/contracts');
-  if (session.role === 'admin') redirect('/admin/reissue');
+  /*
+   * 관리자도 이 화면을 본다. 예전에는 관리자를 /admin/reissue 로 보내서
+   * 「계약서 작성」을 누르면 서류 재발행이 떴다 — 메뉴 이름과 뜨는 화면이 달랐다.
+   * 재발행은 관리 메뉴에 자기 자리가 따로 있다.
+   */
+  const isAdmin = session.role === 'admin';
 
   return (
     <>
       <div className="mb-6">
         <h1 className="text-h1 font-black text-slate-900">계약서 작성</h1>
         <p className="mt-1.5 text-base text-slate-500">
-          {session.org ?? '소속 없음'} · 운영사 양식을 골라 작성하고, 만든 서류는 접수에서 냅니다
+          {/* 관리자는 소속이 없다 — 「소속 없음」이라고 적으면 빠뜨린 것처럼 읽힌다 */}
+          {isAdmin ? '' : `${session.org ?? '소속 없음'} · `}운영사 양식을 골라 작성하고, 만든 서류는 접수에서 냅니다
         </p>
       </div>
 
@@ -48,7 +54,8 @@ export default async function ContractsPage() {
         {FORMS.map((f) => (
           <a
             key={f.path}
-            href={`${f.path}?org=${encodeURIComponent(session.org ?? '')}`}
+            /* 소속은 있을 때만 싣는다 — 빈 org= 를 달고 가면 양식이 빈 소속을 채운다 */
+            href={session.org ? `${f.path}?org=${encodeURIComponent(session.org)}` : f.path}
             target="_blank"
             rel="noopener"
             className="flex items-center justify-between gap-3 rounded-panel border border-slate-200 bg-white p-4 transition hover:border-brand-300 hover:bg-brand-50/40"
@@ -64,7 +71,7 @@ export default async function ContractsPage() {
 
       <p className="mt-4 max-w-[880px] text-small leading-relaxed text-slate-400">
         양식은 새 탭에서 열립니다 — 로그인 없이 쓰는 화면이라 아직 이 시스템 안으로 들어와
-        있지 않습니다. 소속({session.org ?? '없음'})은 주소에 실어 보냅니다. 작성한 서류는
+        있지 않습니다. {session.org ? `소속(${session.org})은 주소에 실어 보냅니다. ` : ''}작성한 서류는
         내려받아 <Link href="/projects/new" className="font-bold text-brand-700 hover:underline">서류 접수</Link>
         에서 올리면 됩니다.
       </p>

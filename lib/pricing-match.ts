@@ -7,7 +7,7 @@
  * ★없는 축은 조건에서 뺀다.★ 현장 정보가 덜 채워졌다고 후보가 0개가 되면 아무것도 못 고른다 —
  * 아는 축으로만 좁히고, 무엇으로 좁혔는지 화면에 적어 사람이 판단하게 한다.
  */
-import { bizTypeOfRepl } from '@/types/project';
+import { BUILDING_TYPES, bizTypeOfRepl, CPO_NAMES, REPL_TYPES } from '@/types/project';
 import type {
   ContractLine, CpoName, NewPricingRule, PricingRule, Project, ReplType,
 } from '@/types/project';
@@ -94,23 +94,67 @@ const REPL_SLUG: Record<ReplType, string> = {
   '자체투자 (신규위치)': 'move',
 };
 
+const POWER_CASES = ['한전불입', '모자분리'] as const;
+
 /**
  * 케이스가 앞뒤 맞는가 — 저장 전에 한 번 본다.
  *
  * 화면에서도 막지만 라우트는 직접 부를 수 있다. 그리고 여기서 막는 것들은 다 「나중에
  * 어느 현장에도 안 맞는 케이스」가 되는 조합이다 — 그때는 왜 안 맞는지 알 수 없다.
+ *
+ * ★열거값도 여기서 본다.★ 라우트는 본문을 캐스팅만 하므로 「플러그링크 」(뒤 공백) 같은
+ * 오타가 그대로 온다. matchingRules 는 문자열 완전 일치라 그 케이스는 어느 라인에도 안 맞고,
+ * 케이스는 불변·삭제 불가라 중지 말고는 치울 길이 없다 — 저장 전에 막는 것이 유일한 방어다.
+ * 형태 검사(배열인가)도 같이 한다 — 필드가 빠진 JSON 이 TypeError 원문을 422 로 내보내지 않게.
  */
 export function checkPricingRule(r: NewPricingRule): string[] {
   const bad: string[] = [];
-  if (!r.caseName.trim()) bad.push('케이스 이름을 적어주세요.');
-  if (r.termYears.length === 0) bad.push('계약연수를 하나 이상 고르세요.');
-  if (r.bldgTypes.length === 0) bad.push('건축물유형을 하나 이상 고르세요.');
+  if (!r || typeof r !== 'object') return ['넣을 값이 없습니다.'];
+  if (!r.caseName?.trim?.()) bad.push('케이스 이름을 적어주세요.');
+
+  if (!CPO_NAMES.includes(r.cpo)) bad.push('운영사가 목록에 없습니다.');
+  if (!POWER_CASES.includes(r.powerType)) bad.push('수전방식은 한전불입 · 모자분리 중 하나여야 합니다.');
+  if (!REPL_TYPES.includes(r.replType)) bad.push('교체유형이 목록에 없습니다.');
+
+  if (!Array.isArray(r.termYears) || r.termYears.length === 0) {
+    bad.push('계약연수를 하나 이상 고르세요.');
+  } else if (r.termYears.some((y) => !Number.isInteger(y) || y < 1 || y > 30)) {
+    bad.push('계약연수는 1~30 사이의 정수여야 합니다.');
+  }
+  if (!Array.isArray(r.bldgTypes) || r.bldgTypes.length === 0) {
+    bad.push('건축물유형을 하나 이상 고르세요.');
+  } else if (r.bldgTypes.some((b) => !BUILDING_TYPES.includes(b))) {
+    bad.push('건축물유형이 목록에 없습니다.');
+  }
+
   // 교체유형이 사업구분을 정한다 — 두 값이 어긋나면 그 케이스는 어느 현장에도 안 맞는다
-  if (bizTypeOfRepl(r.replType) !== r.bizType) {
+  if (REPL_TYPES.includes(r.replType) && bizTypeOfRepl(r.replType) !== r.bizType) {
     bad.push(`${r.replType} 는 사업구분이 ${bizTypeOfRepl(r.replType)} 입니다.`);
   }
-  if (r.salesUnit < 0 || r.consUnit < 0 || r.margin < 0) bad.push('단가는 0 이상이어야 합니다.');
-  if (r.salesUnit + r.consUnit + r.margin === 0) bad.push('턴키가 0 원인 케이스는 만들 수 없습니다.');
-  if (r.bizYear < 2020 || r.bizYear > 2100) bad.push('사업연도를 확인해주세요.');
+
+  const money = [r.salesUnit, r.consUnit, r.margin];
+  if (money.some((n) => !Number.isInteger(n) || n < 0)) bad.push('단가는 0 이상의 정수여야 합니다.');
+  else if (r.salesUnit + r.consUnit + r.margin === 0) bad.push('턴키가 0 원인 케이스는 만들 수 없습니다.');
+  if (!Number.isInteger(r.bizYear) || r.bizYear < 2020 || r.bizYear > 2100) {
+    bad.push('사업연도를 확인해주세요.');
+  }
   return bad;
+}
+
+/**
+ * 저장 전 정돈 — 값의 뜻은 그대로, 표기만 한 벌로.
+ *
+ * 계약연수는 오름차순이다. 화면 sort() 버그로 [10,7] 이 들어온 적이 있고, 그러면 케이스명이
+ * 「10·7년」, id 가 y10-7 이 되어 같은 축인데 다른 id 인 케이스가 생긴다 — 겹침 번호(-2)
+ * 장치가 그것을 못 잡는다. 건축물유형도 같은 이유로 순서를 고정한다.
+ */
+export function normalizePricingRule(r: NewPricingRule): NewPricingRule {
+  return {
+    ...r,
+    caseName: r.caseName.trim(),
+    startDate: r.startDate.trim(),
+    note: r.note?.trim() || null,
+    termYears: [...new Set(r.termYears)].sort((a, b) => a - b),
+    bldgTypes: BUILDING_TYPES.filter((b) => r.bldgTypes.includes(b)),
+  };
 }

@@ -144,6 +144,30 @@ export function Note({
   );
 }
 
+/* ── 고르는 칩 ─────────────────────────────────────────────────────────────
+ * 여럿 중에 켜고 끄는 것 (필터 · 다중 선택). 고른 상태는 채운 초록 한 모양이다 —
+ * 연한 초록·테두리만 등 「골랐다」의 모양이 화면마다 갈리기 시작해서 여기로 모았다.
+ * 각지다: 누르는 것이다(규칙 11).
+ */
+export function Choice({
+  on, children, ...rest
+}: ButtonHTMLAttributes<HTMLButtonElement> & { on: boolean }) {
+  return (
+    <button
+      type="button"
+      {...rest}
+      aria-pressed={on}
+      className={`rounded-ctl border px-2.5 py-1.5 text-small font-bold transition ${
+        on
+          ? 'border-brand-500 bg-brand-600 text-white'
+          : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:text-slate-700'
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
 /* ── 실패 문구 ─────────────────────────────────────────────────────────────
  * 누른 단추 옆에 붙는다. 화면 위쪽 한 곳에 모아 두면 무엇을 누르다 틀렸는지 모른다.
  * 빈 값이면 자리도 차지하지 않는다 — 늘 있는 빈 줄은 눈이 무시하게 된다.

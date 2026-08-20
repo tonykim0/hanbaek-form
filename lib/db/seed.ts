@@ -100,9 +100,26 @@ async function seedRules() {
     return row ? axisOf(row) !== axisOf(seed) : false;
   });
   if (axis.length > 0) {
-    console.warn(`  ⚠ 축이 다른 케이스 ${axis.length}건 — 시드 값으로 맞춥니다:`);
+    console.warn(`  ⚠ 축이 다른 케이스 ${axis.length}건:`);
     for (const d of axis) {
       const row = byId.get(d.id)!;
+      /*
+       * 참조 중인 케이스는 건드리지 않는다.
+       *
+       * 이 정렬은 「낱말 개명」(신규 → 환경부 신규)을 위한 것인데, 코드는 개명과 조건 변경을
+       * 구분할 수 없다 — 시드 파일에서 기존 블록을 복사해 새 케이스를 만들다 id 를 안 바꾸면,
+       * insert 는 onConflictDoNothing 으로 조용히 빠지고 이 update 가 「이미 라인이 참조하는
+       * 케이스의 조건」을 새 축으로 덮는다. 지정 당시 조건이 흔적 없이 사라진다.
+       * 참조가 없으면 안전하고, 있으면 사람이 봐야 하는 일이다.
+       */
+      const [{ n }] = await db
+        .select({ n: sql<number>`count(*)::int` })
+        .from(contractLines)
+        .where(eq(contractLines.pricingRuleId, d.id));
+      if (n > 0) {
+        console.warn(`    ${d.id}  계약 라인 ${n}건이 참조 중 — 건너뜁니다. DB(${axisOf(row)}) ≠ 시드(${axisOf(d)})`);
+        continue;
+      }
       console.warn(`    ${d.id}  DB(${axisOf(row)}) → 시드(${axisOf(d)})`);
       await db.update(pricingRules).set({
         cpo: d.cpo, bizType: d.bizType, powerType: d.powerType, replType: d.replType,

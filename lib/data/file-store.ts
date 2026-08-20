@@ -28,7 +28,7 @@ import {
 import { SEED_RECORDS } from './mock';
 import { needsPreInstallCheck } from '@/lib/doc-rules';
 import { PRICING_RULES } from './seed/pricing-rules';
-import { checkPricingRule, pricingRuleId } from '@/lib/pricing-match';
+import { checkPricingRule, normalizePricingRule, pricingRuleId } from '@/lib/pricing-match';
 
 const DATA_DIR = path.join(process.cwd(), '.data');
 const DATA_FILE = path.join(DATA_DIR, 'projects.json');
@@ -301,10 +301,12 @@ export const fileRepository: ProjectRepository = {
 
   async setLinePricing(lineId, pricingRuleId, actor): Promise<void> {
     if (actor.role !== 'admin') throw new Error('단가 케이스 지정은 한백 관리자만 할 수 있습니다.');
+    let suggestedSettlement: string | null = null;
     if (pricingRuleId) {
       const rule = (await loadRules()).find((x) => x.id === pricingRuleId);
       if (!rule) throw new Error('없는 단가 케이스입니다.');
       if (!rule.active) throw new Error('중지된 단가 케이스는 지정할 수 없습니다.');
+      suggestedSettlement = rule.defaultSettlementRuleId || null;
     }
     const records = await load();
     const r = records.find((x) => x.lines.some((l) => l.id === lineId));
@@ -314,6 +316,11 @@ export const fileRepository: ProjectRepository = {
     const day = today();
     line.pricingRuleId = pricingRuleId;
     line.pricedAt = pricingRuleId ? day : null;
+    // 케이스의 정산 규칙 제안값을 현장에 옮긴다 — 없을 때만 (pg-store 와 같은 판정)
+    if (suggestedSettlement && !r.project.settlementRuleId) {
+      r.project.settlementRuleId = suggestedSettlement;
+      r.project.settlementAppliedAt = day;
+    }
     r.lastProgressAt = day;
     await save(records);
   },
@@ -455,9 +462,10 @@ export const fileRepository: ProjectRepository = {
     if (actor.role !== 'admin') throw new Error('단가 케이스 추가는 한백 관리자만 할 수 있습니다.');
     const bad = checkPricingRule(input);
     if (bad.length > 0) throw new Error(bad[0]);
+    const rule = normalizePricingRule(input);
     const list = await loadRules();
-    const id = pricingRuleId(input, new Set(list.map((r) => r.id)));
-    list.push({ ...input, caseName: input.caseName.trim(), id, active: true });
+    const id = pricingRuleId(rule, new Set(list.map((r) => r.id)));
+    list.push({ ...rule, id, active: true });
     await saveRules(list);
     return id;
   },

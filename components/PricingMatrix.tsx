@@ -23,14 +23,20 @@ import {
 } from '@/types/project';
 import { won } from '@/lib/format';
 import { useAction } from '@/lib/use-action';
-import { Badge, Blank, Btn, Empty, Err, FIELD, Note, PANEL, Tag } from '@/components/ui';
+import { Badge, Blank, Btn, Choice, Empty, Err, FIELD, PANEL, Tag } from '@/components/ui';
 
 const POWER_TYPES = ['한전불입', '모자분리'] as const;
 const TERMS = [5, 7, 10] as const;
 
 const turnkey = (r: PricingRule) => r.salesUnit + r.consUnit + r.margin;
 
-export default function PricingMatrix({ rules }: { rules: PricingRule[] }) {
+export default function PricingMatrix({
+  rules, settlementRules,
+}: {
+  rules: PricingRule[];
+  /** 정산 규칙 후보 — 서버(page)가 넘긴다. 케이스의 제안값으로 붙어 단가 지정 때 현장에 옮겨진다 */
+  settlementRules: Array<{ id: string; name: string }>;
+}) {
   const [adding, setAdding] = useState(false);
 
   const live = rules.filter((r) => r.active);
@@ -51,12 +57,12 @@ export default function PricingMatrix({ rules }: { rules: PricingRule[] }) {
             </span>
           </p>
         </div>
-        <Btn onClick={() => setAdding((v) => !v)}>
-          {adding ? '넣기 그만두기' : '새 케이스'}
-        </Btn>
+        {/* 폼이 열리면 감춘다 — 채운 초록이 둘이면 「케이스 넣기」와 헷갈리고,
+            이걸 누르면 입력이 통째로 사라진다. 닫는 길은 폼 안의 취소 하나다. */}
+        {!adding && <Btn onClick={() => setAdding(true)}>새 케이스</Btn>}
       </header>
 
-      {adding && <AddCase onDone={() => setAdding(false)} />}
+      {adding && <AddCase settlementRules={settlementRules} onDone={() => setAdding(false)} />}
 
       <Holes rules={live} />
       <CaseList rules={rules} />
@@ -72,18 +78,11 @@ function Holes({ rules }: { rules: PricingRule[] }) {
   const count = (cpo: CpoName, repl: ReplType) =>
     rules.filter((r) => r.cpo === cpo && r.replType === repl).length;
 
-  const empty = CPO_NAMES.flatMap((c) =>
-    REPL_TYPES.filter((t) => count(c, t) === 0).map((t) => `${c} · ${t}`)
-  );
-
   return (
     <section className={`${PANEL} p-5 sm:p-6`}>
-      <div className="mb-4">
-        <h2 className="text-h3 font-black text-slate-900">빈 자리</h2>
-        <p className="mt-0.5 text-tiny text-slate-400">
-          케이스가 없는 조합은 그 현장이 들어와도 계약 확인이 안 된다
-        </p>
-      </div>
+      {/* 설명 문구를 두지 않는다 — 빈 조합이 왜 문제인지는 현장 상세의
+          「단가 미지정 — 계약 확인 불가」 단추가 그 자리에서 말한다(규칙 2·3) */}
+      <h2 className="mb-4 text-h3 font-black text-slate-900">빈 자리</h2>
 
       <div className="-mx-5 overflow-x-auto px-5 sm:-mx-6 sm:px-6">
         <table className="w-full min-w-[560px] text-base">
@@ -117,11 +116,6 @@ function Holes({ rules }: { rules: PricingRule[] }) {
         </table>
       </div>
 
-      {empty.length > 0 && (
-        <Note tone="warn" className="mt-3">
-          케이스 없는 조합 {empty.length}칸 — {empty.join(' · ')}
-        </Note>
-      )}
     </section>
   );
 }
@@ -137,18 +131,9 @@ function CaseList({ rules }: { rules: PricingRule[] }) {
         <h2 className="text-h3 font-black text-slate-900">케이스</h2>
         <div className="flex flex-wrap gap-1">
           {(['전체', ...CPO_NAMES] as const).map((c) => (
-            <button
-              key={c}
-              type="button"
-              onClick={() => setCpo(c)}
-              className={`rounded-ctl px-2.5 py-1 text-tiny font-bold transition ${
-                cpo === c
-                  ? 'bg-brand-600 text-white'
-                  : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800'
-              }`}
-            >
+            <Choice key={c} on={cpo === c} onClick={() => setCpo(c)}>
               {c}
-            </button>
+            </Choice>
           ))}
         </div>
       </div>
@@ -195,11 +180,10 @@ function Row({ r }: { r: PricingRule }) {
           <span>{r.bizYear}년 · {r.startDate}</span>
           {r.note && <span className="break-keep">{r.note}</span>}
         </p>
-        <Err className="mt-1 block">{error}</Err>
       </td>
       <td className="px-3 py-2.5">
         <div className="flex flex-wrap gap-1">
-          <Tag tone={r.bizType === '환경부' ? 'stage' : 'mute'}>{r.replType}</Tag>
+          <Tag>{r.replType}</Tag>
           <Tag>{r.powerType}</Tag>
           <Tag>{r.termYears.join('·')}년</Tag>
           <Tag>{r.bldgTypes.length === 2 ? '전체' : r.bldgTypes[0]}</Tag>
@@ -231,13 +215,20 @@ function Row({ r }: { r: PricingRule }) {
             {r.active ? '중지' : '다시 사용'}
           </Btn>
         </div>
+        {/* 실패 문구는 누른 단추 옆 — 첫 칸에 두면 좁은 창에서 스크롤 밖이다(규칙 9) */}
+        <Err className="mt-1 block text-right">{error}</Err>
       </td>
     </tr>
   );
 }
 
 /* ── 새 케이스 ─────────────────────────────────────────────────────────── */
-function AddCase({ onDone }: { onDone: () => void }) {
+function AddCase({
+  settlementRules, onDone,
+}: {
+  settlementRules: Array<{ id: string; name: string }>;
+  onDone: () => void;
+}) {
   const { busy, error, run } = useAction();
 
   const [cpo, setCpo] = useState<CpoName>('플러그링크');
@@ -251,6 +242,7 @@ function AddCase({ onDone }: { onDone: () => void }) {
   const [consUnit, setConsUnit] = useState('');
   const [margin, setMargin] = useState('');
   const [note, setNote] = useState('');
+  const [settleId, setSettleId] = useState('');
 
   /* 사업구분은 고르게 두지 않는다 — 교체유형이 정한다(bizTypeOfRepl). 두 값을 따로 고르면 어긋난다 */
   const bizType = bizTypeOfRepl(replType);
@@ -259,10 +251,16 @@ function AddCase({ onDone }: { onDone: () => void }) {
    * 케이스 이름은 축에서 만든다. 손으로 적게 두면 이름과 축이 어긋나고, 그러면 화면에서
    * 「10년」이라고 읽히는 케이스가 7년 라인에 붙는다. 사람이 손댈 자리는 비고다.
    */
+  /*
+   * 적용 시기를 이름에 박는다 — 반년마다 단가가 바뀌어 같은 축의 케이스가 또 생기는데,
+   * 시기가 없으면 두 케이스가 똑같은 이름으로 셀렉트에 나란히 떠서 금액만 다르다.
+   * 시드도 (상반기)/(하반기)로 같은 문제를 피했다.
+   */
   const caseName = useMemo(() => {
     const bldg = bldgs.length === 2 ? '전체' : (bldgs[0] ?? '');
-    return `${cpo} | ${bldg} | ${terms.join('·')}년 ${replType} | ${powerType}`;
-  }, [cpo, bldgs, terms, replType, powerType]);
+    const since = startDate.trim() || `${bizYear}년`;
+    return `${cpo} (${since}) | ${bldg} | ${terms.join('·')}년 ${replType} | ${powerType}`;
+  }, [cpo, bldgs, terms, replType, powerType, startDate, bizYear]);
 
   const num = (v: string) => Math.max(0, Math.round(Number(v.replace(/[^0-9]/g, '')) || 0));
   const total = num(salesUnit) + num(consUnit) + num(margin);
@@ -271,7 +269,8 @@ function AddCase({ onDone }: { onDone: () => void }) {
     terms.length === 0 ? '계약연수 미선택'
       : bldgs.length === 0 ? '건축물유형 미선택'
         : total === 0 ? '단가 미입력'
-          : null;
+          : bizYear < 2020 || bizYear > 2100 ? '사업연도 확인 필요'
+            : null;
 
   async function save() {
     const ok = await run({
@@ -280,7 +279,7 @@ function AddCase({ onDone }: { onDone: () => void }) {
         caseName, cpo, bizType, powerType, termYears: terms, bldgTypes: bldgs, replType,
         bizYear, startDate: startDate.trim() || `${bizYear}년`,
         salesUnit: num(salesUnit), consUnit: num(consUnit), margin: num(margin),
-        defaultSettlementRuleId: '', supervisionBearer: null, safetyFeeBearer: null,
+        defaultSettlementRuleId: settleId, supervisionBearer: null, safetyFeeBearer: null,
         note: note.trim() || null,
       },
       fail: '넣지 못했습니다.',
@@ -323,7 +322,10 @@ function AddCase({ onDone }: { onDone: () => void }) {
           <Chips
             options={TERMS.map((t) => [t, `${t}년`])}
             picked={terms}
-            onToggle={(v) => setTerms((p) => (p.includes(v) ? p.filter((x) => x !== v) : [...p, v].sort()))}
+            onToggle={(v) =>
+              // sort() 기본은 문자열 비교라 [7,10] 이 [10,7] 이 된다 — 숫자로 비교한다
+              setTerms((p) => (p.includes(v) ? p.filter((x) => x !== v) : [...p, v].sort((a, b) => a - b)))
+            }
           />
         </Field>
 
@@ -351,6 +353,19 @@ function AddCase({ onDone }: { onDone: () => void }) {
         </Field>
         <Field label="마진">
           <Money value={margin} onChange={setMargin} />
+        </Field>
+
+        <Field label="정산 규칙" hint="이 케이스를 붙이면 현장에 이 규칙이 적용된다">
+          {/*
+            * 비워 두면 이 케이스로 지정된 현장의 기성이 계산되지 않는다(정산 규칙 미적용).
+            * 그래도 「없음」을 남긴다 — 기성 규칙이 아직 안 정해진 운영사가 실제로 있다.
+            */}
+          <select value={settleId} onChange={(e) => setSettleId(e.target.value)} className={FIELD}>
+            <option value="">없음 — 기성이 계산되지 않음</option>
+            {settlementRules.map((r) => (
+              <option key={r.id} value={r.id}>{r.name}</option>
+            ))}
+          </select>
         </Field>
 
         <Field label="적용 시작" hint="비우면 사업연도만">
@@ -406,7 +421,7 @@ function Field({
   );
 }
 
-/** 여럿 고르는 칸 — 각지다(누르는 것이다). 동글한 것은 못 누르는 상태 배지다. */
+/** 여럿 고르는 칸 — 고른 상태의 모양은 Choice 부품이 정한다 */
 function Chips<T extends string | number>({
   options, picked, onToggle,
 }: {
@@ -417,18 +432,9 @@ function Chips<T extends string | number>({
   return (
     <div className="flex flex-wrap gap-1.5">
       {options.map(([v, label]) => (
-        <button
-          key={String(v)}
-          type="button"
-          onClick={() => onToggle(v)}
-          className={`rounded-ctl border px-2.5 py-1.5 text-small font-bold transition ${
-            picked.includes(v)
-              ? 'border-brand-300 bg-brand-50 text-brand-800'
-              : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300'
-          }`}
-        >
+        <Choice key={String(v)} on={picked.includes(v)} onClick={() => onToggle(v)}>
           {label}
-        </button>
+        </Choice>
       ))}
     </div>
   );

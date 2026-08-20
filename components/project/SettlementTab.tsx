@@ -296,6 +296,18 @@ function PaymentSection({
                   className={`${FIELD} mt-2`}
                 >
                   <option value="">단가 케이스 선택 —</option>
+                  {/*
+                    * 후보(matchingRules)는 사용중 케이스만 담는다. 지정된 케이스가 그 뒤
+                    * 중지되면 value 와 맞는 option 이 없어 셀렉트가 빈칸으로 그려진다 —
+                    * 아래에는 그 케이스로 계산한 금액이 찍혀 있는데도. 빈칸인 줄 알고
+                    * 「선택 —」을 고르면 멀쩡히 계산되던 라인이 정말로 미지정이 된다.
+                    * 그래서 지정된 중지 케이스는 여기 한 줄로 남긴다.
+                    */}
+                  {l.pricingRuleId
+                    && l.rule
+                    && !list.some((r) => r.id === l.pricingRuleId) && (
+                      <option value={l.pricingRuleId}>(중지) {l.rule.caseName}</option>
+                    )}
                   {opts && opts.exact.length > 0 && (
                     <optgroup label="조건이 맞는 케이스">
                       {opts.exact.map((r) => (

@@ -29,7 +29,7 @@ import { canAccessProject, effectiveVisibility, normalizeOrg } from '@/lib/roles
 import { needsPreInstallCheck, PROCESS_DOCS } from '@/lib/doc-rules';
 import { asProcessStatus, canEnter } from '@/lib/process';
 import type { Actor, PaymentPatch, ProcessPatch, ProjectRepository } from './repository';
-import { checkPricingRule, pricingRuleId } from '@/lib/pricing-match';
+import { checkPricingRule, normalizePricingRule, pricingRuleId } from '@/lib/pricing-match';
 import {
   ALL_DOC_KEYS, byStalled, contractStateFor, isProcessDocKind, payoutRowsOf, redactForViewer,
   settlementSummaryOf,
@@ -619,14 +619,20 @@ export const pgRepository: ProjectRepository = {
 
       // 없는 케이스를 붙이면 조회할 때 rule 이 null 이 되어 「단가 미지정」으로 보인다.
       // 저장은 됐는데 화면엔 안 붙는 상태라 원인을 찾기 어렵다 — 여기서 막는다.
+      let suggestedSettlement: string | null = null;
       if (pricingRuleId) {
         const [rule] = await tx
-          .select({ id: pricingRules.id, active: pricingRules.active })
+          .select({
+            id: pricingRules.id,
+            active: pricingRules.active,
+            settle: pricingRules.defaultSettlementRuleId,
+          })
           .from(pricingRules)
           .where(eq(pricingRules.id, pricingRuleId))
           .limit(1);
         if (!rule) throw new Error('없는 단가 케이스입니다.');
         if (!rule.active) throw new Error('중지된 단가 케이스는 지정할 수 없습니다.');
+        suggestedSettlement = rule.settle;
       }
       if (line.ruleId === pricingRuleId) return;
 
@@ -636,6 +642,32 @@ export const pgRepository: ProjectRepository = {
         .set({ pricingRuleId, pricedAt: pricingRuleId ? day : null })
         .where(eq(contractLines.id, lineId));
       await tx.update(projects).set({ lastProgressAt: day }).where(eq(projects.id, line.projectId));
+
+      /*
+       * 케이스의 정산 규칙 제안값을 현장에 옮긴다 — 현장에 아직 규칙이 없을 때만.
+       *
+       * project.settlementRuleId 를 넣는 코드가 여기 말고는 없었다. 시드 현장만 값이 있고,
+       * 새 현장은 단가를 붙여도 기성이 영구히 「정산 규칙 미적용」이었다 — 케이스가
+       * 제안값(defaultSettlementRuleId)을 들고 있는데 아무도 읽지 않았다.
+       * 이미 규칙이 있는 현장은 건드리지 않는다 — 사람이 정한 값을 덮지 않는다.
+       */
+      if (suggestedSettlement) {
+        const [p] = await tx
+          .select({ settle: projects.settlementRuleId })
+          .from(projects)
+          .where(eq(projects.id, line.projectId))
+          .limit(1);
+        if (p && !p.settle) {
+          await tx
+            .update(projects)
+            .set({ settlementRuleId: suggestedSettlement, settlementAppliedAt: day })
+            .where(eq(projects.id, line.projectId));
+          await writeAudit(tx, {
+            projectId: line.projectId, actor, action: '정산 규칙 적용',
+            field: 'settlementRuleId', oldValue: null, newValue: suggestedSettlement,
+          });
+        }
+      }
 
       await writeAudit(tx, {
         projectId: line.projectId, actor, action: '단가 케이스 지정',
@@ -1029,26 +1061,42 @@ export const pgRepository: ProjectRepository = {
     assertAdmin(actor, '단가 케이스 추가');
     const bad = checkPricingRule(input);
     if (bad.length > 0) throw new Error(bad[0]);
+    const rule = normalizePricingRule(input);
 
     const db = getDb();
-    return db.transaction(async (tx) => {
-      const taken = await tx.select({ id: pricingRules.id }).from(pricingRules);
-      const id = pricingRuleId(input, new Set(taken.map((t) => t.id)));
-      await tx.insert(pricingRules).values({
-        id, caseName: input.caseName.trim(), cpo: input.cpo, bizType: input.bizType,
-        powerType: input.powerType, termYears: input.termYears, bldgTypes: input.bldgTypes,
-        replType: input.replType, bizYear: input.bizYear, startDate: input.startDate,
-        salesUnit: input.salesUnit, consUnit: input.consUnit, margin: input.margin,
-        defaultSettlementRuleId: input.defaultSettlementRuleId || null,
-        supervisionBearer: input.supervisionBearer, safetyFeeBearer: input.safetyFeeBearer,
-        note: input.note, active: true,
-      });
-      await writeAudit(tx, {
-        projectId: null, actor, action: '단가 케이스 추가',
-        field: id, oldValue: null, newValue: input.caseName.trim(),
-      });
-      return id;
-    });
+    /*
+     * id 채번이 select-후-insert 라 같은 축의 동시 요청은 같은 id 를 계산한다 — 두 번째는
+     * PK 위반으로 터지고, 그대로 두면 영문 DB 오류가 화면에 나간다. 위반이면 taken 을
+     * 다시 읽어 다음 번호로 한 번 더 시도한다. 데이터는 PK 가 지키므로 겹칠 일은 없다.
+     */
+    for (let attempt = 0; ; attempt += 1) {
+      try {
+        return await db.transaction(async (tx) => {
+          const taken = await tx.select({ id: pricingRules.id }).from(pricingRules);
+          const id = pricingRuleId(rule, new Set(taken.map((t) => t.id)));
+          await tx.insert(pricingRules).values({
+            id, caseName: rule.caseName, cpo: rule.cpo, bizType: rule.bizType,
+            powerType: rule.powerType, termYears: rule.termYears, bldgTypes: rule.bldgTypes,
+            replType: rule.replType, bizYear: rule.bizYear, startDate: rule.startDate,
+            salesUnit: rule.salesUnit, consUnit: rule.consUnit, margin: rule.margin,
+            defaultSettlementRuleId: rule.defaultSettlementRuleId || null,
+            supervisionBearer: rule.supervisionBearer, safetyFeeBearer: rule.safetyFeeBearer,
+            note: rule.note, active: true,
+          });
+          await writeAudit(tx, {
+            projectId: null, actor, action: '단가 케이스 추가',
+            field: id, oldValue: null, newValue: rule.caseName,
+          });
+          return id;
+        });
+      } catch (err) {
+        const code = (err as { cause?: { code?: string }; code?: string }).cause?.code
+          ?? (err as { code?: string }).code;
+        if (code === '23505' && attempt < 2) continue;
+        if (code === '23505') throw new Error('같은 케이스가 방금 만들어졌습니다. 목록을 새로고침해 확인해주세요.');
+        throw err;
+      }
+    }
   },
 
   async setPricingRuleActive(id, active, actor): Promise<void> {

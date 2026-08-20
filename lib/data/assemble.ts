@@ -338,6 +338,8 @@ export function redactForViewer(detail: ProjectDetail, vis: Visibility): Project
     })),
     settlement: {
       ...detail.settlement,
+      // 안전관리비도 원가다 — steps 의 planAmount 만 지우면 이 칸으로 샌다
+      safetyFee: vis.cost ? detail.settlement.safetyFee : null,
       steps: detail.settlement.steps.map((s) => ({
         ...s,
         planAmount: vis.cost ? s.planAmount : null,

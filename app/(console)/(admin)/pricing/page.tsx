@@ -15,6 +15,7 @@ import { getRepository } from '@/lib/data';
 import { actorOf, getSessionUser } from '@/lib/auth/session';
 import { redirect } from 'next/navigation';
 import PricingMatrix from '@/components/PricingMatrix';
+import { SETTLEMENT_RULES } from '@/lib/data/seed/settlement-rules';
 
 export const metadata = { title: '단가 케이스 — 한백 전기차사업관리' };
 
@@ -23,5 +24,13 @@ export default async function PricingPage() {
   if (!session) redirect('/login?next=/pricing');
 
   const rules = await getRepository().listPricingRules(actorOf(session));
-  return <PricingMatrix rules={rules} />;
+  /*
+   * 정산 규칙 후보는 서버에서 이름만 추려 넘긴다 — 규칙의 단계 금액을 클라이언트 번들에
+   * 싣지 않기 위해서다(코드 청크는 로그인 없이도 받아진다).
+   */
+  const settlementRules = SETTLEMENT_RULES.filter((r) => r.active).map((r) => ({
+    id: r.id,
+    name: r.name,
+  }));
+  return <PricingMatrix rules={rules} settlementRules={settlementRules} />;
 }

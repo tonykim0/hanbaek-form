@@ -92,6 +92,11 @@ export const projects = pgTable('projects', {
   envQueueNo: text('env_queue_no'),
   /** 접수할 때 협력사가 적은 말. 영업비 차감·프로모션 적용 같은 조건이 여기 온다. */
   note: text('note'),
+  /**
+   * 한백이 계약을 확인한 날 (YYYY-MM-DD). null 이면 확인 전.
+   * 서류가 반려되면 지워진다 — 보완 뒤 다시 확인해야 한다.
+   */
+  contractConfirmedAt: text('contract_confirmed_at'),
   /** 한백이 현장별로 적용하는 정산 규칙 */
   settlementRuleId: text('settlement_rule_id').references(() => settlementRules.id),
   settlementAppliedAt: text('settlement_applied_at'),

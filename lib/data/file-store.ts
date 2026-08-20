@@ -19,7 +19,8 @@ import type { Actor, ProjectRepository } from './repository';
 import { canAccessProject, effectiveVisibility, normalizeOrg } from '@/lib/roles';
 import { asProcessStatus, canEnter } from '@/lib/process';
 import {
-  ALL_DOC_KEYS, byStalled, emptyProcess, emptySettlement, isProcessDocKind, payoutRowsOf,
+  ALL_DOC_KEYS, byStalled, contractReadyOf, emptyProcess, emptySettlement, isProcessDocKind,
+  payoutRowsOf,
   redactForViewer, settlementSummaryOf, summaryOf, toDetail, type ProjectRecord,
 } from './assemble';
 import { SEED_RECORDS } from './mock';
@@ -131,7 +132,9 @@ export const fileRepository: ProjectRepository = {
       mgr: draft.mgr, tel: draft.tel, mail: draft.mail,
       preInstall: draft.preInstall, preNote: draft.preNote, preChecked: false,
       powerType: draft.powerType, replType: draft.replType,
-      bizType: draft.bizType, envQueueNo: null, note: draft.note, createdAt: today,
+      bizType: draft.bizType, envQueueNo: null, note: draft.note,
+      // 한백이 확인해야 계약이 넘어간다 — 접수 시점에는 확인 전이다
+      contractConfirmedAt: null, createdAt: today,
       // 정산 규칙은 한백이 검수 단계에서 현장별로 적용한다
       settlementRuleId: null, settlementAppliedAt: null,
       holdState: null, holdNote: null,
@@ -186,6 +189,8 @@ export const fileRepository: ProjectRepository = {
 
     doc.status = input.status;
     doc.rejectReason = input.status === 'rejected' ? input.reason!.trim() : null;
+    // 반려는 앞서 한 계약 확인을 무효로 만든다 (pg-store 와 같은 판정)
+    if (input.status === 'rejected') r.project.contractConfirmedAt = null;
     r.lastProgressAt = new Date().toISOString().slice(0, 10);
     await save(records);
   },
@@ -374,6 +379,22 @@ export const fileRepository: ProjectRepository = {
     if ('salesOrg' in patch) r.project.salesOrg = normalizeOrg(patch.salesOrg);
     if ('gcOrg' in patch) r.project.gcOrg = normalizeOrg(patch.gcOrg);
     // 소속을 고치는 것은 진척이 아니다 — lastProgressAt 을 건드리지 않는다 (pg-store 와 같다)
+    await save(records);
+  },
+
+  async confirmContract(projectId, confirmed, actor): Promise<void> {
+    if (actor.role !== 'admin') throw new Error('계약 확인은 한백 관리자만 할 수 있습니다.');
+    const records = await load();
+    const r = records.find((x) => x.project.id === projectId);
+    if (!r) throw new Error('현장을 찾을 수 없습니다.');
+    if (confirmed && !contractReadyOf(r)) {
+      throw new Error('서류가 다 차고 반려가 없고 단가가 붙어야 계약을 확인할 수 있습니다.');
+    }
+    const after = confirmed ? new Date().toISOString().slice(0, 10) : null;
+    if (Boolean(r.project.contractConfirmedAt) === Boolean(after)) return;
+    r.project.contractConfirmedAt = after;
+    r.court = confirmed ? '시공사' : '한백';
+    r.lastProgressAt = new Date().toISOString().slice(0, 10);
     await save(records);
   },
 

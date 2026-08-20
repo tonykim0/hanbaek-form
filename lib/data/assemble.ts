@@ -23,7 +23,7 @@ import type {
 } from '@/types/project';
 import { buildDocContext, PROCESS_DOCS } from '@/lib/doc-rules';
 import { PAY_SPLIT, payInstallments, settlementForProject } from '@/lib/settlement';
-import { deriveStage, stalledDaysSince } from '@/lib/stage';
+import { contractReady, deriveStage, stalledDaysSince } from '@/lib/stage';
 import { entryOkOf } from '@/lib/process';
 import { effectiveVisibility, type Visibility } from '@/lib/roles';
 import type { Viewer } from '@/lib/auth/types';
@@ -116,6 +116,28 @@ export const emptySettlement = (projectId: string): Omit<Settlement, 'steps'> =>
   payNote: null,
 });
 
+/** 서류 필수 판정에 필요한 현장 조건 — 조립과 계약 확인이 같은 것을 봐야 한다 */
+function docCtxOf(r: ProjectRecord) {
+  return buildDocContext({
+    cpo: r.project.cpo,
+    contractParty: r.project.contractParty,
+    bldgType: r.project.bldgType,
+    projectPowerType: r.project.powerType,
+    linePowerTypes: r.lines.map((l) => l.powerType),
+    preInstall: r.project.preInstall,
+  });
+}
+
+/**
+ * 한백 확인만 남았는가.
+ *
+ * 계약 확인 버튼이 눌리는지, 저장소가 확인을 받아들이는지 둘 다 이걸로 판정한다 —
+ * 조건을 두 곳에 쓰면 「버튼은 눌리는데 저장이 거절되는」 상태가 생긴다.
+ */
+export function contractReadyOf(r: ProjectRecord): boolean {
+  return contractReady({ docCtx: docCtxOf(r), documents: r.documents, lines: r.lines });
+}
+
 export function toDetail(r: ProjectRecord): ProjectDetail {
   // 케이스는 불변이라 참조만으로 안전하다 — 값을 복사해 둘 필요가 없다
   const lines: ContractLineView[] = r.lines.map((l) => ({
@@ -126,20 +148,19 @@ export function toDetail(r: ProjectRecord): ProjectDetail {
     ? SETTLEMENT_RULE_BY_ID.get(r.project.settlementRuleId) ?? null
     : null;
 
-  const docCtx = buildDocContext({
-    cpo: r.project.cpo,
-    contractParty: r.project.contractParty,
-    bldgType: r.project.bldgType,
-    projectPowerType: r.project.powerType,
-    linePowerTypes: r.lines.map((l) => l.powerType),
-    preInstall: r.project.preInstall,
-  });
+  const docCtx = docCtxOf(r);
 
   const steps = settlementForProject(
     lines, settlementRule, r.process, r.settlementRaw.cpoCloseDate, r.collected
   );
   const settlement: Settlement = { ...r.settlementRaw, steps };
-  const stage = deriveStage({ docCtx, documents: r.documents, lines: r.lines, settlement });
+  const stage = deriveStage({
+    docCtx,
+    documents: r.documents,
+    lines: r.lines,
+    settlement,
+    contractConfirmedAt: r.project.contractConfirmedAt,
+  });
 
   return {
     // 진행현황은 조립하지 않는다 — 저장소가 읽어 그대로 실어 보낸다

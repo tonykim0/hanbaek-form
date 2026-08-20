@@ -29,7 +29,8 @@ import { PROCESS_DOCS } from '@/lib/doc-rules';
 import { asProcessStatus, canEnter } from '@/lib/process';
 import type { Actor, PaymentPatch, ProcessPatch, ProjectRepository } from './repository';
 import {
-  ALL_DOC_KEYS, byStalled, isProcessDocKind, payoutRowsOf, redactForViewer, settlementSummaryOf,
+  ALL_DOC_KEYS, byStalled, contractReadyOf, isProcessDocKind, payoutRowsOf, redactForViewer,
+  settlementSummaryOf,
   summaryOf, toDetail, type ProjectRecord,
 } from './assemble';
 
@@ -69,6 +70,7 @@ function toProject(r: ProjectRow): Project {
     bizType: r.bizType as BizType | null,
     envQueueNo: r.envQueueNo,
     note: r.note,
+    contractConfirmedAt: r.contractConfirmedAt,
     createdAt: r.createdAt.toISOString().slice(0, 10),
     settlementRuleId: r.settlementRuleId,
     settlementAppliedAt: r.settlementAppliedAt,
@@ -433,10 +435,19 @@ export const pgRepository: ProjectRepository = {
         })
         .where(and(eq(documents.projectId, input.projectId), eq(documents.kind, input.kind)));
 
-      // 검수는 진척이다 — 정체일 계산의 기준을 갱신한다
+      /*
+       * 검수는 진척이다 — 정체일 계산의 기준을 갱신한다.
+       *
+       * 반려하면 앞서 한 계약 확인을 지운다. 반려는 「이 계약은 아직 아니다」는 판정이라
+       * 그 확인을 무효로 만든다 — 보완한 뒤 한백이 다시 봐야 한다. 안 지우면 협력사가
+       * 서류를 다시 올리는 순간 아무도 안 본 계약이 계약완료로 되돌아간다.
+       */
       await tx
         .update(projects)
-        .set({ lastProgressAt: new Date().toISOString().slice(0, 10) })
+        .set({
+          lastProgressAt: new Date().toISOString().slice(0, 10),
+          ...(input.status === 'rejected' ? { contractConfirmedAt: null } : {}),
+        })
         .where(eq(projects.id, input.projectId));
 
       await writeAudit(tx, {
@@ -910,6 +921,46 @@ export const pgRepository: ProjectRepository = {
           field: 'gcOrg', oldValue: row.gcOrg, newValue: next.gcOrg,
         });
       }
+    });
+  },
+
+  async confirmContract(projectId, confirmed, actor): Promise<void> {
+    assertAdmin(actor, '계약 확인');
+
+    const rows = await getDb().select().from(projects).where(eq(projects.id, projectId)).limit(1);
+    if (!rows[0]) throw new Error('현장을 찾을 수 없습니다.');
+    const [record] = await recordsOf(rows);
+    if (!record) throw new Error('현장을 찾을 수 없습니다.');
+
+    /*
+     * 조건이 안 맞으면 확인해 주지 않는다.
+     * 필수 서류가 비었거나 반려가 남은 계약을 확인해 버리면, 그 뒤로는 무엇이 확인된
+     * 것인지 알 수 없어진다. 조건은 lib/stage.ts 가 정본이고 여기서 그것을 부른다.
+     */
+    if (confirmed && !contractReadyOf(record)) {
+      throw new Error('서류가 다 차고 반려가 없고 단가가 붙어야 계약을 확인할 수 있습니다.');
+    }
+
+    const before = record.project.contractConfirmedAt;
+    const after = confirmed ? new Date().toISOString().slice(0, 10) : null;
+    if (Boolean(before) === Boolean(after)) return;
+
+    const db = getDb();
+    await db.transaction(async (tx) => {
+      await tx
+        .update(projects)
+        .set({
+          contractConfirmedAt: after,
+          // 계약이 끝났다는 것은 다음 손이 시공사라는 뜻이다. 되돌리면 공도 한백으로 돌아온다.
+          court: confirmed ? '시공사' : '한백',
+          lastProgressAt: new Date().toISOString().slice(0, 10),
+        })
+        .where(eq(projects.id, projectId));
+
+      await writeAudit(tx, {
+        projectId, actor, action: confirmed ? '계약 확인' : '계약 확인 취소',
+        field: 'contractConfirmedAt', oldValue: before, newValue: after,
+      });
     });
   },
 

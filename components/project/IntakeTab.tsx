@@ -39,6 +39,7 @@ function SiteFacts({ project }: { project: ProjectDetail['project'] }) {
    * 설명한다. 한 판에 열두 칸을 늘어놓으면 무엇을 보고 있는지 흐려진다.
    *
    * 기설치는 여기 없다 — 위 「기설치 조사」 구역이 정본이다. 두 곳에 적으면 갈린다.
+   * 환경부 대기번호도 여기 없다 — 머리말로 올렸다(한백이 넣고 협력사가 본다).
    * 영업사·시공사도 여기 없다 — 머리말로 올렸다(진행현황 바로 위).
    */
   const apt: Array<[string, string | null]> = [
@@ -54,7 +55,6 @@ function SiteFacts({ project }: { project: ProjectDetail['project'] }) {
     ['사업구분', project.bizType],
     ['수전방식', project.powerType],
     ['교체유형', project.replType ?? (project.bizType ? '라인별로 다름' : null)],
-    ['환경부 대기번호', project.envQueueNo],
     ['접수일', project.createdAt],
   ];
 
@@ -101,7 +101,7 @@ function FactGroup({ title, rows }: { title: string; rows: Array<[string, string
 }
 
 export function IntakeTab({
-  project, evaluated, byKind, blocked, allPriced, projectId, siteName, court, canReview,
+  project, evaluated, byKind, blocked, allPriced, projectId, siteName, canReview,
   feeMissing, partyInferred, inferredParty, knownOrgs,
 }: {
   knownOrgs: string[];
@@ -112,7 +112,6 @@ export function IntakeTab({
   allPriced: boolean;
   projectId: string;
   siteName: string;
-  court: ProjectDetail['court'];
   canReview: boolean;
   feeMissing: string[];
   partyInferred: boolean;
@@ -293,11 +292,12 @@ export function IntakeTab({
         )}
 
         {canReview && (
-          <CompleteIntake
+          <ConfirmContract
             projectId={projectId}
             blocked={blocked}
             allPriced={allPriced}
-            court={court}
+            rejectedCount={rejected.length}
+            confirmedAt={project.contractConfirmedAt}
           />
         )}
       </section>
@@ -307,69 +307,79 @@ export function IntakeTab({
 }
 
 /**
- * 계약 완료 — 공을 시공사로 넘긴다.
+ * 계약 확인 완료 — 한백만.
  *
- * 단계(stage)를 여기서 저장하지 않는다. 단계는 서류·단가에서 유도되므로,
- * 조건이 채워지면 이 버튼을 누르지 않아도 이미 시공 단계다.
- * 이 버튼이 바꾸는 것은 「지금 누가 손을 대야 하는가」뿐이다.
+ * ★이 버튼이 계약을 넘긴다.★ 예전에는 서류와 단가가 채워지는 순간 저절로 계약완료로
+ * 갔다. 그러면 한백이 보기 전에 시공으로 가 있고 「누가 확인한 계약인가」에 답할 수 없다.
+ * 지금은 확인한 날이 저장되고(project.contractConfirmedAt) 그것이 단계의 조건이다.
+ *
+ * 되돌릴 수 있다. 잘못 눌렀을 때 길이 없으면 DB 를 직접 만져야 한다 —
+ * 되돌리면 공 차례도 한백으로 돌아온다.
  */
-function CompleteIntake({
+function ConfirmContract({
   projectId,
   blocked,
   allPriced,
-  court,
+  rejectedCount,
+  confirmedAt,
 }: {
   projectId: string;
   blocked: boolean;
   allPriced: boolean;
-  court: ProjectDetail['court'];
+  rejectedCount: number;
+  confirmedAt: string | null;
 }) {
   const { busy, error, run } = useAction();
 
-  const reason = blocked
-    ? '필수 서류 미충족'
-    : !allPriced
-      ? '단가 미지정'
-      : null;
+  // 무엇이 막고 있는지 버튼 이름에 그대로 적는다 — 안내문을 따로 두지 않는다
+  const reason = rejectedCount > 0
+    ? `반려 ${rejectedCount}건`
+    : blocked
+      ? '필수 서류 미충족'
+      : !allPriced
+        ? '단가 미지정'
+        : null;
 
-  const handOff = () =>
+  const send = (confirmed: boolean) =>
     void run({
-      url: `/api/projects/${projectId}/court`,
-      body: { court: '시공사' },
+      url: `/api/projects/${projectId}/contract-confirm`,
+      body: { confirmed },
       fail: '처리에 실패했습니다.',
     });
+
+  if (confirmedAt) {
+    return (
+      <div className="mt-4 flex flex-wrap items-baseline gap-x-3 gap-y-1.5">
+        <span className="rounded-xl bg-brand-50 px-3.5 py-2 text-sm font-bold text-brand-900">
+          계약 확인 완료 · {confirmedAt}
+        </span>
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => send(false)}
+          className="text-tiny font-bold text-slate-400 underline decoration-slate-300 transition hover:text-slate-700 disabled:text-slate-300"
+        >
+          {busy ? '되돌리는 중…' : '확인 취소'}
+        </button>
+        {error && <p className="w-full text-xs font-semibold text-red-700">{error}</p>}
+      </div>
+    );
+  }
 
   return (
     <div className="mt-4 flex flex-col gap-1.5">
       <button
         type="button"
-        disabled={busy || reason !== null || court === '시공사'}
-        onClick={handOff}
+        disabled={busy || reason !== null}
+        onClick={() => send(true)}
         className="self-start rounded-xl bg-brand-700 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-brand-800 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400"
       >
-        {/*
-          미충족 사유를 공 차례보다 먼저 보여준다.
-          넘긴 뒤에 서류가 반려되는 일이 있는데, 그때 「시공사로 넘어간 상태」만 보이면
-          지금 뭐가 문제인지가 화면에서 사라진다.
-        */}
         {reason
-          ? `${reason} — 계약 완료 불가`
-          : court === '시공사'
-            ? '시공사로 넘어간 상태'
-            : busy
-              ? '처리 중'
-              : '계약 완료 — 시공사로 넘기기'}
+          ? `${reason} — 계약 확인 불가`
+          : busy
+            ? '처리 중'
+            : '계약 확인 완료'}
       </button>
-      {reason === '단가 미지정' && (
-        <p className="text-xs text-slate-500">
-          서류는 모두 승인됐습니다. 계약 라인에 단가 케이스를 지정하면 넘길 수 있습니다.
-        </p>
-      )}
-      {reason && court === '시공사' && (
-        <p className="text-xs text-amber-700">
-          이미 시공사로 넘긴 현장인데 조건이 다시 깨졌습니다 — 공을 되돌릴지 확인하세요.
-        </p>
-      )}
       {error && <p className="text-xs font-semibold text-red-700">{error}</p>}
     </div>
   );

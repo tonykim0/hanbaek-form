@@ -23,6 +23,7 @@ import { ConstructionTab } from './ConstructionTab';
 import { Fact } from './parts';
 import { IntakeTab } from './IntakeTab';
 import { OrgField } from './OrgField';
+import { QueueField } from './QueueField';
 import { ProgressLog } from './ProgressLog';
 import { SettlementTab } from './SettlementTab';
 
@@ -182,7 +183,6 @@ export default function ProjectDetailView({
               allPriced={allPriced}
               projectId={project.id}
               siteName={project.name}
-              court={detail.court}
               canReview={canReview}
               feeMissing={feeMissing}
               partyInferred={isPartyInferred(docCtx)}
@@ -327,6 +327,8 @@ function SiteHeader({
           canEdit={canReview}
           knownOrgs={knownOrgs}
         />
+        {/* 협력사가 자주 물어보는 값이라 머리말에 둔다 — 한백이 넣고 협력사는 본다 */}
+        <QueueField value={project.envQueueNo} projectId={project.id} canEdit={canReview} />
       </div>
 
       <ProgressLog projectId={project.id} notes={detail.notes} author={noteAuthor} />

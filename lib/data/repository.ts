@@ -145,6 +145,19 @@ export interface ProjectRepository {
   setCourt(projectId: string, court: Court, actor: Actor): Promise<void>;
 
   /**
+   * 계약 확인. [한백 전용]
+   *
+   * 협력사가 낸 것을 한백이 훑어보고 누르는 자리다. 이것이 있어야 계약이 넘어간다
+   * (lib/stage.ts) — 서류가 다 차고 단가가 붙어도 사람이 확인하기 전에는 계약접수에 남는다.
+   *
+   * 조건이 안 맞으면 거절한다. 필수 서류가 비었거나 반려가 남아 있거나 단가가 없는 계약을
+   * 확인해 버리면, 그 뒤로는 무엇이 확인된 것인지 알 수 없어진다.
+   *
+   * 확인과 함께 공 차례가 시공사로 넘어간다 — 계약이 끝났다는 것은 다음 손이 시공사라는 뜻이다.
+   */
+  confirmContract(projectId: string, confirmed: boolean, actor: Actor): Promise<void>;
+
+  /**
    * 계약 라인에 단가 케이스를 붙인다. [한백 전용]
    * 케이스는 불변이라 값을 복사하지 않고 참조만 남긴다 — 지급액은 조회할 때 계산된다.
    */

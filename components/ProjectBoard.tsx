@@ -96,15 +96,32 @@ export default function ProjectBoard({
    */
   const bands: BoardBand[] = ['계약', '시공', '멈춤'];
 
+  /*
+   * 계약과 시공이 남은 높이를 반씩 쓴다.
+   *
+   * 예전에는 띠 높이가 그 띠의 가장 많은 칸에 딸려 있었다. 계약에 현장이 몰려 있으면
+   * 계약 줄만 길어지고 시공 줄은 카드 한 장 높이로 납작해져서, 시공 칸에 카드를 끌어다
+   * 놓을 자리조차 좁았다 — 두 줄의 높이가 「몇 건 있나」에 따라 매번 달라졌다.
+   *
+   * 위쪽 chrome(제목·필터 막대·본문 여백)이 13rem 쯤이라 그만큼 뺀다.
+   * 창이 아주 낮으면 30rem 아래로는 줄이지 않고 그때는 페이지가 스크롤된다.
+   *
+   * 멈춤은 늘리지 않는다 — 나타날 때만 있는 줄이고, 세 줄을 똑같이 나누면
+   * 보류 몇 건이 계약·시공과 같은 자리를 차지한다.
+   */
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex h-[calc(100vh-13rem)] min-h-[30rem] flex-col gap-6">
       {bands.map((band) => {
         const cols = visible.filter((c) => c.band === band);
         if (cols.length === 0) return null;
         const total = cols.reduce((n, c) => n + (columns.get(c.key)?.length ?? 0), 0);
 
         return (
-          <section key={band} aria-label={`${band} 구역`}>
+          <section
+            key={band}
+            aria-label={`${band} 구역`}
+            className={`flex min-h-0 flex-col ${band === '멈춤' ? 'shrink-0' : 'flex-1'}`}
+          >
             <header className="mb-2 flex items-center gap-2.5">
               <span aria-hidden className={`h-[3px] w-6 rounded-full ${BAND_RULE[band]}`} />
               <h2 className={`text-[11px] font-black tracking-[0.12em] ${BAND_TEXT[band]}`}>
@@ -129,9 +146,9 @@ export default function ProjectBoard({
               * 두 칸 이하인 줄은 늘리지 않는다. 「보류」 한 칸이 화면을 다 차지하면
               * 그게 이 화면에서 제일 중요한 것처럼 보인다.
               */}
-            <div className="-mx-5 overflow-x-auto px-5 pb-1 sm:-mx-6 sm:px-6">
+            <div className="-mx-5 min-h-0 flex-1 overflow-x-auto px-5 pb-1 sm:-mx-6 sm:px-6">
               <div
-                className="grid gap-3"
+                className="grid h-full gap-3"
                 style={{
                   gridTemplateColumns: `repeat(${cols.length}, minmax(200px, ${
                     cols.length >= 3 ? '1fr' : '320px'
@@ -153,7 +170,7 @@ export default function ProjectBoard({
                         e.preventDefault();
                         drop(col.key);
                       }}
-                      className={`flex min-w-0 flex-col rounded-2xl border p-2.5 transition ${
+                      className={`flex min-h-0 min-w-0 flex-col rounded-2xl border p-2.5 transition ${
                         droppable
                           ? 'border-brand-400 bg-brand-50/70 ring-2 ring-brand-200'
                           : rejecting
@@ -174,7 +191,7 @@ export default function ProjectBoard({
                         </span>
                       </header>
 
-                      <div className="flex max-h-[22rem] min-h-[5rem] flex-col gap-2 overflow-y-auto">
+                      <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto">
                         {list.map((p) => (
                           <Card
                             key={p.id}

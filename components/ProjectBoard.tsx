@@ -130,7 +130,8 @@ export default function ProjectBoard({
                         e.preventDefault();
                         drop(col.key);
                       }}
-                      className={`flex w-[208px] shrink-0 flex-col rounded-2xl border p-2.5 transition ${
+                      /* 칸 폭 — 현장 이름이 한 줄에 들어가야 한다. 208px 에서는 「전북 전주태평에스케이뷰아파트」가 세 줄로 접혔다. */
+                      className={`flex w-[272px] shrink-0 flex-col rounded-2xl border p-2.5 transition ${
                         droppable
                           ? 'border-brand-400 bg-brand-50/70 ring-2 ring-brand-200'
                           : rejecting
@@ -229,7 +230,7 @@ function Card({
         draggable ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'
       } ${busy ? 'opacity-50' : ''}`}
     >
-      <p className="text-[13px] font-bold leading-snug text-slate-900">{p.name}</p>
+      <p className="break-keep text-sm font-bold leading-snug text-slate-900">{p.name}</p>
       <p className="mt-1 text-[11px] leading-snug text-slate-500">
         {p.cpo} · {qty}대{terms.length ? ` · ${terms.join('·')}년` : ''}
       </p>

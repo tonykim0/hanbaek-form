@@ -22,8 +22,7 @@ import type { RuleOptions } from '@/lib/pricing-match';
 import { ConstructionTab } from './ConstructionTab';
 import { Fact } from './parts';
 import { IntakeTab } from './IntakeTab';
-import { OrgField } from './OrgField';
-import { QueueField } from './QueueField';
+import { EditableFact } from './EditableFact';
 import { ProgressLog } from './ProgressLog';
 import { SettlementTab } from './SettlementTab';
 
@@ -291,14 +290,49 @@ function SiteHeader({
       </h1>
       {project.addr && <p className="mt-1 text-sm text-slate-500">{project.addr}</p>}
 
-      {/* 이 현장이 무엇인가 — 계약의 뼈대만. 나머지는 계약 탭의 「현장 정보」에 있다. */}
+      {/*
+        * 이 현장이 무엇인가 — 계약의 뼈대. 나머지는 계약 탭의 「현장 정보」에 있다.
+        *
+        * 영업사·시공사·환경부 대기번호도 이 줄에 있다. 아래에 따로 상자를 두면 같은 급의
+        * 사실을 두 군데서 읽어야 하고 머리말이 두 층으로 길어진다. 다만 그 셋은 고칠 수
+        * 있어야 해서(EditableFact) 「고치기」가 붙고, 고칠 때만 한 줄을 통째로 쓴다.
+        */}
       <dl className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-1.5 text-[13px]">
         <Fact label="운영사" value={project.cpo} />
         <Fact label="대수" value={`${qty}대`} />
         <Fact label="계약연수" value={terms.length ? `${terms.join('·')}년` : null} />
         <Fact label="수전방식" value={project.powerType} />
         <Fact label="사업구분" value={project.bizType} />
-        <Fact label="접수" value={project.createdAt} />
+        <Fact label="접수일" value={project.createdAt} />
+        <EditableFact
+          label="영업사"
+          value={project.salesOrg}
+          canEdit={canReview}
+          url={`/api/projects/${project.id}/orgs`}
+          field="salesOrg"
+          empty="미지정"
+          placeholder="비우면 어느 업체도 아닌 현장"
+          suggestions={knownOrgs}
+        />
+        <EditableFact
+          label="시공사"
+          value={project.gcOrg}
+          canEdit={canReview}
+          url={`/api/projects/${project.id}/orgs`}
+          field="gcOrg"
+          empty="미지정"
+          placeholder="비우면 어느 업체도 아닌 현장"
+          suggestions={knownOrgs}
+        />
+        <EditableFact
+          label="환경부 대기번호"
+          value={project.envQueueNo}
+          canEdit={canReview}
+          url={`/api/projects/${project.id}/env-queue`}
+          field="value"
+          method="POST"
+          placeholder="2026-595"
+        />
       </dl>
 
       {blockers.length > 0 && (
@@ -311,33 +345,6 @@ function SiteHeader({
         </div>
       )}
 
-      {/*
-        * 영업사·시공사는 머리말에 둔다.
-        *
-        * 이 값은 표시용이 아니라 접근 키다 — 협력사가 자기 현장을 보는 판정이 이 문자열의
-        * 일치다. 계약 탭 안쪽에 있으면 탭을 옮겨야 보이는데, 「누구 현장인가」는 이름·주소와
-        * 같은 급의 사실이라 늘 보여야 한다. 비어 있으면 비어 있다고 보인다.
-        */}
-      <div className="mt-4 grid gap-x-6 border-t border-slate-100 pt-2 sm:grid-cols-2">
-        <OrgField
-          label="영업사"
-          field="salesOrg"
-          value={project.salesOrg}
-          projectId={project.id}
-          canEdit={canReview}
-          knownOrgs={knownOrgs}
-        />
-        <OrgField
-          label="시공사"
-          field="gcOrg"
-          value={project.gcOrg}
-          projectId={project.id}
-          canEdit={canReview}
-          knownOrgs={knownOrgs}
-        />
-        {/* 협력사가 자주 물어보는 값이라 머리말에 둔다 — 한백이 넣고 협력사는 본다 */}
-        <QueueField value={project.envQueueNo} projectId={project.id} canEdit={canReview} />
-      </div>
 
       <ProgressLog projectId={project.id} notes={detail.notes} author={noteAuthor} />
 

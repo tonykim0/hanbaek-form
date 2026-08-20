@@ -21,6 +21,20 @@ declare global {
 function create() {
   const url = process.env.DATABASE_URL;
   if (!url) throw new Error('DATABASE_URL 이 없습니다 (.env.local 확인)');
+
+  /*
+   * 서버리스에서 5432(Session pooler·직접 연결)로 붙으면 인스턴스마다 커넥션을 세션 내내
+   * 물고 있어서 Supabase 의 pool_size 15 를 금방 넘긴다. 그러면 화면이 통째로 500 이 되고
+   * 로그에는 (EMAXCONNSESSION) max clients reached in session mode 만 남는다 —
+   * 주소 하나 잘못 넣은 것이 코드 오류처럼 보인다. 그래서 여기서 먼저 말해준다.
+   */
+  if (process.env.NODE_ENV === 'production' && /:5432(\/|\?|$)/.test(url)) {
+    console.error(
+      '[db] DATABASE_URL 이 5432 입니다. 서버리스에서는 Transaction pooler(6543)를 써야 합니다 — '
+        + 'Supabase 대시보드 → Connect → Transaction pooler.'
+    );
+  }
+
   const sql =
     global.__hbSql ??
     postgres(url, {

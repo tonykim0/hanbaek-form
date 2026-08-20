@@ -9,6 +9,9 @@
  * 화면(lib/use-action.ts)이 `{ error }` 하나만 보고 문구를 띄우므로, 이 응답 모양이
  * 라우트마다 다르면 화면이 무엇을 믿을지 알 수 없다. 계약을 여기 한 곳에 못 박는다.
  *
+ * 본문을 안 보낸 요청(DELETE 등)은 handle 에 body 가 undefined 로 들어간다 — 본문을 쓰는
+ * 핸들러는 `if (!body...)` 로 먼저 막는다.
+ *
  *   401  로그인 안 됨            (sessionWrite)
  *   403  한백 전용인데 협력사임   (adminWrite)
  *   400  값이 틀렸다             (BadRequest 를 throw)
@@ -45,11 +48,25 @@ function wrap<P, B>(adminOnly: boolean, deny: string, handle: Handler<P, B>) {
       return NextResponse.json({ error: deny }, { status: adminOnly ? 403 : 401 });
     }
 
+    /*
+     * 본문 없는 요청은 잘못이 아니다.
+     *
+     * DELETE 는 보통 본문 없이 온다(주소에 무엇을 지울지 다 적혀 있다). 예전에는 여기서
+     * request.json() 이 곧바로 던져서 「요청을 읽을 수 없습니다」 400 이 나갔다 —
+     * 그래서 삭제 라우트는 이 껍데기를 못 쓰고 네 단계를 각자 적고 있었다.
+     *
+     * 보낸 것이 아예 없으면 undefined, 보냈는데 JSON 이 아니면 400 이다. 둘을 가른다.
+     */
+    const raw = await request.text().catch(() => '');
     let body: B;
-    try {
-      body = (await request.json()) as B;
-    } catch {
-      return NextResponse.json({ error: '요청을 읽을 수 없습니다.' }, { status: 400 });
+    if (raw.trim() === '') {
+      body = undefined as B;
+    } else {
+      try {
+        body = JSON.parse(raw) as B;
+      } catch {
+        return NextResponse.json({ error: '요청을 읽을 수 없습니다.' }, { status: 400 });
+      }
     }
 
     try {

@@ -8,6 +8,11 @@
  * 그래서 브라우저가 Blob 에 직접 올리고, 끝난 뒤 주소만 서버에 알려준다.
  *
  * 협력사도 부른다 — 반려된 서류를 다시 올리는 것이 이 경로다.
+ *
+ * ★lib/api/write-route 껍데기를 쓰지 않는 이유★
+ * 첫 단계가 { token } 을 돌려주고, 토큰 발급이 실패하면 500 이다(사람이 고칠 수 없는 것 —
+ * Blob 설정 문제다). 껍데기는 400·403·422 만 낸다. 여기서 422 로 답하면 화면이
+ * 「다시 해보세요」로 읽는데, 다시 해도 안 된다.
  */
 import { generateClientTokenFromReadWriteToken } from '@vercel/blob/client';
 import { NextResponse } from 'next/server';

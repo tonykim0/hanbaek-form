@@ -18,6 +18,7 @@ import type { Viewer } from '@/lib/auth/types';
 import type { Actor, ProjectRepository } from './repository';
 import { canAccessProject, effectiveVisibility, normalizeOrg } from '@/lib/roles';
 import { asProcessStatus, canEnter } from '@/lib/process';
+import { stamp, today } from '@/lib/date';
 import {
   ALL_DOC_KEYS, byStalled, contractStateFor, emptyProcess, emptySettlement, isProcessDocKind,
   payoutRowsOf,
@@ -121,7 +122,7 @@ export const fileRepository: ProjectRepository = {
   async createProject(draft: IntakeDraft, actor): Promise<string> {
     const records = await load();
     const id = nextId(records);
-    const today = new Date().toISOString().slice(0, 10);
+    const day = today();
 
     const project: Project = {
       id, mgmtNo: id, cpo: draft.cpo,
@@ -135,7 +136,7 @@ export const fileRepository: ProjectRepository = {
       powerType: draft.powerType, replType: draft.replType,
       bizType: draft.bizType, envQueueNo: null, note: draft.note,
       // 한백이 확인해야 계약이 넘어간다 — 접수 시점에는 확인 전이다
-      contractConfirmedAt: null, createdAt: today,
+      contractConfirmedAt: null, createdAt: day,
       // 정산 규칙은 한백이 검수 단계에서 현장별로 적용한다
       settlementRuleId: null, settlementAppliedAt: null,
       holdState: null, holdNote: null,
@@ -158,7 +159,7 @@ export const fileRepository: ProjectRepository = {
       status: submitted.has(kind) ? 'uploaded' : 'none',
       rejectReason: null,
       uploadedBy: submitted.has(kind) ? actor.name : null,
-      uploadedAt: submitted.has(kind) ? today : null,
+      uploadedAt: submitted.has(kind) ? day : null,
     }));
 
     records.push({
@@ -167,7 +168,7 @@ export const fileRepository: ProjectRepository = {
       settlementRaw: emptySettlement(id),
       collected: {},
       court: '한백', // 접수하면 공이 한백으로 넘어간다 (검수 차례)
-      lastProgressAt: today,
+      lastProgressAt: day,
     });
     await save(records);
     return id;
@@ -192,7 +193,7 @@ export const fileRepository: ProjectRepository = {
     doc.rejectReason = input.status === 'rejected' ? input.reason!.trim() : null;
     // 반려는 앞서 한 계약 확인을 무효로 만든다 (pg-store 와 같은 판정)
     if (input.status === 'rejected') r.project.contractConfirmedAt = null;
-    r.lastProgressAt = new Date().toISOString().slice(0, 10);
+    r.lastProgressAt = today();
     await save(records);
   },
 
@@ -214,13 +215,13 @@ export const fileRepository: ProjectRepository = {
         id: `${input.projectId}-N${Date.now()}`,
         author: actor.role === 'admin' ? '한백' : actor.org ?? '협력사',
         body,
-        at: new Date().toISOString().slice(0, 16).replace('T', ' '),
+        at: stamp(),
         editedAt: null,
       },
       ...(r.notes ?? []),
     ];
     // 남기는 것은 진척이다 (pg-store 와 같은 판정)
-    r.lastProgressAt = new Date().toISOString().slice(0, 10);
+    r.lastProgressAt = today();
     await save(records);
   },
 
@@ -241,7 +242,7 @@ export const fileRepository: ProjectRepository = {
     if (note.body === body) return;
 
     note.body = body;
-    note.editedAt = new Date().toISOString().slice(0, 16).replace('T', ' ');
+    note.editedAt = stamp();
     await save(records);
   },
 
@@ -272,10 +273,10 @@ export const fileRepository: ProjectRepository = {
     if (!r) throw new Error('계약 라인을 찾을 수 없습니다.');
     const line = r.lines.find((l) => l.id === lineId)!;
     if (line.pricingRuleId === pricingRuleId) return;
-    const today = new Date().toISOString().slice(0, 10);
+    const day = today();
     line.pricingRuleId = pricingRuleId;
-    line.pricedAt = pricingRuleId ? today : null;
-    r.lastProgressAt = today;
+    line.pricedAt = pricingRuleId ? day : null;
+    r.lastProgressAt = day;
     await save(records);
   },
 
@@ -285,7 +286,7 @@ export const fileRepository: ProjectRepository = {
     const r = records.find((x) => x.project.id === projectId);
     if (!r) throw new Error('현장을 찾을 수 없습니다.');
     Object.assign(r.settlementRaw, patch);
-    r.lastProgressAt = new Date().toISOString().slice(0, 10);
+    r.lastProgressAt = today();
     await save(records);
   },
 
@@ -296,7 +297,7 @@ export const fileRepository: ProjectRepository = {
     if (!canAccessProject(actor.role, actor.org, r.project)) {
       throw new Error('이 현장에 서류를 올릴 권한이 없습니다.');
     }
-    const today = new Date().toISOString().slice(0, 10);
+    const day = today();
     // 계약 서류와 공정 서류는 다른 목록에 산다 — 섞으면 공정 게이트가 서류를 못 찾는다
     const bucket = isProcessDocKind(input.kind) ? r.process.docs : r.documents;
     let doc = bucket.find((d) => d.kind === input.kind);
@@ -309,9 +310,9 @@ export const fileRepository: ProjectRepository = {
     doc.status = 'uploaded';   // 다시 올리면 반려가 풀린다
     doc.rejectReason = null;
     doc.uploadedBy = actor.name;
-    doc.uploadedAt = today;
+    doc.uploadedAt = day;
     r.court = '한백';
-    r.lastProgressAt = today;
+    r.lastProgressAt = day;
     await save(records);
   },
 
@@ -326,7 +327,7 @@ export const fileRepository: ProjectRepository = {
     }
     if (r.project.envQueueNo === value) return;
     r.project.envQueueNo = value;
-    r.lastProgressAt = new Date().toISOString().slice(0, 10);
+    r.lastProgressAt = today();
     await save(records);
   },
 
@@ -336,7 +337,7 @@ export const fileRepository: ProjectRepository = {
     const r = records.find((x) => x.project.id === projectId);
     if (!r) throw new Error('현장을 찾을 수 없습니다.');
     Object.assign(r.process, patch);
-    r.lastProgressAt = new Date().toISOString().slice(0, 10);
+    r.lastProgressAt = today();
     await save(records);
   },
 
@@ -355,7 +356,7 @@ export const fileRepository: ProjectRepository = {
     if (!entry.ok) throw new Error(`${status} 로 넘기려면 ${entry.blockedBy} 이(가) 필요합니다.`);
 
     r.process.status = status;
-    r.lastProgressAt = new Date().toISOString().slice(0, 10);
+    r.lastProgressAt = today();
     await save(records);
   },
 
@@ -375,7 +376,7 @@ export const fileRepository: ProjectRepository = {
     if (patch.preInstall) r.project.preInstall = patch.preInstall;
     if ('preNote' in patch) r.project.preNote = patch.preNote?.trim() || null;
     if (patch.preChecked !== undefined) r.project.preChecked = patch.preChecked;
-    r.lastProgressAt = new Date().toISOString().slice(0, 10);
+    r.lastProgressAt = today();
     await save(records);
   },
 
@@ -399,11 +400,11 @@ export const fileRepository: ProjectRepository = {
     if (confirmed && !contractStateFor(r).ready) {
       throw new Error('서류가 다 차고 반려가 없고 단가가 붙어야 계약을 확인할 수 있습니다.');
     }
-    const after = confirmed ? new Date().toISOString().slice(0, 10) : null;
+    const after = confirmed ? today() : null;
     if (Boolean(r.project.contractConfirmedAt) === Boolean(after)) return;
     r.project.contractConfirmedAt = after;
     r.court = confirmed ? '시공사' : '한백';
-    r.lastProgressAt = new Date().toISOString().slice(0, 10);
+    r.lastProgressAt = today();
     await save(records);
   },
 
@@ -414,7 +415,7 @@ export const fileRepository: ProjectRepository = {
     if (!r) throw new Error('현장을 찾을 수 없습니다.');
     if (r.court === court) return;
     r.court = court;
-    r.lastProgressAt = new Date().toISOString().slice(0, 10);
+    r.lastProgressAt = today();
     await save(records);
   },
 };

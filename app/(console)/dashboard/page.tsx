@@ -1,3 +1,4 @@
+import { thisMonth as seoulMonth } from '@/lib/date';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { getRepository } from '@/lib/data';
@@ -50,7 +51,7 @@ export default async function DashboardPage({
   const projects = year ? all.filter((p) => p.createdAt.startsWith(year)) : [];
 
   // ── 1~12월 ──────────────────────────────────────────────────
-  const thisMonth = new Date().toISOString().slice(0, 7);
+  const thisMonth = seoulMonth();
   let acc = 0;
   let accQty = 0;
   const byMonth = Array.from({ length: 12 }, (_, i) => {

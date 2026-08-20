@@ -14,6 +14,7 @@ import { hashPassword, verifyPassword } from './crypto';
 import { getDb, hasDatabase } from '@/lib/db/client';
 import { users } from '@/lib/db/schema';
 import { writeAudit } from '@/lib/db/audit';
+import { dayOf } from '@/lib/date';
 
 interface StoredUser extends User {
   /** pbkdf2$iterations$salt$hash */
@@ -145,7 +146,7 @@ export const userStore: UserStore = {
     const rows = await getDb().select().from(users);
     const fromDb: AccountView[] = rows.map((r) => ({
       id: r.id, name: r.name, role: r.role as Role, org: r.org,
-      active: r.active, createdAt: r.createdAt.toISOString().slice(0, 10), source: 'db',
+      active: r.active, createdAt: dayOf(r.createdAt), source: 'db',
     }));
     // 같은 ID 가 양쪽에 있으면 DB 가 이긴다 — find 와 같은 순서여야 화면이 사실을 말한다
     const inDb = new Set(fromDb.map((u) => u.id));

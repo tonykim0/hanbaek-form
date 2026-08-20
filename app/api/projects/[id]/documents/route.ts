@@ -10,6 +10,11 @@
  * 그래서 목록을 통째로 받는다. 현장은 한 번만 읽고, 옮기는 일만 몇 개씩 겹쳐 돈다.
  *
  * 파일 자체는 이미 Blob 에 있다 — 여기서 오가는 것은 주소뿐이라 본문이 작다.
+ *
+ * ★lib/api/write-route 껍데기를 쓰지 않는 이유★
+ * 그 껍데기는 성공이면 { ok: true }, 실패면 { error } 한 줄이다. 이 라우트는 「11칸 중 9칸은
+ * 붙었고 2칸이 왜 안 됐다」를 답해야 해서 실패 쪽에도 목록을 실어 보낸다 — 화면이 그 첫 칸을
+ * 집어 「전기안전점검: …」처럼 어느 서류가 걸렸는지 말한다. 반쪽 성공을 한 줄로 줄일 수 없다.
  */
 import { NextResponse } from 'next/server';
 import { getSessionUser, viewerOf } from '@/lib/auth/session';

@@ -14,6 +14,7 @@
 import { and, desc, eq, inArray, or, sql } from 'drizzle-orm';
 import { getDb } from '@/lib/db/client';
 import { writeAudit } from '@/lib/db/audit';
+import { dayOf, stampOf, today } from '@/lib/date';
 import {
   contractLines, documents, pricingRules, processDocuments, processes,
   projectNotes, projects, settlements,
@@ -71,7 +72,7 @@ function toProject(r: ProjectRow): Project {
     envQueueNo: r.envQueueNo,
     note: r.note,
     contractConfirmedAt: r.contractConfirmedAt,
-    createdAt: r.createdAt.toISOString().slice(0, 10),
+    createdAt: dayOf(r.createdAt),
     settlementRuleId: r.settlementRuleId,
     settlementAppliedAt: r.settlementAppliedAt,
     holdState: r.holdState as Project['holdState'],
@@ -284,13 +285,12 @@ export const pgRepository: ProjectRepository = {
       .from(projectNotes)
       .where(eq(projectNotes.projectId, id))
       .orderBy(desc(projectNotes.at));
-    const stamp = (d: Date) => d.toISOString().slice(0, 16).replace('T', ' ');
     record.notes = noteRows.map((n) => ({
       id: n.id,
       author: n.author,
       body: n.body,
-      at: stamp(n.at),
-      editedAt: n.editedAt ? stamp(n.editedAt) : null,
+      at: stampOf(n.at),
+      editedAt: n.editedAt ? stampOf(n.editedAt) : null,
     }));
 
     // 금액을 브라우저로 보내기 전에 지운다 — 화면에서 가리는 것만으로는 소스에 남는다
@@ -305,7 +305,7 @@ export const pgRepository: ProjectRepository = {
 
   async createProject(draft: IntakeDraft, actor): Promise<string> {
     const db = getDb();
-    const today = new Date().toISOString().slice(0, 10);
+    const day = today();
 
     return db.transaction(async (tx) => {
       /*
@@ -358,7 +358,7 @@ export const pgRepository: ProjectRepository = {
         settlementRuleId: null,
         settlementAppliedAt: null,
         court: '한백', // 접수하면 공이 한백으로 넘어간다 (검수 차례)
-        lastProgressAt: today,
+        lastProgressAt: day,
       });
 
       if (draft.lines.length > 0) {
@@ -387,7 +387,7 @@ export const pgRepository: ProjectRepository = {
             filename: d.filename,
             status: 'uploaded', // 검수 대기 — 승인은 한백이 한다
             uploadedBy: actor.name,
-            uploadedAt: today,
+            uploadedAt: day,
           }))
         );
       }
@@ -446,7 +446,7 @@ export const pgRepository: ProjectRepository = {
       await tx
         .update(projects)
         .set({
-          lastProgressAt: new Date().toISOString().slice(0, 10),
+          lastProgressAt: today(),
           ...(input.status === 'rejected' ? { contractConfirmedAt: null } : {}),
         })
         .where(eq(projects.id, input.projectId));
@@ -497,7 +497,7 @@ export const pgRepository: ProjectRepository = {
        */
       await tx
         .update(projects)
-        .set({ lastProgressAt: new Date().toISOString().slice(0, 10) })
+        .set({ lastProgressAt: today() })
         .where(eq(projects.id, input.projectId));
     });
   },
@@ -591,12 +591,12 @@ export const pgRepository: ProjectRepository = {
       }
       if (line.ruleId === pricingRuleId) return;
 
-      const today = new Date().toISOString().slice(0, 10);
+      const day = today();
       await tx
         .update(contractLines)
-        .set({ pricingRuleId, pricedAt: pricingRuleId ? today : null })
+        .set({ pricingRuleId, pricedAt: pricingRuleId ? day : null })
         .where(eq(contractLines.id, lineId));
-      await tx.update(projects).set({ lastProgressAt: today }).where(eq(projects.id, line.projectId));
+      await tx.update(projects).set({ lastProgressAt: day }).where(eq(projects.id, line.projectId));
 
       await writeAudit(tx, {
         projectId: line.projectId, actor, action: '단가 케이스 지정',
@@ -621,7 +621,7 @@ export const pgRepository: ProjectRepository = {
       await tx.update(settlements).set(patch).where(eq(settlements.projectId, projectId));
       await tx
         .update(projects)
-        .set({ lastProgressAt: new Date().toISOString().slice(0, 10) })
+        .set({ lastProgressAt: today() })
         .where(eq(projects.id, projectId));
 
       for (const f of changed) {
@@ -654,7 +654,7 @@ export const pgRepository: ProjectRepository = {
        * process_documents 만 보므로 올려도 조건이 안 차고, 원인을 찾을 단서가 없다.
        */
       const proc = isProcessDocKind(input.kind);
-      const today = new Date().toISOString().slice(0, 10);
+      const day = today();
 
       if (proc) {
         const [before] = await tx
@@ -673,7 +673,7 @@ export const pgRepository: ProjectRepository = {
           blobUrl: input.blobUrl,
           status: 'uploaded',
           uploadedBy: actor.name,
-          uploadedAt: today,
+          uploadedAt: day,
         };
         await tx
           .insert(processDocuments)
@@ -684,7 +684,7 @@ export const pgRepository: ProjectRepository = {
           });
         await tx
           .update(projects)
-          .set({ lastProgressAt: today })
+          .set({ lastProgressAt: day })
           .where(eq(projects.id, input.projectId));
         await writeAudit(tx, {
           projectId: input.projectId, actor,
@@ -709,7 +709,7 @@ export const pgRepository: ProjectRepository = {
         status: 'uploaded',
         rejectReason: null,
         uploadedBy: actor.name,
-        uploadedAt: today,
+        uploadedAt: day,
       };
       await tx
         .insert(documents)
@@ -719,7 +719,7 @@ export const pgRepository: ProjectRepository = {
       // 서류가 올라오면 공이 한백으로 넘어간다 (검수 차례)
       await tx
         .update(projects)
-        .set({ court: '한백', lastProgressAt: today })
+        .set({ court: '한백', lastProgressAt: day })
         .where(eq(projects.id, input.projectId));
 
       await writeAudit(tx, {
@@ -752,7 +752,7 @@ export const pgRepository: ProjectRepository = {
 
       await tx
         .update(projects)
-        .set({ envQueueNo: value, lastProgressAt: new Date().toISOString().slice(0, 10) })
+        .set({ envQueueNo: value, lastProgressAt: today() })
         .where(eq(projects.id, projectId));
 
       await writeAudit(tx, {
@@ -790,7 +790,7 @@ export const pgRepository: ProjectRepository = {
       }
       await tx
         .update(projects)
-        .set({ lastProgressAt: new Date().toISOString().slice(0, 10) })
+        .set({ lastProgressAt: today() })
         .where(eq(projects.id, projectId));
 
       for (const f of fields) {
@@ -839,7 +839,7 @@ export const pgRepository: ProjectRepository = {
       }
       await tx
         .update(projects)
-        .set({ lastProgressAt: new Date().toISOString().slice(0, 10) })
+        .set({ lastProgressAt: today() })
         .where(eq(projects.id, projectId));
 
       await writeAudit(tx, {
@@ -885,11 +885,11 @@ export const pgRepository: ProjectRepository = {
         && next.preChecked === row.preChecked
       ) return;
 
-      const today = new Date().toISOString().slice(0, 10);
+      const day = today();
       await tx
         .update(projects)
         // 조사는 진척이다 — 정체일 기준을 갱신한다
-        .set({ ...next, lastProgressAt: today })
+        .set({ ...next, lastProgressAt: day })
         .where(eq(projects.id, projectId));
 
       await writeAudit(tx, {
@@ -958,7 +958,7 @@ export const pgRepository: ProjectRepository = {
     }
 
     const before = record.project.contractConfirmedAt;
-    const after = confirmed ? new Date().toISOString().slice(0, 10) : null;
+    const after = confirmed ? today() : null;
     if (Boolean(before) === Boolean(after)) return;
 
     const db = getDb();
@@ -969,7 +969,7 @@ export const pgRepository: ProjectRepository = {
           contractConfirmedAt: after,
           // 계약이 끝났다는 것은 다음 손이 시공사라는 뜻이다. 되돌리면 공도 한백으로 돌아온다.
           court: confirmed ? '시공사' : '한백',
-          lastProgressAt: new Date().toISOString().slice(0, 10),
+          lastProgressAt: today(),
         })
         .where(eq(projects.id, projectId));
 
@@ -995,7 +995,7 @@ export const pgRepository: ProjectRepository = {
 
       await tx
         .update(projects)
-        .set({ court, lastProgressAt: new Date().toISOString().slice(0, 10) })
+        .set({ court, lastProgressAt: today() })
         .where(eq(projects.id, projectId));
 
       await writeAudit(tx, {

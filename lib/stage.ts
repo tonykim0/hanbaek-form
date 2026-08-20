@@ -4,6 +4,7 @@
  */
 import type { ContractLine, ContractState, Settlement, Stage } from '@/types/project';
 import { evaluateDocs, type DocContext } from '@/lib/doc-rules';
+import { daysSince } from '@/lib/date';
 import type { ProjectDocument } from '@/types/project';
 
 /**
@@ -70,12 +71,13 @@ export function deriveStage(input: {
   return contract.ready && Boolean(input.contractConfirmedAt) ? 'construction' : 'intake';
 }
 
-/** 마지막 진척 후 경과일. 노션엔 없는 지표 — 공정·정산 relation 이 끊겨 계산이 안 된다. */
-export function stalledDaysSince(lastProgressAt: string, now = new Date()): number {
-  const then = new Date(lastProgressAt + 'T00:00:00Z').getTime();
-  const today = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
-  return Math.max(0, Math.round((today - then) / 86400000));
-}
+/**
+ * 마지막 진척 후 경과일.
+ *
+ * 저장된 날짜가 한국 달력이므로 오늘도 한국 달력으로 센다(lib/date). 예전에는 오늘만
+ * UTC 로 세서 한국 시간 오전 9시 전에는 경과일이 하루 적게 나왔다.
+ */
+export const stalledDaysSince = daysSince;
 
 export const STAGE_LABEL: Record<Stage, string> = {
   // 콘솔에서 부르는 이름은 「계약」이다. 협력사가 쓰는 포털의 「접수」와 구분한다 —

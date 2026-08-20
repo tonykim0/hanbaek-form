@@ -1,3 +1,4 @@
+import { monthShift, thisMonth as seoulMonth } from '@/lib/date';
 import { won } from '@/lib/format';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
@@ -32,7 +33,7 @@ export default async function PaymentsPage({
   const isAdmin = session.role === 'admin';
   const rows = await getRepository().listPayouts(viewerOf(session));
 
-  const thisMonth = new Date().toISOString().slice(0, 7);
+  const thisMonth = seoulMonth();
   const month = /^\d{4}-\d{2}$/.test(searchParams.month ?? '') ? searchParams.month! : thisMonth;
 
   const paid = rows.filter((r) => r.paidAt?.startsWith(month));
@@ -44,11 +45,7 @@ export default async function PaymentsPage({
     .reverse();
   if (!months.includes(month)) months.unshift(month);
 
-  const shift = (delta: number) => {
-    const [y, m] = month.split('-').map(Number);
-    const d = new Date(Date.UTC(y, m - 1 + delta, 1));
-    return d.toISOString().slice(0, 7);
-  };
+  const shift = (delta: number) => monthShift(month, delta);
 
   return (
     <div className="flex flex-col gap-6">

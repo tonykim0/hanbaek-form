@@ -20,16 +20,26 @@ export function checkDraft(draft: IntakeDraft): IntakeCheck {
   const errors: string[] = [];
   const warnings: string[] = [];
 
-  if (!draft.name?.trim()) errors.push('현장명을 입력하세요.');
-  if (!draft.cpo) errors.push('운영사를 선택하세요.');
-  if (!draft.contractParty) errors.push('계약 주체를 선택하세요 — 회의록 종류가 여기서 정해집니다.');
-  if (!draft.powerType) errors.push('수전 방식을 선택하세요.');
-  if (!draft.bizType) errors.push('사업구분을 선택하세요.');
+  /*
+   * 목록 두 개는 없을 수 있다고 보고 센다.
+   *
+   * 화면에서 부를 때는 늘 있지만, /api/projects 는 아무 본문이나 받는다. 예전에는
+   * draft.lines.length 에서 곧바로 터져서 「Cannot read properties of undefined」가
+   * 그대로 응답으로 나갔다 — 서버 검증이 클라이언트 검증의 사본이라 이 자리가 비어 있었다.
+   */
+  const lines = Array.isArray(draft?.lines) ? draft.lines : [];
+  const documents = Array.isArray(draft?.documents) ? draft.documents : [];
 
-  if (draft.lines.length === 0) {
+  if (!draft?.name?.trim()) errors.push('현장명을 입력하세요.');
+  if (!draft?.cpo) errors.push('운영사를 선택하세요.');
+  if (!draft?.contractParty) errors.push('계약 주체를 선택하세요 — 회의록 종류가 여기서 정해집니다.');
+  if (!draft?.powerType) errors.push('수전 방식을 선택하세요.');
+  if (!draft?.bizType) errors.push('사업구분을 선택하세요.');
+
+  if (lines.length === 0) {
     errors.push('계약 라인을 하나 이상 추가하세요.');
   } else {
-    draft.lines.forEach((l, i) => {
+    lines.forEach((l, i) => {
       if (!l.qty || l.qty < 1) errors.push(`계약 라인 ${i + 1}: 대수를 1 이상으로 입력하세요.`);
       if (![5, 7, 10].includes(l.termYears)) errors.push(`계약 라인 ${i + 1}: 계약기간을 선택하세요.`);
       if (draft.powerType === '한전불입+모자분리' && !l.powerType) {
@@ -38,22 +48,22 @@ export function checkDraft(draft: IntakeDraft): IntakeCheck {
     });
   }
 
-  if (draft.preInstall === '있음' && !draft.preNote?.trim()) {
+  if (draft?.preInstall === '있음' && !draft.preNote?.trim()) {
     errors.push('기설치 충전기가 있으므로 기설치 현황을 적어주세요.');
   }
 
   // 서류 — 조건부 규칙을 그대로 적용
   const ctx = buildDocContext({
-    cpo: draft.cpo,
-    contractParty: draft.contractParty,
-    bldgType: draft.bldgType,
-    projectPowerType: draft.powerType,
-    linePowerTypes: draft.lines.map((l) => l.powerType),
-    preInstall: draft.preInstall,
-    bizType: draft.bizType,
+    cpo: draft?.cpo,
+    contractParty: draft?.contractParty,
+    bldgType: draft?.bldgType,
+    projectPowerType: draft?.powerType,
+    linePowerTypes: lines.map((l) => l.powerType),
+    preInstall: draft?.preInstall,
+    bizType: draft?.bizType,
   });
   const evaluated = evaluateDocs(ctx);
-  const attached = new Set(draft.documents.map((d) => d.kind));
+  const attached = new Set(documents.map((d) => d.kind));
 
   const required = evaluated.filter((d) => d.req === 'm');
   const missing = required.filter((d) => !attached.has(d.key));

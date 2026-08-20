@@ -122,6 +122,7 @@ function toProcess(projectId: string, r: ProcRow | undefined, docRows: ProcDocRo
   return {
     projectId,
     envApprovalDate: r?.envApprovalDate ?? null,
+    cpoSubmitDate: r?.cpoSubmitDate ?? null,
     cpoApprovalDate: r?.cpoApprovalDate ?? null,
     chargerOrderDate: r?.chargerOrderDate ?? null,
     chargerShipDate: r?.chargerShipDate ?? null,

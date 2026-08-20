@@ -92,6 +92,7 @@ export interface ProjectRecord {
 export const emptyProcess = (projectId: string): ProcessInfo => ({
   projectId,
   envApprovalDate: null,
+  cpoSubmitDate: null,
   cpoApprovalDate: null,
   chargerOrderDate: null,
   chargerShipDate: null,

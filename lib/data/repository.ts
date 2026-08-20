@@ -214,7 +214,7 @@ export interface ProjectRepository {
 export type ProcessPatch = Partial<
   Pick<
     ProcessInfo,
-    | 'envApprovalDate' | 'cpoApprovalDate' | 'chargerOrderDate' | 'chargerShipDate'
+    | 'envApprovalDate' | 'cpoSubmitDate' | 'cpoApprovalDate' | 'chargerOrderDate' | 'chargerShipDate'
     | 'chargerRecvDate' | 'startPlanDate' | 'startActualDate' | 'installDoneDate'
     | 'commDoneDate' | 'memo'
   >

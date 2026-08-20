@@ -12,7 +12,7 @@ import type { ProcessPatch } from '@/lib/data/repository';
 
 /** 고칠 수 있는 날짜 칸 */
 const DATE_FIELDS = [
-  'envApprovalDate', 'cpoApprovalDate', 'chargerOrderDate', 'chargerShipDate',
+  'envApprovalDate', 'cpoSubmitDate', 'cpoApprovalDate', 'chargerOrderDate', 'chargerShipDate',
   'chargerRecvDate', 'startPlanDate', 'startActualDate', 'installDoneDate', 'commDoneDate',
 ] as const;
 

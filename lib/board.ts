@@ -38,6 +38,8 @@ export interface BoardColumnDef {
 /** 계약완료는 공정에 저장되지만 사람은 계약의 끝으로 읽는다 — 그래서 계약 띠에 둔다 */
 const BAND_OF_STATUS: Record<ProcessStatus, BoardBand> = {
   '계약완료': '계약',
+  // 운영사에 내는 것은 계약 일의 끝이다 — 시공은 운영사가 승인한 뒤에 시작한다
+  '운영사 제출': '계약',
   '시공진행필요': '시공',
   '설치완료': '시공',
   '준공서류 접수/검토': '시공',

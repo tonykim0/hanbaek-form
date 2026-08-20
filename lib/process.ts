@@ -29,7 +29,17 @@ const docApproved = (process: ProcessInfo, key: string): boolean =>
  * 조건을 정하지 않은 상태가 조용히 생기는 것을 막는다.
  */
 export const STATUS_GATES: Record<ProcessStatus, StatusGate | null> = {
-  '계약완료': null,   // 서류·단가가 다 차면 여기서 시작한다
+  '계약완료': null,   // 서류·단가가 다 차고 한백이 확인하면 여기서 시작한다
+  /*
+   * 우리가 운영사에 계약서를 낸 날. 우리가 하는 일이라 통보를 기다릴 것이 없다.
+   *
+   * 이 칸이 없던 동안은 「안 낸 현장」과 「내고 기다리는 현장」이 계약완료에 같이 있었다.
+   * 승인이 늦은 것인지 우리가 안 낸 것인지 구분할 방법이 없었다 — 그 둘은 할 일이 다르다.
+   */
+  '운영사 제출': {
+    need: '운영사 제출일',
+    met: (p) => Boolean(p.cpoSubmitDate),
+  },
   // 환경부 승인 뒤 운영사가 따로 통보한다. 공정에서 유도할 수 없어 입력받는다.
   '시공진행필요': {
     need: '운영사 시공승인일',

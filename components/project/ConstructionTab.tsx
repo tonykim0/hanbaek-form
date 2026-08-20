@@ -79,7 +79,7 @@ function StatusFlow({ process }: { process: ProjectDetail['process'] }) {
 
 /** 고칠 수 있는 날짜 칸 — 이름은 서버(ProcessPatch)와 같아야 한다 */
 type DateField =
-  | 'envApprovalDate' | 'cpoApprovalDate' | 'chargerOrderDate' | 'chargerRecvDate'
+  | 'envApprovalDate' | 'cpoSubmitDate' | 'cpoApprovalDate' | 'chargerOrderDate' | 'chargerRecvDate'
   | 'startPlanDate' | 'startActualDate' | 'installDoneDate' | 'commDoneDate';
 
 export function ConstructionTab({ detail, canEdit }: { detail: ProjectDetail; canEdit: boolean }) {
@@ -105,6 +105,11 @@ export function ConstructionTab({ detail, canEdit }: { detail: ProjectDetail; ca
     opens?: string;
   }> = [
     { label: '환경부 승인일', field: 'envApprovalDate', value: p.envApprovalDate, trigger: '환경부 승인' },
+    {
+      // 우리가 낸 날이다. 이것이 비어 있으면 승인이 늦은 것인지 우리가 안 낸 것인지 알 수 없다.
+      label: '운영사 제출일', field: 'cpoSubmitDate', value: p.cpoSubmitDate,
+      opens: '운영사 제출',
+    },
     {
       label: '운영사 시공승인일', field: 'cpoApprovalDate', value: p.cpoApprovalDate,
       trigger: '시공진행필요', opens: '시공진행필요',

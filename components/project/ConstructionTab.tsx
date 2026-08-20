@@ -106,9 +106,13 @@ export function ConstructionTab({ detail, canEdit }: { detail: ProjectDetail; ca
   }> = [
     { label: '환경부 승인일', field: 'envApprovalDate', value: p.envApprovalDate, trigger: '환경부 승인' },
     {
-      // 우리가 낸 날이다. 이것이 비어 있으면 승인이 늦은 것인지 우리가 안 낸 것인지 알 수 없다.
-      label: '운영사 제출일', field: 'cpoSubmitDate', value: p.cpoSubmitDate,
-      opens: '운영사 제출',
+      /*
+       * 우리가 계약서를 낸 날이다. 내면 운영사가 승인·접수하고(형식이다) 환경부 대기번호가
+       * 나오기를 기다린다 — 이 칸이 비어 있으면 우리가 안 낸 것인지 환경부를 기다리는
+       * 것인지 알 수 없다.
+       */
+      label: '운영사 계약서 제출일', field: 'cpoSubmitDate', value: p.cpoSubmitDate,
+      opens: '운영사 계약서 제출',
     },
     {
       label: '운영사 시공승인일', field: 'cpoApprovalDate', value: p.cpoApprovalDate,

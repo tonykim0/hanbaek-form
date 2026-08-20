@@ -1,0 +1,489 @@
+/**
+ * 통합 도메인 모델 — SYSTEM_ARCHITECTURE §6 의 논리 스키마.
+ *
+ * 이 타입들은 「추상화 계층이 다루는 스키마」이지 저장 형태가 아니다.
+ * 물리 저장은 지금 노션, 나중에 자체 DB. 구현이 바뀌어도 이 파일은 안 바뀐다.
+ *
+ * 핵심 불변식:
+ *  - 한 현장(Project)에 계약 라인(ContractLine)이 여럿. 단가는 라인별.
+ *  - 단가 지정 = 스냅샷. 매트릭스를 나중에 고쳐도 지정된 라인 금액은 안 바뀐다.
+ *  - 서류는 번호가 아니라 종류(kind)로 다룬다.
+ */
+
+export type CpoName =
+  | '플러그링크'
+  | '나이스인프라'
+  | '현대엔지니어링'
+  | 'SK일렉링크'
+  | '에버온';
+
+export type BuildingType = '공동주택' | '상업시설';
+/** 노션에 없는 신규 필드. 회의록 종류를 결정한다. */
+export type ContractParty = '입주자대표회의' | '관리단' | '건설사';
+export type PowerType = '한전불입' | '모자분리' | '한전불입+모자분리';
+/**
+ * 교체유형 — 사업구분과 묶여 있다.
+ *
+ * 환경부 보조금은 신규 설치에만 나오고, 기존 충전기를 교체하는 것은 자체투자다.
+ * 그래서 실제로 존재하는 조합이 셋뿐이라 셋을 그대로 값으로 둔다 —
+ * 「환경부 + 제자리교체」처럼 있을 수 없는 조합을 고를 수 있게 두면 그 현장의 단가가
+ * 어느 케이스에도 안 맞고, 왜 안 맞는지 알 수 없다.
+ */
+export type ReplType = '환경부 신규' | '자체투자 (제자리교체)' | '자체투자 (신규위치)';
+export type BizType = '환경부' | '자체투자';
+
+/** 교체유형이 사업구분을 정한다 — 따로 고르게 두면 두 값이 어긋난다 */
+export function bizTypeOfRepl(repl: ReplType): BizType {
+  return repl === '환경부 신규' ? '환경부' : '자체투자';
+}
+/**
+ * 기설치 충전기 — 두 값뿐이다.
+ *
+ * 예전에 '확인불가' 를 뒀는데, 그것은 기설치 상태가 아니라 「조사를 못 했다」는 뜻이다.
+ * 그 자리는 preChecked(조사 여부)가 맡는다 — 값과 진행상태를 한 칸에 섞으면
+ * 「확인불가인데 조사함」 같은 상태가 생긴다.
+ */
+export type PreInstall = '없음' | '있음';
+
+/** 현장이 통과하는 단계 */
+export type Stage = 'intake' | 'construction' | 'settlement';
+/** 공 차례 — 지금 누가 움직여야 하는가 */
+export type Court = '한백' | '영업사' | '시공사' | '운영사';
+
+/**
+ * 기성 트리거 — 매트릭스 전 케이스 실측 결과 딱 4가지.
+ * ※ '준공마감' 은 운영사가 정한다. 우리 공정 일정에서 유도할 수 없다.
+ */
+export type Trigger = '환경부 승인' | '착공' | '준공마감' | '해당없음';
+export type PayoutType = '정액' | '잔액' | '해당없음';
+
+// ── 현장 ────────────────────────────────────────────────────────
+export interface Project {
+  id: string;
+  /** 한백_현장관리번호 (노션 PK) */
+  mgmtNo: string | null;
+  cpo: CpoName;
+  salesOrg: string | null;
+  gcOrg: string | null;
+  name: string;
+  addr: string | null;
+  bldgType: BuildingType | null;
+  contractParty: ContractParty | null;
+  parkTotal: number | null;
+  mgr: string | null;
+  tel: string | null;
+  mail: string | null;
+  preInstall: PreInstall;
+  preNote: string | null;
+  /**
+   * 기설치 조사를 했는가.
+   *
+   * ★'없음' 과 「아직 안 봤음」은 다른 것이다.★ 접수 기본값이 '없음' 이라 이 값 없이는
+   * 둘이 같은 모양으로 보인다 — 환경부 사업은 현장마다 조사를 해야 하고,
+   * 안 한 현장을 골라내는 것이 그 업무의 절반이다.
+   */
+  preChecked: boolean;
+  powerType: PowerType | null;
+  /**
+   * 현장 대표 교체유형 — 계약 라인이 전부 같을 때만 채운다.
+   * 섞인 현장은 null 이고, 그때는 라인의 값이 정본이다.
+   */
+  replType: ReplType | null;
+  bizType: BizType | null;
+  /**
+   * 환경부 보조금 신청 대기번호.
+   * 「2026-595」처럼 사업연도가 붙은 형태로도 오고 번호만 오기도 한다 —
+   * 쪼개지 않고 받은 그대로 둔다. 쪼개는 규칙을 정하면 형식이 다른 값이 들어올 때 깨진다.
+   */
+  envQueueNo: string | null;
+  /** 접수할 때 협력사가 적은 말 (영업비 차감·프로모션 적용 조건 등) */
+  note: string | null;
+  createdAt: string;
+  /** 한백이 현장별로 적용하는 정산 규칙. 미지정이면 기성이 계산되지 않는다. */
+  settlementRuleId: string | null;
+  settlementAppliedAt: string | null;
+  /** 멈춤 상태. null 이면 정상 진행 중. */
+  holdState: HoldState | null;
+  holdNote: string | null;
+}
+
+// ── 단가 규칙 · 정산 규칙 ────────────────────────────────────────
+/**
+ * 정산 단계의 금액 산정 방식.
+ *   고정 — 대당 고정액 (운영사가 못 박은 선급금)
+ *   비율 — 턴키 × 비율
+ *   잔액 — 턴키 − 앞단계 합계
+ */
+export type StepBasis =
+  | { kind: '고정'; unit: number }
+  | { kind: '비율'; ratio: number }
+  | { kind: '잔액' };
+
+export interface SettlementStepRule {
+  trigger: Trigger;
+  basis: StepBasis;
+}
+
+/**
+ * 정산 규칙 — 단가와 분리된 별도 테이블. 한백이 내부적으로 관리하고 현장별로 적용한다.
+ * ★불변★ 추가·비활성만. 한 번 현장에 적용되면 수정하지 않는다.
+ */
+export interface SettlementRule {
+  id: string;
+  name: string;
+  /** 1~3단계 */
+  steps: SettlementStepRule[];
+  note: string | null;
+  active: boolean;
+}
+
+/**
+ * 단가 규칙 (매트릭스 케이스).
+ *
+ * ★불변★ 한 번 계약 라인에 지정되면 수정하지 않는다. 조건이 바뀌면 새 행을 추가한다.
+ * 그래서 계약 라인은 값을 복사하지 않고 이 케이스를 참조만 한다 — 스냅샷이 필요 없다.
+ */
+export interface PricingRule {
+  id: string;
+  caseName: string;
+  cpo: CpoName;
+  bizType: BizType;
+  /** 수전방식별로 케이스를 쪼갠다. 겸용 행은 두 개로 분리했다. */
+  powerType: '모자분리' | '한전불입';
+  /** 7·10년 겸용 케이스가 있어 배열이다 */
+  termYears: number[];
+  bldgTypes: BuildingType[];
+  replType: ReplType;
+  bizYear: number;
+  startDate: string;
+  salesUnit: number;
+  consUnit: number;
+  margin: number;
+  /** 이 케이스에 통상 붙는 정산 규칙 — 제안값. 실제 적용은 현장(Project)에 둔다. */
+  defaultSettlementRuleId: string;
+  supervisionBearer: string | null;
+  safetyFeeBearer: string | null;
+  note: string | null;
+  active: boolean;
+}
+
+export interface ContractLine {
+  id: string;
+  projectId: string;
+  termYears: number;
+  qty: number;
+  /** 이 라인의 수전방식 — 혼용 현장은 라인별로 갈린다 */
+  powerType: Exclude<PowerType, '한전불입+모자분리'> | null;
+  /**
+   * 이 라인의 교체유형 — 자체투자 현장은 라인별로 갈린다.
+   *
+   * 제자리교체와 신규위치가 한 현장에 섞인다. 단가 케이스가 그 축으로도 갈리므로
+   * (lib/pricing-match.ts) 현장에 하나만 두면 섞인 현장의 절반이 틀린 단가를 받는다.
+   */
+  replType: ReplType | null;
+  memo: string | null;
+  /** null 이면 「단가 미지정」. 영업사에게 금액이 안 보인다. */
+  pricingRuleId: string | null;
+  /** 단가를 확정한 날 */
+  pricedAt: string | null;
+}
+
+/**
+ * 화면으로 나가는 단가 케이스.
+ *
+ * 금액 셋이 nullable 인 이유: 보는 사람에 따라 지운 채로 나가기 때문이다.
+ * 화면에서 가리는 것만으로는 부족하다 — 서버가 렌더한 데이터가 통째로 브라우저에 실려서
+ * 페이지 소스를 열면 그대로 보인다. 그래서 저장소 계층에서 아예 null 로 만든다.
+ *
+ * 타입이 nullable 이므로 새 화면을 만들 때도 「없을 수 있다」를 강제로 다루게 된다.
+ */
+export type PricingRuleView = Omit<PricingRule, 'salesUnit' | 'consUnit' | 'margin'> & {
+  salesUnit: number | null;
+  consUnit: number | null;
+  margin: number | null;
+};
+
+/** 화면이 받는 조립된 라인 — 참조가 풀려 있다 */
+export interface ContractLineView extends ContractLine {
+  rule: PricingRuleView | null;
+}
+
+// ── 서류 ────────────────────────────────────────────────────────
+export type DocStatus = 'none' | 'uploaded' | 'approved' | 'rejected';
+
+export interface ProjectDocument {
+  kind: string;
+  filename: string | null;
+  /** 실제 파일 주소 (Vercel Blob). null 이면 파일이 아직 없다. */
+  blobUrl: string | null;
+  status: DocStatus;
+  rejectReason: string | null;
+  uploadedBy: string | null;
+  uploadedAt: string | null;
+}
+
+// ── 공정 ────────────────────────────────────────────────────────
+/**
+ * 시공 진행현황 — 한백이 실제로 쓰는 흐름 그대로다.
+ *
+ * 순서가 곧 진행이다. 배열 순서를 바꾸면 화면의 진행 표시가 함께 바뀐다.
+ */
+export const PROCESS_STATUSES = [
+  /*
+   * 첫 상태는 「계약이 끝났고 공정은 아직 시작 안 됐다」는 뜻이다.
+   * 계약이 안 끝난 현장도 이 값을 갖는다 — 저장된 이 값은 계약이 끝난 뒤에만 의미가 있고,
+   * 계약 단계의 자리(계약접수·계약보완)는 서류·단가에서 유도된다(lib/board.ts).
+   */
+  '계약완료',
+  '시공진행필요',
+  '설치완료',
+  '준공서류 접수/검토',
+  '준공보완',
+  '준공',
+] as const;
+
+export type ProcessStatus = (typeof PROCESS_STATUSES)[number];
+
+/**
+ * 현장이 멈춘 상태. 진행 흐름과 별개다.
+ *
+ * 「보류」는 계약은 됐는데 도중에 중단된 것이라 시공 상태가 아니라 계약 쪽에 가깝다.
+ * 그래서 진행 단계와 섞지 않고 따로 둔다 — 섞으면 「설치완료면서 보류」를 표현할 수 없다.
+ */
+export type HoldState = '보류' | 'DROP';
+
+/** 노션 공정관리 마스터의 실제 날짜 필드 (준공서류일·기자재발주일은 없다) */
+export interface ProcessInfo {
+  projectId: string;
+  /** 계약 마스터에서 롤업으로 오는 값 */
+  envApprovalDate: string | null;
+  chargerOrderDate: string | null;
+  chargerShipDate: string | null;
+  chargerRecvDate: string | null;
+  startPlanDate: string | null;
+  /**
+   * 운영사 시공승인일.
+   * 환경부 승인 뒤 운영사가 따로 통보한다 — 공정에서 유도할 수 없어 입력받는다.
+   * 「시공진행필요」로 넘어가는 근거다.
+   */
+  cpoApprovalDate: string | null;
+  /** 「착공」 트리거의 근거 */
+  startActualDate: string | null;
+  installDoneDate: string | null;
+  commDoneDate: string | null;
+  docs: ProjectDocument[];
+  status: ProcessStatus;
+  memo: string | null;
+}
+
+// ── 정산 ────────────────────────────────────────────────────────
+export type StepState = 'na' | 'waiting' | 'open' | 'collected';
+
+export interface SettlementStep {
+  no: 1 | 2 | 3;
+  trigger: Trigger;
+  /** 화면 표시용 — 고정 / 비율 / 잔액 */
+  basisLabel: string;
+  /** 계획액 = 대당금액 × 대수, 잔액이면 (턴키 − 앞단계 정액합) × 대수 */
+  planAmount: number | null;
+  state: StepState;
+  collectedAt: string | null;
+}
+
+export interface Settlement {
+  projectId: string;
+  steps: SettlementStep[];
+  /**
+   * ★운영사가 통보하는 준공마감일.
+   * 공정 마일스톤에서 유도할 수 없어 별도로 받는다. 대부분 운영사의 최종 기성(잔액) 트리거.
+   */
+  cpoCloseDate: string | null;
+  salesPay1Date: string | null;
+  salesPay2Date: string | null;
+  consPay1Date: string | null;
+  consPay2Date: string | null;
+  safetyFee: number | null;
+  /** 지급 비고 */
+  payNote: string | null;
+}
+
+// ── 화면이 받는 묶음 ─────────────────────────────────────────────
+export interface ProjectSummary {
+  id: string;
+  /** 한백_현장관리번호 — 노션과 맞춰 볼 때 쓴다 */
+  mgmtNo: string | null;
+  name: string;
+  addr: string | null;
+  cpo: CpoName;
+  salesOrg: string | null;
+  gcOrg: string | null;
+  bldgType: BuildingType | null;
+  bizType: BizType | null;
+  powerType: PowerType | null;
+  envQueueNo: string | null;
+  /** 기설치 조사 결과 — 조사 전이면 null (「없음」과 가른다) */
+  preInstall: PreInstall | null;
+  createdAt: string;
+  lines: Array<{ termYears: number; qty: number }>;
+  stage: Stage;
+  /** 공정 진행현황. 보드에서 이 현장이 서는 칸이다. */
+  status: ProcessStatus;
+  /** 멈춘 현장. null 이면 진행 중. */
+  holdState: HoldState | null;
+  court: Court;
+  /** 마지막 진척 후 경과일. 노션엔 없는 지표. */
+  stalledDays: number;
+  priced: boolean;
+  /** 반려된 서류 수 — 협력사가 목록에서 바로 알아야 한다 */
+  rejectedDocs: number;
+  /**
+   * 지금 넘어갈 수 있는 공정 단계.
+   * 보드가 놓을 수 없는 칸을 미리 가리는 데 쓴다 — 조건은 lib/process.ts 가 정한다.
+   */
+  entryOk: ProcessStatus[];
+}
+
+/**
+ * 정산관리 화면이 받는 요약. [한백 전용]
+ *
+ * ★ProjectSummary 와 합치지 않는다.★ 저 목록은 협력사 브라우저로도 나가는데
+ * 여기에는 계획액·회수액이 들어 있다. 한 타입으로 묶으면 「이 화면은 금액을 안 쓴다」는
+ * 약속을 타입이 지켜주지 못하고, 언젠가 협력사 화면으로 실려 나간다.
+ */
+export interface SettlementSummary {
+  id: string;
+  name: string;
+  cpo: CpoName;
+  /** 계약 총 대수 */
+  qty: number;
+  stage: Stage;
+  status: ProcessStatus;
+  /** 적용된 정산 규칙 이름. null 이면 기성이 계산되지 않는다. */
+  ruleName: string | null;
+  steps: SettlementStep[];
+  /** 계획액 합계 */
+  planTotal: number;
+  /** 회수된 금액 합계 */
+  collectedTotal: number;
+  /** 운영사가 통보한 준공마감일 — 마지막 기성(잔액)의 근거 */
+  cpoCloseDate: string | null;
+
+  /*
+   * 여기부터는 반대 방향이다 — 한백이 협력사에게 내려주는 돈.
+   * 위(steps·planTotal)는 운영사에게서 받는 기성이다. 두 방향을 한 화면에 섞으면
+   * 「얼마 남았나」가 어느 쪽 이야기인지 알 수 없다.
+   */
+  salesOrg: string | null;
+  gcOrg: string | null;
+  /** 영업비 총액 = Σ(영업비/대 × 대수) */
+  salesTotal: number;
+  /** 시공비 총액 = Σ(시공비/대 × 대수) */
+  consTotal: number;
+  /** 한백 마진 총액 = 받을 기성 − 내려줄 지급 */
+  marginTotal: number;
+  /** 단가가 안 붙은 라인 수. 0 이 아니면 위 금액이 실제보다 적다. */
+  unpricedLines: number;
+  salesPay1Date: string | null;
+  salesPay2Date: string | null;
+  consPay1Date: string | null;
+  consPay2Date: string | null;
+  payNote: string | null;
+}
+
+/**
+ * 진행현황 한 줄 — 한백·협력사가 남기는 특이사항.
+ *
+ * 어느 칸에도 안 들어가는 사정이 여기 온다(관리사무소 사정으로 공사 연기, 한전 불입 지연…).
+ * 사람 이름 대신 소속만 남긴다 — 회사마다 계정이 하나라 이름이 늘 같다.
+ */
+export interface ProjectNote {
+  id: string;
+  author: string;
+  body: string;
+  /** 남긴 시각 (YYYY-MM-DD HH:mm) */
+  at: string;
+  /** 고친 시각. null 이면 처음 쓴 그대로다. */
+  editedAt: string | null;
+}
+
+/**
+ * 지급 한 줄 — 「어느 현장의 무슨 비용 몇 차를 누구에게 얼마」.
+ *
+ * 노션 「26 정산관리」의 영업비 1·2차 / 시공비 1·2차 뷰와 같은 단위다. 현장 한 건이
+ * 영업비 2줄 + 시공비 2줄로 최대 네 줄이 된다 — 달마다 나가는 돈을 세려면 이 단위여야 한다.
+ *
+ * ★협력사에게도 나간다.★ 그래서 마진·기성은 여기 없다. 자기가 받는 쪽 줄만 받는다 —
+ * 영업만 맡은 회사에게 시공비 줄을 보내지 않는다(effectiveVisibility).
+ */
+export interface PayoutRow {
+  projectId: string;
+  projectName: string;
+  cpo: CpoName;
+  qty: number;
+  /** 받는 곳. null 이면 아직 정해지지 않았다. */
+  org: string | null;
+  kind: '영업비' | '시공비';
+  /** 회차 (1 · 2) */
+  no: number;
+  /** 「1차 70%」처럼 보여줄 이름 */
+  label: string;
+  amount: number;
+  /** 지급일. null 이면 아직 안 나갔다. */
+  paidAt: string | null;
+}
+
+export interface ProjectDetail {
+  project: Project;
+  lines: ContractLineView[];
+  /** 이 현장에 적용된 정산 규칙 (참조 해소됨) */
+  settlementRule: SettlementRule | null;
+  documents: ProjectDocument[];
+  process: ProcessInfo;
+  settlement: Settlement;
+  stage: Stage;
+  court: Court;
+  stalledDays: number;
+  /** 진행현황 — 최근 것이 위로 온다 */
+  notes: ProjectNote[];
+}
+
+// ── 접수 입력 ────────────────────────────────────────────────────
+/** 협력사가 콘솔에서 접수할 때 채우는 것 (INTAKE_SPEC §2) */
+export interface IntakeDraft {
+  cpo: CpoName;
+  /**
+   * 접수 업체 — 한백이 대신 접수할 때만 쓴다.
+   *
+   * 협력사가 접수하면 서버가 접수자의 소속으로 채운다. 이 값은 무시된다 —
+   * 협력사가 남의 회사 이름을 넣어 남의 현장을 만들 수 있으면 안 된다.
+   *
+   * 한백이 계정 없는 업체의 건을 대신 받는 경우가 간혹 있어서, 그때 이름만 적어 둔다.
+   * 비워두면 「어느 업체도 아닌 현장」이 되고 한백만 본다.
+   */
+  salesOrg: string | null;
+  gcOrg: string | null;
+  name: string;
+  addr: string | null;
+  bldgType: BuildingType | null;
+  contractParty: ContractParty | null;
+  parkTotal: number | null;
+  mgr: string | null;
+  tel: string | null;
+  mail: string | null;
+  preInstall: PreInstall;
+  preNote: string | null;
+  /* 기설치 조사 여부(preChecked)는 여기 없다 — 접수 뒤의 일이라 서버가 false 로 만든다 */
+  powerType: PowerType | null;
+  replType: ReplType | null;
+  bizType: BizType | null;
+  note: string | null;
+  lines: Array<{
+    termYears: number;
+    qty: number;
+    powerType: Exclude<PowerType, '한전불입+모자분리'> | null;
+    replType: ReplType | null;
+    memo: string | null;
+  }>;
+  /** 칸별로 붙인 파일 이름. 파일 자체는 별도 업로드 경로로 간다. */
+  documents: Array<{ kind: string; filename: string }>;
+}

@@ -1,7 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import Image from 'next/image';
-import SiteHeader from '@/components/SiteHeader';
 import { internalModeHref } from '@/lib/internal-mode';
 
 export const metadata: Metadata = {
@@ -26,9 +25,7 @@ const CPOS: Array<{ path: string; name: string; note: string }> = [
 
 export default function ReissuePage() {
   return (
-    <div className="min-h-screen bg-[#f7f8f4]">
-      <SiteHeader active="contracts" />
-      <main className="max-w-3xl mx-auto px-5 py-8 sm:px-6 sm:py-10">
+    <div className="mx-auto max-w-3xl">
         <header className="mb-6">
           <Link
             href="/#contracts"
@@ -98,7 +95,6 @@ export default function ReissuePage() {
             <li>판독값은 참고용입니다. 생성된 DOCX를 반드시 원본과 대조하세요.</li>
           </ul>
         </div>
-      </main>
     </div>
   );
 }

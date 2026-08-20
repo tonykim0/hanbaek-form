@@ -10,11 +10,17 @@
 import { generateClientTokenFromReadWriteToken } from '@vercel/blob/client';
 import { NextResponse } from 'next/server';
 import { isValidMaterialPath } from '@/lib/materials-meta';
+import { requireAdmin } from '@/lib/auth/guard';
 
 /** 업로드 허용 최대 크기 — 원본 브로슈어 등 대용량 자료를 위해 500MB */
 const MAX_UPLOAD_BYTES = 500 * 1024 * 1024;
 
 export async function POST(request: Request) {
+  // 페이지 게이트만으로는 부족하다 — API 는 직접 호출될 수 있다
+  if (!(await requireAdmin())) {
+    return NextResponse.json({ error: '관리자만 사용할 수 있습니다.' }, { status: 403 });
+  }
+
   try {
     const { password, pathname } = (await request.json()) as {
       password?: string;

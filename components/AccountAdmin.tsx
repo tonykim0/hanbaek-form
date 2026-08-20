@@ -1,0 +1,316 @@
+'use client';
+
+/**
+ * 협력사 계정 등록.
+ *
+ * 구분 세 가지 — 영업사 · 시공사 · 턴키업체(영업+시공 겸업). 관리자 계정은 여기서 만들지
+ * 않는다. 화면에서 만들 수 있게 두면 실수 한 번으로 원가·마진을 보는 계정이 생긴다.
+ *
+ * ★소속이 이 화면의 핵심이다.★ 협력사가 보는 현장은 소속 문자열이 현장의 영업사·시공사와
+ * 같은지로 갈린다(lib/roles.ts). 「에코일렉」과 「에코일렉 」은 다른 회사가 되고, 그 계정은
+ * 로그인은 되는데 현장이 하나도 안 보인다. 그래서 쓰이고 있는 소속을 눌러 넣게 한다.
+ *
+ * 비밀번호는 만들 때 한 번만 화면에 있다. 저장하는 것은 해시뿐이라 다시 볼 수 없다 —
+ * 잊으면 새로 발급해야 한다.
+ */
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import type { AccountView } from '@/lib/auth/types';
+import type { Role } from '@/lib/roles';
+
+const KINDS: Array<{ role: Role; label: string; note: string }> = [
+  { role: 'sales', label: '영업사', note: '영업비만 본다' },
+  { role: 'cons', label: '시공사', note: '시공비만 본다' },
+  { role: 'salesCons', label: '턴키업체', note: '영업·시공 겸업 — 둘 다 본다' },
+];
+
+const ROLE_TEXT: Record<Role, string> = {
+  admin: '한백 관리자',
+  salesCons: '턴키업체',
+  cons: '시공사',
+  sales: '영업사',
+};
+
+export default function AccountAdmin({
+  accounts, knownOrgs, meId, dbReady,
+}: {
+  accounts: AccountView[];
+  /** 지금 현장에 쓰이고 있는 소속 — 오타로 현장이 안 보이는 것을 막는다 */
+  knownOrgs: string[];
+  meId: string;
+  dbReady: boolean;
+}) {
+  const router = useRouter();
+  const [role, setRole] = useState<Role>('sales');
+  const [id, setId] = useState('');
+  const [name, setName] = useState('');
+  const [org, setOrg] = useState('');
+  const [password, setPassword] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [done, setDone] = useState<string | null>(null);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setError(null);
+    setDone(null);
+    try {
+      const res = await fetch('/api/admin/accounts', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ id, name, role, org, password }),
+      });
+      const data = (await res.json().catch(() => ({}))) as { error?: string };
+      if (!res.ok) throw new Error(data.error ?? '계정을 만들지 못했습니다.');
+      setDone(`${id} 계정을 만들었습니다.`);
+      setId('');
+      setName('');
+      setOrg('');
+      setPassword('');
+      router.refresh();
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function toggle(account: AccountView) {
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/admin/accounts', {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ id: account.id, active: !account.active }),
+      });
+      const data = (await res.json().catch(() => ({}))) as { error?: string };
+      if (!res.ok) throw new Error(data.error ?? '바꾸지 못했습니다.');
+      router.refresh();
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-7">
+      <section>
+        <h2 className="mb-3 text-base font-black tracking-[-0.02em] text-slate-900">계정 등록</h2>
+
+        {!dbReady && (
+          <p className="mb-3 rounded-xl border-l-[3px] border-amber-500 bg-amber-50/70 px-4 py-3 text-xs text-amber-900">
+            지금은 파일 저장소로 돌고 있어 계정을 만들 수 없습니다. <code>DATABASE_URL</code> 이
+            있어야 합니다.
+          </p>
+        )}
+
+        <form
+          onSubmit={submit}
+          className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-5"
+        >
+          <div>
+            <p className="mb-2 text-[11px] font-bold tracking-[0.08em] text-slate-400">구분</p>
+            <div className="flex flex-wrap gap-1.5">
+              {KINDS.map((k) => (
+                <button
+                  key={k.role}
+                  type="button"
+                  aria-pressed={role === k.role}
+                  onClick={() => setRole(k.role)}
+                  className={`rounded-xl border px-3.5 py-2 text-left transition ${
+                    role === k.role
+                      ? 'border-brand-500 bg-brand-50'
+                      : 'border-slate-200 bg-white hover:border-slate-300'
+                  }`}
+                >
+                  <span
+                    className={`block text-sm font-bold ${role === k.role ? 'text-brand-800' : 'text-slate-700'}`}
+                  >
+                    {k.label}
+                  </span>
+                  <span className="block text-[11px] text-slate-400">{k.note}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="로그인 ID" hint="소문자·숫자·하이픈 3~24자">
+              <input
+                value={id}
+                onChange={(e) => setId(e.target.value)}
+                autoComplete="off"
+                placeholder="ecoelec"
+                className={inputClass}
+              />
+            </Field>
+            <Field label="이름" hint="사람 이름까지 넣으면 감사 기록에서 알아보기 쉽습니다">
+              <input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                autoComplete="off"
+                placeholder="에코일렉 김현수"
+                className={inputClass}
+              />
+            </Field>
+          </div>
+
+          <Field
+            label="소속"
+            hint="현장의 영업사·시공사 이름과 정확히 같아야 합니다 — 다르면 현장이 안 보입니다"
+          >
+            <input
+              value={org}
+              onChange={(e) => setOrg(e.target.value)}
+              autoComplete="off"
+              placeholder="에코일렉"
+              className={inputClass}
+            />
+            {knownOrgs.length > 0 && (
+              <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                <span className="text-[11px] text-slate-400">쓰이고 있는 소속</span>
+                {knownOrgs.map((o) => (
+                  <button
+                    key={o}
+                    type="button"
+                    onClick={() => setOrg(o)}
+                    className={`rounded-full border px-2 py-0.5 text-[11px] font-bold transition ${
+                      org === o
+                        ? 'border-brand-500 bg-brand-600 text-white'
+                        : 'border-slate-200 bg-white text-slate-600 hover:border-brand-300'
+                    }`}
+                  >
+                    {o}
+                  </button>
+                ))}
+              </div>
+            )}
+          </Field>
+
+          <Field label="비밀번호" hint="8자 이상. 저장되는 것은 해시뿐이라 나중에 다시 볼 수 없습니다">
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              autoComplete="new-password"
+              className={inputClass}
+            />
+          </Field>
+
+          {error && (
+            <p role="alert" className="text-sm font-semibold text-red-700">
+              {error}
+            </p>
+          )}
+          {done && <p className="text-sm font-semibold text-brand-800">{done}</p>}
+
+          <div>
+            <button
+              type="submit"
+              disabled={busy || !dbReady}
+              className="rounded-xl bg-brand-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-brand-700 disabled:bg-slate-300"
+            >
+              {busy ? '만드는 중…' : '계정 만들기'}
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <section>
+        <h2 className="mb-3 text-base font-black tracking-[-0.02em] text-slate-900">계정</h2>
+        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[720px] text-sm">
+              <thead className="border-b border-slate-100 bg-slate-50 text-[11px] font-bold tracking-[0.06em] text-slate-500">
+                <tr>
+                  <th className="px-3 py-2.5 text-left">로그인 ID</th>
+                  <th className="px-3 py-2.5 text-left">이름</th>
+                  <th className="px-3 py-2.5 text-left">구분</th>
+                  <th className="px-3 py-2.5 text-left">소속</th>
+                  <th className="px-3 py-2.5 text-left">만든 날</th>
+                  <th className="px-3 py-2.5 text-right">상태</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {accounts.map((a) => (
+                  <tr key={a.id} className={a.active ? '' : 'bg-slate-50/60'}>
+                    <td className="px-3 py-2.5 font-bold text-slate-900">
+                      {a.id}
+                      {a.id === meId && (
+                        <span className="ml-1.5 text-[10px] font-bold text-brand-700">나</span>
+                      )}
+                    </td>
+                    <td className="px-3 py-2.5 text-slate-600">{a.name}</td>
+                    <td className="px-3 py-2.5">
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${
+                          a.role === 'admin'
+                            ? 'bg-slate-800 text-white'
+                            : 'bg-slate-100 text-slate-600'
+                        }`}
+                      >
+                        {ROLE_TEXT[a.role]}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2.5 text-slate-600">{a.org ?? '—'}</td>
+                    <td className="px-3 py-2.5 tabular-nums text-slate-400">
+                      {a.createdAt ?? <span title="환경변수·개발 시드 계정">배포 설정</span>}
+                    </td>
+                    <td className="px-3 py-2.5 text-right">
+                      {a.source === '파일' ? (
+                        <span className="text-[11px] text-slate-400" title="배포 설정에 있는 계정이라 화면에서 못 바꿉니다">
+                          고정
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          disabled={busy || a.id === meId}
+                          onClick={() => void toggle(a)}
+                          className={`rounded-lg border px-2.5 py-1 text-[11px] font-bold transition disabled:opacity-40 ${
+                            a.active
+                              ? 'border-slate-200 text-slate-600 hover:border-red-300 hover:text-red-700'
+                              : 'border-brand-300 bg-brand-50 text-brand-800'
+                          }`}
+                        >
+                          {a.active ? '사용 중 · 중지' : '중지됨 · 재개'}
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <p className="mt-3 text-xs leading-relaxed text-slate-400">
+          계정은 지우지 않고 중지합니다 — 감사 기록이 로그인 ID 를 가리키고 있어서, 지우면
+          누가 한 일인지 알 수 없어집니다. 관리자 계정은 이 화면에서 만들 수 없습니다.
+        </p>
+      </section>
+    </div>
+  );
+}
+
+const inputClass =
+  'w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-300 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-100';
+
+function Field({
+  label, hint, children,
+}: {
+  label: string;
+  hint?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <label className="block">
+      <span className="mb-1 block text-[11px] font-bold tracking-[0.08em] text-slate-400">
+        {label}
+      </span>
+      {children}
+      {hint && <span className="mt-1 block text-[11px] text-slate-400">{hint}</span>}
+    </label>
+  );
+}

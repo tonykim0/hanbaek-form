@@ -14,8 +14,14 @@ import {
   isValidMaterialPath,
   sanitizeFileName,
 } from '@/lib/materials-meta';
+import { requireAdmin } from '@/lib/auth/guard';
 
 export async function POST(request: Request) {
+  // 페이지 게이트만으로는 부족하다 — API 는 직접 호출될 수 있다
+  if (!(await requireAdmin())) {
+    return NextResponse.json({ error: '관리자만 사용할 수 있습니다.' }, { status: 403 });
+  }
+
   try {
     const { password, url, newFileName } = (await request.json()) as {
       password?: string;

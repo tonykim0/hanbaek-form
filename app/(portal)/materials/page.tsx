@@ -54,9 +54,6 @@ export default async function MaterialsPage() {
         )}
 
         <footer className="mt-8 flex flex-col items-center gap-2 text-xs text-slate-400">
-          <Link href="/admin/materials" className="transition hover:text-brand-700">
-            자료 관리 (담당자용)
-          </Link>
           <p>한백 EV Infra Solutions</p>
         </footer>
       </main>

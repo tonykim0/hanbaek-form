@@ -1,0 +1,99 @@
+/**
+ * 현장 보드의 칸.
+ *
+ * 축은 「누구 차례」가 아니라 「어느 단계」다. 이 화면이 답할 질문은
+ * "어떤 현장이 어디까지 왔나" 하나뿐이다.
+ *
+ * 칸은 두 축을 이어 붙인 한 줄이다:
+ *
+ *   계약(유도값 stage) → 공정 8단계(저장값 process.status)
+ *
+ * 계약이 끝나지 않은 현장은 '계약완료' 칸에 넣지 않는다. 섞으면 「계약이 안 끝난 현장」과
+ * 「계약은 끝났는데 아직 공정이 안 도는 현장」이 한 칸에서 구분되지 않는다.
+ * 138건이 되면 그 칸만 봐도 무엇을 해야 하는지 알 수 없게 된다.
+ *
+ * 정산은 칸이 아니다. 기성은 공정과 나란히 도는 축이라(환경부 승인·착공에서 열린다)
+ * 이 줄에 끼워 넣으면 한 현장이 두 칸에 있어야 한다.
+ */
+import type { HoldState, ProcessStatus, Stage } from '@/types/project';
+import { PROCESS_STATUSES } from '@/types/project';
+
+/** 공정에 들어가기 전(계약)과 흐름에서 빠진 것(보류)은 공정 상태로 표현할 수 없어 따로 둔다 */
+export type BoardColumn = '계약접수' | '계약보완' | ProcessStatus | '보류';
+
+/** 칸을 묶는 띠 — 11칸이 한 줄로 늘어서면 눈이 구역을 못 찾는다 */
+export type BoardBand = '계약' | '시공' | '멈춤';
+
+export interface BoardColumnDef {
+  key: BoardColumn;
+  label: string;
+  band: BoardBand;
+  /** 카드를 끌어다 놓을 수 있는 칸인가 */
+  droppable: boolean;
+  /** 놓을 수 없는 칸에 왜 그런지 */
+  why?: string;
+  /** 칸이 하는 일 — 머리글에 그대로 나간다 */
+}
+
+/** 계약완료는 공정에 저장되지만 사람은 계약의 끝으로 읽는다 — 그래서 계약 띠에 둔다 */
+const BAND_OF_STATUS: Record<ProcessStatus, BoardBand> = {
+  '계약완료': '계약',
+  '시공진행필요': '시공',
+  '설치완료': '시공',
+  '준공서류 접수/검토': '시공',
+  '준공보완': '시공',
+  '준공': '시공',
+};
+
+export const BOARD_COLUMNS: BoardColumnDef[] = [
+  {
+    key: '계약접수',
+    label: '계약접수',
+    band: '계약',
+    droppable: false,
+    // 화면에서 옮길 수 있게 만들면 실제 서류와 어긋난 단계가 생긴다
+    why: '서류·단가에서 유도되는 칸입니다',
+  },
+  {
+    key: '계약보완',
+    label: '계약보완',
+    band: '계약',
+    droppable: false,
+    why: '반려를 풀면 저절로 빠집니다',
+  },
+  ...PROCESS_STATUSES.map((s): BoardColumnDef => ({
+    key: s,
+    label: s,
+    band: BAND_OF_STATUS[s],
+    droppable: true,
+  })),
+  {
+    key: '보류',
+    label: '보류 · DROP',
+    band: '멈춤',
+    droppable: false,
+    why: '멈춤은 현장 상세에서 겁니다',
+  },
+];
+
+/** 그 칸이 어느 띠에 속하는가 (계약 · 시공 · 멈춤) */
+export function bandOfColumn(key: BoardColumn): BoardBand {
+  return BOARD_COLUMNS.find((c) => c.key === key)?.band ?? '계약';
+}
+
+/**
+ * 이 현장이 서는 칸. 반드시 한 칸이다 — 두 칸에 걸치면 세는 순간 합이 안 맞는다.
+ *
+ * 순서가 곧 우선순위다. 멈춘 현장은 진행 칸에 두지 않고, 계약이 안 끝났으면
+ * 저장된 공정 상태가 무엇이든 계약 칸에 둔다(계약이 먼저다).
+ */
+export function boardColumnOf(p: {
+  stage: Stage;
+  status: ProcessStatus;
+  holdState: HoldState | null;
+  rejectedDocs: number;
+}): BoardColumn {
+  if (p.holdState) return '보류';
+  if (p.stage === 'intake') return p.rejectedDocs > 0 ? '계약보완' : '계약접수';
+  return p.status;
+}

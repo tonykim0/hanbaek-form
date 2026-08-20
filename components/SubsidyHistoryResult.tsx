@@ -84,7 +84,9 @@ function Matched({ result }: { result: Extract<LookupResult<SubsidyRecord>, { st
         <p className="mt-2 text-sm text-slate-600">
           {record.nm.length > 0 ? record.nm.join(' · ') : '(신청자명 없음)'}
         </p>
-        <p className="mt-0.5 text-xs text-slate-500">
+        <p className="mt-1 text-xs text-slate-500">
+          <span className="font-bold text-slate-600">찾은 주소</span>
+          {' — '}
           {record.ad} · {regionText(result.regionKey)}
         </p>
       </div>
@@ -134,6 +136,12 @@ function Empty({
               .join(', ')}에 있습니다. 주소의 시 · 군을 다시 확인해주세요.`
           : 'DB2 에 이 주소의 보조금 신청 기록이 없습니다.'}
       </p>
+      {result.parsed && (
+        <p className="mt-3 text-xs text-slate-400">
+          조회한 키 — {result.parsed.sido || '(시·도 미상)'} {result.parsed.sgg} ·{' '}
+          {result.parsed.road} {result.parsed.num}
+        </p>
+      )}
       </div>
       <AppliedStat applied={0} />
     </div>

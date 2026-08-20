@@ -2,7 +2,6 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import Image from 'next/image';
 import MaterialsAdmin from '@/components/MaterialsAdmin';
-import SiteHeader from '@/components/SiteHeader';
 import { getMaterials } from '@/lib/materials';
 
 export const metadata: Metadata = {
@@ -17,9 +16,7 @@ export default async function MaterialsAdminPage() {
   const { groups, fileCount, storageMissing, error } = await getMaterials();
 
   return (
-    <div className="min-h-screen bg-[#f7f8f4]">
-      <SiteHeader active="materials" />
-      <main className="max-w-3xl mx-auto px-5 py-8 sm:px-6 sm:py-10">
+    <div className="mx-auto max-w-3xl">
         <header className="mb-6">
           <Link
             href="/materials"
@@ -59,7 +56,6 @@ export default async function MaterialsAdminPage() {
         )}
 
         <MaterialsAdmin groups={groups} />
-      </main>
     </div>
   );
 }

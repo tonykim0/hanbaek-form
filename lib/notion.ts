@@ -10,6 +10,7 @@ import JSZip from 'jszip';
 import type { ExtractedMetadata, ClassifiedFile, ClassifiedFileInfo, FileCategory } from '@/types/intake';
 import type { NormalizedFile } from './files';
 import { buildStandardName, isPdfFile } from './files';
+import { excelCategory } from './doc-category-map';
 import { splitPdf, mergePdfs } from './pdf-split';
 import { createHash } from 'crypto';
 
@@ -333,10 +334,15 @@ async function mergeKaptWithBuildingLedger(
   return result;
 }
 
-/** 통과 파일(xlsx/pptx 등)의 확장자로 카테고리를 정한다. */
+/**
+ * 통과 파일(xlsx/pptx 등)의 카테고리를 정한다. AI 분류를 타지 않는 파일들이다.
+ *
+ * .xlsx 는 확장자만으로 가릴 수 없다 — 필수 서류가 둘이다(실사보고서 · 기설치 충전기 설치이력).
+ * 예전에는 전부 실사보고서로 넣어서 둘을 같이 올리면 설치이력이 사라졌다. 파일명으로 가른다.
+ */
 function passthroughCategory(name: string): FileCategory {
   const lower = name.toLowerCase();
-  if (/\.xlsx?$/.test(lower)) return '실사보고서'; // 플러그링크 실사보고서
+  if (/\.xlsx?$/.test(lower)) return excelCategory(name);
   if (/\.pptx?$/.test(lower)) return '설치승인서'; // 현대 설치승인서
   return '기타';
 }

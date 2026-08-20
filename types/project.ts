@@ -17,7 +17,18 @@ export type CpoName =
   | 'SK일렉링크'
   | '에버온';
 
+/**
+ * 고를 수 있는 값 목록.
+ *
+ * 유니온과 배열을 따로 적으면 갈린다 — 운영사가 lib/notion.ts 에도 한 벌 있었다.
+ * `satisfies` 로 묶어 두면 유니온에 값을 더할 때 여기도 채우지 않으면 컴파일이 깨진다.
+ */
+export const CPO_NAMES = [
+  '플러그링크', '나이스인프라', '현대엔지니어링', 'SK일렉링크', '에버온',
+] as const satisfies readonly CpoName[];
+
 export type BuildingType = '공동주택' | '상업시설';
+export const BUILDING_TYPES = ['공동주택', '상업시설'] as const satisfies readonly BuildingType[];
 /** 노션에 없는 신규 필드. 회의록 종류를 결정한다. */
 export type ContractParty = '입주자대표회의' | '관리단' | '건설사';
 export type PowerType = '한전불입' | '모자분리' | '한전불입+모자분리';
@@ -30,6 +41,9 @@ export type PowerType = '한전불입' | '모자분리' | '한전불입+모자�
  * 어느 케이스에도 안 맞고, 왜 안 맞는지 알 수 없다.
  */
 export type ReplType = '환경부 신규' | '자체투자 (제자리교체)' | '자체투자 (신규위치)';
+export const REPL_TYPES = [
+  '환경부 신규', '자체투자 (제자리교체)', '자체투자 (신규위치)',
+] as const satisfies readonly ReplType[];
 export type BizType = '환경부' | '자체투자';
 
 /** 교체유형이 사업구분을 정한다 — 따로 고르게 두면 두 값이 어긋난다 */
@@ -181,6 +195,14 @@ export interface PricingRule {
   note: string | null;
   active: boolean;
 }
+
+/**
+ * 새로 만드는 단가 케이스.
+ *
+ * id 는 저장소가 축에서 만든다 — 사람이 적게 두면 「pl-y10」 같은 이름이 겹치고, 겹치면
+ * 이미 다른 현장이 참조하는 케이스를 덮어쓴다. active 도 없다 — 만들면 쓰는 것이다.
+ */
+export type NewPricingRule = Omit<PricingRule, 'id' | 'active'>;
 
 export interface ContractLine {
   id: string;

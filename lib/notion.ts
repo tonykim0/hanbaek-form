@@ -10,6 +10,7 @@ import JSZip from 'jszip';
 import type {
   ClassifiedFile, ClassifiedFileInfo, ExtractedMetadata, FileCategory, PowerInlet,
 } from '@/types/intake';
+import { CPO_NAMES } from '@/types/project';
 import type { CpoName, PowerType } from '@/types/project';
 import type { NormalizedFile } from './files';
 import { buildStandardName, isPdfFile } from './files';
@@ -503,9 +504,8 @@ function docContextOf(m: ExtractedMetadata): DocContext {
 }
 
 /** 콘솔이 아는 운영사인가. 모르는 이름이면 null — 그 운영사 전용 서류를 요구하지 않는다. */
-const KNOWN_CPOS: CpoName[] = ['플러그링크', '나이스인프라', '현대엔지니어링', 'SK일렉링크', '에버온'];
 const asCpoName = (name: string | undefined): CpoName | null =>
-  KNOWN_CPOS.find((c) => c === name) ?? null;
+  CPO_NAMES.find((c) => c === name) ?? null;
 
 // Notion rich_text 한 조각의 최대 길이(2000자). 초과 시 create 전체가 400.
 const NOTION_TEXT_MAX = 2000;

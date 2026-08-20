@@ -21,7 +21,7 @@ export async function middleware(request: NextRequest) {
   if (session) {
     // 관리자 전용 구역 — 로그인했더라도 협력사는 못 들어간다
     const path = request.nextUrl.pathname;
-    const adminOnly = ['/admin', '/receivables', '/payouts', '/design'];
+    const adminOnly = ['/admin', '/receivables', '/payouts', '/pricing', '/design'];
     if (adminOnly.some((p) => path.startsWith(p)) && session.role !== 'admin') {
       return NextResponse.redirect(new URL('/projects', request.url));
     }
@@ -40,6 +40,7 @@ export const config = {
     // 지급 명세는 협력사도 본다 — 아래 adminOnly 목록에 넣지 않는다
     '/payments',
     '/receivables/:path*',
+    '/pricing',
     '/payouts/:path*',
     '/admin/:path*',
     // 콘솔 계약서 작성 진입점. 접수는 /projects/new 라서 위 /projects/:path* 에 들어간다.

@@ -15,7 +15,7 @@ import { loadEnvFile } from '../env-file';
 
 loadEnvFile();
 
-import { sql } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { getDb } from './client';
 import {
   contractLines, documents, pricingRules, processDocuments, processes,
@@ -58,19 +58,29 @@ async function seedRules() {
   ]);
   console.log(`  정산 규칙 ${sCount[0].n}개 · 단가 규칙 ${pCount[0].n}개`);
 
-  // 덮어쓰지 않기로 했으니, 어긋난 게 있으면 조용히 넘기지 않고 드러낸다
+  /*
+   * 덮어쓰지 않기로 했으니, 어긋난 게 있으면 조용히 넘기지 않고 드러낸다.
+   *
+   * ★금액만 보면 안 된다.★ 예전에는 salesUnit·consUnit·margin 만 비교했다. 그래서 교체유형의
+   * 낱말이 바뀐 것(신규 → 환경부 신규)을 34행 전부 놓쳤다 — DB 는 옛 낱말을 그대로 갖고 있었고
+   * 아무도 몰랐다. 축은 「어느 현장에 이 케이스가 붙는가」를 정하므로, 어긋나면 금액이 맞아도
+   * 그 케이스는 아무 현장에도 안 맞는다.
+   *
+   * 금액과 축을 다르게 다룬다 — 금액은 불변이라 DB 를 지키고, 축은 낱말이라 시드에 맞춘다.
+   */
   const stored = await db.select().from(pricingRules);
   const byId = new Map(stored.map((r) => [r.id, r]));
-  const drift = PRICING_RULES.filter((seed) => {
+
+  const money = PRICING_RULES.filter((seed) => {
     const row = byId.get(seed.id);
     if (!row) return false;
     return row.salesUnit !== seed.salesUnit
       || row.consUnit !== seed.consUnit
       || row.margin !== seed.margin;
   });
-  if (drift.length > 0) {
-    console.warn(`  ⚠ 시드 파일과 DB 금액이 다른 케이스 ${drift.length}건 — DB 값을 유지했습니다:`);
-    for (const d of drift) {
+  if (money.length > 0) {
+    console.warn(`  ⚠ 시드 파일과 DB 금액이 다른 케이스 ${money.length}건 — DB 값을 유지했습니다:`);
+    for (const d of money) {
       const row = byId.get(d.id)!;
       console.warn(
         `    ${d.id}  DB(${row.salesUnit}/${row.consUnit}/${row.margin})` +
@@ -78,6 +88,27 @@ async function seedRules() {
       );
     }
     console.warn('  단가는 불변입니다. 바꿔야 한다면 새 케이스를 추가하세요.');
+  }
+
+  const axisOf = (r: { cpo: string; bizType: string; powerType: string; replType: string;
+    termYears: unknown; bldgTypes: unknown }) =>
+    [r.cpo, r.bizType, r.powerType, r.replType,
+      JSON.stringify(r.termYears), JSON.stringify(r.bldgTypes)].join('|');
+
+  const axis = PRICING_RULES.filter((seed) => {
+    const row = byId.get(seed.id);
+    return row ? axisOf(row) !== axisOf(seed) : false;
+  });
+  if (axis.length > 0) {
+    console.warn(`  ⚠ 축이 다른 케이스 ${axis.length}건 — 시드 값으로 맞춥니다:`);
+    for (const d of axis) {
+      const row = byId.get(d.id)!;
+      console.warn(`    ${d.id}  DB(${axisOf(row)}) → 시드(${axisOf(d)})`);
+      await db.update(pricingRules).set({
+        cpo: d.cpo, bizType: d.bizType, powerType: d.powerType, replType: d.replType,
+        termYears: d.termYears, bldgTypes: d.bldgTypes, caseName: d.caseName,
+      }).where(eq(pricingRules.id, d.id));
+    }
   }
 }
 

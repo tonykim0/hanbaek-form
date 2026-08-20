@@ -12,8 +12,8 @@
  *     전부 보내놓고 화면에서 가리면 안 된다.
  */
 import type {
-  Court, DocStatus, IntakeDraft, PayoutRow, PreInstall, ProcessInfo, ProcessStatus,
-  ProjectDetail, ProjectSummary, Settlement, SettlementSummary,
+  Court, DocStatus, IntakeDraft, NewPricingRule, PayoutRow, PreInstall, PricingRule,
+  ProcessInfo, ProcessStatus, ProjectDetail, ProjectSummary, Settlement, SettlementSummary,
 } from '@/types/project';
 import type { Actor, Viewer } from '@/lib/auth/types';
 
@@ -162,6 +162,31 @@ export interface ProjectRepository {
    * 케이스는 불변이라 값을 복사하지 않고 참조만 남긴다 — 지급액은 조회할 때 계산된다.
    */
   setLinePricing(lineId: string, pricingRuleId: string | null, actor: Actor): Promise<void>;
+
+  /**
+   * 단가 케이스 전부. [한백 전용]
+   *
+   * 영업단가·시공단가·마진이 들어 있다. 협력사에게 넘기면 화면에서 가려도 브라우저에
+   * 원본이 남으므로 여기서 막는다(redactForViewer 와 같은 이유).
+   */
+  listPricingRules(actor: Actor): Promise<PricingRule[]>;
+
+  /**
+   * 단가 케이스를 추가한다. [한백 전용]
+   *
+   * ★고치는 길은 두지 않는다.★ 케이스는 불변이다 — 계약 라인이 값을 복사하지 않고 이것을
+   * 참조하므로, 금액을 고치면 이미 지정된 현장의 지급액이 소급해서 바뀐다. 조건이나 금액이
+   * 달라지면 새 케이스를 만들고 옛 것을 중지한다.
+   */
+  addPricingRule(input: NewPricingRule, actor: Actor): Promise<string>;
+
+  /**
+   * 케이스를 쓰거나 그만 쓴다. [한백 전용]
+   *
+   * 지우지 않는다 — 이미 이 케이스를 참조하는 계약 라인이 있으면 지급액을 계산할 수 없게 된다.
+   * 중지하면 새로 지정할 수는 없고, 이미 붙은 것은 그대로 계산된다.
+   */
+  setPricingRuleActive(id: string, active: boolean, actor: Actor): Promise<void>;
 
   /** 지급일·비고 저장. [한백 전용] 넘긴 필드만 바뀐다. */
   setPayment(projectId: string, patch: PaymentPatch, actor: Actor): Promise<void>;

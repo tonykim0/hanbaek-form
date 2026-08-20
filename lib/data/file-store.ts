@@ -11,8 +11,8 @@
 import { promises as fs } from 'fs';
 import path from 'path';
 import type {
-  ContractLine, IntakeDraft, PayoutRow, ProcessStatus, Project, ProjectDetail, ProjectDocument,
-  ProjectSummary, SettlementSummary,
+  ContractLine, IntakeDraft, PayoutRow, PricingRule, ProcessStatus, Project, ProjectDetail,
+  ProjectDocument, ProjectSummary, SettlementSummary,
 } from '@/types/project';
 import type { Viewer } from '@/lib/auth/types';
 import type { Actor, ProjectRepository } from './repository';
@@ -22,14 +22,22 @@ import { stamp, today } from '@/lib/date';
 import {
   ALL_DOC_KEYS, byStalled, contractStateFor, emptyProcess, emptySettlement, isProcessDocKind,
   payoutRowsOf,
-  redactForViewer, settlementSummaryOf, summaryOf, toDetail, type ProjectRecord,
+  redactForViewer, settlementSummaryOf, summaryOf, toDetail,
+  type ProjectRecord, type RuleMap,
 } from './assemble';
 import { SEED_RECORDS } from './mock';
 import { needsPreInstallCheck } from '@/lib/doc-rules';
-import { PRICING_RULE_BY_ID } from './seed/pricing-rules';
+import { PRICING_RULES } from './seed/pricing-rules';
+import { checkPricingRule, pricingRuleId } from '@/lib/pricing-match';
 
 const DATA_DIR = path.join(process.cwd(), '.data');
 const DATA_FILE = path.join(DATA_DIR, 'projects.json');
+/*
+ * 단가 케이스는 현장과 다른 파일에 둔다. 현장은 자주 바뀌고 케이스는 거의 안 바뀌는데,
+ * 한 파일에 두면 현장을 저장할 때마다 케이스까지 통째로 다시 쓰게 된다 —
+ * 이 저장소는 동시 쓰기에서 나중 것이 이기므로(save 주석) 겹치는 면을 좁혀 둔다.
+ */
+const RULES_FILE = path.join(DATA_DIR, 'pricing-rules.json');
 
 /** 저장 파일은 예전 상태 이름을 갖고 있을 수 있다 — 목록이 바뀌면 첫 칸으로 되돌린다 */
 function parse(raw: string): ProjectRecord[] {
@@ -53,6 +61,31 @@ async function load(): Promise<ProjectRecord[]> {
     return SEED_RECORDS;
   }
 }
+
+/** 단가 케이스 — 첫 실행이면 시드를 심는다 */
+async function loadRules(): Promise<PricingRule[]> {
+  try {
+    return JSON.parse(await fs.readFile(RULES_FILE, 'utf8')) as PricingRule[];
+  } catch {
+    await saveRules(PRICING_RULES).catch(() => {});
+    return PRICING_RULES;
+  }
+}
+
+async function saveRules(list: PricingRule[]): Promise<void> {
+  await fs.mkdir(DATA_DIR, { recursive: true });
+  const tmp = `${RULES_FILE}.${process.pid}.${writeSeq++}.tmp`;
+  try {
+    await fs.writeFile(tmp, JSON.stringify(list, null, 2), 'utf8');
+    await fs.rename(tmp, RULES_FILE);
+  } finally {
+    await fs.rm(tmp, { force: true });
+  }
+}
+
+/** 조립 함수에 넘길 표 */
+const ruleMap = async (): Promise<RuleMap> =>
+  new Map((await loadRules()).map((r) => [r.id, r]));
 
 let writeSeq = 0;
 
@@ -89,34 +122,37 @@ function nextId(records: ProjectRecord[]): string {
 
 export const fileRepository: ProjectRepository = {
   async listProjects(viewer: Viewer): Promise<ProjectSummary[]> {
-    const records = await load();
+    const [records, rules] = await Promise.all([load(), ruleMap()]);
     return records
       .filter((r) => canAccessProject(viewer.role, viewer.org, r.project))
-      .map(summaryOf)
+      .map((r) => summaryOf(r, rules))
       .sort(byStalled);
   },
 
   async listSettlements(viewer: Viewer): Promise<SettlementSummary[]> {
     // 관리자가 아니면 금액을 조립조차 하지 않는다
     if (viewer.role !== 'admin') return [];
-    const records = await load();
+    const [records, rules] = await Promise.all([load(), ruleMap()]);
     return records
-      .map(settlementSummaryOf)
+      .map((r) => settlementSummaryOf(r, rules))
       .sort((a, b) => b.planTotal - a.planTotal);
   },
 
   async getProject(id: string, viewer: Viewer): Promise<ProjectDetail | null> {
-    const records = await load();
+    const [records, rules] = await Promise.all([load(), ruleMap()]);
     const r = records.find((x) => x.project.id === id);
     if (!r || !canAccessProject(viewer.role, viewer.org, r.project)) return null;
-    return redactForViewer(toDetail(r), effectiveVisibility(viewer.role, viewer.org, r.project));
+    return redactForViewer(
+      toDetail(r, rules),
+      effectiveVisibility(viewer.role, viewer.org, r.project)
+    );
   },
 
   async listPayouts(viewer: Viewer): Promise<PayoutRow[]> {
-    const records = await load();
+    const [records, rules] = await Promise.all([load(), ruleMap()]);
     return records
       .filter((r) => canAccessProject(viewer.role, viewer.org, r.project))
-      .flatMap((r) => payoutRowsOf(r, viewer));
+      .flatMap((r) => payoutRowsOf(r, viewer, rules));
   },
 
   async createProject(draft: IntakeDraft, actor): Promise<string> {
@@ -265,8 +301,10 @@ export const fileRepository: ProjectRepository = {
 
   async setLinePricing(lineId, pricingRuleId, actor): Promise<void> {
     if (actor.role !== 'admin') throw new Error('단가 케이스 지정은 한백 관리자만 할 수 있습니다.');
-    if (pricingRuleId && !PRICING_RULE_BY_ID.has(pricingRuleId)) {
-      throw new Error('없는 단가 케이스입니다.');
+    if (pricingRuleId) {
+      const rule = (await loadRules()).find((x) => x.id === pricingRuleId);
+      if (!rule) throw new Error('없는 단가 케이스입니다.');
+      if (!rule.active) throw new Error('중지된 단가 케이스는 지정할 수 없습니다.');
     }
     const records = await load();
     const r = records.find((x) => x.lines.some((l) => l.id === lineId));
@@ -349,7 +387,7 @@ export const fileRepository: ProjectRepository = {
     if (r.process.status === status) return;
 
     // 계약이 끝나지 않은 현장은 공정에 없다 — 상세의 시공 탭이 잠기는 것과 같은 규칙이다
-    if (toDetail(r).stage === 'intake') {
+    if (toDetail(r, await ruleMap()).stage === 'intake') {
       throw new Error('계약이 끝나기 전에는 진행 단계를 옮길 수 없습니다.');
     }
     const entry = canEnter(status as ProcessStatus, r.process);
@@ -406,6 +444,32 @@ export const fileRepository: ProjectRepository = {
     r.court = confirmed ? '시공사' : '한백';
     r.lastProgressAt = today();
     await save(records);
+  },
+
+  async listPricingRules(actor): Promise<PricingRule[]> {
+    if (actor.role !== 'admin') throw new Error('단가 케이스 조회는 한백 관리자만 할 수 있습니다.');
+    return (await loadRules()).sort((a, b) => a.caseName.localeCompare(b.caseName, 'ko'));
+  },
+
+  async addPricingRule(input, actor): Promise<string> {
+    if (actor.role !== 'admin') throw new Error('단가 케이스 추가는 한백 관리자만 할 수 있습니다.');
+    const bad = checkPricingRule(input);
+    if (bad.length > 0) throw new Error(bad[0]);
+    const list = await loadRules();
+    const id = pricingRuleId(input, new Set(list.map((r) => r.id)));
+    list.push({ ...input, caseName: input.caseName.trim(), id, active: true });
+    await saveRules(list);
+    return id;
+  },
+
+  async setPricingRuleActive(id, active, actor): Promise<void> {
+    if (actor.role !== 'admin') throw new Error('단가 케이스 변경은 한백 관리자만 할 수 있습니다.');
+    const list = await loadRules();
+    const rule = list.find((r) => r.id === id);
+    if (!rule) throw new Error('없는 단가 케이스입니다.');
+    if (rule.active === active) return;
+    rule.active = active;
+    await saveRules(list);
   },
 
   async setCourt(projectId, court, actor): Promise<void> {

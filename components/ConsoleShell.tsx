@@ -91,6 +91,8 @@ const GROUPS: Group[] = [
       { href: '/payments', label: '지급 명세', short: '명세' },
       { href: '/payouts', label: '하도급사 지급', short: '지급', adminOnly: true },
       { href: '/receivables', label: '운영사 기성', short: '기성', adminOnly: true },
+      // 지급액의 뿌리 — 케이스가 없으면 위 두 화면의 금액도 없다
+      { href: '/pricing', label: '단가 케이스', short: '단가', adminOnly: true },
     ],
   },
   {

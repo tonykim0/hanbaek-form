@@ -16,6 +16,7 @@ import type {
   ProjectDocument,
   ProjectNote,
   PayoutRow,
+  PricingRule,
   ProjectSummary,
   Settlement,
   SettlementStep,
@@ -27,8 +28,20 @@ import { contractStateOf, deriveStage, stalledDaysSince } from '@/lib/stage';
 import { entryOkOf } from '@/lib/process';
 import { effectiveVisibility, type Visibility } from '@/lib/roles';
 import type { Viewer } from '@/lib/auth/types';
-import { PRICING_RULE_BY_ID } from './seed/pricing-rules';
 import { SETTLEMENT_RULE_BY_ID } from './seed/settlement-rules';
+
+/**
+ * 단가 케이스 표 — 저장소가 넘겨준다.
+ *
+ * ★왜 넘겨받는가★
+ * 예전에는 여기서 시드 파일(seed/pricing-rules.ts)을 직접 읽었다. 그런데 케이스는 DB 에도
+ * 있어서 두 곳이 갈렸다 — 단가 지정은 DB 를 보고 검사하는데(pg-store setLinePricing) 화면에
+ * 붙일 때는 시드를 봤다. DB 에만 있는 케이스를 지정하면 저장은 되고 화면엔 「단가 미지정」으로
+ * 보였다. 원인을 찾을 수 없는 상태다.
+ *
+ * 게다가 시드는 파일이라 화면에서 케이스를 추가할 수 없다. 정본을 저장소로 옮긴다.
+ */
+export type RuleMap = Map<string, PricingRule>;
 
 /**
  * 접수 서류 16종 (INTAKE_SPEC §3 + 설치승인서). 번호가 아니라 종류로 다룬다.
@@ -141,11 +154,11 @@ export function contractStateFor(r: ProjectRecord) {
   return contractStateOf({ docCtx: docCtxOf(r), documents: r.documents, lines: r.lines });
 }
 
-export function toDetail(r: ProjectRecord): ProjectDetail {
+export function toDetail(r: ProjectRecord, rules: RuleMap): ProjectDetail {
   // 케이스는 불변이라 참조만으로 안전하다 — 값을 복사해 둘 필요가 없다
   const lines: ContractLineView[] = r.lines.map((l) => ({
     ...l,
-    rule: l.pricingRuleId ? PRICING_RULE_BY_ID.get(l.pricingRuleId) ?? null : null,
+    rule: l.pricingRuleId ? rules.get(l.pricingRuleId) ?? null : null,
   }));
   const settlementRule = r.project.settlementRuleId
     ? SETTLEMENT_RULE_BY_ID.get(r.project.settlementRuleId) ?? null
@@ -184,8 +197,8 @@ export function toDetail(r: ProjectRecord): ProjectDetail {
 }
 
 /** 목록 카드가 받는 요약. 상세를 조립한 뒤 필요한 것만 추린다. */
-export function summaryOf(r: ProjectRecord): ProjectSummary {
-  const d = toDetail(r);
+export function summaryOf(r: ProjectRecord, rules: RuleMap): ProjectSummary {
+  const d = toDetail(r, rules);
   return {
     id: d.project.id,
     mgmtNo: d.project.mgmtNo,
@@ -219,8 +232,8 @@ export function summaryOf(r: ProjectRecord): ProjectSummary {
  * 정산관리 목록이 받는 요약. [한백 전용]
  * 금액이 들어 있으므로 부르는 쪽이 관리자인지 반드시 확인해야 한다.
  */
-export function settlementSummaryOf(r: ProjectRecord): SettlementSummary {
-  const d = toDetail(r);
+export function settlementSummaryOf(r: ProjectRecord, rules: RuleMap): SettlementSummary {
+  const d = toDetail(r, rules);
   const steps = d.settlement.steps;
   const sum = (list: SettlementStep[]) => list.reduce((n, x) => n + (x.planAmount ?? 0), 0);
   return {
@@ -257,8 +270,8 @@ export function settlementSummaryOf(r: ProjectRecord): SettlementSummary {
  *
  * 마진·기성은 어느 줄에도 없다. 그것은 한백이 운영사에게서 받는 쪽이고 협력사가 볼 것이 아니다.
  */
-export function payoutRowsOf(r: ProjectRecord, viewer: Viewer): PayoutRow[] {
-  const d = toDetail(r);
+export function payoutRowsOf(r: ProjectRecord, viewer: Viewer, rules: RuleMap): PayoutRow[] {
+  const d = toDetail(r, rules);
   const vis = effectiveVisibility(viewer.role, viewer.org, d.project);
 
   const base = {

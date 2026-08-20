@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation';
 import ProjectDetailView from '@/components/project/DetailView';
 import { getRepository } from '@/lib/data';
-import { getSessionUser, viewerOf } from '@/lib/auth/session';
+import { actorOf, getSessionUser, viewerOf } from '@/lib/auth/session';
 import { effectiveVisibility } from '@/lib/roles';
 import { matchingRules, type RuleOptions } from '@/lib/pricing-match';
 import { knownOrgs } from '@/lib/orgs';
@@ -34,8 +34,10 @@ export default async function ProjectPage({ params }: { params: { id: string } }
    */
   const orgs = isAdmin ? await knownOrgs(viewerOf(session)) : [];
 
+  /* 후보는 저장소의 케이스 표에서 고른다 — 시드 파일이 아니라 지금 등록된 것이 정본이다 */
+  const rules = isAdmin ? await getRepository().listPricingRules(actorOf(session)) : [];
   const ruleOptions: RuleOptions | null = isAdmin
-    ? Object.fromEntries(detail.lines.map((l) => [l.id, matchingRules(detail.project, l)]))
+    ? Object.fromEntries(detail.lines.map((l) => [l.id, matchingRules(detail.project, l, rules)]))
     : null;
 
   return (

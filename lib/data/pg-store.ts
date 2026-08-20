@@ -21,18 +21,19 @@ import {
 } from '@/lib/db/schema';
 import type {
   BizType, BuildingType, ContractLine, ContractParty, Court, CpoName, DocStatus,
-  IntakeDraft, PayoutRow, PowerType, PreInstall, ProcessInfo, Project, ProjectDetail,
-  ProjectDocument, ProjectSummary, ReplType, Settlement, SettlementSummary,
+  IntakeDraft, PayoutRow, PowerType, PreInstall, PricingRule, ProcessInfo, Project,
+  ProjectDetail, ProjectDocument, ProjectSummary, ReplType, Settlement, SettlementSummary,
 } from '@/types/project';
 import type { Viewer } from '@/lib/auth/types';
 import { canAccessProject, effectiveVisibility, normalizeOrg } from '@/lib/roles';
 import { needsPreInstallCheck, PROCESS_DOCS } from '@/lib/doc-rules';
 import { asProcessStatus, canEnter } from '@/lib/process';
 import type { Actor, PaymentPatch, ProcessPatch, ProjectRepository } from './repository';
+import { checkPricingRule, pricingRuleId } from '@/lib/pricing-match';
 import {
   ALL_DOC_KEYS, byStalled, contractStateFor, isProcessDocKind, payoutRowsOf, redactForViewer,
   settlementSummaryOf,
-  summaryOf, toDetail, type ProjectRecord,
+  summaryOf, toDetail, type ProjectRecord, type RuleMap,
 } from './assemble';
 
 /** 트랜잭션 핸들. db 와 같은 질의 인터페이스를 갖는다. */
@@ -47,6 +48,30 @@ type SettlementRow = typeof settlements.$inferSelect;
 
 // ── 행 → 도메인 ─────────────────────────────────────────────────
 // DB 는 text 로 저장하고 도메인은 유니온으로 좁힌다. 좁히는 지점을 이 아래 한 곳에 모아둔다.
+
+/** 단가 케이스 한 행 — jsonb 두 칸(termYears·bldgTypes)만 배열이다 */
+function rowToRule(r: typeof pricingRules.$inferSelect): PricingRule {
+  return {
+    id: r.id,
+    caseName: r.caseName,
+    cpo: r.cpo as CpoName,
+    bizType: r.bizType as BizType,
+    powerType: r.powerType as PricingRule['powerType'],
+    termYears: r.termYears as number[],
+    bldgTypes: r.bldgTypes as BuildingType[],
+    replType: r.replType as ReplType,
+    bizYear: r.bizYear,
+    startDate: r.startDate,
+    salesUnit: r.salesUnit,
+    consUnit: r.consUnit,
+    margin: r.margin,
+    defaultSettlementRuleId: r.defaultSettlementRuleId ?? '',
+    supervisionBearer: r.supervisionBearer,
+    safetyFeeBearer: r.safetyFeeBearer,
+    note: r.note,
+    active: r.active,
+  };
+}
 
 function toProject(r: ProjectRow): Project {
   return {
@@ -250,21 +275,32 @@ async function maxSeqIn(tx: TxLike): Promise<number> {
   return row.maxSeq ?? 0;
 }
 
+/**
+ * 단가 케이스 표 — DB 가 정본이다.
+ *
+ * 서른 몇 행짜리 작은 표라 화면마다 통째로 읽어도 된다. 캐시를 두면 화면에서 케이스를
+ * 추가한 직후 옛 표가 보이는 일이 생기고, 그게 왜 그런지 알 수 없다.
+ */
+async function ruleMap(): Promise<RuleMap> {
+  const rows = await getDb().select().from(pricingRules);
+  return new Map(rows.map((r) => [r.id, rowToRule(r)]));
+}
+
 export const pgRepository: ProjectRepository = {
   async listProjects(viewer: Viewer): Promise<ProjectSummary[]> {
     if (viewer.role !== 'admin' && !viewer.org) return [];
     const rows = await getDb().select().from(projects).where(accessWhere(viewer));
-    const records = await recordsOf(rows);
-    return records.map(summaryOf).sort(byStalled);
+    const [records, rules] = await Promise.all([recordsOf(rows), ruleMap()]);
+    return records.map((r) => summaryOf(r, rules)).sort(byStalled);
   },
 
   async listSettlements(viewer: Viewer): Promise<SettlementSummary[]> {
     // 관리자가 아니면 금액을 읽어오지도 않는다
     if (viewer.role !== 'admin') return [];
     const rows = await getDb().select().from(projects);
-    const records = await recordsOf(rows);
+    const [records, rules] = await Promise.all([recordsOf(rows), ruleMap()]);
     return records
-      .map(settlementSummaryOf)
+      .map((r) => settlementSummaryOf(r, rules))
       .sort((a, b) => b.planTotal - a.planTotal);
   },
 
@@ -294,13 +330,16 @@ export const pgRepository: ProjectRepository = {
     }));
 
     // 금액을 브라우저로 보내기 전에 지운다 — 화면에서 가리는 것만으로는 소스에 남는다
-    return redactForViewer(toDetail(record), effectiveVisibility(viewer.role, viewer.org, row));
+    return redactForViewer(
+      toDetail(record, await ruleMap()),
+      effectiveVisibility(viewer.role, viewer.org, row)
+    );
   },
 
   async listPayouts(viewer: Viewer): Promise<PayoutRow[]> {
     const rows = await getDb().select().from(projects).where(accessWhere(viewer));
-    const records = await recordsOf(rows);
-    return records.flatMap((r) => payoutRowsOf(r, viewer));
+    const [records, rules] = await Promise.all([recordsOf(rows), ruleMap()]);
+    return records.flatMap((r) => payoutRowsOf(r, viewer, rules));
   },
 
   async createProject(draft: IntakeDraft, actor): Promise<string> {
@@ -814,7 +853,7 @@ export const pgRepository: ProjectRepository = {
     if (record.process.status === status) return;
 
     // 계약이 끝나지 않은 현장은 공정에 없다 — 상세의 시공 탭이 잠기는 것과 같은 규칙이다
-    if (toDetail(record).stage === 'intake') {
+    if (toDetail(record, await ruleMap()).stage === 'intake') {
       throw new Error('계약이 끝나기 전에는 진행 단계를 옮길 수 없습니다.');
     }
     const entry = canEnter(status, record.process);
@@ -976,6 +1015,58 @@ export const pgRepository: ProjectRepository = {
       await writeAudit(tx, {
         projectId, actor, action: confirmed ? '계약 확인' : '계약 확인 취소',
         field: 'contractConfirmedAt', oldValue: before, newValue: after,
+      });
+    });
+  },
+
+  async listPricingRules(actor): Promise<PricingRule[]> {
+    assertAdmin(actor, '단가 케이스 조회');
+    const rows = await getDb().select().from(pricingRules).orderBy(pricingRules.caseName);
+    return rows.map(rowToRule);
+  },
+
+  async addPricingRule(input, actor): Promise<string> {
+    assertAdmin(actor, '단가 케이스 추가');
+    const bad = checkPricingRule(input);
+    if (bad.length > 0) throw new Error(bad[0]);
+
+    const db = getDb();
+    return db.transaction(async (tx) => {
+      const taken = await tx.select({ id: pricingRules.id }).from(pricingRules);
+      const id = pricingRuleId(input, new Set(taken.map((t) => t.id)));
+      await tx.insert(pricingRules).values({
+        id, caseName: input.caseName.trim(), cpo: input.cpo, bizType: input.bizType,
+        powerType: input.powerType, termYears: input.termYears, bldgTypes: input.bldgTypes,
+        replType: input.replType, bizYear: input.bizYear, startDate: input.startDate,
+        salesUnit: input.salesUnit, consUnit: input.consUnit, margin: input.margin,
+        defaultSettlementRuleId: input.defaultSettlementRuleId || null,
+        supervisionBearer: input.supervisionBearer, safetyFeeBearer: input.safetyFeeBearer,
+        note: input.note, active: true,
+      });
+      await writeAudit(tx, {
+        projectId: null, actor, action: '단가 케이스 추가',
+        field: id, oldValue: null, newValue: input.caseName.trim(),
+      });
+      return id;
+    });
+  },
+
+  async setPricingRuleActive(id, active, actor): Promise<void> {
+    assertAdmin(actor, '단가 케이스 사용 여부 변경');
+    const db = getDb();
+    await db.transaction(async (tx) => {
+      const [row] = await tx
+        .select({ active: pricingRules.active, caseName: pricingRules.caseName })
+        .from(pricingRules)
+        .where(eq(pricingRules.id, id))
+        .limit(1);
+      if (!row) throw new Error('없는 단가 케이스입니다.');
+      if (row.active === active) return;
+
+      await tx.update(pricingRules).set({ active }).where(eq(pricingRules.id, id));
+      await writeAudit(tx, {
+        projectId: null, actor, action: active ? '단가 케이스 사용' : '단가 케이스 중지',
+        field: id, oldValue: row.active ? '사용' : '중지', newValue: active ? '사용' : '중지',
       });
     });
   },

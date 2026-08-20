@@ -7,15 +7,17 @@
  * 조립 로직(toDetail·단계 판정)은 여기 없다 — lib/data/assemble.ts 에 한 벌만 둔다.
  */
 import type {
-  PayoutRow, ProjectDetail, ProjectDocument, ProjectSummary, SettlementSummary,
+  PayoutRow, PricingRule, ProjectDetail, ProjectDocument, ProjectSummary, SettlementSummary,
 } from '@/types/project';
 import type { ProjectRepository } from './repository';
 import type { Viewer } from '@/lib/auth/types';
 import { canAccessProject, effectiveVisibility } from '@/lib/roles';
 import {
   ALL_DOC_KEYS, byStalled, emptyProcess, emptySettlement, processDocs,
-  redactForViewer, settlementSummaryOf, summaryOf, toDetail, type ProjectRecord,
+  redactForViewer, settlementSummaryOf, summaryOf, toDetail,
+  type ProjectRecord, type RuleMap,
 } from './assemble';
+import { PRICING_RULES } from './seed/pricing-rules';
 
 /** 저장소를 옮기는 동안 예전 이름을 쓰는 코드가 있어 남겨둔다 */
 export type MockRecord = ProjectRecord;
@@ -184,22 +186,33 @@ export const SEED_RECORDS: MockRecord[] = [
 
 const READ_ONLY = 'mockRepository 는 읽기 전용입니다. lib/data/file-store 또는 pg-store 를 사용하세요.';
 
+/** 읽기 전용 대체물이라 단가는 시드 그대로다 */
+const SEED_RULE_MAP: RuleMap = new Map(PRICING_RULES.map((r) => [r.id, r]));
+
 export const mockRepository: ProjectRepository = {
   async listProjects(viewer: Viewer): Promise<ProjectSummary[]> {
     return SEED_RECORDS
       .filter((r) => canAccessProject(viewer.role, viewer.org, r.project))
-      .map(summaryOf)
+      .map((r) => summaryOf(r, SEED_RULE_MAP))
       .sort(byStalled);
   },
 
   async listSettlements(viewer: Viewer): Promise<SettlementSummary[]> {
     if (viewer.role !== 'admin') return [];
-    return SEED_RECORDS.map(settlementSummaryOf).sort((a, b) => b.planTotal - a.planTotal);
+    return SEED_RECORDS
+      .map((r) => settlementSummaryOf(r, SEED_RULE_MAP))
+      .sort((a, b) => b.planTotal - a.planTotal);
   },
 
   // 메모리 저장은 불가능하다 — Next 가 라우트별로 서버 번들을 따로 만들어서
   // API 핸들러에서 쓴 값이 페이지 번들에서는 보이지 않는다. file-store 나 pg-store 를 쓴다.
   async createProject(): Promise<string> {
+    throw new Error(READ_ONLY);
+  },
+  async addPricingRule(): Promise<string> {
+    throw new Error(READ_ONLY);
+  },
+  async setPricingRuleActive(): Promise<void> {
     throw new Error(READ_ONLY);
   },
   async setDocumentStatus(): Promise<void> {
@@ -248,9 +261,17 @@ export const mockRepository: ProjectRepository = {
     throw new Error(READ_ONLY);
   },
 
+  async listPricingRules(actor): Promise<PricingRule[]> {
+    if (actor.role !== 'admin') throw new Error('단가 케이스 조회는 한백 관리자만 할 수 있습니다.');
+    return PRICING_RULES;
+  },
+
   async getProject(id: string, viewer: Viewer): Promise<ProjectDetail | null> {
     const r = SEED_RECORDS.find((x) => x.project.id === id);
     if (!r || !canAccessProject(viewer.role, viewer.org, r.project)) return null;
-    return redactForViewer(toDetail(r), effectiveVisibility(viewer.role, viewer.org, r.project));
+    return redactForViewer(
+      toDetail(r, SEED_RULE_MAP),
+      effectiveVisibility(viewer.role, viewer.org, r.project)
+    );
   },
 };

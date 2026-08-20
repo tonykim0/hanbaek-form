@@ -45,9 +45,17 @@ export function ProgressLog({
     if (ok) setBody('');
   }
 
+  /*
+   * ★상자를 겹치지 않는다.★
+   * 예전에는 머리말 카드 안에 회색 상자, 그 안에 흰 상자, 그 안에 입력칸이었다 — 네 겹이다.
+   * 겹칠수록 안쪽 것이 무엇에 속하는지가 오히려 흐려진다.
+   *
+   * 지금은 얇은 선 하나로 구역을 가르고, 상자는 입력칸 자기 것 하나만 남긴다.
+   * 목록도 줄 사이 선으로만 가른다 — 왼쪽 색 띠가 누가 썼는지를 이미 말해준다.
+   */
   return (
-    <section className="mt-5 rounded-xl border border-slate-200 bg-slate-50/70 p-4">
-      <div className="mb-2.5 flex flex-wrap items-baseline gap-x-2 gap-y-1">
+    <section className="mt-5 border-t border-slate-100 pt-4">
+      <div className="mb-2 flex flex-wrap items-baseline gap-x-2 gap-y-1">
         <h2 className="text-sm font-black tracking-[-0.01em] text-slate-900">진행현황 및 메모</h2>
         <span className="text-[11px] font-bold tabular-nums text-slate-400">{notes.length}건</span>
       </div>
@@ -56,42 +64,36 @@ export function ProgressLog({
         * 입력칸을 늘 펴 둔다. 「특이사항 남기기」 버튼을 한 번 눌러야 칸이 나오게 했더니,
         * 적을 자리가 있다는 것 자체가 안 보였다 — 적게 만들려면 칸이 먼저 있어야 한다.
         */}
-      <div className="rounded-xl border border-slate-200 bg-white p-2.5">
-        {/* 조사(「~으로/로」)를 피해 앞에 붙인다 — 회사 이름 끝 글자에 따라 조사가 갈린다 */}
-        <div className="mb-1.5 flex items-center gap-1.5">
-          <span className="text-[11px] font-bold text-slate-400">작성자</span>
-          <span
-            className={`rounded px-1.5 py-0.5 text-[10px] font-black ${
-              isHanbaek ? 'bg-slate-900 text-white' : 'bg-brand-600 text-white'
-            }`}
-          >
-            {author}
-          </span>
-        </div>
-        <textarea
-          value={body}
-          onChange={(e) => setBody(e.target.value)}
-          rows={2}
-          placeholder="예) 관리사무소 요청으로 착공 2주 연기 — 3월 첫째 주 재협의"
-          className="w-full resize-y rounded-lg border border-slate-200 px-3 py-2 text-sm leading-relaxed text-slate-900 placeholder:text-slate-300 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-100"
-        />
-        <div className="mt-1.5 flex items-center gap-2">
-          <button
-            type="button"
-            disabled={busy || !body.trim()}
-            onClick={save}
-            className="rounded-lg bg-brand-700 px-3.5 py-1.5 text-xs font-bold text-white transition hover:bg-brand-800 disabled:bg-slate-200 disabled:text-slate-400"
-          >
-            {busy ? '남기는 중…' : '남기기'}
-          </button>
-          {error && <span className="text-[11px] font-semibold text-red-700">{error}</span>}
-        </div>
+      <textarea
+        value={body}
+        onChange={(e) => setBody(e.target.value)}
+        rows={2}
+        placeholder="예) 관리사무소 요청으로 착공 2주 연기 — 3월 첫째 주 재협의"
+        className="w-full resize-y rounded-box border border-slate-200 px-3 py-2 text-sm leading-relaxed text-slate-900 placeholder:text-slate-300 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-100"
+      />
+      <div className="mt-1.5 flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          disabled={busy || !body.trim()}
+          onClick={save}
+          className="rounded-ctl bg-brand-700 px-3.5 py-1.5 text-xs font-bold text-white transition hover:bg-brand-800 disabled:bg-slate-200 disabled:text-slate-400"
+        >
+          {busy ? '남기는 중…' : '남기기'}
+        </button>
+        {/* 누구 이름으로 남는지 — 버튼 옆에 둔다. 위에 따로 줄을 만들 값이 아니다. */}
+        <span
+          className={`rounded px-1.5 py-0.5 text-[10px] font-black ${
+            isHanbaek ? 'bg-slate-900 text-white' : 'bg-brand-600 text-white'
+          }`}
+        >
+          {author}
+        </span>
+        {error && <span className="text-[11px] font-semibold text-red-700">{error}</span>}
       </div>
 
-      {notes.length === 0 ? (
-        <p className="mt-3 text-center text-[12px] text-slate-400">아직 남긴 것이 없습니다</p>
-      ) : (
-        <ol className="mt-3 flex flex-col gap-2">
+      {/* 「아직 없습니다」를 적지 않는다 — 위의 0건이 이미 그 말이다 */}
+      {notes.length > 0 && (
+        <ol className="mt-3 divide-y divide-slate-100">
           {notes.map((n) => (
             <NoteItem key={n.id} projectId={projectId} note={n} author={author} />
           ))}
@@ -138,8 +140,8 @@ function NoteItem({
 
   return (
     <li
-      className={`rounded-lg border border-l-[3px] bg-white px-3 py-2 ${
-        byHanbaek ? 'border-slate-200 border-l-slate-800' : 'border-slate-200 border-l-brand-500'
+      className={`border-l-[3px] py-2 pl-3 ${
+        byHanbaek ? 'border-l-slate-800' : 'border-l-brand-500'
       }`}
     >
       <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">

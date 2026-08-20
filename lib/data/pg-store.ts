@@ -25,7 +25,7 @@ import type {
 } from '@/types/project';
 import type { Viewer } from '@/lib/auth/types';
 import { canAccessProject, effectiveVisibility, normalizeOrg } from '@/lib/roles';
-import { PROCESS_DOCS } from '@/lib/doc-rules';
+import { needsPreInstallCheck, PROCESS_DOCS } from '@/lib/doc-rules';
 import { asProcessStatus, canEnter } from '@/lib/process';
 import type { Actor, PaymentPatch, ProcessPatch, ProjectRepository } from './repository';
 import {
@@ -856,11 +856,19 @@ export const pgRepository: ProjectRepository = {
         .select({
           id: projects.id, salesOrg: projects.salesOrg, gcOrg: projects.gcOrg,
           preInstall: projects.preInstall, preNote: projects.preNote, preChecked: projects.preChecked,
+          bizType: projects.bizType,
         })
         .from(projects)
         .where(eq(projects.id, projectId))
         .limit(1);
       if (!row) throw new Error('현장을 찾을 수 없습니다.');
+      /*
+       * 자체투자는 기설치 조사를 하지 않는다 — 환경부 보조금이 기설치 여부로 갈리기
+       * 때문에 하는 조사다. 화면에서 조작을 주지 않지만 여기서도 막는다.
+       */
+      if (!needsPreInstallCheck(row.bizType as Project['bizType'])) {
+        throw new Error('자체투자 현장은 기설치 조사를 하지 않습니다.');
+      }
       // 조사는 현장에 가는 쪽이 한다 — 그 현장의 협력사와 한백만
       if (!canAccessProject(actor.role, actor.org, row)) {
         throw new Error('이 현장의 기설치를 적을 권한이 없습니다.');

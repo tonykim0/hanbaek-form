@@ -50,6 +50,7 @@ export function checkDraft(draft: IntakeDraft): IntakeCheck {
     projectPowerType: draft.powerType,
     linePowerTypes: draft.lines.map((l) => l.powerType),
     preInstall: draft.preInstall,
+    bizType: draft.bizType,
   });
   const evaluated = evaluateDocs(ctx);
   const attached = new Set(draft.documents.map((d) => d.kind));

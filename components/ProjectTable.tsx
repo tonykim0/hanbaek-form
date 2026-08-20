@@ -203,9 +203,14 @@ export default function ProjectTable({
                   <td className="px-3 py-2.5">
                     <QueueCell p={p} canEdit={canMove} />
                   </td>
-                  {/* 조사 전은 눈에 걸려야 한다 — 환경부 사업은 현장마다 해야 하는 일이다 */}
+                  {/*
+                    조사 전은 눈에 걸려야 한다 — 환경부 사업은 현장마다 해야 하는 일이다.
+                    자체투자는 조사할 이유가 없으므로 「조사 필요」로 세지 않는다.
+                  */}
                   <td className="whitespace-nowrap px-3 py-2.5">
-                    {p.preInstall ? (
+                    {p.bizType === '자체투자' ? (
+                      <span className="text-slate-300">해당없음</span>
+                    ) : p.preInstall ? (
                       <span className="text-slate-600">{p.preInstall}</span>
                     ) : (
                       <span className="rounded bg-amber-100 px-1.5 py-0.5 text-micro font-bold text-amber-900">

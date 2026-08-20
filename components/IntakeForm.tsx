@@ -387,10 +387,10 @@ export default function IntakeForm({ org, isAdmin = false, knownOrgs = [] }: {
       evaluateDocs(
         buildDocContext({
           cpo, contractParty, bldgType, projectPowerType: powerType,
-          linePowerTypes: lines.map((l) => l.powerType), preInstall,
+          linePowerTypes: lines.map((l) => l.powerType), preInstall, bizType,
         })
       ),
-    [cpo, contractParty, bldgType, powerType, lines, preInstall]
+    [cpo, contractParty, bldgType, powerType, lines, preInstall, bizType]
   );
 
   const draft: IntakeDraft = useMemo(

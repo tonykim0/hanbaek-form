@@ -63,6 +63,7 @@ export default function ProjectDetailView({
         projectPowerType: project.powerType,
         linePowerTypes: lines.map((l) => l.powerType),
         preInstall: project.preInstall,
+        bizType: project.bizType,
       }),
     [project, lines]
   );

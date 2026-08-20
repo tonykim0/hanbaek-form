@@ -9,6 +9,7 @@
  *   이 파일이 정본이고, 노션 구현을 붙일 때 그쪽을 이 규칙으로 맞춘다.
  */
 import type {
+  BizType,
   BuildingType,
   ContractParty,
   CpoName,
@@ -26,6 +27,13 @@ export interface DocContext {
   /** 계약 라인 중 하나라도 모자분리면 true (혼용 현장 대응) */
   hasMotherSeparation: boolean;
   preInstall: PreInstall;
+  /**
+   * 사업구분. 기설치 서류가 이것으로 갈린다.
+   *
+   * 기설치 조사는 환경부 사업의 요건이다 — 보조금이 기설치 여부로 갈리기 때문이다.
+   * 자체투자는 조사할 이유가 없으므로 그 서류도 해당없음이다(2026-08-20 한백 확인).
+   */
+  bizType: BizType | null;
 }
 
 interface DocSpec {
@@ -96,15 +104,19 @@ const SPECS: DocSpec[] = [
     key: 'legacylog',
     name: '기설치 충전기 설치이력',
     ext: '.xlsx',
-    // 기설치가 없어도 '없음' 확인용으로 제출받는다
-    req: () => 'm',
+    /*
+     * 환경부 사업만 낸다. 기설치가 없어도 '없음' 확인용으로 제출받지만, 자체투자는
+     * 조사 자체를 하지 않으므로 낼 것이 없다 — 여기서 필수로 두면 자체투자 현장이
+     * 만들 수 없는 엑셀 때문에 계약이 영구히 막힌다.
+     */
+    req: (c) => (c.bizType === '자체투자' ? 'o' : 'm'),
     preinstall: true,
   },
   {
     key: 'legacyev',
     name: '기설치 증빙자료',
-    // 기설치가 있는 현장만 증빙이 필수다. 없으면 낼 것이 없다.
-    req: (c) => (c.preInstall === '있음' ? 'm' : 'o'),
+    // 기설치가 있는 환경부 현장만 증빙이 필수다. 없으면 낼 것이 없다.
+    req: (c) => (c.bizType !== '자체투자' && c.preInstall === '있음' ? 'm' : 'o'),
     preinstall: true,
   },
   {
@@ -176,6 +188,7 @@ export function buildDocContext(input: {
   projectPowerType: PowerType | null;
   linePowerTypes: Array<PowerType | null>;
   preInstall: PreInstall;
+  bizType: BizType | null;
 }): DocContext {
   const all = [input.projectPowerType, ...input.linePowerTypes];
   return {
@@ -184,8 +197,18 @@ export function buildDocContext(input: {
     bldgType: input.bldgType,
     hasMotherSeparation: all.some((p) => p === '모자분리' || p === '한전불입+모자분리'),
     preInstall: input.preInstall,
+    bizType: input.bizType,
   };
 }
+
+/**
+ * 이 현장에 기설치 조사가 필요한가.
+ *
+ * 환경부 보조금이 기설치 여부로 갈리기 때문에 환경부 사업만 조사한다.
+ * 화면·표·필터가 같은 판정을 봐야 해서 여기 한 곳에 둔다.
+ */
+export const needsPreInstallCheck = (bizType: BizType | null): boolean =>
+  bizType !== '자체투자';
 
 /** 공정 서류 슬롯 — 노션 공정관리 마스터의 file 속성들 */
 export const PROCESS_DOCS = [

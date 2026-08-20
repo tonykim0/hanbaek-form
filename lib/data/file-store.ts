@@ -24,6 +24,7 @@ import {
   redactForViewer, settlementSummaryOf, summaryOf, toDetail, type ProjectRecord,
 } from './assemble';
 import { SEED_RECORDS } from './mock';
+import { needsPreInstallCheck } from '@/lib/doc-rules';
 import { PRICING_RULE_BY_ID } from './seed/pricing-rules';
 
 const DATA_DIR = path.join(process.cwd(), '.data');
@@ -362,6 +363,10 @@ export const fileRepository: ProjectRepository = {
     const records = await load();
     const r = records.find((x) => x.project.id === projectId);
     if (!r) throw new Error('현장을 찾을 수 없습니다.');
+    // 자체투자는 기설치 조사를 하지 않는다 (pg-store 와 같은 판정)
+    if (!needsPreInstallCheck(r.project.bizType)) {
+      throw new Error('자체투자 현장은 기설치 조사를 하지 않습니다.');
+    }
     // 조사는 현장에 가는 쪽이 한다 (pg-store 와 같은 판정)
     if (!canAccessProject(actor.role, actor.org, r.project)) {
       throw new Error('이 현장의 기설치를 적을 권한이 없습니다.');

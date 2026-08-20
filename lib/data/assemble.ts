@@ -126,6 +126,7 @@ function docCtxOf(r: ProjectRecord) {
     projectPowerType: r.project.powerType,
     linePowerTypes: r.lines.map((l) => l.powerType),
     preInstall: r.project.preInstall,
+    bizType: r.project.bizType,
   });
 }
 

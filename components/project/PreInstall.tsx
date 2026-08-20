@@ -8,7 +8,7 @@
  */
 import { useState } from 'react';
 import type { PreInstall, ProjectDetail, ProjectDocument } from '@/types/project';
-import { evaluateDocs } from '@/lib/doc-rules';
+import { evaluateDocs, needsPreInstallCheck } from '@/lib/doc-rules';
 import { DocDelete, DocFileActions, DocUpload } from '@/components/DocFiles';
 import { useAction } from '@/lib/use-action';
 import { DocReview } from './DocReview';
@@ -40,6 +40,27 @@ export function PreInstall({
   const [editing, setEditing] = useState(false);
 
   const STATES: PreInstall[] = ['없음', '있음'];
+
+  /*
+   * 자체투자는 기설치 조사를 하지 않는다 — 환경부 보조금이 기설치 여부로 갈리기 때문에
+   * 하는 조사이고, 보조금을 안 받으면 조사할 이유가 없다(2026-08-20 한백 확인).
+   *
+   * 구역을 없애지 않는다. 「조사 안 함」과 「해당없음」은 다른 것이고, 구역이 사라지면
+   * 둘이 같은 모양이 된다 — 서류 목록에서 해당없음 칸을 남기는 것과 같은 이유다.
+   * 딸린 서류 두 칸(설치이력·증빙)도 해당없음이 되므로 여기 보여줄 것이 없다.
+   */
+  if (!needsPreInstallCheck(project.bizType)) {
+    return (
+      <section>
+        <div className="flex flex-wrap items-baseline gap-x-2">
+          <h2 className="text-h3 font-black text-slate-900">기설치 조사</h2>
+          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-tiny font-bold text-slate-500">
+            해당없음
+          </span>
+        </div>
+      </section>
+    );
+  }
 
   async function save(patch: Record<string, unknown>) {
     const ok = await run({

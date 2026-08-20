@@ -13,8 +13,9 @@
  */
 import { and, desc, eq, inArray, or, sql } from 'drizzle-orm';
 import { getDb } from '@/lib/db/client';
+import { writeAudit } from '@/lib/db/audit';
 import {
-  auditLog, contractLines, documents, pricingRules, processDocuments, processes,
+  contractLines, documents, pricingRules, processDocuments, processes,
   projectNotes, projects, settlements,
 } from '@/lib/db/schema';
 import type {
@@ -198,25 +199,6 @@ async function recordsOf(rows: ProjectRow[]): Promise<ProjectRecord[]> {
   });
 }
 
-/**
- * 협력사가 직접 입력하는 시스템이라 누가 무엇을 바꿨는지 남긴다.
- * 노션에는 이 자리가 없었다 — 이 앱이 새로 세우는 축이다.
- */
-async function writeAudit(
-  tx: TxLike,
-  entry: { projectId: string | null; actor: Actor; action: string; field?: string | null; oldValue?: string | null; newValue?: string | null }
-) {
-  await tx.insert(auditLog).values({
-    id: crypto.randomUUID(),
-    projectId: entry.projectId,
-    // 이름만으로는 동명이인을 가릴 수 없어 로그인 ID 를 함께 남긴다
-    actor: `${entry.actor.name}(${entry.actor.id})`,
-    action: entry.action,
-    field: entry.field ?? null,
-    oldValue: entry.oldValue ?? null,
-    newValue: entry.newValue ?? null,
-  });
-}
 
 /**
  * 한백 전용 쓰기의 마지막 방어선.

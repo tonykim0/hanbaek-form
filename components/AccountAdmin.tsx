@@ -64,14 +64,6 @@ export default function AccountAdmin({
     setPassword('');
   }
 
-  const toggle = (account: AccountView) =>
-    void run({
-      url: '/api/admin/accounts',
-      method: 'PATCH',
-      body: { id: account.id, active: !account.active },
-      fail: '바꾸지 못했습니다.',
-      label: account.id,
-    });
 
   return (
     <div className="flex flex-col gap-7">
@@ -214,50 +206,7 @@ export default function AccountAdmin({
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {accounts.map((a) => (
-                  <tr key={a.id} className={a.active ? '' : 'bg-slate-50/60'}>
-                    <td className="px-3 py-2.5 font-bold text-slate-900">
-                      {a.id}
-                      {a.id === meId && (
-                        <span className="ml-1.5 text-[10px] font-bold text-brand-700">나</span>
-                      )}
-                    </td>
-                    <td className="px-3 py-2.5 text-slate-600">{a.name}</td>
-                    <td className="px-3 py-2.5">
-                      <span
-                        className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${
-                          a.role === 'admin'
-                            ? 'bg-slate-800 text-white'
-                            : 'bg-slate-100 text-slate-600'
-                        }`}
-                      >
-                        {ROLE_TEXT[a.role]}
-                      </span>
-                    </td>
-                    <td className="px-3 py-2.5 text-slate-600">{a.org ?? '—'}</td>
-                    <td className="px-3 py-2.5 tabular-nums text-slate-400">
-                      {a.createdAt ?? <span title="환경변수·개발 시드 계정">배포 설정</span>}
-                    </td>
-                    <td className="px-3 py-2.5 text-right">
-                      {a.source === '파일' ? (
-                        <span className="text-[11px] text-slate-400" title="배포 설정에 있는 계정이라 화면에서 못 바꿉니다">
-                          고정
-                        </span>
-                      ) : (
-                        <button
-                          type="button"
-                          disabled={busy || a.id === meId}
-                          onClick={() => void toggle(a)}
-                          className={`rounded-lg border px-2.5 py-1 text-[11px] font-bold transition disabled:opacity-40 ${
-                            a.active
-                              ? 'border-slate-200 text-slate-600 hover:border-red-300 hover:text-red-700'
-                              : 'border-brand-300 bg-brand-50 text-brand-800'
-                          }`}
-                        >
-                          {a.active ? '사용 중 · 중지' : '중지됨 · 재개'}
-                        </button>
-                      )}
-                    </td>
-                  </tr>
+                  <AccountRow key={a.id} a={a} meId={meId} knownOrgs={knownOrgs} />
                 ))}
               </tbody>
             </table>
@@ -271,6 +220,147 @@ export default function AccountAdmin({
     </div>
   );
 }
+
+/**
+ * 계정 한 줄.
+ *
+ * ★구분·소속을 여기서 고칠 수 있다.★
+ * 이 두 값이 그 사람이 무엇을 보는지를 정한다 — 구분은 영업비·시공비 중 어느 쪽을,
+ * 소속은 어느 현장을(문자열 일치). 만들 때 잘못 고르면 로그인 ID 가 primary key 라
+ * 다시 만들 수도 없어서, 고치는 자리가 없으면 DB 를 직접 만지는 수밖에 없었다.
+ *
+ * 칸을 떠날 때 저장한다. 관리자 계정과 배포 설정 계정은 아예 입력칸을 주지 않는다 —
+ * 못 하는 일은 눌리지 않게 한다.
+ */
+function AccountRow({
+  a, meId, knownOrgs,
+}: {
+  a: AccountView;
+  meId: string;
+  knownOrgs: string[];
+}) {
+  const { busy, error, run } = useAction();
+  const fixed = a.source === '파일' || a.role === 'admin';
+
+  const patch = (body: Record<string, unknown>) =>
+    void run({ url: '/api/admin/accounts', method: 'PATCH', body: { id: a.id, ...body } });
+
+  return (
+    <>
+      <tr className={a.active ? '' : 'bg-slate-50/60'}>
+        <td className="px-3 py-2.5 font-bold text-slate-900">
+          {a.id}
+          {a.id === meId && <span className="ml-1.5 text-[10px] font-bold text-brand-700">나</span>}
+        </td>
+
+        <td className="px-3 py-2.5 text-slate-600">
+          {fixed ? (
+            a.name
+          ) : (
+            <input
+              aria-label={`${a.id} 이름`}
+              defaultValue={a.name}
+              disabled={busy}
+              onBlur={(e) => {
+                if (e.target.value.trim() !== a.name) patch({ name: e.target.value });
+              }}
+              className={cellInput}
+            />
+          )}
+        </td>
+
+        <td className="px-3 py-2.5">
+          {fixed ? (
+            <span
+              className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${
+                a.role === 'admin' ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-600'
+              }`}
+            >
+              {ROLE_TEXT[a.role]}
+            </span>
+          ) : (
+            <select
+              aria-label={`${a.id} 구분`}
+              value={a.role}
+              disabled={busy}
+              onChange={(e) => patch({ role: e.target.value })}
+              className={`${cellInput} cursor-pointer font-bold`}
+            >
+              {KINDS.map((k) => (
+                <option key={k.role} value={k.role}>
+                  {k.label}
+                </option>
+              ))}
+            </select>
+          )}
+        </td>
+
+        <td className="px-3 py-2.5 text-slate-600">
+          {fixed ? (
+            (a.org ?? '—')
+          ) : (
+            <>
+              {/* 쓰이고 있는 소속을 골라 넣게 한다 — 손으로 적으면 「에코일렉」과 「에코일렉 」이 갈린다 */}
+              <input
+                aria-label={`${a.id} 소속`}
+                defaultValue={a.org ?? ''}
+                disabled={busy}
+                list={`orgs-${a.id}`}
+                onBlur={(e) => {
+                  if (e.target.value.trim() !== (a.org ?? '')) patch({ org: e.target.value });
+                }}
+                className={cellInput}
+              />
+              <datalist id={`orgs-${a.id}`}>
+                {knownOrgs.map((o) => (
+                  <option key={o} value={o} />
+                ))}
+              </datalist>
+            </>
+          )}
+        </td>
+
+        <td className="px-3 py-2.5 tabular-nums text-slate-400">
+          {a.createdAt ?? <span title="환경변수·개발 시드 계정">배포 설정</span>}
+        </td>
+
+        <td className="px-3 py-2.5 text-right">
+          {a.source === '파일' ? (
+            <span
+              className="text-[11px] text-slate-400"
+              title="배포 설정에 있는 계정이라 화면에서 못 바꿉니다"
+            >
+              고정
+            </span>
+          ) : (
+            <button
+              type="button"
+              disabled={busy || a.id === meId}
+              onClick={() => patch({ active: !a.active })}
+              className={`rounded-lg border px-2.5 py-1 text-[11px] font-bold transition disabled:opacity-40 ${
+                a.active
+                  ? 'border-slate-200 text-slate-600 hover:border-red-300 hover:text-red-700'
+                  : 'border-brand-300 bg-brand-50 text-brand-800'
+              }`}
+            >
+              {a.active ? '사용 중 · 중지' : '중지됨 · 재개'}
+            </button>
+          )}
+        </td>
+      </tr>
+      {error && (
+        <tr>
+          <td colSpan={6} className="px-3 pb-2.5 text-[11px] font-semibold text-red-700">
+            {error}
+          </td>
+        </tr>
+      )}
+    </>
+  );
+}
+
+const cellInput =
+  'w-full min-w-[92px] rounded-lg border border-transparent bg-transparent px-1.5 py-1 text-sm text-slate-700 transition hover:border-slate-200 focus:border-brand-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-100 disabled:opacity-50';
 
 const inputClass =
   'w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-300 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-100';

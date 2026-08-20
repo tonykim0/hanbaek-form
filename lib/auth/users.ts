@@ -8,11 +8,12 @@
  * (audit_log 를 자체 저장소에 두기로 한 것과 같은 이유 — SYSTEM_ARCHITECTURE §6)
  */
 import { eq } from 'drizzle-orm';
-import type { Role } from '@/lib/roles';
+import { normalizeOrg, type Role } from '@/lib/roles';
 import type { AccountView, Actor, NewAccount, User } from './types';
 import { hashPassword, verifyPassword } from './crypto';
 import { getDb, hasDatabase } from '@/lib/db/client';
 import { users } from '@/lib/db/schema';
+import { writeAudit } from '@/lib/db/audit';
 
 interface StoredUser extends User {
   /** pbkdf2$iterations$salt$hash */
@@ -30,6 +31,21 @@ export interface UserStore {
   create(input: NewAccount, actor: Actor): Promise<void>;
   /** 사용 중지·재개. [한백 전용] 지우지 않는다 — 감사 기록이 계정 ID 를 가리킨다. */
   setActive(loginId: string, active: boolean, actor: Actor): Promise<void>;
+  /**
+   * 구분·소속·이름 고치기. [한백 전용]
+   *
+   * ★고칠 수 있어야 하는 이유★
+   * 이 두 값이 그 사람이 무엇을 보는지를 정한다 — 구분은 영업비·시공비 중 어느 쪽을 보는지,
+   * 소속은 어느 현장을 보는지(문자열 일치). 만들 때 잘못 고르면 로그인 ID 가 primary key 라
+   * 다시 만들 수도 없어서, 고치는 자리가 없으면 DB 를 직접 만지는 수밖에 없다.
+   *
+   * 로그인 ID 는 안 바꾼다 — 감사 기록이 그것을 가리키고 있다.
+   */
+  setProfile(
+    loginId: string,
+    patch: { role?: Role; org?: string | null; name?: string },
+    actor: Actor
+  ): Promise<void>;
 }
 
 /**
@@ -162,6 +178,57 @@ export const userStore: UserStore = {
       passwordHash: await hashPassword(input.password),
       active: true,
     });
+  },
+
+  async setProfile(loginId, patch, actor) {
+    assertAdmin(actor, '계정 고치기');
+    if (!hasDatabase()) throw new Error('계정 저장소(DB)가 연결되지 않았습니다.');
+    const id = loginId.trim().toLowerCase();
+
+    const db = getDb();
+    const [row] = await db.select().from(users).where(eq(users.id, id)).limit(1);
+    if (!row) {
+      throw new Error('DB 에 없는 계정입니다 — 배포 설정(AUTH_USERS)에 있는 계정은 여기서 못 바꿉니다.');
+    }
+
+    /*
+     * 관리자는 여기서 만들지도, 여기로 올리지도 못한다.
+     * 만들기(create)를 막아놨는데 고치기로 올릴 수 있으면 그 방어가 없는 것과 같다 —
+     * 협력사 계정 하나를 관리자로 바꾸면 원가·마진이 그대로 넘어간다.
+     */
+    const role = patch.role ?? (row.role as Role);
+    if (role === 'admin' || row.role === 'admin') {
+      throw new Error('관리자 계정의 구분은 이 화면에서 바꿀 수 없습니다.');
+    }
+
+    // 협력사 계정은 소속으로 현장을 가른다 — 비우면 아무 현장도 못 본다
+    const org = patch.org === undefined ? row.org : normalizeOrg(patch.org);
+    if (!org) throw new Error('협력사 계정은 소속을 반드시 넣어야 합니다.');
+
+    const name = patch.name === undefined ? row.name : patch.name.trim();
+    if (!name) throw new Error('이름을 입력하세요.');
+
+    if (role === row.role && org === row.org && name === row.name) return;
+
+    await db.update(users).set({ role, org, name }).where(eq(users.id, id));
+
+    // 무엇이 무엇으로 바뀌었는지 남긴다 — 「그 사람이 무엇을 보는지」가 달라지는 변경이다
+    for (const [field, before, after] of [
+      ['role', row.role, role],
+      ['org', row.org, org],
+      ['name', row.name, name],
+    ] as const) {
+      if (before !== after) {
+        await writeAudit(db, {
+          projectId: null,
+          actor,
+          action: `계정 ${id}`,
+          field,
+          oldValue: before,
+          newValue: after,
+        });
+      }
+    }
   },
 
   async setActive(loginId, active, actor) {

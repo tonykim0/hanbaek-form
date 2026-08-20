@@ -1,5 +1,6 @@
 import { monthShift, thisMonth as seoulMonth } from '@/lib/date';
 import { won } from '@/lib/format';
+import PayChart, { type MonthBar } from '@/components/settlement/PayChart';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { getRepository } from '@/lib/data';
@@ -43,11 +44,25 @@ export default async function PaymentsPage({
     ? []
     : [...new Set(paid.map((r) => r.paidAt!.slice(0, 10)))].sort();
 
-  /** 지급일이 있는 달 목록 — 자료에 있는 달만 고를 수 있게 한다 */
-  const months = [...new Set(rows.map((r) => r.paidAt?.slice(0, 7)).filter(Boolean) as string[])]
-    .sort()
-    .reverse();
-  if (!months.includes(month)) months.unshift(month);
+  /*
+   * 월별 흐름 — 첫 지급이 있던 달부터 이번 달(또는 마지막 지급 달)까지 빈 달 없이 잇는다.
+   * 지급이 없는 달이 빠지면 추세가 실제보다 매끈해 보인다. 열은 24개까지만 —
+   * 잘못 찍힌 먼 미래 날짜 하나가 축을 못 쓰게 만들지 않게 한다.
+   */
+  const paidMonths = rows.map((r) => r.paidAt?.slice(0, 7)).filter(Boolean) as string[];
+  const first = paidMonths.length > 0 ? [...paidMonths].sort()[0] : thisMonth;
+  const last = [thisMonth, ...paidMonths, month].sort().slice(-1)[0];
+  const series: MonthBar[] = [];
+  for (let m = first; m <= last && series.length < 24; m = monthShift(m, 1)) {
+    series.push({ month: m, sales: 0, cons: 0 });
+  }
+  const barBy = new Map(series.map((b) => [b.month, b]));
+  for (const r of rows) {
+    const bar = r.paidAt && barBy.get(r.paidAt.slice(0, 7));
+    if (!bar) continue;
+    if (r.kind === '영업비') bar.sales += r.amount;
+    else bar.cons += r.amount;
+  }
 
   const shift = (delta: number) => monthShift(month, delta);
 
@@ -81,6 +96,8 @@ export default async function PaymentsPage({
           )}
         </nav>
       </header>
+
+      <PayChart months={series} current={month} />
 
       {myDates.length > 0 && (
         <p className="flex flex-wrap items-center gap-2 text-small text-slate-500">
@@ -131,6 +148,8 @@ function Block({
   showDate?: boolean;
 }) {
   const total = rows.reduce((n, r) => n + r.amount, 0);
+  const kindSum = (kind: PayoutRow['kind']) =>
+    rows.filter((r) => r.kind === kind).reduce((n, r) => n + r.amount, 0);
 
   const groups = new Map<string, PayoutRow[]>();
   for (const r of rows) {
@@ -148,9 +167,16 @@ function Block({
     <section className="rounded-panel border border-slate-200 bg-white p-5">
       <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="text-h3 font-black text-slate-900">{title}</h2>
-        <span className="text-lead font-black tabular-nums text-slate-900">
-          {won(total)}
-          <span className="ml-1 text-tiny font-bold text-slate-400">원</span>
+        <span className="flex flex-wrap items-baseline gap-3">
+          {showDate && rows.length > 0 && (
+            <span className="text-tiny font-bold text-slate-500 tabular-nums">
+              영업비 {won(kindSum('영업비'))} · 시공비 {won(kindSum('시공비'))}
+            </span>
+          )}
+          <span className="text-lead font-black tabular-nums text-slate-900">
+            {won(total)}
+            <span className="ml-1 text-tiny font-bold text-slate-400">원</span>
+          </span>
         </span>
       </div>
 

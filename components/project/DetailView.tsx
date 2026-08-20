@@ -91,6 +91,11 @@ export default function ProjectDetailView({
   const allPriced = lines.length > 0 && lines.every((l) => l.rule !== null);
   /** 반려된 서류 수 — 보드가 「계약보완」으로 부르는 조건이다 */
   const rejectedCount = documents.filter((d) => d.status === 'rejected').length;
+  /**
+   * 필수 서류 칸이 다 찼는가 — 반려 여부는 보지 않는다.
+   * 보드가 계약접수(아직 모으는 중)와 계약검토(다 찼으니 한백 차례)를 가르는 값이다.
+   */
+  const docsFilled = required.every((d) => (byKind.get(d.key)?.status ?? 'none') !== 'none');
   const feeMissing = evaluated
     .filter((d) => d.fee && d.req === 'm' && !passes(d.key))
     .map((d) => d.label);
@@ -135,6 +140,7 @@ export default function ProjectDetailView({
       <SiteHeader
         detail={detail}
         rejectedCount={rejectedCount}
+        docsFilled={docsFilled}
         blocked={blocked}
         allPriced={allPriced}
         canReview={canReview}
@@ -215,10 +221,11 @@ export default function ProjectDetailView({
  * 걸림돌은 여기 모은다. 무엇이 이 현장을 세우고 있는지는 탭을 열기 전에 보여야 한다.
  */
 function SiteHeader({
-  detail, rejectedCount, blocked, allPriced, canReview, noteAuthor, knownOrgs,
+  detail, rejectedCount, docsFilled, blocked, allPriced, canReview, noteAuthor, knownOrgs,
 }: {
   detail: ProjectDetail;
   rejectedCount: number;
+  docsFilled: boolean;
   blocked: boolean;
   allPriced: boolean;
   /** 한백인가 — 협력사에게는 한백이 할 일을 걸림돌로 보여주지 않는다 */
@@ -233,6 +240,7 @@ function SiteHeader({
     status: process.status,
     holdState: project.holdState,
     rejectedDocs: rejectedCount,
+    docsFilled,
   });
   const band = bandOfColumn(column);
   const qty = lines.reduce((s, l) => s + l.qty, 0);

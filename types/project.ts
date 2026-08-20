@@ -348,6 +348,11 @@ export interface ProjectSummary {
   /** 반려된 서류 수 — 협력사가 목록에서 바로 알아야 한다 */
   rejectedDocs: number;
   /**
+   * 필수 서류 칸이 다 찼는가 (반려 여부는 별개).
+   * 계약접수(아직 모으는 중)와 계약검토(다 찼으니 한백 차례)를 가르는 값이다.
+   */
+  docsFilled: boolean;
+  /**
    * 지금 넘어갈 수 있는 공정 단계.
    * 보드가 놓을 수 없는 칸을 미리 가리는 데 쓴다 — 조건은 lib/process.ts 가 정한다.
    */

@@ -23,7 +23,7 @@ import type {
 } from '@/types/project';
 import { buildDocContext, PROCESS_DOCS } from '@/lib/doc-rules';
 import { PAY_SPLIT, payInstallments, settlementForProject } from '@/lib/settlement';
-import { contractReady, deriveStage, stalledDaysSince } from '@/lib/stage';
+import { contractReady, deriveStage, requiredDocsFilled, stalledDaysSince } from '@/lib/stage';
 import { entryOkOf } from '@/lib/process';
 import { effectiveVisibility, type Visibility } from '@/lib/roles';
 import type { Viewer } from '@/lib/auth/types';
@@ -138,6 +138,11 @@ export function contractReadyOf(r: ProjectRecord): boolean {
   return contractReady({ docCtx: docCtxOf(r), documents: r.documents, lines: r.lines });
 }
 
+/** 필수 서류 칸이 다 찼는가 — 보드가 계약접수와 계약검토를 가르는 데 쓴다 */
+export function docsFilledOf(r: ProjectRecord): boolean {
+  return requiredDocsFilled({ docCtx: docCtxOf(r), documents: r.documents });
+}
+
 export function toDetail(r: ProjectRecord): ProjectDetail {
   // 케이스는 불변이라 참조만으로 안전하다 — 값을 복사해 둘 필요가 없다
   const lines: ContractLineView[] = r.lines.map((l) => ({
@@ -203,6 +208,8 @@ export function summaryOf(r: ProjectRecord): ProjectSummary {
     stalledDays: d.stalledDays,
     priced: d.lines.length > 0 && d.lines.every((l) => l.rule !== null),
     rejectedDocs: d.documents.filter((x) => x.status === 'rejected').length,
+    // 계약접수(아직 모으는 중)와 계약검토(다 찼으니 한백 차례)를 가른다
+    docsFilled: docsFilledOf(r),
     entryOk: entryOkOf(d.process),
   };
 }

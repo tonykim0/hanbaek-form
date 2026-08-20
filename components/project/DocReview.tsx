@@ -46,9 +46,13 @@ export function DocReview({
     setReason('');
   }
 
+  /*
+   * 사유를 받을 때는 한 줄을 통째로 쓴다.
+   * 카드 오른쪽 구석에 끼워 두면 사유 칸이 눌려서 두 줄짜리 문장을 쓸 수 없다.
+   */
   if (rejecting) {
     return (
-      <div className="mt-2 flex flex-col gap-1.5">
+      <div className="mt-2 flex w-full flex-col gap-1.5">
         <textarea
           value={reason}
           onChange={(e) => setReason(e.target.value)}
@@ -80,8 +84,13 @@ export function DocReview({
     );
   }
 
+  /*
+   * 평소에는 카드 오른쪽 아래 구석에 붙는다(ml-auto).
+   * 미리보기·다운로드·올리기와 같은 줄에 두되 반대쪽 끝으로 밀어낸다 — 자주 누르는 것과
+   * 되돌리기 어려운 것을 같은 자리에 나란히 두면 잘못 누른다.
+   */
   return (
-    <div className="mt-2 flex flex-col gap-1">
+    <div className="ml-auto flex flex-col items-end gap-1">
       <div className="flex gap-1.5">
         {/*
           승인 버튼은 없다. 제출된 서류는 기본이 통과라서 누를 일이 없다 —

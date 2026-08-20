@@ -18,6 +18,25 @@ import type { ProjectDocument } from '@/types/project';
  * 반려는 「이 계약은 아직 아니다」는 판정이고, 그 판정이 남아 있는 계약을 넘기면
  * 보드의 「계약보완」 칸과 실제가 어긋난다.
  */
+/**
+ * 필수 서류 칸이 다 채워졌는가 — 반려 여부는 보지 않는다.
+ *
+ * ★접수와 검토를 가르는 사실이다.★ 칸이 비어 있으면 협력사가 더 낼 것이 있고(계약접수),
+ * 다 찼으면 한백이 볼 차례다(계약검토). 반려는 그보다 먼저 잡히므로(계약보완) 여기서
+ * 반려를 셈에 넣으면 두 판정이 겹친다.
+ *
+ * 「검토 시작」 버튼으로 가르지 않는다. 라벨만 바꾸는 버튼은 누르는 것을 잊은 현장을
+ * 영원히 접수에 남긴다 — 단계는 자료에서 유도한다.
+ */
+export function requiredDocsFilled(input: {
+  docCtx: DocContext;
+  documents: ProjectDocument[];
+}): boolean {
+  const required = evaluateDocs(input.docCtx).filter((d) => d.req === 'm');
+  const byKind = new Map(input.documents.map((d) => [d.kind, d]));
+  return required.every((r) => (byKind.get(r.key)?.status ?? 'none') !== 'none');
+}
+
 export function contractReady(input: {
   docCtx: DocContext;
   documents: ProjectDocument[];

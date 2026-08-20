@@ -19,7 +19,7 @@ import type { HoldState, ProcessStatus, Stage } from '@/types/project';
 import { PROCESS_STATUSES } from '@/types/project';
 
 /** 공정에 들어가기 전(계약)과 흐름에서 빠진 것(보류)은 공정 상태로 표현할 수 없어 따로 둔다 */
-export type BoardColumn = '계약접수' | '계약보완' | ProcessStatus | '보류';
+export type BoardColumn = '계약접수' | '계약검토' | '계약보완' | ProcessStatus | '보류';
 
 /** 칸을 묶는 띠 — 11칸이 한 줄로 늘어서면 눈이 구역을 못 찾는다 */
 export type BoardBand = '계약' | '시공' | '멈춤';
@@ -52,7 +52,14 @@ export const BOARD_COLUMNS: BoardColumnDef[] = [
     band: '계약',
     droppable: false,
     // 화면에서 옮길 수 있게 만들면 실제 서류와 어긋난 단계가 생긴다
-    why: '서류·단가에서 유도되는 칸입니다',
+    why: '필수 서류가 다 차면 검토로 넘어갑니다',
+  },
+  {
+    key: '계약검토',
+    label: '계약검토',
+    band: '계약',
+    droppable: false,
+    why: '한백이 계약 확인을 누르면 넘어갑니다',
   },
   {
     key: '계약보완',
@@ -92,8 +99,22 @@ export function boardColumnOf(p: {
   status: ProcessStatus;
   holdState: HoldState | null;
   rejectedDocs: number;
+  docsFilled: boolean;
 }): BoardColumn {
   if (p.holdState) return '보류';
-  if (p.stage === 'intake') return p.rejectedDocs > 0 ? '계약보완' : '계약접수';
+  if (p.stage === 'intake') {
+    /*
+     * 계약 안에서 세 칸으로 갈린다. 순서가 곧 우선순위다.
+     *
+     *   반려가 있으면        → 계약보완  (협력사가 고칠 차례)
+     *   필수 서류가 덜 찼으면 → 계약접수  (협력사가 더 낼 차례)
+     *   다 찼으면            → 계약검토  (한백이 볼 차례 — 단가 지정·계약 확인)
+     *
+     * 서류는 여러 번 오간다. 그 왕복은 검토 ↔ 보완 사이에서만 일어나고,
+     * 접수는 처음 모으는 동안만 서는 자리다 — 몇 번을 돌아도 칸이 늘지 않는다.
+     */
+    if (p.rejectedDocs > 0) return '계약보완';
+    return p.docsFilled ? '계약검토' : '계약접수';
+  }
   return p.status;
 }

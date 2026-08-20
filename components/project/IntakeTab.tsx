@@ -246,8 +246,9 @@ export function IntakeTab({
                           * 조작은 카드 아래에 모은다. 예전에는 미리보기·올리기·검수·삭제가
                           * 세로로 네 줄 쌓여서 카드마다 높이가 달랐다.
                           *
-                          * 반려는 사유를 받아야 해서 한 줄을 통째로 쓴다 — 위 줄에 끼우면
-                          * 사유 칸이 눌린다.
+                          * 반려는 같은 줄의 오른쪽 끝으로 밀어낸다(DocReview 안의 ml-auto).
+                          * 자주 누르는 것(미리보기·올리기)과 되돌리기 어려운 것을 나란히 두면
+                          * 잘못 누른다. 사유를 받을 때는 아래로 한 줄 내려간다.
                           */}
                         <div className="mt-auto pt-2">
                           <div className="flex flex-wrap items-center gap-x-3">
@@ -271,10 +272,10 @@ export function IntakeTab({
                                 filename={doc.filename}
                               />
                             )}
+                            {canReview && doc && doc.status !== 'none' && (
+                              <DocReview projectId={projectId} kind={d.key} status={doc.status} />
+                            )}
                           </div>
-                          {canReview && doc && doc.status !== 'none' && (
-                            <DocReview projectId={projectId} kind={d.key} status={doc.status} />
-                          )}
                         </div>
                       </div>
                     );

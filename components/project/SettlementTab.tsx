@@ -62,7 +62,7 @@ export function SettlementTab({
       {vis.cost && (
         <section>
           <div className="mb-3 flex flex-wrap items-baseline justify-between gap-3">
-            <h2 className="text-base font-black tracking-[-0.02em] text-slate-900">기성</h2>
+            <h2 className="text-h3 font-black text-slate-900">기성</h2>
             <div className="flex flex-wrap items-baseline gap-3">
               {rate !== null && (
                 <span className="text-xs font-bold text-slate-500">
@@ -136,7 +136,7 @@ export function SettlementTab({
 function ContractLines({ lines, vis }: { lines: ProjectDetail['lines']; vis: Visibility }) {
   return (
     <section>
-      <h2 className="mb-3 text-base font-black tracking-[-0.02em] text-slate-900">계약 라인 · 단가</h2>
+      <h2 className="mb-3 text-h3 font-black text-slate-900">계약 라인 · 단가</h2>
       <div className="overflow-x-auto rounded-xl border border-slate-200">
         <table className="w-full min-w-[640px] text-sm">
           <thead className="bg-slate-50 text-[11px] font-bold tracking-[0.08em] text-slate-500">
@@ -264,7 +264,7 @@ function PaymentSection({
   return (
     <section>
       <div className="mb-3 flex flex-wrap items-baseline justify-between gap-3">
-        <h2 className="text-base font-black tracking-[-0.02em] text-slate-900">지급</h2>
+        <h2 className="text-h3 font-black text-slate-900">지급</h2>
         <span className="text-xs text-slate-400">계약 {totalQty}대 기준</span>
       </div>
 

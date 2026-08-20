@@ -56,7 +56,7 @@ export function ProgressLog({
   return (
     <section className="mt-5 border-t border-slate-100 pt-4">
       <div className="mb-2 flex flex-wrap items-baseline gap-x-2 gap-y-1">
-        <h2 className="text-sm font-black tracking-[-0.01em] text-slate-900">진행현황 및 메모</h2>
+        <h2 className="text-lead font-black text-slate-900">진행현황 및 메모</h2>
         <span className="text-[11px] font-bold tabular-nums text-slate-400">{notes.length}건</span>
       </div>
 

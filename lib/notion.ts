@@ -435,13 +435,27 @@ export async function attachUploadItemsToPage(
 // 사업구분과 무관하게 항상 필수인 서류
 // (행위신고 업무대행 동의서는 템플릿에서 제외되어 더 이상 필수 아님)
 // (합의서는 SK일렉링크·현대엔지니어링 제외 조건부 → 아래에서 별도 처리)
+// (한전 전기요금 청구서는 수전방식 조건부 → 아래 needsKepcoBill 로 판정)
 const COMMON_REQUIRED_DOCS = [
   '계약서',
   '직인사용 동의서',
   '사전현장컨설팅 결과서',
-  '한전 전기요금 청구서',
   '건축물대장',
 ] as const;
+
+/**
+ * 한국전력 전기요금 청구서는 모자분리 현장만 낸다 (2026-08-20 한백 확인).
+ *
+ * 모자분리는 기존 세대 계량에서 충전기 몫을 떼어내는 방식이라 지금 요금 상태를 봐야 한다.
+ * 한전불입은 새 인입을 받는 것이라 볼 청구서가 없다 — 그런데 여기서는 수전방식과 무관하게
+ * 항상 필수로 두고 있어서, 한전불입 현장이 낼 수 없는 서류를 「누락」으로 통보받았다.
+ *
+ * 판정 기준은 lib/doc-rules.ts 가 정본이고 이것을 그 규칙에 맞춘 것이다.
+ * 전력인입을 못 읽었으면(null) 요구하지 않는다 — 있는지 없는지 모르는 것을 누락이라
+ * 적으면 사람이 매번 확인해야 하고, 그러면 이 통보를 아무도 믿지 않게 된다.
+ */
+const needsKepcoBill = (metadata: ExtractedMetadata): boolean =>
+  metadata.전력인입 === '모자분리' || metadata.전력인입 === '모자분리 + 한전수전';
 
 // 환경부 사업일 때만 필수인 서류
 const ENV_ONLY_REQUIRED_DOCS = [
@@ -451,8 +465,9 @@ const ENV_ONLY_REQUIRED_DOCS = [
 
 /**
  * 접수 서류 누락 점검 결과 문구를 만든다. ('누락서류' 속성용)
- * - 공통 필수: 계약서·직인사용 동의서·사전현장컨설팅 결과서·한전청구서·건축물대장
+ * - 공통 필수: 계약서·직인사용 동의서·사전현장컨설팅 결과서·건축물대장
  *   + 사업자등록증(또는 고유번호증)
+ * - 한전 전기요금 청구서: 모자분리 현장만 (한전불입은 낼 청구서가 없다)
  * - 합의서: SK일렉링크·현대엔지니어링·에버온 제외하고 필수 (이들은 조건부 → 면제)
  * - 환경부 전용: 전기차충전시설 설치신청서·개인정보 동의서
  * - 건물유형 조건부: 공동주택 → 입주자대표회의 회의록 / 그 외(상업시설) → 관리단 회의록
@@ -466,6 +481,9 @@ export function buildMissingDocsNote(metadata: ExtractedMetadata | null): string
 
   for (const doc of COMMON_REQUIRED_DOCS) {
     if (!present.has(doc)) missing.push(doc);
+  }
+  if (needsKepcoBill(metadata) && !present.has('한전 전기요금 청구서')) {
+    missing.push('한전 전기요금 청구서');
   }
   if (!present.has('사업자등록증') && !present.has('고유번호증')) {
     missing.push('사업자등록증(또는 고유번호증)');

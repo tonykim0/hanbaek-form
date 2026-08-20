@@ -136,7 +136,7 @@ export function IntakeTab({
 
       <section>
         <div className="mb-3 flex flex-wrap items-baseline justify-between gap-3">
-          <h2 className="text-base font-black tracking-[-0.02em] text-slate-900">서류</h2>
+          <h2 className="text-h3 font-black text-slate-900">서류</h2>
           <div className="flex flex-wrap items-center gap-3">
             <DownloadAll
               docs={evaluated.map((d) => byKind.get(d.key)).filter((d): d is ProjectDocument => Boolean(d))}

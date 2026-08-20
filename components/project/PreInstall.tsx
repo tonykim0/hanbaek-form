@@ -66,8 +66,12 @@ export function PreInstall({
         )}
       </div>
 
-      <div className="rounded-box border border-slate-200">
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-slate-100 px-4 py-3">
+      {/*
+        * 상자를 겹치지 않는다(CLAUDE.md 화면 규칙 1). 감싸는 판넬 안에 증빙 카드가
+        * 또 상자였다 — 두 겹이다. 줄은 얇은 선으로만 가르고, 테두리는 증빙 카드 자기 것만 남긴다.
+        */}
+      <div>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-slate-100 py-2.5">
           <span className="text-small font-bold text-slate-400">기설치</span>
           <div className="flex gap-1">
             {STATES.map((v) => (
@@ -99,7 +103,7 @@ export function PreInstall({
           )}
         </div>
 
-        <div className="border-b border-slate-100 px-4 py-3">
+        <div className="border-b border-slate-100 py-2.5">
           <div className="mb-1 flex items-baseline gap-2">
             <span className="text-small font-bold text-slate-400">현황 조사</span>
             {!editing && (
@@ -143,13 +147,13 @@ export function PreInstall({
             </div>
           ) : (
             <p className={`whitespace-pre-wrap break-keep text-base leading-relaxed ${project.preNote ? 'text-slate-700' : 'text-slate-300'}`}>
-              {project.preNote ?? '아직 적힌 것이 없습니다'}
+              {project.preNote ?? '—'}
             </p>
           )}
         </div>
 
         {/* 증빙 — 서류 목록에 있던 두 칸을 여기로 옮겼다 */}
-        <div className="grid gap-2 p-3 sm:grid-cols-2">
+        <div className="grid gap-2 pt-3 sm:grid-cols-2">
           {docs.map((d) => {
             const doc = byKind.get(d.key);
             const st = docState(doc, d.req);
@@ -179,10 +183,10 @@ export function PreInstall({
                   {canReview && doc && doc.status !== 'none' && (
                     <DocDelete projectId={project.id} kind={d.key} label={d.label} filename={doc.filename} />
                   )}
+                  {canReview && doc && doc.status !== 'none' && (
+                    <DocReview projectId={project.id} kind={d.key} status={doc.status} />
+                  )}
                 </div>
-                {canReview && doc && doc.status !== 'none' && (
-                  <DocReview projectId={project.id} kind={d.key} status={doc.status} />
-                )}
               </div>
             );
           })}

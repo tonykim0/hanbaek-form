@@ -25,7 +25,7 @@ function StatusFlow({ process }: { process: ProjectDetail['process'] }) {
 
   return (
     <section>
-      <h2 className="mb-3 text-base font-black tracking-[-0.02em] text-slate-900">진행현황</h2>
+      <h2 className="mb-3 text-h3 font-black text-slate-900">진행현황</h2>
       <ol className="flex flex-wrap gap-1.5">
         {PROCESS_STATUSES.map((st, i) => {
           const gate = STATUS_GATES[st];
@@ -141,7 +141,7 @@ export function ConstructionTab({ detail, canEdit }: { detail: ProjectDetail; ca
 
       <section>
         <div className="mb-3 flex flex-wrap items-baseline justify-between gap-3">
-          <h2 className="text-base font-black tracking-[-0.02em] text-slate-900">마일스톤</h2>
+          <h2 className="text-h3 font-black text-slate-900">마일스톤</h2>
           {canEdit && (
             <p className="text-[11px] text-slate-400">
               날짜를 넣으면 조건이 열립니다. 단계는 보드나 표에서 옮깁니다.
@@ -194,7 +194,7 @@ export function ConstructionTab({ detail, canEdit }: { detail: ProjectDetail; ca
 
       <section>
         <div className="mb-3 flex flex-wrap items-baseline justify-between gap-3">
-          <h2 className="text-base font-black tracking-[-0.02em] text-slate-900">공정 서류</h2>
+          <h2 className="text-h3 font-black text-slate-900">공정 서류</h2>
           <DownloadAll
             docs={p.docs}
             siteName={detail.project.name}

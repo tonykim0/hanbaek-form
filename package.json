@@ -12,6 +12,7 @@
     "index:charger:verify": "node --max-old-space-size=6144 scripts/verify-charger-index.ts",
     "db:push": "drizzle-kit push",
     "db:seed": "tsx lib/db/seed.ts",
+    "auth:bootstrap": "tsx scripts/bootstrap-admin.ts",
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {

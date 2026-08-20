@@ -82,13 +82,17 @@ function loadUsers(): StoredUser[] {
  * DB 를 먼저 보고 없으면 파일로 내려간다 — 그래야 새 계정을 만들어도 기존 계정이 계속 되고,
  * DB 가 비어 있는 환경에서도 로그인이 살아 있다.
  *
- * 사용 중지된 계정은 없는 것으로 취급한다.
+ * ★「없음」과 「사용중지」를 가른다.★
+ * 둘을 같은 답으로 두면 사용중지한 계정이 뒷단(AUTH_USERS·개발 시드)으로 넘어가 그대로
+ * 로그인된다 — 같은 id 가 거기 남아 있는 한 화면에서 계정을 끌 수 없다는 뜻이다.
+ * 사용중지는 최종 판정이라 뒷단을 보지 않는다.
  */
-async function findInDb(id: string): Promise<StoredUser | null> {
+async function findInDb(id: string): Promise<StoredUser | 'disabled' | null> {
   if (!hasDatabase()) return null;
   try {
     const [row] = await getDb().select().from(users).where(eq(users.id, id)).limit(1);
-    if (!row || !row.active) return null;
+    if (!row) return null;
+    if (!row.active) return 'disabled';
     return {
       id: row.id, name: row.name, role: row.role as Role, org: row.org,
       hash: row.passwordHash,
@@ -110,7 +114,9 @@ const ID_RE = /^[a-z0-9][a-z0-9-]{2,23}$/;
 export const userStore: UserStore = {
   async find(loginId) {
     const id = loginId.trim().toLowerCase();
-    return (await findInDb(id)) ?? loadUsers().find((u) => u.id.toLowerCase() === id) ?? null;
+    const inDb = await findInDb(id);
+    if (inDb === 'disabled') return null;
+    return inDb ?? loadUsers().find((u) => u.id.toLowerCase() === id) ?? null;
   },
 
   async list() {

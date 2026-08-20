@@ -291,11 +291,14 @@ function SiteHeader({
       {project.addr && <p className="mt-1 text-sm text-slate-500">{project.addr}</p>}
 
       {/*
-        * 이 현장이 무엇인가 — 계약의 뼈대. 나머지는 계약 탭의 「현장 정보」에 있다.
+        * 두 줄로 나눈다 — 가르는 기준은 「읽는 것」과 「고치는 것」이다.
         *
-        * 영업사·시공사·환경부 대기번호도 이 줄에 있다. 아래에 따로 상자를 두면 같은 급의
-        * 사실을 두 군데서 읽어야 하고 머리말이 두 층으로 길어진다. 다만 그 셋은 고칠 수
-        * 있어야 해서(EditableFact) 「고치기」가 붙고, 고칠 때만 한 줄을 통째로 쓴다.
+        * 앞줄은 계약의 뼈대다. 접수 때 정해져서 안 바뀐다.
+        * 뒷줄은 누가 하고 어디까지 왔나다. 한백이 채우고 고친다.
+        *
+        * 아홉 칸을 한 줄에 늘어놓으면 어디까지가 무엇인지 눈이 못 찾는다 — 실제로
+        * 「운영사 … 접수일 … 영업사 … 대기번호」가 한 줄로 흘러서 읽히지 않았다.
+        * 나머지 현장 정보는 계약 탭의 「현장 정보」에 있다.
         */}
       <dl className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-1.5 text-[13px]">
         <Fact label="운영사" value={project.cpo} />
@@ -304,6 +307,9 @@ function SiteHeader({
         <Fact label="수전방식" value={project.powerType} />
         <Fact label="사업구분" value={project.bizType} />
         <Fact label="접수일" value={project.createdAt} />
+      </dl>
+
+      <dl className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-1.5 border-t border-slate-100 pt-2 text-[13px]">
         <EditableFact
           label="영업사"
           value={project.salesOrg}

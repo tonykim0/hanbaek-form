@@ -9,17 +9,17 @@ import type { PayoutRow } from '@/types/project';
 export const metadata = { title: '지급 명세 — 한백 전기차사업관리' };
 
 /**
- * 지급 명세 — 이번 달에 어느 현장으로 얼마가 나가나.
+ * 지급 명세 — 이 달에 어디로 어떤 명목으로 얼마가 나갔나.
  *
- * 노션 「26 정산관리」의 영업비 1·2차 / 시공비 1·2차 뷰와 같은 단위다. 다만 축이 다르다 —
- * 그쪽은 현장 한 줄에 네 금액이 붙어 있고, 여기는 「지급 한 건」이 한 줄이다.
- * 「이번 달 얼마 나가나」를 답하려면 지급이 줄이어야 한다.
+ * 줄은 원장의 지급 한 건이다. 예전에는 계획액(단가 × 70/30)을 줄로 만들었는데, 실제로
+ * 나간 돈은 계획과 어긋난다(선금·차액·회수) — 명세가 거짓이 되는 구조였다. 지금은
+ * 나간 돈이 그대로 줄이 되고, 아직 안 나간 몫은 「잔여」로 따로 모인다.
  *
  * ★협력사도 본다.★ 그래서 마진·기성이 없고, 자기가 받는 쪽 줄만 나간다(listPayouts).
  * 한백은 협력사별로 묶어 본다.
  *
- * 달은 지급일 기준이다. 지급일이 없는 줄은 아직 안 나간 것이라 달에 묶이지 않고
- * 「예정」으로 따로 모인다 — 그것이 실제로 챙길 목록이다.
+ * 거래명세서는 업체 × 지급일 단위다 — 지급이 매월 1~2회 배치로 나가므로, 배치 하나가
+ * 명세서 한 장이 된다. 각 묶음 머리글의 지급일 단추가 그 장으로 간다.
  */
 const NO_ORG = '받는 곳 미지정';
 
@@ -38,6 +38,10 @@ export default async function PaymentsPage({
 
   const paid = rows.filter((r) => r.paidAt?.startsWith(month));
   const planned = rows.filter((r) => !r.paidAt && r.amount > 0);
+  /** 협력사용 거래명세서 길 — 자기 것뿐이라 묶음 머리글이 없어서 여기에 둔다 */
+  const myDates = isAdmin
+    ? []
+    : [...new Set(paid.map((r) => r.paidAt!.slice(0, 10)))].sort();
 
   /** 지급일이 있는 달 목록 — 자료에 있는 달만 고를 수 있게 한다 */
   const months = [...new Set(rows.map((r) => r.paidAt?.slice(0, 7)).filter(Boolean) as string[])]
@@ -77,6 +81,21 @@ export default async function PaymentsPage({
           )}
         </nav>
       </header>
+
+      {myDates.length > 0 && (
+        <p className="flex flex-wrap items-center gap-2 text-small text-slate-500">
+          거래명세서
+          {myDates.map((d) => (
+            <Link
+              key={d}
+              href={`/payments/statement?date=${d}`}
+              className="rounded-ctl border border-slate-200 bg-white px-2 py-1 font-bold tabular-nums text-slate-600 transition hover:border-brand-300 hover:text-brand-800"
+            >
+              {d}
+            </Link>
+          ))}
+        </p>
+      )}
 
       <Block
         title={`${month.replace('-', '년 ')}월 지급`}
@@ -150,6 +169,18 @@ function Block({
                     {org}
                   </h3>
                   <span className="text-tiny text-slate-400">{list.length}건</span>
+                  {/* 거래명세서는 업체 × 지급일(배치) 한 장 — 이 묶음에 있는 배치마다 길을 둔다 */}
+                  {showDate && org !== NO_ORG
+                    && [...new Set(list.map((r) => r.paidAt!.slice(0, 10)))].sort().map((d) => (
+                      <Link
+                        key={d}
+                        href={`/payments/statement?org=${encodeURIComponent(org)}&date=${d}`}
+                        className="rounded-ctl border border-slate-200 bg-white px-1.5 py-0.5 text-micro font-bold tabular-nums text-slate-500 transition hover:border-brand-300 hover:text-brand-800"
+                        title={`${d} 거래명세서`}
+                      >
+                        명세서 {d.slice(5)}
+                      </Link>
+                    ))}
                   <span className="ml-auto text-base font-black tabular-nums text-slate-900">
                     {won(list.reduce((n, r) => n + r.amount, 0))}원
                   </span>
@@ -158,9 +189,9 @@ function Block({
               <ul className="flex flex-col">
                 {list
                   .sort((a, b) => (b.paidAt ?? '').localeCompare(a.paidAt ?? '') || a.projectName.localeCompare(b.projectName, 'ko'))
-                  .map((r) => (
+                  .map((r, i) => (
                     <li
-                      key={`${r.projectId}-${r.kind}-${r.no}`}
+                      key={`${r.projectId}-${r.kind}-${r.label}-${r.paidAt ?? ''}-${i}`}
                       className="flex flex-wrap items-baseline gap-x-3 gap-y-1 border-b border-slate-100 py-2 last:border-b-0"
                     >
                       <Link
@@ -178,7 +209,12 @@ function Block({
                         {r.kind}
                       </span>
                       <span className="w-16 shrink-0 text-tiny font-bold text-slate-500">{r.label}</span>
-                      <span className="w-28 shrink-0 text-right text-base font-black tabular-nums text-slate-900">
+                      {r.note && (
+                        <span className="max-w-[240px] truncate text-tiny text-slate-400" title={r.note}>
+                          {r.note}
+                        </span>
+                      )}
+                      <span className={`w-28 shrink-0 text-right text-base font-black tabular-nums ${r.amount < 0 ? 'text-amber-800' : 'text-slate-900'}`}>
                         {won(r.amount)}
                       </span>
                       <span className="w-24 shrink-0 text-right text-tiny tabular-nums text-slate-400">

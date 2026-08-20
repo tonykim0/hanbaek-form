@@ -18,7 +18,7 @@ loadEnvFile();
 import { eq, sql } from 'drizzle-orm';
 import { getDb } from './client';
 import {
-  contractLines, documents, pricingRules, processDocuments, processes,
+  contractLines, documents, payoutEntries, pricingRules, processDocuments, processes,
   projects, settlementRules, settlements, users,
 } from './schema';
 import { PRICING_RULES } from '../data/seed/pricing-rules';
@@ -206,10 +206,17 @@ async function seedProjects() {
         collected1At: r.collected[1] ?? null,
         collected2At: r.collected[2] ?? null,
         collected3At: r.collected[3] ?? null,
-        salesPay1Date: s.salesPay1Date, salesPay2Date: s.salesPay2Date,
-        consPay1Date: s.consPay1Date, consPay2Date: s.consPay2Date,
         safetyFee: s.safetyFee,
       });
+
+      if (r.payoutEntries && r.payoutEntries.length > 0) {
+        await tx.insert(payoutEntries).values(
+          r.payoutEntries.map((e) => ({
+            id: e.id, projectId: p.id, kind: e.kind, category: e.category,
+            amount: e.amount, at: e.at, note: e.note, createdAt: e.createdAt,
+          }))
+        );
+      }
     });
   }
   console.log(`  예시 현장 ${SEED_RECORDS.length}건`);

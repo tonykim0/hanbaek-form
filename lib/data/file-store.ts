@@ -19,6 +19,7 @@ import type { Actor, ProjectRepository } from './repository';
 import { canAccessProject, effectiveVisibility, normalizeOrg } from '@/lib/roles';
 import { asProcessStatus, canEnter } from '@/lib/process';
 import { stamp, today } from '@/lib/date';
+import { checkPayoutEntry } from '@/lib/settlement';
 import {
   ALL_DOC_KEYS, byStalled, contractStateFor, emptyProcess, emptySettlement, isProcessDocKind,
   payoutRowsOf,
@@ -42,7 +43,11 @@ const RULES_FILE = path.join(DATA_DIR, 'pricing-rules.json');
 /** 저장 파일은 예전 상태 이름을 갖고 있을 수 있다 — 목록이 바뀌면 첫 칸으로 되돌린다 */
 function parse(raw: string): ProjectRecord[] {
   const records = JSON.parse(raw) as ProjectRecord[];
-  for (const r of records) r.process.status = asProcessStatus(r.process.status);
+  for (const r of records) {
+    r.process.status = asProcessStatus(r.process.status);
+    // 원장이 생기기 전의 파일에는 이 배열이 없다 — 빈 원장으로 읽는다
+    r.payoutEntries = r.payoutEntries ?? [];
+  }
   return records;
 }
 
@@ -333,6 +338,37 @@ export const fileRepository: ProjectRepository = {
     if (!r) throw new Error('현장을 찾을 수 없습니다.');
     Object.assign(r.settlementRaw, patch);
     r.lastProgressAt = today();
+    await save(records);
+  },
+
+  async addPayoutEntry(projectId, input, actor): Promise<string> {
+    if (actor.role !== 'admin') throw new Error('지급 기록은 한백 관리자만 할 수 있습니다.');
+    const bad = checkPayoutEntry(input);
+    if (bad) throw new Error(bad);
+    const records = await load();
+    const r = records.find((x) => x.project.id === projectId);
+    if (!r) throw new Error('현장을 찾을 수 없습니다.');
+    const id = crypto.randomUUID();
+    r.payoutEntries = r.payoutEntries ?? [];
+    r.payoutEntries.push({
+      id, projectId,
+      kind: input.kind, category: input.category, amount: input.amount, at: input.at,
+      note: typeof input.note === 'string' && input.note.trim() ? input.note.trim() : null,
+      createdAt: stamp(),
+    });
+    r.lastProgressAt = today();
+    await save(records);
+    return id;
+  },
+
+  async deletePayoutEntry(projectId, entryId, actor): Promise<void> {
+    if (actor.role !== 'admin') throw new Error('지급 기록 삭제는 한백 관리자만 할 수 있습니다.');
+    const records = await load();
+    const r = records.find((x) => x.project.id === projectId);
+    if (!r) throw new Error('현장을 찾을 수 없습니다.');
+    const idx = (r.payoutEntries ?? []).findIndex((e) => e.id === entryId);
+    if (idx < 0) throw new Error('지급 기록을 찾을 수 없습니다.');
+    r.payoutEntries!.splice(idx, 1);
     await save(records);
   },
 

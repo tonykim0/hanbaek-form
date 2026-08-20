@@ -16,12 +16,13 @@ import { getDb } from '@/lib/db/client';
 import { writeAudit } from '@/lib/db/audit';
 import { dayOf, stampOf, today } from '@/lib/date';
 import {
-  contractLines, documents, pricingRules, processDocuments, processes,
+  contractLines, documents, payoutEntries, pricingRules, processDocuments, processes,
   projectNotes, projects, settlements,
 } from '@/lib/db/schema';
 import type {
   BizType, BuildingType, ContractLine, ContractParty, Court, CpoName, DocStatus,
-  IntakeDraft, LineAxes, PayoutRow, PowerType, PreInstall, PricingRule, ProcessInfo, Project,
+  IntakeDraft, LineAxes, NewPayoutEntry, PayoutCategory, PayoutEntry, PayoutKind, PayoutRow,
+  PowerType, PreInstall, PricingRule, ProcessInfo, Project,
   ProjectDetail, ProjectDocument, ProjectSummary, ReplType, Settlement, SettlementSummary,
 } from '@/types/project';
 import type { Viewer } from '@/lib/auth/types';
@@ -30,6 +31,7 @@ import { needsPreInstallCheck, PROCESS_DOCS } from '@/lib/doc-rules';
 import { asProcessStatus, canEnter } from '@/lib/process';
 import type { Actor, PaymentPatch, ProcessPatch, ProjectRepository } from './repository';
 import { checkPricingRule, duplicateOf, normalizePricingRule, pricingRuleId } from '@/lib/pricing-match';
+import { checkPayoutEntry } from '@/lib/settlement';
 import {
   ALL_DOC_KEYS, byStalled, contractStateFor, isProcessDocKind, payoutRowsOf, redactForViewer,
   settlementSummaryOf,
@@ -168,12 +170,21 @@ function toSettlementRaw(projectId: string, r: SettlementRow | undefined): Omit<
   return {
     projectId,
     cpoCloseDate: r?.closeDate ?? null,
-    salesPay1Date: r?.salesPay1Date ?? null,
-    salesPay2Date: r?.salesPay2Date ?? null,
-    consPay1Date: r?.consPay1Date ?? null,
-    consPay2Date: r?.consPay2Date ?? null,
     safetyFee: r?.safetyFee ?? null,
     payNote: r?.payNote ?? null,
+  };
+}
+
+function toPayoutEntry(r: typeof payoutEntries.$inferSelect): PayoutEntry {
+  return {
+    id: r.id,
+    projectId: r.projectId,
+    kind: r.kind as PayoutKind,
+    category: r.category as PayoutCategory,
+    amount: r.amount,
+    at: r.at,
+    note: r.note ?? null,
+    createdAt: r.createdAt,
   };
 }
 
@@ -191,12 +202,13 @@ async function recordsOf(rows: ProjectRow[]): Promise<ProjectRecord[]> {
   const ids = rows.map((r) => r.id);
   const db = getDb();
 
-  const [lineRows, docRows, procRows, procDocRows, settlementRows] = await Promise.all([
+  const [lineRows, docRows, procRows, procDocRows, settlementRows, payoutRows] = await Promise.all([
     db.select().from(contractLines).where(inArray(contractLines.projectId, ids)),
     db.select().from(documents).where(inArray(documents.projectId, ids)),
     db.select().from(processes).where(inArray(processes.projectId, ids)),
     db.select().from(processDocuments).where(inArray(processDocuments.projectId, ids)),
     db.select().from(settlements).where(inArray(settlements.projectId, ids)),
+    db.select().from(payoutEntries).where(inArray(payoutEntries.projectId, ids)),
   ]);
 
   const group = <T extends { projectId: string }>(list: T[]): Map<string, T[]> => {
@@ -211,6 +223,7 @@ async function recordsOf(rows: ProjectRow[]): Promise<ProjectRecord[]> {
   const linesBy = group(lineRows);
   const docsBy = group(docRows);
   const procDocsBy = group(procDocRows);
+  const payoutsBy = group(payoutRows);
   const procBy = new Map(procRows.map((r) => [r.projectId, r]));
   const setBy = new Map(settlementRows.map((r) => [r.projectId, r]));
 
@@ -223,6 +236,7 @@ async function recordsOf(rows: ProjectRow[]): Promise<ProjectRecord[]> {
       process: toProcess(row.id, procBy.get(row.id), procDocsBy.get(row.id) ?? []),
       settlementRaw: toSettlementRaw(row.id, settlementRow),
       collected: toCollected(settlementRow),
+      payoutEntries: (payoutsBy.get(row.id) ?? []).map(toPayoutEntry),
       court: row.court as Court,
       lastProgressAt: row.lastProgressAt,
     };
@@ -702,6 +716,60 @@ export const pgRepository: ProjectRepository = {
           field: f, oldValue: row[f] ?? null, newValue: patch[f] ?? null,
         });
       }
+    });
+  },
+
+  async addPayoutEntry(projectId, input: NewPayoutEntry, actor): Promise<string> {
+    assertAdmin(actor, '지급 기록');
+    const bad = checkPayoutEntry(input);
+    if (bad) throw new Error(bad);
+    const note = typeof input.note === 'string' && input.note.trim() ? input.note.trim() : null;
+
+    const db = getDb();
+    const id = crypto.randomUUID();
+    await db.transaction(async (tx) => {
+      const [project] = await tx
+        .select({ id: projects.id })
+        .from(projects)
+        .where(eq(projects.id, projectId))
+        .limit(1);
+      if (!project) throw new Error('현장을 찾을 수 없습니다.');
+
+      await tx.insert(payoutEntries).values({
+        id, projectId,
+        kind: input.kind, category: input.category,
+        amount: input.amount, at: input.at, note,
+        createdAt: stampOf(new Date()),
+      });
+      // 지급을 적는 것도 진척이다 — 정체일 기준을 갱신한다
+      await tx.update(projects).set({ lastProgressAt: today() }).where(eq(projects.id, projectId));
+      await writeAudit(tx, {
+        projectId, actor, action: '지급 기록 추가',
+        field: `${input.kind} ${input.category}`,
+        oldValue: null, newValue: `${input.amount}원 · ${input.at}${note ? ` · ${note}` : ''}`,
+      });
+    });
+    return id;
+  },
+
+  async deletePayoutEntry(projectId, entryId, actor): Promise<void> {
+    assertAdmin(actor, '지급 기록 삭제');
+    const db = getDb();
+    await db.transaction(async (tx) => {
+      const [row] = await tx
+        .select()
+        .from(payoutEntries)
+        .where(and(eq(payoutEntries.id, entryId), eq(payoutEntries.projectId, projectId)))
+        .limit(1);
+      if (!row) throw new Error('지급 기록을 찾을 수 없습니다.');
+
+      await tx.delete(payoutEntries).where(eq(payoutEntries.id, entryId));
+      // 지운 값을 로그에 통째로 남긴다 — 고치기가 없는 대신 무엇이 지워졌는지는 남아야 한다
+      await writeAudit(tx, {
+        projectId, actor, action: '지급 기록 삭제',
+        field: `${row.kind} ${row.category}`,
+        oldValue: `${row.amount}원 · ${row.at}${row.note ? ` · ${row.note}` : ''}`, newValue: null,
+      });
     });
   },
 

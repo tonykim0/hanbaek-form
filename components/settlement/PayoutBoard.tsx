@@ -3,19 +3,19 @@
 /**
  * 하도급사 지급관리 — 하도급사에게 내려줄 돈.
  *
- * 축은 상대와 회차다. 현장 하나가 두 줄이 된다 — 영업사에게 줄 돈과 시공사에게 줄 돈은
+ * 축은 상대와 방향이다. 현장 하나가 두 줄이 된다 — 영업사에게 줄 돈과 시공사에게 줄 돈은
  * 받는 곳이 다르고 금액도 따로 나간다. 한 줄로 묶으면 「누구에게 얼마가 남았나」를
  * 셀 안에서 다시 쪼개 읽어야 한다.
  *
- * 금액을 사람이 적지 않는다. 계약 라인에 붙인 단가에서 나오고 회차 비율로 쪼갠다
- * (lib/settlement.ts). 사람이 정하는 것은 언제 줬는가뿐이다.
+ * 금액의 세 값: 지급할 돈(계획 + 조정) · 나간 돈(원장의 지급 합) · 잔액.
+ * 계획은 계약 라인의 단가에서 유도되고, 나간 돈은 원장(현장 상세의 정산 탭)에 적힌다.
+ * 여기서는 적지 않는다 — 이 화면은 「어디에 얼마가 남았나」를 세는 자리다.
  */
-import { Fragment, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { SettlementSummary } from '@/types/project';
-import { PAY_SPLIT, payInstallments } from '@/lib/settlement';
 import { CrossLink, Empty, Frame, SiteLink, Tile, won } from './parts';
 
-/** 지급 한 건 — 현장 하나에 영업·시공 두 건이 붙는다 */
+/** 지급 한 줄 — 현장 하나에 영업·시공 두 줄이 붙는다 */
 interface Payout {
   key: string;
   projectId: string;
@@ -23,8 +23,13 @@ interface Payout {
   cpo: string;
   kind: '영업' | '시공';
   org: string | null;
-  total: number;
-  dates: Array<string | null>;
+  /** 계획 = Σ(단가 × 대수) */
+  plan: number;
+  /** 조정 합 — 자재비·추가공사비·차감·재정산 */
+  adjust: number;
+  /** 나간 돈 — 원장의 지급 합 (회수는 음수로 이미 반영) */
+  paid: number;
+  lastPaidAt: string | null;
   unpriced: number;
 }
 
@@ -32,21 +37,21 @@ function payoutsOf(rows: SettlementSummary[]): Payout[] {
   return rows.flatMap((r) => [
     {
       key: `${r.id}-영업`, projectId: r.id, projectName: r.name, cpo: r.cpo, kind: '영업' as const,
-      org: r.salesOrg, total: r.salesTotal,
-      dates: [r.salesPay1Date, r.salesPay2Date], unpriced: r.unpricedLines,
+      org: r.salesOrg, plan: r.salesTotal, adjust: r.salesAdjust, paid: r.salesPaid,
+      lastPaidAt: r.salesLastPaidAt, unpriced: r.unpricedLines,
     },
     {
       key: `${r.id}-시공`, projectId: r.id, projectName: r.name, cpo: r.cpo, kind: '시공' as const,
-      org: r.gcOrg, total: r.consTotal,
-      dates: [r.consPay1Date, r.consPay2Date], unpriced: r.unpricedLines,
+      org: r.gcOrg, plan: r.consTotal, adjust: r.consAdjust, paid: r.consPaid,
+      lastPaidAt: r.consLastPaidAt, unpriced: r.unpricedLines,
     },
   ]);
 }
 
-/** 아직 안 나간 돈 — 지급일이 안 찍힌 회차의 금액 합 */
-function unpaidOf(p: Payout): number {
-  return payInstallments(p.total).reduce((n, amount, i) => (p.dates[i] ? n : n + amount), 0);
-}
+/** 지급할 돈 — 계획에 조정을 얹은 것 */
+const dueOf = (p: Payout): number => p.plan + p.adjust;
+/** 아직 안 나간 돈 */
+const remainingOf = (p: Payout): number => dueOf(p) - p.paid;
 
 export default function PayoutBoard({ rows }: { rows: SettlementSummary[] }) {
   const [org, setOrg] = useState<string | null>(null);
@@ -65,8 +70,8 @@ export default function PayoutBoard({ rows }: { rows: SettlementSummary[] }) {
    * ★받는 곳이 없는 줄은 합계에서 뺀다.★
    *
    * 한백이 계정 없는 업체의 건을 대신 접수하면서 업체명을 비우면, 그 현장도 영업·시공
-   * 두 줄이 생긴다. 그것을 합계에 넣으면 「안 나간 돈」이 줄 사람 없는 금액까지 세게 되고,
-   * 그 숫자는 한백이 현금 채무를 세는 숫자다 — 지우려면 거짓 지급일을 찍어야 했다.
+   * 두 줄이 생긴다. 그것을 합계에 넣으면 「잔액」이 줄 사람 없는 금액까지 세게 되고,
+   * 그 숫자는 한백이 현금 채무를 세는 숫자다.
    *
    * 없는 것으로 치지도 않는다. 따로 세어 경고로 세운다 — 업체를 지정하면 합계로 들어온다.
    */
@@ -75,21 +80,21 @@ export default function PayoutBoard({ rows }: { rows: SettlementSummary[] }) {
 
   const money = useMemo(() => {
     const of = (kind: Payout['kind']) => payable.filter((p) => p.kind === kind);
-    const sum = (list: Payout[]) => list.reduce((n, p) => n + p.total, 0);
-    const unpaidSum = (list: Payout[]) => list.reduce((n, p) => n + unpaidOf(p), 0);
+    const due = (list: Payout[]) => list.reduce((n, p) => n + dueOf(p), 0);
+    const remaining = (list: Payout[]) => list.reduce((n, p) => n + remainingOf(p), 0);
     return {
-      salesTotal: sum(of('영업')),
-      salesUnpaid: unpaidSum(of('영업')),
-      consTotal: sum(of('시공')),
-      consUnpaid: unpaidSum(of('시공')),
-      total: sum(payable),
-      unpaid: unpaidSum(payable),
+      salesDue: due(of('영업')),
+      salesRemaining: remaining(of('영업')),
+      consDue: due(of('시공')),
+      consRemaining: remaining(of('시공')),
+      due: due(payable),
+      remaining: remaining(payable),
       receivable: rows.reduce((n, r) => n + r.planTotal, 0),
       margin: rows.reduce((n, r) => n + r.marginTotal, 0),
       unpriced: rows.filter((r) => r.unpricedLines > 0).length,
       orphanCount: orphan.length,
       orphanSites: [...new Set(orphan.map((p) => p.projectName))],
-      orphanTotal: sum(orphan),
+      orphanDue: due(orphan),
     };
   }, [payable, orphan, rows]);
 
@@ -99,19 +104,19 @@ export default function PayoutBoard({ rows }: { rows: SettlementSummary[] }) {
   return (
     <div>
       <section aria-label="지급 합계" className="mb-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Tile label="영업비" value={money.salesTotal} tone="out"
-          note={`안 나간 돈 ${won(money.salesUnpaid)}원`} />
-        <Tile label="시공비" value={money.consTotal} tone="out"
-          note={`안 나간 돈 ${won(money.consUnpaid)}원`} />
-        <Tile label="내려줄 지급 합계" value={money.total}
-          note={`안 나간 돈 ${won(money.unpaid)}원`} />
+        <Tile label="영업비" value={money.salesDue} tone="out"
+          note={`잔액 ${won(money.salesRemaining)}원`} />
+        <Tile label="시공비" value={money.consDue} tone="out"
+          note={`잔액 ${won(money.consRemaining)}원`} />
+        <Tile label="내려줄 지급 합계" value={money.due}
+          note={`잔액 ${won(money.remaining)}원`} />
         <Tile label="한백 몫" value={money.margin} note="받을 기성 − 내려줄 지급" />
       </section>
 
       {money.orphanCount > 0 && (
         <p className="mb-4 rounded-xl border-l-[3px] border-amber-500 bg-amber-50/70 px-4 py-3 text-xs leading-relaxed text-amber-900">
           받는 곳이 정해지지 않은 지급 <b>{money.orphanCount}건</b> ({money.orphanSites.join(' · ')})
-          — 합계 {won(money.orphanTotal)}원. <b>합계에서 빼 두었습니다.</b>{' '}
+          — 합계 {won(money.orphanDue)}원. <b>합계에서 빼 두었습니다.</b>{' '}
           현장 상세의 현장 정보에서 영업사·시공사를 지정하면 합계로 들어옵니다.
         </p>
       )}
@@ -145,29 +150,21 @@ export default function PayoutBoard({ rows }: { rows: SettlementSummary[] }) {
       {shown.length === 0 ? (
         <Empty />
       ) : (
-        <Frame min="1080px">
+        <Frame min="960px">
           <thead className="border-b border-slate-100 bg-slate-50 text-tiny font-bold tracking-[0.06em] text-slate-500">
             <tr>
               <th className="px-3 py-2.5 text-left">현장</th>
               <th className="px-3 py-2.5 text-left">구분</th>
               <th className="px-3 py-2.5 text-left">받는 곳</th>
-              <th className="px-3 py-2.5 text-right">지급액</th>
-              {PAY_SPLIT.map((r, i) => (
-                <Fragment key={i}>
-                  <th className="px-3 py-2.5 text-right">
-                    {i + 1}차{' '}
-                    <span className="font-normal text-slate-400">{Math.round(r * 100)}%</span>
-                  </th>
-                  <th className="px-3 py-2.5 text-left">{i + 1}차 지급일</th>
-                </Fragment>
-              ))}
-              <th className="px-3 py-2.5 text-right">안 나간 돈</th>
+              <th className="px-3 py-2.5 text-right">지급할 돈</th>
+              <th className="px-3 py-2.5 text-right">나간 돈</th>
+              <th className="px-3 py-2.5 text-right">잔액</th>
+              <th className="px-3 py-2.5 text-left">최근 지급일</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {shown.map((p) => {
-              const parts = payInstallments(p.total);
-              const unpaid = unpaidOf(p);
+              const remaining = remainingOf(p);
               return (
                 <tr key={p.key} className="transition hover:bg-brand-50/40">
                   <td className="px-3 py-2.5">
@@ -185,7 +182,12 @@ export default function PayoutBoard({ rows }: { rows: SettlementSummary[] }) {
                   </td>
                   <td className="px-3 py-2.5 text-slate-600">{p.org ?? '—'}</td>
                   <td className="px-3 py-2.5 text-right font-bold tabular-nums text-slate-800">
-                    {won(p.total)}
+                    {won(dueOf(p))}
+                    {p.adjust !== 0 && (
+                      <p className="text-micro font-semibold text-slate-400">
+                        조정 {p.adjust > 0 ? '+' : ''}{won(p.adjust)}
+                      </p>
+                    )}
                     {p.unpriced > 0 && (
                       <span
                         className="ml-1 whitespace-nowrap text-micro font-bold text-amber-700"
@@ -195,26 +197,23 @@ export default function PayoutBoard({ rows }: { rows: SettlementSummary[] }) {
                       </span>
                     )}
                   </td>
-                  {parts.map((amount, i) => (
-                    <Fragment key={i}>
-                      <td className="px-3 py-2.5 text-right font-bold tabular-nums text-slate-700">
-                        {won(amount)}
-                      </td>
-                      <td
-                        className={`whitespace-nowrap px-3 py-2.5 tabular-nums ${
-                          p.dates[i] ? 'font-semibold text-brand-800' : 'text-slate-300'
-                        }`}
-                      >
-                        {p.dates[i] ?? '미지급'}
-                      </td>
-                    </Fragment>
-                  ))}
+                  <td className="px-3 py-2.5 text-right font-bold tabular-nums text-slate-700">
+                    {p.paid !== 0 ? won(p.paid) : <span className="text-slate-300">0원</span>}
+                  </td>
                   <td
                     className={`px-3 py-2.5 text-right font-bold tabular-nums ${
-                      unpaid > 0 ? 'text-amber-800' : 'text-slate-300'
+                      remaining > 0 ? 'text-amber-800' : remaining < 0 ? 'text-red-700' : 'text-slate-300'
                     }`}
                   >
-                    {unpaid > 0 ? won(unpaid) : '—'}
+                    {/* 음수 잔액은 더 준 것이다 — 회수하거나 재정산해야 하는 상태라 빨강 */}
+                    {remaining !== 0 ? won(remaining) : '—'}
+                  </td>
+                  <td
+                    className={`whitespace-nowrap px-3 py-2.5 tabular-nums ${
+                      p.lastPaidAt ? 'font-semibold text-brand-800' : 'text-slate-300'
+                    }`}
+                  >
+                    {p.lastPaidAt ?? '미지급'}
                   </td>
                 </tr>
               );

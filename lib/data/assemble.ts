@@ -10,6 +10,7 @@ import type {
   ContractLine,
   ContractLineView,
   Court,
+  PayoutEntry,
   ProcessInfo,
   Project,
   ProjectDetail,
@@ -23,7 +24,7 @@ import type {
   SettlementSummary,
 } from '@/types/project';
 import { buildDocContext, PROCESS_DOCS } from '@/lib/doc-rules';
-import { PAY_SPLIT, payInstallments, settlementForProject } from '@/lib/settlement';
+import { entryTypeOf, payoutSideOf, settlementForProject } from '@/lib/settlement';
 import { contractStateOf, deriveStage, stalledDaysSince } from '@/lib/stage';
 import { entryOkOf } from '@/lib/process';
 import { effectiveVisibility, type Visibility } from '@/lib/roles';
@@ -100,6 +101,8 @@ export interface ProjectRecord {
    * 진행현황. 상세를 열 때만 읽는다 — 목록·보드는 쓰지 않으므로 없으면 빈 배열로 본다.
    */
   notes?: ProjectNote[];
+  /** 하도급사 지급 원장. 원장이 생기기 전의 파일에는 없다 — 빈 배열로 본다. */
+  payoutEntries?: PayoutEntry[];
 }
 
 export const emptyProcess = (projectId: string): ProcessInfo => ({
@@ -122,10 +125,6 @@ export const emptyProcess = (projectId: string): ProcessInfo => ({
 export const emptySettlement = (projectId: string): Omit<Settlement, 'steps'> => ({
   projectId,
   cpoCloseDate: null,
-  salesPay1Date: null,
-  salesPay2Date: null,
-  consPay1Date: null,
-  consPay2Date: null,
   safetyFee: null,
   payNote: null,
 });
@@ -182,6 +181,10 @@ export function toDetail(r: ProjectRecord, rules: RuleMap): ProjectDetail {
   return {
     // 진행현황은 조립하지 않는다 — 저장소가 읽어 그대로 실어 보낸다
     notes: r.notes ?? [],
+    // 원장은 날짜 오름차순으로 굳혀 보낸다 — 화면마다 제각기 정렬하면 갈린다
+    payoutEntries: [...(r.payoutEntries ?? [])].sort(
+      (a, b) => a.at.localeCompare(b.at) || a.createdAt.localeCompare(b.createdAt)
+    ),
     project: r.project,
     lines,
     settlementRule,
@@ -236,6 +239,8 @@ export function settlementSummaryOf(r: ProjectRecord, rules: RuleMap): Settlemen
   const d = toDetail(r, rules);
   const steps = d.settlement.steps;
   const sum = (list: SettlementStep[]) => list.reduce((n, x) => n + (x.planAmount ?? 0), 0);
+  const sales = payoutSideOf(d.payoutEntries, '영업비');
+  const cons = payoutSideOf(d.payoutEntries, '시공비');
   return {
     id: d.project.id,
     name: d.project.name,
@@ -254,19 +259,24 @@ export function settlementSummaryOf(r: ProjectRecord, rules: RuleMap): Settlemen
     consTotal: d.lines.reduce((n, l) => n + (l.rule?.consUnit ?? 0) * l.qty, 0),
     marginTotal: d.lines.reduce((n, l) => n + (l.rule?.margin ?? 0) * l.qty, 0),
     unpricedLines: d.lines.filter((l) => !l.rule).length,
-    salesPay1Date: d.settlement.salesPay1Date,
-    salesPay2Date: d.settlement.salesPay2Date,
-    consPay1Date: d.settlement.consPay1Date,
-    consPay2Date: d.settlement.consPay2Date,
+    salesAdjust: sales.adjust,
+    salesPaid: sales.paid,
+    salesLastPaidAt: sales.lastPaidAt,
+    consAdjust: cons.adjust,
+    consPaid: cons.paid,
+    consLastPaidAt: cons.lastPaidAt,
     payNote: d.settlement.payNote,
   };
 }
 
 /**
- * 지급 줄 — 현장 하나가 최대 네 줄(영업비 1·2차, 시공비 1·2차).
+ * 지급 줄 — 원장의 지급 한 건이 한 줄, 아직 안 나간 몫은 「잔여」 한 줄.
  *
  * ★보는 사람에 따라 줄이 빠진다.★ 영업만 맡은 회사에게 시공비 줄을 주지 않는다.
  * 화면에서 가리는 것이 아니라 여기서 안 만든다 — 서버가 렌더한 값은 브라우저에 통째로 남는다.
+ *
+ * 조정(자재비·차감…)은 줄이 되지 않는다 — 나간 돈이 아니라 줘야 할 금액의 변화라서,
+ * 잔여 계산(계획 + 조정 − 지급)에만 들어간다.
  *
  * 마진·기성은 어느 줄에도 없다. 그것은 한백이 운영사에게서 받는 쪽이고 협력사가 볼 것이 아니다.
  */
@@ -280,34 +290,36 @@ export function payoutRowsOf(r: ProjectRecord, viewer: Viewer, rules: RuleMap): 
     cpo: d.project.cpo,
     qty: d.lines.reduce((n, l) => n + l.qty, 0),
   };
-  const sides: Array<{
-    kind: PayoutRow['kind']; org: string | null; total: number; dates: Array<string | null>; show: boolean;
-  }> = [
+  const sides: Array<{ kind: PayoutRow['kind']; org: string | null; plan: number; show: boolean }> = [
     {
       kind: '영업비', org: d.project.salesOrg, show: vis.sales,
-      total: d.lines.reduce((n, l) => n + (l.rule?.salesUnit ?? 0) * l.qty, 0),
-      dates: [d.settlement.salesPay1Date, d.settlement.salesPay2Date],
+      plan: d.lines.reduce((n, l) => n + (l.rule?.salesUnit ?? 0) * l.qty, 0),
     },
     {
       kind: '시공비', org: d.project.gcOrg, show: vis.cons,
-      total: d.lines.reduce((n, l) => n + (l.rule?.consUnit ?? 0) * l.qty, 0),
-      dates: [d.settlement.consPay1Date, d.settlement.consPay2Date],
+      plan: d.lines.reduce((n, l) => n + (l.rule?.consUnit ?? 0) * l.qty, 0),
     },
   ];
 
   return sides
     .filter((side) => side.show)
-    .flatMap((side) =>
-      payInstallments(side.total).map((amount, i) => ({
-        ...base,
-        kind: side.kind,
-        org: side.org,
-        no: i + 1,
-        label: `${i + 1}차 ${Math.round(PAY_SPLIT[i] * 100)}%`,
-        amount,
-        paidAt: side.dates[i] ?? null,
-      }))
-    );
+    .flatMap((side) => {
+      const { adjust, paid } = payoutSideOf(d.payoutEntries, side.kind);
+      const rows: PayoutRow[] = d.payoutEntries
+        .filter((e) => e.kind === side.kind && entryTypeOf(e.category) === '지급')
+        .map((e) => ({
+          ...base, kind: side.kind, org: side.org,
+          label: e.category, amount: e.amount, paidAt: e.at, note: e.note,
+        }));
+      const remaining = side.plan + adjust - paid;
+      if (remaining > 0) {
+        rows.push({
+          ...base, kind: side.kind, org: side.org,
+          label: '잔여', amount: remaining, paidAt: null, note: null,
+        });
+      }
+      return rows;
+    });
 }
 
 /** 정체일이 큰 순 — 오래 멈춘 현장이 위로 */
@@ -327,6 +339,10 @@ export function byStalled(a: ProjectSummary, b: ProjectSummary): number {
 export function redactForViewer(detail: ProjectDetail, vis: Visibility): ProjectDetail {
   return {
     ...detail,
+    // 원장도 금액이다 — 자기 쪽(영업/시공)이 아닌 줄은 아예 보내지 않는다
+    payoutEntries: detail.payoutEntries.filter(
+      (e) => (e.kind === '영업비' ? vis.sales : vis.cons)
+    ),
     lines: detail.lines.map((l) => ({
       ...l,
       rule: l.rule && {

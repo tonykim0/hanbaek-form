@@ -7,13 +7,17 @@
  * (redactForViewer) — 서버가 렌더한 데이터는 브라우저에 통째로 실린다.
  */
 import { useState } from 'react';
-import type { ProjectDetail, SettlementStep } from '@/types/project';
-import { triggerSource, recoveryRate, turnkeyUnit, payInstallments } from '@/lib/settlement';
+import type { PayoutCategory, PayoutEntry, PayoutKind, ProjectDetail, SettlementStep } from '@/types/project';
+import { PAYOUT_CATEGORIES, PAYOUT_KINDS } from '@/types/project';
+import {
+  entryTypeOf, payInstallments, payoutSideOf, recoveryRate, triggerSource, turnkeyUnit,
+} from '@/lib/settlement';
+import { today } from '@/lib/date';
 import type { Visibility } from '@/lib/roles';
 import type { RuleOptions } from '@/lib/pricing-match';
 import { useAction } from '@/lib/use-action';
 import { won } from '@/lib/format';
-import { Btn, Err, FIELD, FIELD_CELL, Note, Saved, Tag } from '@/components/ui';
+import { Btn, Choice, Err, FIELD, FIELD_CELL, Note, Saved, Tag } from '@/components/ui';
 
 // ── 정산 탭 ─────────────────────────────────────────────────────
 const STEP_STYLE: Record<SettlementStep['state'], string> = {
@@ -49,7 +53,10 @@ export function SettlementTab({
       <PaymentSection
         projectId={detail.project.id}
         lines={lines}
-        settlement={settlement}
+        entries={detail.payoutEntries}
+        salesOrg={detail.project.salesOrg}
+        gcOrg={detail.project.gcOrg}
+        payNote={settlement.payNote}
         vis={vis}
         canReview={canReview}
         ruleOptions={ruleOptions}
@@ -201,45 +208,42 @@ function Money({ show, value }: { show: boolean; value: number | null }) {
 
 // ── 지급 ────────────────────────────────────────────────────────
 /**
- * 지급 — 한백이 협력사에게 주는 돈.
+ * 지급 — 한백이 협력사에게 주는 돈. 계획은 유도되고, 실적은 원장에 적는다.
  *
- * 금액을 사람이 적지 않는다. 계약 라인에 단가 케이스를 붙이면 영업비·시공비가 정해지고,
- * 여기에 대수와 회차 비율(70:30)을 곱해 나온다. 손으로 적게 두면 매트릭스와 어긋난 금액이
- * 남고, 나중에 어느 쪽이 맞는지 판단할 근거가 없어진다.
- *
- * 사람이 정하는 것은 셋뿐이다 — 어느 케이스인가 · 언제 줬는가 · 무슨 사정이 있었는가.
+ * 계획(단가 케이스 × 대수, 회차 70:30)은 사람이 손대지 않는다. 실제로 나간 돈은 계획과
+ * 어긋난다 — 선금·차액·회수·차감이 노션 정산관리 115행 중 10행에 비고 문장으로만 있었다.
+ * 그래서 나간 돈은 원장에 한 건씩 적고, 잔액 = 계획 + 조정 − 지급 으로 센다.
  */
+const CATEGORY_INFO = new Map(PAYOUT_CATEGORIES.map((c) => [c.key, c]));
+
 function PaymentSection({
-  projectId, lines, settlement, vis, canReview, ruleOptions,
+  projectId, lines, entries, salesOrg, gcOrg, payNote, vis, canReview, ruleOptions,
 }: {
   projectId: string;
   lines: ProjectDetail['lines'];
-  settlement: ProjectDetail['settlement'];
+  entries: PayoutEntry[];
+  salesOrg: string | null;
+  gcOrg: string | null;
+  payNote: string | null;
   vis: Visibility;
   canReview: boolean;
   ruleOptions: RuleOptions | null;
 }) {
   const { busy, error, run } = useAction();
-  const [saved, setSaved] = useState(false);
-
-  const [dates, setDates] = useState({
-    salesPay1Date: settlement.salesPay1Date ?? '',
-    salesPay2Date: settlement.salesPay2Date ?? '',
-    consPay1Date: settlement.consPay1Date ?? '',
-    consPay2Date: settlement.consPay2Date ?? '',
-  });
-  const [note, setNote] = useState(settlement.payNote ?? '');
 
   const totalQty = lines.reduce((s, l) => s + l.qty, 0);
-  const salesTotal = lines.reduce((s, l) => s + (l.rule?.salesUnit ?? 0) * l.qty, 0);
-  const consTotal = lines.reduce((s, l) => s + (l.rule?.consUnit ?? 0) * l.qty, 0);
   const unpriced = lines.filter((l) => !l.rule).length;
 
-  const dirty =
-    note !== (settlement.payNote ?? '')
-    || (Object.keys(dates) as Array<keyof typeof dates>).some(
-      (k) => dates[k] !== (settlement[k] ?? '')
-    );
+  const sides = ([
+    {
+      kind: '영업비' as PayoutKind, org: salesOrg, show: vis.sales,
+      plan: lines.reduce((s, l) => s + (l.rule?.salesUnit ?? 0) * l.qty, 0),
+    },
+    {
+      kind: '시공비' as PayoutKind, org: gcOrg, show: vis.cons,
+      plan: lines.reduce((s, l) => s + (l.rule?.consUnit ?? 0) * l.qty, 0),
+    },
+  ]).filter((side) => side.show);
 
   const pickRule = (lineId: string, ruleId: string) =>
     void run({
@@ -248,17 +252,6 @@ function PaymentSection({
       body: { pricingRuleId: ruleId || null },
       fail: '단가 지정에 실패했습니다.',
     });
-
-  async function save() {
-    setSaved(false);
-    const ok = await run({
-      url: `/api/projects/${projectId}/payment`,
-      method: 'PATCH',
-      body: { ...dates, payNote: note },
-      fail: '저장에 실패했습니다.',
-    });
-    if (ok) setSaved(true);
-  }
 
   return (
     <section>
@@ -354,36 +347,283 @@ function PaymentSection({
         </Note>
       )}
 
-      <div className="overflow-x-auto rounded-box border border-slate-200">
-        <table className="w-full min-w-[560px] text-base">
-          <thead className="bg-slate-50 text-tiny font-bold tracking-[0.08em] text-slate-500">
-            <tr>
-              <th className="px-4 py-2.5 text-left">항목</th>
-              <th className="px-4 py-2.5 text-left">비율</th>
-              <th className="px-4 py-2.5 text-right">금액</th>
-              <th className="px-4 py-2.5 text-right">지급일</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            <PayRow show={vis.sales} label="영업비 1차" ratio="70%" amount={payInstallments(salesTotal)[0]}
-              date={dates.salesPay1Date} editable={canReview} busy={busy}
-              onChange={(v) => setDates((d) => ({ ...d, salesPay1Date: v }))} />
-            <PayRow show={vis.sales} label="영업비 2차" ratio="30%" amount={payInstallments(salesTotal)[1]}
-              date={dates.salesPay2Date} editable={canReview} busy={busy}
-              onChange={(v) => setDates((d) => ({ ...d, salesPay2Date: v }))} />
-            <PayRow show={vis.cons} label="시공비 1차" ratio="70%" amount={payInstallments(consTotal)[0]}
-              date={dates.consPay1Date} editable={canReview} busy={busy}
-              onChange={(v) => setDates((d) => ({ ...d, consPay1Date: v }))} />
-            <PayRow show={vis.cons} label="시공비 2차" ratio="30%" amount={payInstallments(consTotal)[1]}
-              date={dates.consPay2Date} editable={canReview} busy={busy}
-              onChange={(v) => setDates((d) => ({ ...d, consPay2Date: v }))} />
-          </tbody>
-        </table>
+      {/* 잔액의 뿌리 — 계획(유도) + 조정 − 지급. 원장이 아래에 있다. */}
+      <div className={`grid gap-2 ${sides.length > 1 ? 'sm:grid-cols-2' : ''}`}>
+        {sides.map((side) => {
+          const { adjust, paid } = payoutSideOf(entries, side.kind);
+          const due = side.plan + adjust;
+          const remaining = due - paid;
+          const parts = payInstallments(Math.max(0, due));
+          return (
+            <div key={side.kind} className="rounded-box border border-slate-200 p-4">
+              <div className="flex flex-wrap items-baseline gap-2">
+                <h3 className="text-base font-black text-slate-900">{side.kind}</h3>
+                {side.org ? (
+                  <span className="text-small text-slate-500">→ {side.org}</span>
+                ) : (
+                  <span className="text-small font-bold text-amber-700">받는 곳 미지정</span>
+                )}
+              </div>
+              <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-base tabular-nums">
+                <div className="flex justify-between"><dt className="text-slate-500">계획</dt><dd className="font-semibold text-slate-800">{won(side.plan)}</dd></div>
+                <div className="flex justify-between"><dt className="text-slate-500">조정</dt>
+                  <dd className={`font-semibold ${adjust === 0 ? 'text-slate-300' : adjust > 0 ? 'text-slate-800' : 'text-amber-800'}`}>
+                    {adjust === 0 ? '—' : `${adjust > 0 ? '+' : ''}${won(adjust)}`}
+                  </dd>
+                </div>
+                <div className="flex justify-between"><dt className="text-slate-500">나간 돈</dt><dd className="font-semibold text-slate-800">{won(paid)}</dd></div>
+                <div className="flex justify-between"><dt className="text-slate-500">잔액</dt>
+                  <dd className={`font-black ${remaining > 0 ? 'text-amber-800' : remaining < 0 ? 'text-red-700' : 'text-slate-300'}`}>
+                    {remaining === 0 ? '0원' : won(remaining)}
+                  </dd>
+                </div>
+              </dl>
+              <p className="mt-2 border-t border-slate-100 pt-2 text-tiny tabular-nums text-slate-400">
+                회차 기준 1차 70% {won(parts[0])} · 2차 30% {won(parts[1])}
+              </p>
+            </div>
+          );
+        })}
       </div>
 
-      <div className="mt-3">
-        <label htmlFor="payNote" className="text-tiny font-bold text-slate-500">비고</label>
-        {canReview ? (
+      <Ledger projectId={projectId} entries={entries} canReview={canReview} />
+
+      <PayNoteBox projectId={projectId} payNote={payNote} canReview={canReview} />
+    </section>
+  );
+}
+
+/**
+ * 지급 원장 — 나간 돈(지급)과 줘야 할 금액의 변화(조정)를 한 건씩 적는다.
+ *
+ * 고치기가 없다 — 지우고 다시 넣는다. 지운 값은 감사 로그에 남는다.
+ * 지우기는 두 번 누른다(지우기 → 삭제 확정) — 금액 기록이라 스치는 클릭에 없어지면 안 된다.
+ */
+function Ledger({
+  projectId, entries, canReview,
+}: {
+  projectId: string;
+  entries: PayoutEntry[];
+  canReview: boolean;
+}) {
+  const { busy, error, run } = useAction();
+  const [confirmDel, setConfirmDel] = useState<string | null>(null);
+
+  // 넣는 폼
+  const [kind, setKind] = useState<PayoutKind>('영업비');
+  const [category, setCategory] = useState<PayoutCategory>('1차');
+  const [amount, setAmount] = useState('');
+  const [minus, setMinus] = useState(false); // 재정산만 방향을 고른다
+  const [at, setAt] = useState(today());
+  const [note, setNote] = useState('');
+
+  const cat = CATEGORY_INFO.get(category)!;
+  const magnitude = Math.abs(Math.round(Number(amount)));
+  const amountOk = amount.trim() !== '' && Number.isFinite(Number(amount)) && magnitude > 0;
+
+  // 못 넣는 이유를 버튼 이름에 적는다(화면 규칙 3)
+  const blocked = !amountOk ? '금액 미입력' : !at ? '날짜 미입력' : null;
+
+  async function add() {
+    const signed = cat.sign === -1 ? -magnitude : cat.sign === 1 ? magnitude : minus ? -magnitude : magnitude;
+    const ok = await run({
+      url: `/api/projects/${projectId}/payouts`,
+      body: { kind, category, amount: signed, at, note: note.trim() || null },
+      fail: '기록하지 못했습니다.',
+    });
+    if (ok) {
+      setAmount('');
+      setNote('');
+    }
+  }
+
+  const del = (entryId: string) =>
+    void run({
+      url: `/api/projects/${projectId}/payouts`,
+      method: 'DELETE',
+      body: { entryId },
+      fail: '지우지 못했습니다.',
+    }).then(() => setConfirmDel(null));
+
+  return (
+    <div className="mt-4">
+      <div className="mb-2 flex items-baseline gap-2">
+        <h3 className="text-base font-black text-slate-900">원장</h3>
+        <span className="text-tiny text-slate-400">{entries.length}건</span>
+      </div>
+
+      {entries.length > 0 && (
+        <div className="overflow-x-auto rounded-box border border-slate-200">
+          <table className="w-full min-w-[560px] text-base">
+            <thead className="bg-slate-50 text-tiny font-bold tracking-[0.08em] text-slate-500">
+              <tr>
+                <th className="px-3 py-2 text-left">날짜</th>
+                <th className="px-3 py-2 text-left">구분</th>
+                <th className="px-3 py-2 text-left">명목</th>
+                <th className="px-3 py-2 text-right">금액</th>
+                <th className="px-3 py-2 text-left">메모</th>
+                {canReview && <th className="px-3 py-2" />}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {entries.map((e) => (
+                <tr key={e.id}>
+                  <td className="whitespace-nowrap px-3 py-2 tabular-nums text-slate-600">{e.at}</td>
+                  <td className="whitespace-nowrap px-3 py-2">
+                    <Tag tone={e.kind === '영업비' ? 'stage' : 'ok'}>{e.kind}</Tag>
+                  </td>
+                  <td className="whitespace-nowrap px-3 py-2 text-slate-700">
+                    {e.category}
+                    <span className="ml-1 text-micro text-slate-400">{entryTypeOf(e.category)}</span>
+                  </td>
+                  <td className={`whitespace-nowrap px-3 py-2 text-right font-bold tabular-nums ${e.amount < 0 ? 'text-amber-800' : 'text-slate-800'}`}>
+                    {won(e.amount)}
+                  </td>
+                  <td className="px-3 py-2 text-small text-slate-500">
+                    {e.note ?? <span className="text-slate-300">—</span>}
+                  </td>
+                  {canReview && (
+                    <td className="whitespace-nowrap px-3 py-2 text-right">
+                      {confirmDel === e.id ? (
+                        <span className="inline-flex items-center gap-1">
+                          <Btn kind="stop" size="sm" busy={busy} busyLabel="지우는 중…" onClick={() => del(e.id)}>
+                            삭제 확정
+                          </Btn>
+                          <Btn kind="undo" size="sm" disabled={busy} onClick={() => setConfirmDel(null)}>
+                            취소
+                          </Btn>
+                        </span>
+                      ) : (
+                        <Btn kind="undo" size="sm" disabled={busy} onClick={() => setConfirmDel(e.id)}>
+                          지우기
+                        </Btn>
+                      )}
+                    </td>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {entries.length === 0 && (
+        <p className="rounded-box border border-dashed border-slate-200 py-5 text-center text-base text-slate-400">
+          기록 0건
+        </p>
+      )}
+
+      {canReview && (
+        <div className="mt-3 rounded-box border border-slate-200 p-3">
+          <div className="flex flex-wrap items-end gap-2">
+            <div className="flex gap-1">
+              {PAYOUT_KINDS.map((k) => (
+                <Choice key={k} on={kind === k} disabled={busy} onClick={() => setKind(k)}>
+                  {k}
+                </Choice>
+              ))}
+            </div>
+            <label className="flex flex-col gap-1">
+              <span className="text-micro font-bold text-slate-500">명목</span>
+              <select
+                value={category}
+                disabled={busy}
+                onChange={(e) => setCategory(e.target.value as PayoutCategory)}
+                className={FIELD_CELL}
+              >
+                <optgroup label="지급 — 돈이 나갔다">
+                  {PAYOUT_CATEGORIES.filter((c) => c.type === '지급').map((c) => (
+                    <option key={c.key} value={c.key}>{c.key}</option>
+                  ))}
+                </optgroup>
+                <optgroup label="조정 — 줘야 할 금액이 바뀐다">
+                  {PAYOUT_CATEGORIES.filter((c) => c.type === '조정').map((c) => (
+                    <option key={c.key} value={c.key}>{c.key}</option>
+                  ))}
+                </optgroup>
+              </select>
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className="text-micro font-bold text-slate-500">
+                금액(원){cat.sign === -1 && ' — 빼는 돈으로 적힌다'}
+              </span>
+              <input
+                type="number"
+                min={0}
+                value={amount}
+                disabled={busy}
+                onChange={(e) => setAmount(e.target.value)}
+                className={`${FIELD_CELL} w-32 tabular-nums`}
+              />
+            </label>
+            {cat.sign === 0 && (
+              <div className="flex gap-1">
+                <Choice on={!minus} disabled={busy} onClick={() => setMinus(false)}>더 줌</Choice>
+                <Choice on={minus} disabled={busy} onClick={() => setMinus(true)}>덜 줌</Choice>
+              </div>
+            )}
+            <label className="flex flex-col gap-1">
+              <span className="text-micro font-bold text-slate-500">
+                {cat.type === '지급' ? '지급일' : '발생일'}
+              </span>
+              <input
+                type="date"
+                value={at}
+                disabled={busy}
+                onChange={(e) => setAt(e.target.value)}
+                className={`${FIELD_CELL} tabular-nums`}
+              />
+            </label>
+            <label className="flex min-w-[160px] flex-1 flex-col gap-1">
+              <span className="text-micro font-bold text-slate-500">메모</span>
+              <input
+                type="text"
+                value={note}
+                disabled={busy}
+                onChange={(e) => setNote(e.target.value)}
+                className={FIELD_CELL}
+              />
+            </label>
+            <Btn disabled={blocked !== null} busy={busy} busyLabel="기록 중…" onClick={add}>
+              {blocked ?? '기록'}
+            </Btn>
+          </div>
+          <Err className="mt-2">{error}</Err>
+        </div>
+      )}
+      {!canReview && <Err className="mt-2">{error}</Err>}
+    </div>
+  );
+}
+
+/** 지급 비고 — 금액만으로 설명되지 않는 사정. 원장 메모보다 현장 전체 이야기가 온다. */
+function PayNoteBox({
+  projectId, payNote, canReview,
+}: {
+  projectId: string;
+  payNote: string | null;
+  canReview: boolean;
+}) {
+  const { busy, error, run } = useAction();
+  const [saved, setSaved] = useState(false);
+  const [note, setNote] = useState(payNote ?? '');
+  const dirty = note !== (payNote ?? '');
+
+  async function save() {
+    setSaved(false);
+    const ok = await run({
+      url: `/api/projects/${projectId}/payment`,
+      method: 'PATCH',
+      body: { payNote: note },
+      fail: '저장에 실패했습니다.',
+    });
+    if (ok) setSaved(true);
+  }
+
+  return (
+    <div className="mt-3">
+      <label htmlFor="payNote" className="text-tiny font-bold text-slate-500">비고</label>
+      {canReview ? (
+        <>
           <textarea
             id="payNote"
             value={note}
@@ -393,65 +633,19 @@ function PaymentSection({
             placeholder="감액·보류 사유 등 금액만으로 설명되지 않는 것"
             className={`${FIELD} mt-1 leading-relaxed`}
           />
-        ) : (
-          <p className="mt-1 text-base text-slate-600">
-            {settlement.payNote || <span className="text-slate-300">없음</span>}
-          </p>
-        )}
-      </div>
-
-      {canReview && (
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          <Btn disabled={!dirty} busy={busy} busyLabel="저장 중…" onClick={save}>
-            {dirty ? '지급일·비고 저장' : '변경 없음'}
-          </Btn>
-          {saved && !dirty && <Saved />}
-          <Err>{error}</Err>
-        </div>
-      )}
-    </section>
-  );
-}
-
-function PayRow({
-  show, label, ratio, amount, date, editable, busy, onChange,
-}: {
-  show: boolean;
-  label: string;
-  ratio: string;
-  amount: number;
-  date: string;
-  editable: boolean;
-  busy: boolean;
-  onChange: (value: string) => void;
-}) {
-  return (
-    <tr>
-      <td className="whitespace-nowrap px-4 py-3 font-bold text-slate-800">{label}</td>
-      <td className="px-4 py-3 text-slate-500">{ratio}</td>
-      {show ? (
-        <td className="whitespace-nowrap px-4 py-3 text-right font-semibold tabular-nums text-slate-800">
-          {amount > 0 ? won(Math.round(amount)) : <span className="text-slate-300">단가 미지정</span>}
-        </td>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <Btn disabled={!dirty} busy={busy} busyLabel="저장 중…" onClick={save}>
+              {dirty ? '비고 저장' : '변경 없음'}
+            </Btn>
+            {saved && !dirty && <Saved />}
+            <Err>{error}</Err>
+          </div>
+        </>
       ) : (
-        <td className="px-4 py-3 text-right">
-          <Tag>권한 없음</Tag>
-        </td>
+        <p className="mt-1 text-base text-slate-600">
+          {payNote || <span className="text-slate-300">없음</span>}
+        </p>
       )}
-      <td className="whitespace-nowrap px-4 py-3 text-right tabular-nums text-slate-500">
-        {editable ? (
-          <input
-            type="date"
-            value={date}
-            disabled={busy}
-            aria-label={`${label} 지급일`}
-            onChange={(e) => onChange(e.target.value)}
-            className={`${FIELD_CELL} tabular-nums`}
-          />
-        ) : (
-          date || <span className="text-slate-300">—</span>
-        )}
-      </td>
-    </tr>
+    </div>
   );
 }

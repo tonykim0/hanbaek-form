@@ -10,9 +10,10 @@
  *   준공마감     — 한백이 판단해 지정한다. 공정 일정에서 유도하지 않는다.
  */
 import type {
-  ContractLineView, PricingRule, ProcessInfo, SettlementRule,
-  SettlementStep, StepBasis, StepState, Trigger,
+  ContractLineView, PayoutCategory, PayoutEntry, PayoutKind, PricingRule, ProcessInfo,
+  SettlementRule, SettlementStep, StepBasis, StepState, Trigger,
 } from '@/types/project';
+import { PAYOUT_CATEGORIES, PAYOUT_KINDS } from '@/types/project';
 
 /** 턴키 = 영업비 + 시공비 + 한백마진. 매트릭스 28행 전부 검산됨. */
 /**
@@ -157,6 +158,52 @@ export const PAY_SPLIT = [0.7, 0.3] as const;
 export function payInstallments(total: number): number[] {
   const later = PAY_SPLIT.slice(1).map((r) => Math.round(total * r));
   return [total - later.reduce((a, b) => a + b, 0), ...later];
+}
+
+// ── 하도급사 지급 원장 ───────────────────────────────────────────
+const CATEGORY_BY_KEY = new Map(PAYOUT_CATEGORIES.map((c) => [c.key, c]));
+
+export function entryTypeOf(category: PayoutCategory): '지급' | '조정' {
+  return CATEGORY_BY_KEY.get(category)!.type;
+}
+
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * 원장 입력 검사 — 저장소 세 벌이 같은 것을 봐야 하므로 여기 한 곳에 둔다.
+ * 명목이 부호를 정한다: 회수·차감은 음수, 재정산만 양쪽 다 된다.
+ */
+export function checkPayoutEntry(input: {
+  kind: unknown; category: unknown; amount: unknown; at: unknown; note?: unknown;
+}): string | null {
+  if (!PAYOUT_KINDS.includes(input.kind as PayoutKind)) return '구분(영업비/시공비)이 올바르지 않습니다.';
+  const cat = CATEGORY_BY_KEY.get(input.category as PayoutCategory);
+  if (!cat) return '명목이 올바르지 않습니다.';
+  if (typeof input.amount !== 'number' || !Number.isInteger(input.amount) || input.amount === 0) {
+    return '금액은 0 이 아닌 원 단위 정수여야 합니다.';
+  }
+  if (cat.sign > 0 && input.amount < 0) return `${cat.key}은(는) 나가는 돈이라 양수여야 합니다.`;
+  if (cat.sign < 0 && input.amount > 0) return `${cat.key}은(는) 빼는 돈이라 음수여야 합니다.`;
+  if (typeof input.at !== 'string' || !DATE_RE.test(input.at)) return '날짜는 YYYY-MM-DD 형식이어야 합니다.';
+  if (input.note !== undefined && input.note !== null && typeof input.note !== 'string') {
+    return '메모가 올바르지 않습니다.';
+  }
+  return null;
+}
+
+/** 한쪽(영업비/시공비)의 원장 합 — 잔액 = 계획 + adjust − paid */
+export function payoutSideOf(entries: PayoutEntry[], kind: PayoutKind): {
+  adjust: number;
+  paid: number;
+  lastPaidAt: string | null;
+} {
+  const mine = entries.filter((e) => e.kind === kind);
+  const paidRows = mine.filter((e) => entryTypeOf(e.category) === '지급');
+  return {
+    adjust: mine.filter((e) => entryTypeOf(e.category) === '조정').reduce((n, e) => n + e.amount, 0),
+    paid: paidRows.reduce((n, e) => n + e.amount, 0),
+    lastPaidAt: paidRows.reduce<string | null>((last, e) => (!last || e.at > last ? e.at : last), null),
+  };
 }
 
 export function recoveryRate(steps: SettlementStep[]): number | null {

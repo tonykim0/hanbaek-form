@@ -386,14 +386,58 @@ export interface Settlement {
    * 공정 마일스톤에서 유도할 수 없어 별도로 받는다. 대부분 운영사의 최종 기성(잔액) 트리거.
    */
   cpoCloseDate: string | null;
-  salesPay1Date: string | null;
-  salesPay2Date: string | null;
-  consPay1Date: string | null;
-  consPay2Date: string | null;
   safetyFee: number | null;
   /** 지급 비고 */
   payNote: string | null;
 }
+
+// ── 하도급사 지급 원장 ───────────────────────────────────────────
+/**
+ * 지급 명목. 두 갈래다 —
+ *   지급: 돈이 실제로 움직였다. 회수는 음수로 저장된다(중복지급을 돌려받는 것).
+ *   조정: 줘야 할 금액 자체가 바뀐다. 계획(단가×대수)에 더하거나 뺀다.
+ *
+ * ★왜 원장인가★ 계획(70/30)만 있던 때는 선금·차액·회수·차감이 전부 비고 문장으로만
+ * 남았다 — 노션 정산관리 115행 중 10행이 그랬다. 문장은 합산이 안 되고, 월별 지급명세와
+ * 거래명세서는 실제로 나간 돈의 합이다.
+ *
+ * 자재비·추가공사비는 영업·시공이 분리된 채널에서만 생긴다(턴키 업체는 영업비·시공비
+ * 안에서 해결). 영업자 부담이므로 시공비에 (+), 영업비에 차감(−) 두 건으로 적는다.
+ */
+export const PAYOUT_CATEGORIES = [
+  { key: '1차', type: '지급', sign: 1 },
+  { key: '2차', type: '지급', sign: 1 },
+  { key: '선금', type: '지급', sign: 1 },
+  { key: '차액', type: '지급', sign: 1 },
+  { key: '회수', type: '지급', sign: -1 },
+  { key: '자재비', type: '조정', sign: 1 },
+  { key: '추가공사비', type: '조정', sign: 1 },
+  { key: '차감', type: '조정', sign: -1 },
+  // 재정산은 방향이 정해져 있지 않다(추가 지급도, 감액도 있다) — 화면이 방향을 받는다
+  { key: '재정산', type: '조정', sign: 0 },
+] as const;
+export type PayoutCategory = (typeof PAYOUT_CATEGORIES)[number]['key'];
+export type PayoutEntryType = (typeof PAYOUT_CATEGORIES)[number]['type'];
+
+export type PayoutKind = '영업비' | '시공비';
+export const PAYOUT_KINDS = ['영업비', '시공비'] as const satisfies readonly PayoutKind[];
+
+export interface PayoutEntry {
+  id: string;
+  projectId: string;
+  /** 어느 쪽 돈인가 — 영업비는 영업사, 시공비는 시공사에게 간다 */
+  kind: PayoutKind;
+  category: PayoutCategory;
+  /** 원 단위 정수. 부호가 있다 — 회수·차감은 음수. */
+  amount: number;
+  /** 지급일(지급) 또는 발생일(조정), YYYY-MM-DD */
+  at: string;
+  note: string | null;
+  createdAt: string;
+}
+
+/** 원장에 넣을 때 받는 입력 — id·시각은 저장소가 만든다 */
+export type NewPayoutEntry = Omit<PayoutEntry, 'id' | 'projectId' | 'createdAt'>;
 
 // ── 화면이 받는 묶음 ─────────────────────────────────────────────
 export interface ProjectSummary {
@@ -468,18 +512,25 @@ export interface SettlementSummary {
    */
   salesOrg: string | null;
   gcOrg: string | null;
-  /** 영업비 총액 = Σ(영업비/대 × 대수) */
+  /** 영업비 계획 = Σ(영업비/대 × 대수) */
   salesTotal: number;
-  /** 시공비 총액 = Σ(시공비/대 × 대수) */
+  /** 시공비 계획 = Σ(시공비/대 × 대수) */
   consTotal: number;
   /** 한백 마진 총액 = 받을 기성 − 내려줄 지급 */
   marginTotal: number;
   /** 단가가 안 붙은 라인 수. 0 이 아니면 위 금액이 실제보다 적다. */
   unpricedLines: number;
-  salesPay1Date: string | null;
-  salesPay2Date: string | null;
-  consPay1Date: string | null;
-  consPay2Date: string | null;
+  /*
+   * 원장에서 유도한 실적. 계획 + 조정 − 지급 = 잔액.
+   * 지급일 4칸으로 저장하던 것을 원장 합으로 바꿨다 — 선금·차액·회수가 날짜 한 칸에
+   * 들어가지 않는다.
+   */
+  salesAdjust: number;
+  salesPaid: number;
+  salesLastPaidAt: string | null;
+  consAdjust: number;
+  consPaid: number;
+  consLastPaidAt: string | null;
   payNote: string | null;
 }
 
@@ -515,14 +566,14 @@ export interface PayoutRow {
   qty: number;
   /** 받는 곳. null 이면 아직 정해지지 않았다. */
   org: string | null;
-  kind: '영업비' | '시공비';
-  /** 회차 (1 · 2) */
-  no: number;
-  /** 「1차 70%」처럼 보여줄 이름 */
+  kind: PayoutKind;
+  /** 명목 — 원장 줄이면 category, 아직 안 나간 몫이면 '잔여' */
   label: string;
+  /** 원장 줄은 실지급액(부호 있음), 잔여 줄은 남은 금액 */
   amount: number;
-  /** 지급일. null 이면 아직 안 나갔다. */
+  /** 지급일. 잔여 줄은 null — 아직 안 나갔다. */
   paidAt: string | null;
+  note: string | null;
 }
 
 export interface ContractState {
@@ -574,6 +625,11 @@ export interface ProjectDetail {
   stalledDays: number;
   /** 진행현황 — 최근 것이 위로 온다 */
   notes: ProjectNote[];
+  /**
+   * 하도급사 지급 원장 — 날짜 오름차순.
+   * 협력사에게는 자기 쪽(영업비/시공비)만 실려 간다(redactForViewer).
+   */
+  payoutEntries: PayoutEntry[];
 }
 
 // ── 접수 입력 ────────────────────────────────────────────────────

@@ -137,8 +137,9 @@ export default function ConsoleShell({
 
   return (
     <div className="min-h-screen bg-[#f7f8f4] text-slate-900">
+      {/* 인쇄에서는 껍데기를 걷는다 — 거래명세서(/payments/statement)를 그대로 인쇄물로 쓴다 */}
       <aside
-        className={`fixed inset-y-0 left-0 z-40 flex flex-col border-r border-slate-200 bg-white text-base transition-[width] duration-150 ${
+        className={`fixed inset-y-0 left-0 z-40 flex flex-col border-r border-slate-200 bg-white text-base transition-[width] duration-150 print:hidden ${
           open ? 'w-[184px]' : 'w-[56px]'
         }`}
       >
@@ -238,9 +239,9 @@ export default function ConsoleShell({
       </aside>
 
       {/* 본문은 전체 폭을 쓴다 — 보드의 칸이 화면 밖으로 나가지 않게 */}
-      <div className={`transition-[padding] duration-150 ${open ? 'pl-[184px]' : 'pl-[56px]'}`}>
+      <div className={`transition-[padding] duration-150 print:pl-0 ${open ? 'pl-[184px]' : 'pl-[56px]'}`}>
         <main className="px-5 pb-16 pt-8 sm:px-7 sm:pt-9">{children}</main>
-        <footer className="border-t border-slate-200 px-6 py-6 text-center text-small text-slate-400">
+        <footer className="border-t border-slate-200 px-6 py-6 text-center text-small text-slate-400 print:hidden">
           한백 전기차충전사업 · 내부 업무용
         </footer>
       </div>

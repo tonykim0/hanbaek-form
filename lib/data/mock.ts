@@ -102,6 +102,15 @@ export const SEED_RECORDS: MockRecord[] = [
       memo: '준공서류 제출 완료. 운영사 마감 회차 대기 중.',
     },
     settlementRaw: emptySettlement('HB-2026-018'),
+    /*
+     * 원장 시드 — 노션 정산관리에 실제로 있던 흐름이다: 1차(70%)를 채우기 전에 선금이
+     * 먼저 나가고, 나중에 차액을 채운다. 선금 160만 + 차액 428만 = 588만 = 840만 × 70%.
+     */
+    payoutEntries: [
+      { id: 'PE-018-1', projectId: 'HB-2026-018', kind: '영업비', category: '선금', amount: 1600000, at: '2026-03-10', note: '1차 선지급', createdAt: '2026-03-10 10:00' },
+      { id: 'PE-018-2', projectId: 'HB-2026-018', kind: '영업비', category: '차액', amount: 4280000, at: '2026-05-11', note: '1차 잔여분', createdAt: '2026-05-11 10:00' },
+      { id: 'PE-018-3', projectId: 'HB-2026-018', kind: '시공비', category: '1차', amount: 4410000, at: '2026-07-10', note: null, createdAt: '2026-07-10 10:00' },
+    ],
     collected: { 1: '2026-03-06' },
     court: '운영사',
     lastProgressAt: '2026-07-08',
@@ -177,6 +186,11 @@ export const SEED_RECORDS: MockRecord[] = [
       status: '계약완료',
     },
     settlementRaw: emptySettlement('HB-2026-033'),
+    // 차감(조정) 예 — 줘야 할 금액 자체가 주는 경우. 잔액 = 750 − 60 − 525 = 165만.
+    payoutEntries: [
+      { id: 'PE-033-1', projectId: 'HB-2026-033', kind: '영업비', category: '1차', amount: 5250000, at: '2026-06-25', note: null, createdAt: '2026-06-25 10:00' },
+      { id: 'PE-033-2', projectId: 'HB-2026-033', kind: '영업비', category: '차감', amount: -600000, at: '2026-07-27', note: '요율 미달 재정산 — 대당 10만원 차감', createdAt: '2026-07-27 10:00' },
+    ],
     collected: {},
     court: '시공사',
     lastProgressAt: '2026-08-13',
@@ -249,6 +263,12 @@ export const mockRepository: ProjectRepository = {
     throw new Error(READ_ONLY);
   },
   async setPayment(): Promise<void> {
+    throw new Error(READ_ONLY);
+  },
+  async addPayoutEntry(): Promise<string> {
+    throw new Error(READ_ONLY);
+  },
+  async deletePayoutEntry(): Promise<void> {
     throw new Error(READ_ONLY);
   },
   async setProcessStatus(): Promise<void> {

@@ -12,7 +12,7 @@
  *     전부 보내놓고 화면에서 가리면 안 된다.
  */
 import type {
-  Court, DocStatus, IntakeDraft, LineAxes, NewPricingRule, PayoutRow, PreInstall, PricingRule,
+  Court, DocStatus, IntakeDraft, LineAxes, NewPayoutEntry, NewPricingRule, PayoutRow, PreInstall, PricingRule,
   ProcessInfo, ProcessStatus, ProjectDetail, ProjectSummary, Settlement, SettlementSummary,
 } from '@/types/project';
 import type { Actor, Viewer } from '@/lib/auth/types';
@@ -210,8 +210,24 @@ export interface ProjectRepository {
    */
   setPricingRuleActive(id: string, active: boolean, actor: Actor): Promise<void>;
 
-  /** 지급일·비고 저장. [한백 전용] 넘긴 필드만 바뀐다. */
+  /** 지급 비고 저장. [한백 전용] 넘긴 필드만 바뀐다. */
   setPayment(projectId: string, patch: PaymentPatch, actor: Actor): Promise<void>;
+
+  /**
+   * 지급 원장에 한 건을 넣는다. [한백 전용]
+   *
+   * 금액을 손으로 적는 유일한 자리다 — 계획(단가×대수)은 유도값이고, 실제로 나간 돈은
+   * 계획과 어긋난다(선금·차액·회수·차감). 검사는 lib/settlement.ts checkPayoutEntry.
+   */
+  addPayoutEntry(projectId: string, input: NewPayoutEntry, actor: Actor): Promise<string>;
+
+  /**
+   * 지급 원장에서 한 건을 지운다. [한백 전용]
+   *
+   * 고치기는 없다 — 금액·날짜를 반쯤 고친 흔적이 남는 것보다, 지우고 다시 넣는 것이
+   * 감사 로그에 온전히 남는다. 지운 값은 로그에 적힌다.
+   */
+  deletePayoutEntry(projectId: string, entryId: string, actor: Actor): Promise<void>;
 
   /**
    * 공정 진행현황을 옮긴다. [한백 전용] 보드에서 카드를 끌어다 놓는 것이 이것이다.
@@ -268,9 +284,7 @@ export type ProcessPatch = Partial<
 >;
 
 /** 지급 화면이 저장하는 것. 넘기지 않은 필드는 건드리지 않는다. */
-export type PaymentPatch = Partial<
-  Pick<Settlement, 'salesPay1Date' | 'salesPay2Date' | 'consPay1Date' | 'consPay2Date' | 'payNote'>
->;
+export type PaymentPatch = Partial<Pick<Settlement, 'payNote'>>;
 
 /*
  * 다음 단계에서 이 인터페이스에 붙일 쓰기 작업.

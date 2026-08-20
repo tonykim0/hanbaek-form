@@ -209,14 +209,31 @@ export const settlements = pgTable('settlements', {
   collected1At: text('collected_1_at'),
   collected2At: text('collected_2_at'),
   collected3At: text('collected_3_at'),
-  salesPay1Date: text('sales_pay_1_date'),
-  salesPay2Date: text('sales_pay_2_date'),
-  consPay1Date: text('cons_pay_1_date'),
-  consPay2Date: text('cons_pay_2_date'),
   safetyFee: integer('safety_fee'),
   /** 지급 관련 메모 — 감액·보류 사유 등 금액만으로 설명되지 않는 것 */
   payNote: text('pay_note'),
 });
+
+/**
+ * 하도급사 지급 원장 — 한 행이 지급(또는 조정) 한 건이다.
+ *
+ * 지급일 4칸(영업 1·2차, 시공 1·2차)으로 저장하던 것을 바꿨다 — 선금·차액·회수·차감이
+ * 날짜 한 칸에 들어가지 않는다. 금액은 부호 있는 원 단위 정수, 회수·차감은 음수.
+ * 검사 규칙은 lib/settlement.ts checkPayoutEntry 한 곳이다.
+ */
+export const payoutEntries = pgTable('payout_entries', {
+  id: text('id').primaryKey(),
+  projectId: text('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
+  kind: text('kind').notNull(),
+  category: text('category').notNull(),
+  amount: integer('amount').notNull(),
+  /** 지급일(지급) 또는 발생일(조정), YYYY-MM-DD */
+  at: text('at').notNull(),
+  note: text('note'),
+  createdAt: text('created_at').notNull(),
+}, (t) => ({
+  byProject: index('payout_entries_project_idx').on(t.projectId, t.at),
+}));
 
 // ── 감사 로그 ───────────────────────────────────────────────────
 /** 협력사가 직접 입력하므로 누가 무엇을 바꿨는지 남긴다 */

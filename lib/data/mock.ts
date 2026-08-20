@@ -7,7 +7,7 @@
  * 조립 로직(toDetail·단계 판정)은 여기 없다 — lib/data/assemble.ts 에 한 벌만 둔다.
  */
 import type {
-  PayoutRow, PricingRule, ProjectDetail, ProjectDocument, ProjectSummary, SettlementSummary,
+  LineAxes, PayoutRow, PricingRule, ProjectDetail, ProjectDocument, ProjectSummary, SettlementSummary,
 } from '@/types/project';
 import type { ProjectRepository } from './repository';
 import type { Viewer } from '@/lib/auth/types';
@@ -259,6 +259,27 @@ export const mockRepository: ProjectRepository = {
   },
   async uploadDocument(): Promise<void> {
     throw new Error(READ_ONLY);
+  },
+
+  async listLineAxes(actor): Promise<LineAxes[]> {
+    if (actor.role !== 'admin') throw new Error('단가 판정 축 조회는 한백 관리자만 할 수 있습니다.');
+    const records = SEED_RECORDS;
+    return records.flatMap((r) =>
+      r.lines.map((l) => ({
+        lineId: l.id,
+        projectId: r.project.id,
+        projectName: r.project.name,
+        cpo: r.project.cpo,
+        bizType: r.project.bizType,
+        bldgType: r.project.bldgType,
+        projectReplType: r.project.replType,
+        termYears: l.termYears,
+        qty: l.qty,
+        powerType: l.powerType,
+        lineReplType: l.replType,
+        pricingRuleId: l.pricingRuleId,
+      }))
+    );
   },
 
   async listPricingRules(actor): Promise<PricingRule[]> {

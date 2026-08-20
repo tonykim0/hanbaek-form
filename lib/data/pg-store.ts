@@ -21,7 +21,7 @@ import {
 } from '@/lib/db/schema';
 import type {
   BizType, BuildingType, ContractLine, ContractParty, Court, CpoName, DocStatus,
-  IntakeDraft, PayoutRow, PowerType, PreInstall, PricingRule, ProcessInfo, Project,
+  IntakeDraft, LineAxes, PayoutRow, PowerType, PreInstall, PricingRule, ProcessInfo, Project,
   ProjectDetail, ProjectDocument, ProjectSummary, ReplType, Settlement, SettlementSummary,
 } from '@/types/project';
 import type { Viewer } from '@/lib/auth/types';
@@ -29,7 +29,7 @@ import { canAccessProject, effectiveVisibility, normalizeOrg } from '@/lib/roles
 import { needsPreInstallCheck, PROCESS_DOCS } from '@/lib/doc-rules';
 import { asProcessStatus, canEnter } from '@/lib/process';
 import type { Actor, PaymentPatch, ProcessPatch, ProjectRepository } from './repository';
-import { checkPricingRule, normalizePricingRule, pricingRuleId } from '@/lib/pricing-match';
+import { checkPricingRule, duplicateOf, normalizePricingRule, pricingRuleId } from '@/lib/pricing-match';
 import {
   ALL_DOC_KEYS, byStalled, contractStateFor, isProcessDocKind, payoutRowsOf, redactForViewer,
   settlementSummaryOf,
@@ -60,6 +60,7 @@ function rowToRule(r: typeof pricingRules.$inferSelect): PricingRule {
     termYears: r.termYears as number[],
     bldgTypes: r.bldgTypes as BuildingType[],
     replType: r.replType as ReplType,
+    channel: r.channel as PricingRule['channel'],
     bizYear: r.bizYear,
     startDate: r.startDate,
     salesUnit: r.salesUnit,
@@ -1051,6 +1052,41 @@ export const pgRepository: ProjectRepository = {
     });
   },
 
+  async listLineAxes(actor): Promise<LineAxes[]> {
+    assertAdmin(actor, '단가 판정 축 조회');
+    const rows = await getDb()
+      .select({
+        lineId: contractLines.id,
+        projectId: contractLines.projectId,
+        projectName: projects.name,
+        cpo: projects.cpo,
+        bizType: projects.bizType,
+        bldgType: projects.bldgType,
+        projectReplType: projects.replType,
+        termYears: contractLines.termYears,
+        qty: contractLines.qty,
+        powerType: contractLines.powerType,
+        lineReplType: contractLines.replType,
+        pricingRuleId: contractLines.pricingRuleId,
+      })
+      .from(contractLines)
+      .innerJoin(projects, eq(contractLines.projectId, projects.id));
+    return rows.map((r) => ({
+      lineId: r.lineId,
+      projectId: r.projectId,
+      projectName: r.projectName,
+      cpo: r.cpo as CpoName,
+      bizType: r.bizType as BizType | null,
+      bldgType: r.bldgType as BuildingType | null,
+      projectReplType: r.projectReplType as ReplType | null,
+      termYears: r.termYears,
+      qty: r.qty,
+      powerType: r.powerType as LineAxes['powerType'],
+      lineReplType: r.lineReplType as ReplType | null,
+      pricingRuleId: r.pricingRuleId,
+    }));
+  },
+
   async listPricingRules(actor): Promise<PricingRule[]> {
     assertAdmin(actor, '단가 케이스 조회');
     const rows = await getDb().select().from(pricingRules).orderBy(pricingRules.caseName);
@@ -1064,6 +1100,13 @@ export const pgRepository: ProjectRepository = {
     const rule = normalizePricingRule(input);
 
     const db = getDb();
+    // ME — 같은 칸을 같은 적용 시작으로 덮는 활성 케이스가 이미 있으면 중복이다
+    const existing = (await db.select().from(pricingRules)).map(rowToRule);
+    const dup = duplicateOf(rule, existing);
+    if (dup) {
+      throw new Error(`같은 조건을 덮는 케이스가 이미 있습니다 — ${dup.caseName}. 개정이라면 적용 시작을 다르게 적어주세요.`);
+    }
+
     /*
      * id 채번이 select-후-insert 라 같은 축의 동시 요청은 같은 id 를 계산한다 — 두 번째는
      * PK 위반으로 터지고, 그대로 두면 영문 DB 오류가 화면에 나간다. 위반이면 taken 을
@@ -1077,7 +1120,8 @@ export const pgRepository: ProjectRepository = {
           await tx.insert(pricingRules).values({
             id, caseName: rule.caseName, cpo: rule.cpo, bizType: rule.bizType,
             powerType: rule.powerType, termYears: rule.termYears, bldgTypes: rule.bldgTypes,
-            replType: rule.replType, bizYear: rule.bizYear, startDate: rule.startDate,
+            replType: rule.replType, channel: rule.channel,
+            bizYear: rule.bizYear, startDate: rule.startDate,
             salesUnit: rule.salesUnit, consUnit: rule.consUnit, margin: rule.margin,
             defaultSettlementRuleId: rule.defaultSettlementRuleId || null,
             supervisionBearer: rule.supervisionBearer, safetyFeeBearer: rule.safetyFeeBearer,
@@ -1110,6 +1154,16 @@ export const pgRepository: ProjectRepository = {
         .limit(1);
       if (!row) throw new Error('없는 단가 케이스입니다.');
       if (row.active === active) return;
+
+      // 되살릴 때도 중복을 본다 — 중지한 사이에 같은 칸·같은 시작의 케이스가 생겼을 수 있다
+      if (active) {
+        const all = (await tx.select().from(pricingRules)).map(rowToRule);
+        const me = all.find((r) => r.id === id)!;
+        const dup = duplicateOf(me, all.filter((r) => r.id !== id));
+        if (dup) {
+          throw new Error(`같은 조건을 덮는 케이스가 이미 있습니다 — ${dup.caseName}. 그쪽을 중지한 뒤 되살려주세요.`);
+        }
+      }
 
       await tx.update(pricingRules).set({ active }).where(eq(pricingRules.id, id));
       await writeAudit(tx, {

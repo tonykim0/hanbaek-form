@@ -11,7 +11,7 @@
 import { promises as fs } from 'fs';
 import path from 'path';
 import type {
-  ContractLine, IntakeDraft, PayoutRow, PricingRule, ProcessStatus, Project, ProjectDetail,
+  ContractLine, IntakeDraft, LineAxes, PayoutRow, PricingRule, ProcessStatus, Project, ProjectDetail,
   ProjectDocument, ProjectSummary, SettlementSummary,
 } from '@/types/project';
 import type { Viewer } from '@/lib/auth/types';
@@ -28,7 +28,7 @@ import {
 import { SEED_RECORDS } from './mock';
 import { needsPreInstallCheck } from '@/lib/doc-rules';
 import { PRICING_RULES } from './seed/pricing-rules';
-import { checkPricingRule, normalizePricingRule, pricingRuleId } from '@/lib/pricing-match';
+import { checkPricingRule, duplicateOf, normalizePricingRule, pricingRuleId } from '@/lib/pricing-match';
 
 const DATA_DIR = path.join(process.cwd(), '.data');
 const DATA_FILE = path.join(DATA_DIR, 'projects.json');
@@ -62,10 +62,11 @@ async function load(): Promise<ProjectRecord[]> {
   }
 }
 
-/** 단가 케이스 — 첫 실행이면 시드를 심는다 */
+/** 단가 케이스 — 첫 실행이면 시드를 심는다. 채널 축이 없던 때의 파일은 턴키로 읽는다. */
 async function loadRules(): Promise<PricingRule[]> {
   try {
-    return JSON.parse(await fs.readFile(RULES_FILE, 'utf8')) as PricingRule[];
+    const list = JSON.parse(await fs.readFile(RULES_FILE, 'utf8')) as PricingRule[];
+    return list.map((r) => ({ ...r, channel: r.channel ?? '턴키' }));
   } catch {
     await saveRules(PRICING_RULES).catch(() => {});
     return PRICING_RULES;
@@ -453,6 +454,27 @@ export const fileRepository: ProjectRepository = {
     await save(records);
   },
 
+  async listLineAxes(actor): Promise<LineAxes[]> {
+    if (actor.role !== 'admin') throw new Error('단가 판정 축 조회는 한백 관리자만 할 수 있습니다.');
+    const records = await load();
+    return records.flatMap((r) =>
+      r.lines.map((l) => ({
+        lineId: l.id,
+        projectId: r.project.id,
+        projectName: r.project.name,
+        cpo: r.project.cpo,
+        bizType: r.project.bizType,
+        bldgType: r.project.bldgType,
+        projectReplType: r.project.replType,
+        termYears: l.termYears,
+        qty: l.qty,
+        powerType: l.powerType,
+        lineReplType: l.replType,
+        pricingRuleId: l.pricingRuleId,
+      }))
+    );
+  },
+
   async listPricingRules(actor): Promise<PricingRule[]> {
     if (actor.role !== 'admin') throw new Error('단가 케이스 조회는 한백 관리자만 할 수 있습니다.');
     return (await loadRules()).sort((a, b) => a.caseName.localeCompare(b.caseName, 'ko'));
@@ -464,6 +486,10 @@ export const fileRepository: ProjectRepository = {
     if (bad.length > 0) throw new Error(bad[0]);
     const rule = normalizePricingRule(input);
     const list = await loadRules();
+    const dup = duplicateOf(rule, list);
+    if (dup) {
+      throw new Error(`같은 조건을 덮는 케이스가 이미 있습니다 — ${dup.caseName}. 개정이라면 적용 시작을 다르게 적어주세요.`);
+    }
     const id = pricingRuleId(rule, new Set(list.map((r) => r.id)));
     list.push({ ...rule, id, active: true });
     await saveRules(list);
@@ -476,6 +502,12 @@ export const fileRepository: ProjectRepository = {
     const rule = list.find((r) => r.id === id);
     if (!rule) throw new Error('없는 단가 케이스입니다.');
     if (rule.active === active) return;
+    if (active) {
+      const dup = duplicateOf(rule, list.filter((r) => r.id !== id));
+      if (dup) {
+        throw new Error(`같은 조건을 덮는 케이스가 이미 있습니다 — ${dup.caseName}. 그쪽을 중지한 뒤 되살려주세요.`);
+      }
+    }
     rule.active = active;
     await saveRules(list);
   },

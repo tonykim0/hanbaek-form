@@ -7,7 +7,7 @@
  * ★없는 축은 조건에서 뺀다.★ 현장 정보가 덜 채워졌다고 후보가 0개가 되면 아무것도 못 고른다 —
  * 아는 축으로만 좁히고, 무엇으로 좁혔는지 화면에 적어 사람이 판단하게 한다.
  */
-import { BUILDING_TYPES, bizTypeOfRepl, CPO_NAMES, REPL_TYPES } from '@/types/project';
+import { BUILDING_TYPES, bizTypeOfRepl, CHANNELS, CPO_NAMES, REPL_TYPES } from '@/types/project';
 import type {
   ContractLine, CpoName, NewPricingRule, PricingRule, Project, ReplType,
 } from '@/types/project';
@@ -71,6 +71,7 @@ export function pricingRuleId(r: NewPricingRule, taken: Set<string>): string {
     r.powerType === '모자분리' ? 'mother' : 'kepco',
     REPL_SLUG[r.replType] ?? 'x',
     r.bldgTypes.length === 2 ? 'both' : r.bldgTypes[0] === '상업시설' ? 'biz' : 'apt',
+    ...(r.channel === '시공만' ? ['gc'] : []),
     String(r.bizYear),
   ].join('-');
   if (!taken.has(part)) return part;
@@ -115,6 +116,9 @@ export function checkPricingRule(r: NewPricingRule): string[] {
   if (!CPO_NAMES.includes(r.cpo)) bad.push('운영사가 목록에 없습니다.');
   if (!POWER_CASES.includes(r.powerType)) bad.push('수전방식은 한전불입 · 모자분리 중 하나여야 합니다.');
   if (!REPL_TYPES.includes(r.replType)) bad.push('교체유형이 목록에 없습니다.');
+  if (!CHANNELS.includes(r.channel)) bad.push('채널은 턴키 · 시공만 중 하나여야 합니다.');
+  // 시공만은 영업이 없는 계약이다 — 영업단가가 붙어 있으면 어느 쪽인지 알 수 없는 케이스가 된다
+  if (r.channel === '시공만' && r.salesUnit > 0) bad.push('시공만 케이스는 영업단가가 0 이어야 합니다.');
 
   if (!Array.isArray(r.termYears) || r.termYears.length === 0) {
     bad.push('계약연수를 하나 이상 고르세요.');
@@ -139,6 +143,57 @@ export function checkPricingRule(r: NewPricingRule): string[] {
     bad.push('사업연도를 확인해주세요.');
   }
   return bad;
+}
+
+/* ── MECE — 원자 칸과 적용 시작 ─────────────────────────────────────────────
+ * 케이스 한 행은 원자 칸(교체유형 × 수전방식 × 연수 × 건축물유형 × 채널) 여러 개를 덮는
+ * 「블록」이다. MECE 는 행이 아니라 칸에서 성립해야 한다:
+ *
+ *   ME — 같은 운영사의 활성 케이스 두 개가 같은 칸을 같은 적용 시작으로 덮으면 중복이다.
+ *        적용 시작이 다르면 개정이다 — 반년마다 단가가 바뀌고, 현장은 계약 시기의 단가를
+ *        따르므로 옛 케이스도 활성인 채 남는다. 시간축까지 넣어야 「하나뿐」이 성립한다.
+ *   CE — 어느 칸이 비었는지는 화면(운영사별 그리드)과 막힌 라인 목록이 보인다.
+ */
+
+/** 케이스가 덮는 원자 칸들 — 채널·교체유형·수전은 행에 하나라 연수 × 유형만 곱한다 */
+export function cellsOf(r: Pick<NewPricingRule, 'replType' | 'powerType' | 'termYears' | 'bldgTypes' | 'channel'>): string[] {
+  return r.termYears.flatMap((t) =>
+    r.bldgTypes.map((b) => `${r.replType}|${r.powerType}|${t}|${b}|${r.channel}`)
+  );
+}
+
+/**
+ * 적용 시작을 견줄 수 있는 값으로 — 「2026년 1월 20일」「2026년 8월」「2026년」 전부 읽는다.
+ * 글자 그대로 견주면 「10월」이 「2월」보다 앞선다. 못 읽으면 사업연도만 쓴다.
+ */
+export function startKey(r: Pick<NewPricingRule, 'startDate' | 'bizYear'>): string {
+  const half = /(\d{4})년\s*(상|하)반기/.exec(r.startDate);
+  if (half) return `${half[1]}-${half[2] === '상' ? '01' : '07'}-00`;
+  const m = /(\d{4})년(?:\s*(\d{1,2})월)?(?:\s*(\d{1,2})일)?/.exec(r.startDate);
+  if (!m) return `${r.bizYear}-00-00`;
+  const pad = (v: string | undefined) => (v ?? '0').padStart(2, '0');
+  return `${m[1]}-${pad(m[2])}-${pad(m[3])}`;
+}
+
+/**
+ * 이 케이스와 겹치는 활성 케이스 — 있으면 중복이라 넣을 수 없다.
+ * 같은 운영사 · 칸 교집합 · 같은 적용 시작. 시작이 다르면 개정이라 겹쳐도 된다.
+ */
+export function duplicateOf(
+  input: NewPricingRule,
+  existing: PricingRule[]
+): PricingRule | null {
+  const mine = new Set(cellsOf(input));
+  const myStart = startKey(input);
+  return (
+    existing.find(
+      (r) =>
+        r.active &&
+        r.cpo === input.cpo &&
+        startKey(r) === myStart &&
+        cellsOf(r).some((c) => mine.has(c))
+    ) ?? null
+  );
 }
 
 /**

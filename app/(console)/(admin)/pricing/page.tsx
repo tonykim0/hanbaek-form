@@ -16,6 +16,7 @@ import { actorOf, getSessionUser } from '@/lib/auth/session';
 import { redirect } from 'next/navigation';
 import PricingMatrix from '@/components/PricingMatrix';
 import { SETTLEMENT_RULES } from '@/lib/data/seed/settlement-rules';
+import { matchingRules } from '@/lib/pricing-match';
 
 export const metadata = { title: '단가 케이스 — 한백 전기차사업관리' };
 
@@ -23,7 +24,27 @@ export default async function PricingPage() {
   const session = await getSessionUser();
   if (!session) redirect('/login?next=/pricing');
 
-  const rules = await getRepository().listPricingRules(actorOf(session));
+  const actor = actorOf(session);
+  const [rules, axes] = await Promise.all([
+    getRepository().listPricingRules(actor),
+    getRepository().listLineAxes(actor),
+  ]);
+
+  /*
+   * 막힌 라인 — 아직 미지정인데 활성 케이스가 하나도 안 맞는 것.
+   * 이미 지정된 라인은 세지 않는다(케이스가 나중에 중지돼도 계산은 그대로 돈다).
+   * 「모든 현장에 대응한다」의 잣대가 이 목록이다 — 축 공간을 다 채우는 것이 아니라,
+   * 실제로 들어온 라인이 케이스를 못 찾는 순간 여기 나타나 한 번에 채울 수 있으면 된다.
+   */
+  const blockedLines = axes.filter((l) => {
+    if (l.pricingRuleId) return false;
+    const m = matchingRules(
+      { cpo: l.cpo, bizType: l.bizType, replType: l.projectReplType, bldgType: l.bldgType },
+      { termYears: l.termYears, powerType: l.powerType, replType: l.lineReplType },
+      rules
+    );
+    return m.exact.length === 0;
+  });
   /*
    * 정산 규칙 후보는 서버에서 이름만 추려 넘긴다 — 규칙의 단계 금액을 클라이언트 번들에
    * 싣지 않기 위해서다(코드 청크는 로그인 없이도 받아진다).
@@ -32,5 +53,5 @@ export default async function PricingPage() {
     id: r.id,
     name: r.name,
   }));
-  return <PricingMatrix rules={rules} settlementRules={settlementRules} />;
+  return <PricingMatrix rules={rules} settlementRules={settlementRules} blockedLines={blockedLines} />;
 }

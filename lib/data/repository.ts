@@ -12,7 +12,7 @@
  *     전부 보내놓고 화면에서 가리면 안 된다.
  */
 import type {
-  Court, DocStatus, IntakeDraft, NewPricingRule, PayoutRow, PreInstall, PricingRule,
+  Court, DocStatus, IntakeDraft, LineAxes, NewPricingRule, PayoutRow, PreInstall, PricingRule,
   ProcessInfo, ProcessStatus, ProjectDetail, ProjectSummary, Settlement, SettlementSummary,
 } from '@/types/project';
 import type { Actor, Viewer } from '@/lib/auth/types';
@@ -162,6 +162,14 @@ export interface ProjectRepository {
    * 케이스는 불변이라 값을 복사하지 않고 참조만 남긴다 — 지급액은 조회할 때 계산된다.
    */
   setLinePricing(lineId: string, pricingRuleId: string | null, actor: Actor): Promise<void>;
+
+  /**
+   * 모든 계약 라인의 단가 판정 축. [한백 전용]
+   *
+   * 막힌 라인(활성 케이스가 하나도 안 맞는 라인)을 세는 데 쓴다 — 금액은 없다.
+   * 협력사 화면에는 이 조회가 필요 없다.
+   */
+  listLineAxes(actor: Actor): Promise<LineAxes[]>;
 
   /**
    * 단가 케이스 전부. [한백 전용]

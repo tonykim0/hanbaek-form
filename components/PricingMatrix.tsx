@@ -18,26 +18,43 @@
  */
 import { useMemo, useState } from 'react';
 import {
-  BUILDING_TYPES, bizTypeOfRepl, CPO_NAMES, REPL_TYPES,
-  type BuildingType, type CpoName, type PricingRule, type ReplType,
+  BUILDING_TYPES, bizTypeOfRepl, CHANNELS, CPO_NAMES, REPL_TYPES,
+  type BuildingType, type Channel, type CpoName, type LineAxes, type PricingRule, type ReplType,
 } from '@/types/project';
 import { won } from '@/lib/format';
 import { useAction } from '@/lib/use-action';
-import { Badge, Blank, Btn, Choice, Empty, Err, FIELD, PANEL, Tag } from '@/components/ui';
+import { startKey } from '@/lib/pricing-match';
+import { Badge, Blank, Btn, Choice, Err, FIELD, PANEL, Tag } from '@/components/ui';
 
 const POWER_TYPES = ['한전불입', '모자분리'] as const;
 const TERMS = [5, 7, 10] as const;
 
+/** 그리드 칸이나 막힌 라인에서 폼으로 넘기는 축 — 채워진 것만 프리필된다 */
+export interface Prefill {
+  cpo?: CpoName;
+  replType?: ReplType;
+  powerType?: (typeof POWER_TYPES)[number];
+  terms?: number[];
+  bldgs?: BuildingType[];
+  channel?: Channel;
+}
+
 const turnkey = (r: PricingRule) => r.salesUnit + r.consUnit + r.margin;
 
 export default function PricingMatrix({
-  rules, settlementRules,
+  rules, settlementRules, blockedLines,
 }: {
   rules: PricingRule[];
   /** 정산 규칙 후보 — 서버(page)가 넘긴다. 케이스의 제안값으로 붙어 단가 지정 때 현장에 옮겨진다 */
   settlementRules: Array<{ id: string; name: string }>;
+  /** 활성 케이스가 하나도 안 맞는 실제 라인 — 서버(page)가 판정해서 넘긴다 */
+  blockedLines: LineAxes[];
 }) {
-  const [adding, setAdding] = useState(false);
+  /*
+   * 폼은 「어느 축으로 여는가」와 함께 열린다 — 그리드의 빈 칸이나 막힌 라인을 누르면
+   * 그 축이 채워진 채 열린다. null 이면 닫힘. key 로 다시 마운트해 프리필을 확실히 싣는다.
+   */
+  const [adding, setAdding] = useState<Prefill | null>(null);
 
   const live = rules.filter((r) => r.active);
   const stopped = rules.length - live.length;
@@ -59,63 +76,175 @@ export default function PricingMatrix({
         </div>
         {/* 폼이 열리면 감춘다 — 채운 초록이 둘이면 「케이스 넣기」와 헷갈리고,
             이걸 누르면 입력이 통째로 사라진다. 닫는 길은 폼 안의 취소 하나다. */}
-        {!adding && <Btn onClick={() => setAdding(true)}>새 케이스</Btn>}
+        {!adding && <Btn onClick={() => setAdding({})}>새 케이스</Btn>}
       </header>
 
-      {adding && <AddCase settlementRules={settlementRules} onDone={() => setAdding(false)} />}
+      {adding && (
+        <AddCase
+          key={JSON.stringify(adding)}
+          prefill={adding}
+          settlementRules={settlementRules}
+          onDone={() => setAdding(null)}
+        />
+      )}
 
-      <Holes rules={live} />
+      <BlockedLines lines={blockedLines} onFill={setAdding} />
+      <Grid rules={live} onPick={setAdding} />
       <CaseList rules={rules} />
     </div>
   );
 }
 
-/* ── 빈 자리 ──────────────────────────────────────────────────────────────
- * 운영사 × 교체유형만 본다. 축을 다 곱하면 180칸이 되고, 그러면 「0」이 너무 많아
- * 정말 비어 있는 자리가 눈에 안 걸린다. 나머지 축은 아래 표에서 본다.
+/* ── 막힌 라인 ────────────────────────────────────────────────────────────
+ * 「모든 현장에 대응한다」의 잣대는 이 목록이 0건인 것이다. 축 공간(180칸)을 다 채우는
+ * 것이 아니라 — 실제로 들어온 라인이 케이스를 못 찾을 때만 여기 나타난다.
  */
-function Holes({ rules }: { rules: PricingRule[] }) {
-  const count = (cpo: CpoName, repl: ReplType) =>
-    rules.filter((r) => r.cpo === cpo && r.replType === repl).length;
+function BlockedLines({ lines, onFill }: { lines: LineAxes[]; onFill: (p: Prefill) => void }) {
+  if (lines.length === 0) return null;
+  return (
+    <section className={`${PANEL} border-amber-200 p-5 sm:p-6`}>
+      <h2 className="mb-4 text-h3 font-black text-slate-900">
+        막힌 라인 <span className="tabular-nums text-amber-700">{lines.length}건</span>
+      </h2>
+      <div className="flex flex-col divide-y divide-slate-100">
+        {lines.map((l) => {
+          const repl = l.lineReplType ?? l.projectReplType;
+          return (
+            <div key={l.lineId} className="flex flex-wrap items-center gap-x-3 gap-y-1.5 py-2.5">
+              <span className="font-bold text-slate-800">{l.projectName}</span>
+              <span className="flex flex-wrap gap-1">
+                <Tag>{l.cpo}</Tag>
+                {repl ? <Tag>{repl}</Tag> : <Tag tone="warn">교체유형 미지정</Tag>}
+                <Tag>{l.termYears}년 × {l.qty}대</Tag>
+                {l.powerType ? <Tag>{l.powerType}</Tag> : <Tag tone="warn">수전 미지정</Tag>}
+                {l.bldgType ? <Tag>{l.bldgType}</Tag> : <Tag tone="warn">유형 미지정</Tag>}
+              </span>
+              <Btn
+                size="sm"
+                kind="side"
+                className="ml-auto"
+                onClick={() =>
+                  onFill({
+                    cpo: l.cpo,
+                    replType: repl ?? undefined,
+                    powerType: l.powerType ?? undefined,
+                    terms: [l.termYears],
+                    bldgs: l.bldgType ? [l.bldgType] : undefined,
+                  })
+                }
+              >
+                이 축으로 케이스 만들기
+              </Btn>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+/* ── 운영사별 원자 칸 그리드 ──────────────────────────────────────────────
+ * 줄 = 교체유형 × 수전방식(6), 칸 = 연수 × 건축물유형(6). 케이스 한 행이 여러 칸을 덮는
+ * 블록이라, 행 목록만 봐서는 어느 칸이 비었는지 알 수 없다 — 칸으로 펴서 보인다.
+ * 빈 칸은 조용한 「—」다. 진짜 경보는 위의 막힌 라인이 맡는다 — 축 공간 대부분은
+ * 그 조합의 현장이 아직 없어서 비어 있는 것뿐이다.
+ * 칸을 누르면 그 축이 채워진 폼이 열린다. 이미 찬 칸을 누르면 개정(새 적용 시작)이 된다.
+ */
+function Grid({ rules, onPick }: { rules: PricingRule[]; onPick: (p: Prefill) => void }) {
+  const [cpo, setCpo] = useState<CpoName>(CPO_NAMES[0]);
+
+  /* 턴키 채널만 격자에 편다 — 시공만은 드물어 목록에서 본다. 있으면 아래에 개수로 보인다 */
+  const mine = rules.filter((r) => r.cpo === cpo && r.channel === '턴키');
+  const gcCount = rules.filter((r) => r.cpo === cpo && r.channel === '시공만').length;
+
+  /** 칸을 덮는 활성 케이스들 — 최신 적용 시작이 현재값이다 */
+  const at = (repl: ReplType, power: (typeof POWER_TYPES)[number], term: number, bldg: BuildingType) => {
+    const hits = mine
+      .filter((r) =>
+        r.replType === repl && r.powerType === power &&
+        r.termYears.includes(term) && r.bldgTypes.includes(bldg)
+      )
+      .sort((a, b) => startKey(b).localeCompare(startKey(a)));
+    return { now: hits[0] ?? null, versions: hits.length };
+  };
 
   return (
     <section className={`${PANEL} p-5 sm:p-6`}>
-      {/* 설명 문구를 두지 않는다 — 빈 조합이 왜 문제인지는 현장 상세의
-          「단가 미지정 — 계약 확인 불가」 단추가 그 자리에서 말한다(규칙 2·3) */}
-      <h2 className="mb-4 text-h3 font-black text-slate-900">빈 자리</h2>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <h2 className="text-h3 font-black text-slate-900">매트릭스</h2>
+        <div className="flex flex-wrap gap-1">
+          {CPO_NAMES.map((c) => (
+            <Choice key={c} on={cpo === c} onClick={() => setCpo(c)}>{c}</Choice>
+          ))}
+        </div>
+      </div>
 
       <div className="-mx-5 overflow-x-auto px-5 sm:-mx-6 sm:px-6">
-        <table className="w-full min-w-[560px] text-base">
+        <table className="w-full min-w-[880px] text-base">
           <thead className="border-b border-slate-200 bg-slate-50 text-tiny font-bold tracking-[0.06em] text-slate-500">
             <tr>
-              <th className="px-3 py-2.5 text-left">운영사</th>
-              {REPL_TYPES.map((t) => (
-                <th key={t} className="px-3 py-2.5 text-right">{t}</th>
+              <th className="px-3 py-2.5 text-left" rowSpan={2}>교체유형 · 수전</th>
+              {TERMS.map((t) => (
+                <th key={t} colSpan={2} className="border-l border-slate-100 px-3 pt-2 text-center">{t}년</th>
               ))}
+            </tr>
+            <tr>
+              {TERMS.flatMap((t) =>
+                BUILDING_TYPES.map((b) => (
+                  <th key={`${t}-${b}`} className={`px-3 pb-2 text-right font-semibold ${b === '공동주택' ? 'border-l border-slate-100' : ''}`}>
+                    {b === '공동주택' ? '공동' : '상업'}
+                  </th>
+                ))
+              )}
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {CPO_NAMES.map((cpo) => (
-              <tr key={cpo}>
-                <td className="px-3 py-2 font-bold text-slate-800">{cpo}</td>
-                {REPL_TYPES.map((t) => {
-                  const n = count(cpo, t);
-                  return (
-                    <td key={t} className="px-3 py-2 text-right tabular-nums">
-                      {n === 0 ? (
-                        <Empty kind="miss" label="0건" />
-                      ) : (
-                        <span className="font-bold text-slate-700">{n}건</span>
-                      )}
-                    </td>
-                  );
-                })}
-              </tr>
-            ))}
+            {REPL_TYPES.flatMap((repl) =>
+              POWER_TYPES.map((power) => (
+                <tr key={`${repl}-${power}`}>
+                  <td className="whitespace-nowrap px-3 py-2">
+                    <span className="font-bold text-slate-700">{repl}</span>
+                    <span className="ml-1.5 text-tiny text-slate-400">{power}</span>
+                  </td>
+                  {TERMS.flatMap((term) =>
+                    BUILDING_TYPES.map((bldg) => {
+                      const { now, versions } = at(repl, power, term, bldg);
+                      return (
+                        <td key={`${term}-${bldg}`} className={`px-1 py-1 text-right ${bldg === '공동주택' ? 'border-l border-slate-100' : ''}`}>
+                          <button
+                            type="button"
+                            title={now ? `${now.caseName} — 누르면 개정 케이스를 넣는다` : '누르면 이 축으로 케이스를 넣는다'}
+                            onClick={() =>
+                              onPick({ cpo, replType: repl, powerType: power, terms: [term], bldgs: [bldg] })
+                            }
+                            className="w-full rounded-ctl px-2 py-1 text-right tabular-nums transition hover:bg-brand-50"
+                          >
+                            {now ? (
+                              <>
+                                <span className="font-bold text-slate-800">{won(turnkey(now))}</span>
+                                {versions > 1 && (
+                                  <span className="ml-1 text-micro font-bold text-slate-400">×{versions}</span>
+                                )}
+                              </>
+                            ) : (
+                              <span className="font-bold text-slate-300">—</span>
+                            )}
+                          </button>
+                        </td>
+                      );
+                    })
+                  )}
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>
 
+      <p className="mt-2 flex flex-wrap gap-x-4 text-tiny text-slate-400">
+        <span>칸 값은 현재(최신 적용 시작) 턴키 단가 · ×N 은 개정 수</span>
+        {gcCount > 0 && <span>시공만 케이스 {gcCount}건은 아래 목록에</span>}
+      </p>
     </section>
   );
 }
@@ -224,18 +353,20 @@ function Row({ r }: { r: PricingRule }) {
 
 /* ── 새 케이스 ─────────────────────────────────────────────────────────── */
 function AddCase({
-  settlementRules, onDone,
+  prefill, settlementRules, onDone,
 }: {
+  prefill: Prefill;
   settlementRules: Array<{ id: string; name: string }>;
   onDone: () => void;
 }) {
   const { busy, error, run } = useAction();
 
-  const [cpo, setCpo] = useState<CpoName>('플러그링크');
-  const [replType, setReplType] = useState<ReplType>('환경부 신규');
-  const [powerType, setPowerType] = useState<(typeof POWER_TYPES)[number]>('한전불입');
-  const [terms, setTerms] = useState<number[]>([10]);
-  const [bldgs, setBldgs] = useState<BuildingType[]>(['공동주택']);
+  const [cpo, setCpo] = useState<CpoName>(prefill.cpo ?? '플러그링크');
+  const [replType, setReplType] = useState<ReplType>(prefill.replType ?? '환경부 신규');
+  const [powerType, setPowerType] = useState<(typeof POWER_TYPES)[number]>(prefill.powerType ?? '한전불입');
+  const [terms, setTerms] = useState<number[]>(prefill.terms ?? [10]);
+  const [bldgs, setBldgs] = useState<BuildingType[]>(prefill.bldgs ?? ['공동주택']);
+  const [channel, setChannel] = useState<Channel>(prefill.channel ?? '턴키');
   const [bizYear, setBizYear] = useState(new Date().getFullYear());
   const [startDate, setStartDate] = useState('');
   const [salesUnit, setSalesUnit] = useState('');
@@ -259,24 +390,27 @@ function AddCase({
   const caseName = useMemo(() => {
     const bldg = bldgs.length === 2 ? '전체' : (bldgs[0] ?? '');
     const since = startDate.trim() || `${bizYear}년`;
-    return `${cpo} (${since}) | ${bldg} | ${terms.join('·')}년 ${replType} | ${powerType}`;
-  }, [cpo, bldgs, terms, replType, powerType, startDate, bizYear]);
+    const gc = channel === '시공만' ? ' | 시공만' : '';
+    return `${cpo} (${since}) | ${bldg} | ${terms.join('·')}년 ${replType} | ${powerType}${gc}`;
+  }, [cpo, bldgs, terms, replType, powerType, startDate, bizYear, channel]);
 
   const num = (v: string) => Math.max(0, Math.round(Number(v.replace(/[^0-9]/g, '')) || 0));
   const total = num(salesUnit) + num(consUnit) + num(margin);
+  const gcSales = channel === '시공만' && num(salesUnit) > 0;
 
   const blocked =
     terms.length === 0 ? '계약연수 미선택'
       : bldgs.length === 0 ? '건축물유형 미선택'
         : total === 0 ? '단가 미입력'
-          : bizYear < 2020 || bizYear > 2100 ? '사업연도 확인 필요'
-            : null;
+          : gcSales ? '시공만은 영업단가 0'
+            : bizYear < 2020 || bizYear > 2100 ? '사업연도 확인 필요'
+              : null;
 
   async function save() {
     const ok = await run({
       url: '/api/pricing',
       body: {
-        caseName, cpo, bizType, powerType, termYears: terms, bldgTypes: bldgs, replType,
+        caseName, cpo, bizType, powerType, termYears: terms, bldgTypes: bldgs, replType, channel,
         bizYear, startDate: startDate.trim() || `${bizYear}년`,
         salesUnit: num(salesUnit), consUnit: num(consUnit), margin: num(margin),
         defaultSettlementRuleId: settleId, supervisionBearer: null, safetyFeeBearer: null,
@@ -305,6 +439,16 @@ function AddCase({
             className={FIELD}
           >
             {REPL_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+          </select>
+        </Field>
+
+        <Field label="채널" hint="영업 없이 시공만 하는 현장은 단가 구성이 다르다">
+          <select
+            value={channel}
+            onChange={(e) => setChannel(e.target.value as Channel)}
+            className={FIELD}
+          >
+            {CHANNELS.map((c) => <option key={c} value={c}>{c}</option>)}
           </select>
         </Field>
 

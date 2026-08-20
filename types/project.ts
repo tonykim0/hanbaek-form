@@ -44,6 +44,17 @@ export type ReplType = '환경부 신규' | '자체투자 (제자리교체)' | '
 export const REPL_TYPES = [
   '환경부 신규', '자체투자 (제자리교체)', '자체투자 (신규위치)',
 ] as const satisfies readonly ReplType[];
+
+/**
+ * 케이스의 채널 — 한백이 그 현장에서 맡는 범위.
+ *
+ * 턴키가 기본이고, 영업 없이 시공만 하는 현장은 단가 구성이 다르다(영업단가 0).
+ * 예전에는 이것이 축에 없어서 「시공만」이 케이스 이름에만 적혀 있었다 — 그래서
+ * 영업사가 있는 현장의 후보 목록에 영업 0원짜리가 「조건이 맞는 케이스」로 섞였다.
+ * 현장 데이터로 유도하지 않는다 — 영업사 null 은 「없음」이 아니라 「아직 미지정」일 수 있다.
+ */
+export type Channel = '턴키' | '시공만';
+export const CHANNELS = ['턴키', '시공만'] as const satisfies readonly Channel[];
 export type BizType = '환경부' | '자체투자';
 
 /** 교체유형이 사업구분을 정한다 — 따로 고르게 두면 두 값이 어긋난다 */
@@ -183,6 +194,7 @@ export interface PricingRule {
   termYears: number[];
   bldgTypes: BuildingType[];
   replType: ReplType;
+  channel: Channel;
   bizYear: number;
   startDate: string;
   salesUnit: number;
@@ -203,6 +215,25 @@ export interface PricingRule {
  * 이미 다른 현장이 참조하는 케이스를 덮어쓴다. active 도 없다 — 만들면 쓰는 것이다.
  */
 export type NewPricingRule = Omit<PricingRule, 'id' | 'active'>;
+
+/**
+ * 단가 판정에 쓰이는 라인 한 줄의 축 — 막힌 라인을 세는 데 쓴다. [한백 전용 조회]
+ * 금액은 없다. 축과 참조뿐이다.
+ */
+export interface LineAxes {
+  projectId: string;
+  projectName: string;
+  lineId: string;
+  cpo: CpoName;
+  bizType: BizType | null;
+  bldgType: BuildingType | null;
+  projectReplType: ReplType | null;
+  termYears: number;
+  qty: number;
+  powerType: Exclude<PowerType, '한전불입+모자분리'> | null;
+  lineReplType: ReplType | null;
+  pricingRuleId: string | null;
+}
 
 export interface ContractLine {
   id: string;

@@ -44,7 +44,7 @@ async function seedRules() {
     PRICING_RULES.map((r) => ({
       id: r.id, caseName: r.caseName, cpo: r.cpo, bizType: r.bizType,
       powerType: r.powerType, termYears: r.termYears, bldgTypes: r.bldgTypes,
-      replType: r.replType, bizYear: r.bizYear, startDate: r.startDate,
+      replType: r.replType, channel: r.channel, bizYear: r.bizYear, startDate: r.startDate,
       salesUnit: r.salesUnit, consUnit: r.consUnit, margin: r.margin,
       defaultSettlementRuleId: r.defaultSettlementRuleId,
       supervisionBearer: r.supervisionBearer, safetyFeeBearer: r.safetyFeeBearer,
@@ -91,8 +91,8 @@ async function seedRules() {
   }
 
   const axisOf = (r: { cpo: string; bizType: string; powerType: string; replType: string;
-    termYears: unknown; bldgTypes: unknown }) =>
-    [r.cpo, r.bizType, r.powerType, r.replType,
+    channel: string; termYears: unknown; bldgTypes: unknown }) =>
+    [r.cpo, r.bizType, r.powerType, r.replType, r.channel,
       JSON.stringify(r.termYears), JSON.stringify(r.bldgTypes)].join('|');
 
   const axis = PRICING_RULES.filter((seed) => {
@@ -123,7 +123,7 @@ async function seedRules() {
       console.warn(`    ${d.id}  DB(${axisOf(row)}) → 시드(${axisOf(d)})`);
       await db.update(pricingRules).set({
         cpo: d.cpo, bizType: d.bizType, powerType: d.powerType, replType: d.replType,
-        termYears: d.termYears, bldgTypes: d.bldgTypes, caseName: d.caseName,
+        channel: d.channel, termYears: d.termYears, bldgTypes: d.bldgTypes, caseName: d.caseName,
       }).where(eq(pricingRules.id, d.id));
     }
   }

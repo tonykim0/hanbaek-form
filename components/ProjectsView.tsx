@@ -13,7 +13,8 @@
  * 자료는 이미 브라우저에 다 있으므로 거르는 일은 서버에 다시 묻지 않는다.
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
+import { useAction } from '@/lib/use-action';
 import type { ProcessStatus, ProjectSummary } from '@/types/project';
 import { type BoardColumn } from '@/lib/board';
 import {
@@ -41,7 +42,6 @@ export default function ProjectsView({
   /** 단계를 옮길 수 있는가 (한백만) */
   canMove: boolean;
 }) {
-  const router = useRouter();
   const sp = useSearchParams();
 
   const [view, setView] = useState<ViewKey>(() => (sp.get('view') === 'table' ? 'table' : 'board'));
@@ -64,8 +64,8 @@ export default function ProjectsView({
 
   /** 옮기는 중인 카드의 임시 위치 — 서버가 다시 그려주기 전까지 손을 따라간다 */
   const [moved, setMoved] = useState<Record<string, ProcessStatus>>({});
-  const [busyId, setBusyId] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  // 카드마다 각자 도니 어느 카드인지 알아야 한다 — busyKey 가 그 카드 id 다
+  const { busyKey, error, run } = useAction();
 
   // 주소에 남긴다. replaceState 라서 서버를 다시 부르지 않고 뒤로가기 이력도 안 쌓인다.
   useEffect(() => {
@@ -102,29 +102,22 @@ export default function ProjectsView({
   const move = useCallback(
     async (card: ProjectSummary, status: ProcessStatus) => {
       setMoved((m) => ({ ...m, [card.id]: status }));
-      setBusyId(card.id);
-      setError(null);
-      try {
-        const res = await fetch(`/api/projects/${card.id}/status`, {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ status }),
-        });
-        const data = (await res.json().catch(() => ({}))) as { error?: string };
-        if (!res.ok) throw new Error(data.error ?? '옮기지 못했습니다.');
-        router.refresh();
-      } catch (err) {
-        // 임시 위치를 지운다 — 옛 값을 써 넣으면 서버가 그 값으로 오지 않는 한 계속 남는다
+      const ok = await run({
+        url: `/api/projects/${card.id}/status`,
+        body: { status },
+        fail: '옮기지 못했습니다.',
+        key: card.id,
+        label: card.name,
+      });
+      // 임시 위치를 지운다 — 옛 값을 써 넣으면 서버가 그 값으로 오지 않는 한 계속 남는다
+      if (!ok) {
         setMoved((m) => {
           const { [card.id]: _drop, ...rest } = m;
           return rest;
         });
-        setError(`${card.name} — ${(err as Error).message}`);
-      } finally {
-        setBusyId(null);
       }
     },
-    [router]
+    [run]
   );
 
   /** 축별로 고를 수 있는 값 — 이 사람 화면에 있는 값만 나온다 */
@@ -274,13 +267,13 @@ export default function ProjectsView({
       )}
 
       {view === 'board' ? (
-        <ProjectBoard projects={filtered} canMove={canMove} onMove={move} busyId={busyId} />
+        <ProjectBoard projects={filtered} canMove={canMove} onMove={move} busyId={busyKey} />
       ) : (
         <ProjectTable
           projects={filtered}
           canMove={canMove}
           onMove={move}
-          busyId={busyId}
+          busyId={busyKey}
           filters={attrs}
           options={options}
           onFilter={setAttr}

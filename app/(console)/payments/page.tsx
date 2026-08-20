@@ -1,3 +1,4 @@
+import { won } from '@/lib/format';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { getRepository } from '@/lib/data';
@@ -19,7 +20,6 @@ export const metadata = { title: '지급 명세 — 한백 전기차사업관리
  * 달은 지급일 기준이다. 지급일이 없는 줄은 아직 안 나간 것이라 달에 묶이지 않고
  * 「예정」으로 따로 모인다 — 그것이 실제로 챙길 목록이다.
  */
-const won = (n: number) => n.toLocaleString('ko-KR');
 const NO_ORG = '받는 곳 미지정';
 
 export default async function PaymentsPage({

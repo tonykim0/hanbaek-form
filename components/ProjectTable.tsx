@@ -14,7 +14,7 @@
  * 끌기만 있으면 마우스 없이는 아무것도 못 옮긴다.
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useAction } from '@/lib/use-action';
 import Link from 'next/link';
 import type { ProcessStatus, ProjectSummary } from '@/types/project';
 import { PROCESS_STATUSES } from '@/types/project';
@@ -237,9 +237,7 @@ export default function ProjectTable({
  * 칸을 떠날 때 저장한다. 글자마다 저장하면 「2026-5」 같은 반쪽 값이 계속 올라간다.
  */
 function QueueCell({ p, canEdit }: { p: ProjectSummary; canEdit: boolean }) {
-  const router = useRouter();
-  const [busy, setBusy] = useState(false);
-  const [failed, setFailed] = useState(false);
+  const { busy, error, run } = useAction();
 
   if (!canEdit) {
     return (
@@ -252,21 +250,11 @@ function QueueCell({ p, canEdit }: { p: ProjectSummary; canEdit: boolean }) {
   async function save(value: string) {
     const next = value.trim() === '' ? null : value.trim();
     if (next === p.envQueueNo) return;
-    setBusy(true);
-    setFailed(false);
-    try {
-      const res = await fetch(`/api/projects/${p.id}/env-queue`, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ value: next }),
-      });
-      if (!res.ok) throw new Error();
-      router.refresh();
-    } catch {
-      setFailed(true);
-    } finally {
-      setBusy(false);
-    }
+    await run({
+      url: `/api/projects/${p.id}/env-queue`,
+      body: { value: next },
+      fail: '저장하지 못했습니다.',
+    });
   }
 
   return (
@@ -275,12 +263,14 @@ function QueueCell({ p, canEdit }: { p: ProjectSummary; canEdit: boolean }) {
       defaultValue={p.envQueueNo ?? ''}
       placeholder="2026-595"
       disabled={busy}
+      /* 표 칸에는 문구를 놓을 자리가 없다 — 빨간 테두리로 알리고 이유는 마우스를 올리면 나온다 */
+      title={error ?? undefined}
       onBlur={(e) => void save(e.target.value)}
       onKeyDown={(e) => {
         if (e.key === 'Enter') e.currentTarget.blur();
       }}
       className={`w-[104px] rounded-lg border px-2 py-1 text-[12px] tabular-nums transition placeholder:text-slate-300 focus:outline-none focus:ring-2 focus:ring-brand-100 ${
-        failed
+        error
           ? 'border-red-400 text-red-800'
           : p.envQueueNo
             ? 'border-slate-200 text-slate-800'

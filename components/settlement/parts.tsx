@@ -7,8 +7,9 @@
  * 다르게 생겨서, 두 화면을 번갈아 보는 사람이 매번 다시 읽어야 한다.
  */
 import Link from 'next/link';
+import { won } from '@/lib/format';
 
-export const won = (n: number) => n.toLocaleString('ko-KR');
+export { won };
 
 export function SiteLink({ id, name }: { id: string; name: string }) {
   return (

@@ -50,3 +50,6 @@ export function matchingRules(
   const exactIds = new Set(exact.map((r) => r.id));
   return { exact, others: sameCpo.filter((r) => !exactIds.has(r.id)), usedAxes };
 }
+
+/** 라인 id → 그 라인에 붙일 수 있는 단가 케이스 */
+export type RuleOptions = Record<string, RuleMatch>;

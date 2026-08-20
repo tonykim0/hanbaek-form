@@ -14,7 +14,7 @@
  * 잊으면 새로 발급해야 한다.
  */
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useAction } from '@/lib/use-action';
 import type { AccountView } from '@/lib/auth/types';
 import type { Role } from '@/lib/roles';
 
@@ -40,60 +40,38 @@ export default function AccountAdmin({
   meId: string;
   dbReady: boolean;
 }) {
-  const router = useRouter();
+  const { busy, error, run } = useAction();
   const [role, setRole] = useState<Role>('sales');
   const [id, setId] = useState('');
   const [name, setName] = useState('');
   const [org, setOrg] = useState('');
   const [password, setPassword] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    setBusy(true);
-    setError(null);
     setDone(null);
-    try {
-      const res = await fetch('/api/admin/accounts', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ id, name, role, org, password }),
-      });
-      const data = (await res.json().catch(() => ({}))) as { error?: string };
-      if (!res.ok) throw new Error(data.error ?? '계정을 만들지 못했습니다.');
-      setDone(`${id} 계정을 만들었습니다.`);
-      setId('');
-      setName('');
-      setOrg('');
-      setPassword('');
-      router.refresh();
-    } catch (err) {
-      setError((err as Error).message);
-    } finally {
-      setBusy(false);
-    }
+    const ok = await run({
+      url: '/api/admin/accounts',
+      body: { id, name, role, org, password },
+      fail: '계정을 만들지 못했습니다.',
+    });
+    if (!ok) return;
+    setDone(`${id} 계정을 만들었습니다.`);
+    setId('');
+    setName('');
+    setOrg('');
+    setPassword('');
   }
 
-  async function toggle(account: AccountView) {
-    setBusy(true);
-    setError(null);
-    try {
-      const res = await fetch('/api/admin/accounts', {
-        method: 'PATCH',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ id: account.id, active: !account.active }),
-      });
-      const data = (await res.json().catch(() => ({}))) as { error?: string };
-      if (!res.ok) throw new Error(data.error ?? '바꾸지 못했습니다.');
-      router.refresh();
-    } catch (err) {
-      setError((err as Error).message);
-    } finally {
-      setBusy(false);
-    }
-  }
+  const toggle = (account: AccountView) =>
+    void run({
+      url: '/api/admin/accounts',
+      method: 'PATCH',
+      body: { id: account.id, active: !account.active },
+      fail: '바꾸지 못했습니다.',
+      label: account.id,
+    });
 
   return (
     <div className="flex flex-col gap-7">

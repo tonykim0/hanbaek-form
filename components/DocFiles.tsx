@@ -8,7 +8,7 @@
  * Blob 에 저장된 이름은 중복 회피용 접미사가 붙어 있어 그대로 주면 알아보기 어렵다.
  */
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useAction } from '@/lib/use-action';
 import JSZip from 'jszip';
 import type { ProjectDocument } from '@/types/project';
 import { downloadBlob } from '@/lib/download';
@@ -105,27 +105,16 @@ export function DocDelete({
   label: string;
   filename: string | null;
 }) {
-  const router = useRouter();
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { busy, error, run } = useAction();
 
   async function remove() {
-    if (!window.confirm(`「${label}」 칸을 지웁니다. 파일(${filename ?? '없음'})도 함께 사라지고 되돌릴 수 없습니다.`)) {
-      return;
-    }
-    setBusy(true);
-    setError(null);
-    try {
-      const res = await fetch(`/api/projects/${projectId}/documents/${kind}`, { method: 'DELETE' });
-      if (!res.ok) {
-        const b = (await res.json().catch(() => ({}))) as { error?: string };
-        setError(b.error ?? '지우지 못했습니다.');
-        return;
-      }
-      router.refresh();
-    } finally {
-      setBusy(false);
-    }
+    const warn = `「${label}」 칸을 지웁니다. 파일(${filename ?? '없음'})도 함께 사라지고 되돌릴 수 없습니다.`;
+    if (!window.confirm(warn)) return;
+    await run({
+      url: `/api/projects/${projectId}/documents/${kind}`,
+      method: 'DELETE',
+      fail: '지우지 못했습니다.',
+    });
   }
 
   return (

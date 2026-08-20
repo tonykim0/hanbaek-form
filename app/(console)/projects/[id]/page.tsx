@@ -1,11 +1,10 @@
 import { notFound } from 'next/navigation';
-import ProjectDetailView from '@/components/ProjectDetailView';
+import ProjectDetailView from '@/components/project/DetailView';
 import { getRepository } from '@/lib/data';
 import { getSessionUser, viewerOf } from '@/lib/auth/session';
 import { effectiveVisibility } from '@/lib/roles';
-import { matchingRules } from '@/lib/pricing-match';
+import { matchingRules, type RuleOptions } from '@/lib/pricing-match';
 import { knownOrgs } from '@/lib/orgs';
-import type { RuleOptions } from '@/components/ProjectDetailView';
 import { redirect } from 'next/navigation';
 
 export async function generateMetadata({ params }: { params: { id: string } }) {

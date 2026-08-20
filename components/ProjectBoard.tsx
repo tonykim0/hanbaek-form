@@ -87,8 +87,9 @@ export default function ProjectBoard({
   /*
    * 띠마다 줄을 바꾼다.
    *
-   * 여덟 칸을 한 줄로 늘어놓으면 창보다 넓어서 뒤쪽 칸이 화면 밖에 있다.
+   * 열한 칸을 한 줄로 늘어놓으면 창보다 넓어서 뒤쪽 칸이 화면 밖에 있다.
    * 「어떤 현장이 어느 단계인가」를 답할 화면인데 단계 절반이 안 보이면 답을 못 한다.
+   * 줄로 끊고 그 줄 안에서 칸이 폭을 나눠 채운다(아래 gridTemplateColumns).
    *
    * 칸 안쪽은 따로 스크롤한다. 한 칸에 60건이 쌓여도 그 칸만 길어지고 아래 줄은
    * 제자리에 있어야 한다 — 안 그러면 계약 칸이 부풀어 시공 줄을 화면 밖으로 밀어낸다.
@@ -112,9 +113,31 @@ export default function ProjectBoard({
               <span className="text-[11px] font-bold tabular-nums text-slate-400">{total}건</span>
             </header>
 
-            {/* 좁은 화면에서는 이 줄만 가로로 밀린다 — 창을 넘길 때 줄 단위로 끊긴다 */}
+            {/*
+              * 칸이 줄의 폭을 나눠 채운다.
+              *
+              * 예전에는 칸이 272px 고정이라 계약 5칸이 1400px 을 넘겼고, 창이 그보다 좁으면
+              * 뒤쪽 칸이 화면 밖에 있었다 — 「어떤 현장이 어느 단계인가」를 답할 화면인데
+              * 단계 절반이 안 보이면 답을 못 한다.
+              *
+              * minmax(200px, 1fr) 이라 넓은 창에서는 칸이 늘어 폭을 정확히 채우고,
+              * 200px×칸수보다 좁아지면 그때만 이 줄이 가로로 밀린다.
+              *
+              * 칸 수가 줄마다 다르므로(계약 5 · 시공 5 · 멈춤 1) 인라인 스타일로 넘긴다 —
+              * Tailwind 는 grid-cols-${n} 같은 동적 클래스를 만들지 못한다.
+              *
+              * 두 칸 이하인 줄은 늘리지 않는다. 「보류」 한 칸이 화면을 다 차지하면
+              * 그게 이 화면에서 제일 중요한 것처럼 보인다.
+              */}
             <div className="-mx-5 overflow-x-auto px-5 pb-1 sm:-mx-6 sm:px-6">
-              <div className="flex min-w-max gap-3">
+              <div
+                className="grid gap-3"
+                style={{
+                  gridTemplateColumns: `repeat(${cols.length}, minmax(200px, ${
+                    cols.length >= 3 ? '1fr' : '320px'
+                  }))`,
+                }}
+              >
                 {cols.map((col) => {
                   const list = columns.get(col.key) ?? [];
                   const droppable = canDrop(col.key);
@@ -130,8 +153,7 @@ export default function ProjectBoard({
                         e.preventDefault();
                         drop(col.key);
                       }}
-                      /* 칸 폭 — 현장 이름이 한 줄에 들어가야 한다. 208px 에서는 「전북 전주태평에스케이뷰아파트」가 세 줄로 접혔다. */
-                      className={`flex w-[272px] shrink-0 flex-col rounded-2xl border p-2.5 transition ${
+                      className={`flex min-w-0 flex-col rounded-2xl border p-2.5 transition ${
                         droppable
                           ? 'border-brand-400 bg-brand-50/70 ring-2 ring-brand-200'
                           : rejecting

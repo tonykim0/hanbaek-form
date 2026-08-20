@@ -47,7 +47,7 @@ export default async function StatementPage({
           href={`/payments?month=${date.slice(0, 7)}`}
           className="text-small font-bold text-slate-500 transition hover:text-brand-800"
         >
-          ← 지급 명세
+          ← 지급 내역
         </Link>
         <span className="ml-auto" />
         <PrintButton />

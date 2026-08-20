@@ -82,13 +82,13 @@ const GROUPS: Group[] = [
   },
   {
     /*
-     * 정산은 한백만 보는 묶음이었다. 지급 명세만 협력사에게도 연다 —
+     * 정산은 한백만 보는 묶음이었다. 지급 내역만 협력사에게도 연다 —
      * 자기가 언제 얼마 받는지는 물어보지 않고도 알아야 한다.
      * 기성(운영사에게서 받는 돈)과 지급 관리(전체)는 한백만 본다.
      */
     label: '정산',
     items: [
-      { href: '/payments', label: '지급 명세', short: '명세' },
+      { href: '/payments', label: '지급 내역', short: '내역' },
       { href: '/payouts', label: '하도급사 지급', short: '지급', adminOnly: true },
       { href: '/receivables', label: '운영사 기성', short: '기성', adminOnly: true },
       // 지급액의 뿌리 — 케이스가 없으면 위 두 화면의 금액도 없다

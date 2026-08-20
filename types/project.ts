@@ -571,20 +571,23 @@ export interface ProjectNote {
  * ★협력사에게도 나간다.★ 그래서 마진·기성은 여기 없다. 자기가 받는 쪽 줄만 받는다 —
  * 영업만 맡은 회사에게 시공비 줄을 보내지 않는다(effectiveVisibility).
  */
+/**
+ * 지급 내역 한 줄 — 원장의 지급 한 건이다. 나간(지급 확정된) 돈만 온다.
+ * 아직 안 나간 몫은 여기 없다 — 잔액은 하도급사 지급관리(/payouts)가 센다.
+ */
 export interface PayoutRow {
   projectId: string;
   projectName: string;
   cpo: CpoName;
-  qty: number;
   /** 받는 곳. null 이면 아직 정해지지 않았다. */
   org: string | null;
   kind: PayoutKind;
-  /** 명목 — 원장 줄이면 category, 아직 안 나간 몫이면 '잔여' */
+  /** 명목 — 원장의 category */
   label: string;
-  /** 원장 줄은 실지급액(부호 있음), 잔여 줄은 남은 금액 */
+  /** 실지급액(부호 있음 — 회수는 음수) */
   amount: number;
-  /** 지급일. 잔여 줄은 null — 아직 안 나갔다. */
-  paidAt: string | null;
+  /** 지급일 */
+  paidAt: string;
   note: string | null;
 }
 

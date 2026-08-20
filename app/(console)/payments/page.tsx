@@ -7,17 +7,18 @@ import { getRepository } from '@/lib/data';
 import { getSessionUser, viewerOf } from '@/lib/auth/session';
 import type { PayoutRow } from '@/types/project';
 
-export const metadata = { title: '지급 명세 — 한백 전기차사업관리' };
+export const metadata = { title: '지급 내역 — 한백 전기차사업관리' };
 
 /**
- * 지급 명세 — 이 달에 어디로 어떤 명목으로 얼마가 나갔나.
+ * 지급 내역 — 어디로 어떤 명목으로 월별로 얼마가 나갔나.
  *
- * 줄은 원장의 지급 한 건이다. 예전에는 계획액(단가 × 70/30)을 줄로 만들었는데, 실제로
- * 나간 돈은 계획과 어긋난다(선금·차액·회수) — 명세가 거짓이 되는 구조였다. 지금은
- * 나간 돈이 그대로 줄이 되고, 아직 안 나간 몫은 「잔여」로 따로 모인다.
+ * ★나간(지급 확정된) 돈만 다룬다.★ 아직 안 나간 몫은 여기 없다 — 그것은 지급할 일이고,
+ * 하도급사 지급관리(/payouts)의 자리다. 두 화면에 두면 「안 나간 돈」이 두 숫자가 된다.
+ *
+ * 위가 월별 그래프(영업비·시공비 추세), 아래가 누른 달의 상세다 — 업체별로 묶여
+ * 어느 현장으로 어떤 명목이 얼마·언제 나갔는지 줄로 선다. 줄은 원장의 지급 한 건이다.
  *
  * ★협력사도 본다.★ 그래서 마진·기성이 없고, 자기가 받는 쪽 줄만 나간다(listPayouts).
- * 한백은 협력사별로 묶어 본다.
  *
  * 거래명세서는 업체 × 지급일 단위다 — 지급이 매월 1~2회 배치로 나가므로, 배치 하나가
  * 명세서 한 장이 된다. 각 묶음 머리글의 지급일 단추가 그 장으로 간다.
@@ -37,19 +38,18 @@ export default async function PaymentsPage({
   const thisMonth = seoulMonth();
   const month = /^\d{4}-\d{2}$/.test(searchParams.month ?? '') ? searchParams.month! : thisMonth;
 
-  const paid = rows.filter((r) => r.paidAt?.startsWith(month));
-  const planned = rows.filter((r) => !r.paidAt && r.amount > 0);
+  const paid = rows.filter((r) => r.paidAt.startsWith(month));
   /** 협력사용 거래명세서 길 — 자기 것뿐이라 묶음 머리글이 없어서 여기에 둔다 */
   const myDates = isAdmin
     ? []
-    : [...new Set(paid.map((r) => r.paidAt!.slice(0, 10)))].sort();
+    : [...new Set(paid.map((r) => r.paidAt.slice(0, 10)))].sort();
 
   /*
    * 월별 흐름 — 첫 지급이 있던 달부터 이번 달(또는 마지막 지급 달)까지 빈 달 없이 잇는다.
    * 지급이 없는 달이 빠지면 추세가 실제보다 매끈해 보인다. 열은 24개까지만 —
    * 잘못 찍힌 먼 미래 날짜 하나가 축을 못 쓰게 만들지 않게 한다.
    */
-  const paidMonths = rows.map((r) => r.paidAt?.slice(0, 7)).filter(Boolean) as string[];
+  const paidMonths = rows.map((r) => r.paidAt.slice(0, 7));
   const first = paidMonths.length > 0 ? [...paidMonths].sort()[0] : thisMonth;
   const last = [thisMonth, ...paidMonths, month].sort().slice(-1)[0];
   const series: MonthBar[] = [];
@@ -58,7 +58,7 @@ export default async function PaymentsPage({
   }
   const barBy = new Map(series.map((b) => [b.month, b]));
   for (const r of rows) {
-    const bar = r.paidAt && barBy.get(r.paidAt.slice(0, 7));
+    const bar = barBy.get(r.paidAt.slice(0, 7));
     if (!bar) continue;
     if (r.kind === '영업비') bar.sales += r.amount;
     else bar.cons += r.amount;
@@ -69,7 +69,7 @@ export default async function PaymentsPage({
   return (
     <div className="flex flex-col gap-6">
       <header className="flex flex-wrap items-end justify-between gap-4">
-        <h1 className="text-h1 font-black text-slate-900">지급 명세</h1>
+        <h1 className="text-h1 font-black text-slate-900">지급 내역</h1>
         <nav aria-label="달" className="flex items-center gap-1">
           <Link
             href={`/payments?month=${shift(-1)}`}
@@ -118,15 +118,6 @@ export default async function PaymentsPage({
         title={`${month.replace('-', '년 ')}월 지급`}
         rows={paid}
         isAdmin={isAdmin}
-        empty="이 달에 나간 지급이 없습니다"
-        showDate
-      />
-
-      <Block
-        title="아직 안 나간 지급"
-        rows={planned}
-        isAdmin={isAdmin}
-        empty="안 나간 지급이 없습니다"
       />
     </div>
   );
@@ -139,13 +130,11 @@ export default async function PaymentsPage({
  * 그래서 묶는 규칙은 같고 개수만 달라진다. 화면을 두 벌로 만들지 않는다.
  */
 function Block({
-  title, rows, isAdmin, empty, showDate = false,
+  title, rows, isAdmin,
 }: {
   title: string;
   rows: PayoutRow[];
   isAdmin: boolean;
-  empty: string;
-  showDate?: boolean;
 }) {
   const total = rows.reduce((n, r) => n + r.amount, 0);
   const kindSum = (kind: PayoutRow['kind']) =>
@@ -168,7 +157,7 @@ function Block({
       <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="text-h3 font-black text-slate-900">{title}</h2>
         <span className="flex flex-wrap items-baseline gap-3">
-          {showDate && rows.length > 0 && (
+          {rows.length > 0 && (
             <span className="text-tiny font-bold text-slate-500 tabular-nums">
               영업비 {won(kindSum('영업비'))} · 시공비 {won(kindSum('시공비'))}
             </span>
@@ -182,7 +171,7 @@ function Block({
 
       {rows.length === 0 ? (
         <p className="rounded-box border border-dashed border-slate-200 py-8 text-center text-base text-slate-400">
-          {empty}
+          이 달에 나간 지급이 없습니다
         </p>
       ) : (
         <div className="flex flex-col gap-4">
@@ -196,8 +185,8 @@ function Block({
                   </h3>
                   <span className="text-tiny text-slate-400">{list.length}건</span>
                   {/* 거래명세서는 업체 × 지급일(배치) 한 장 — 이 묶음에 있는 배치마다 길을 둔다 */}
-                  {showDate && org !== NO_ORG
-                    && [...new Set(list.map((r) => r.paidAt!.slice(0, 10)))].sort().map((d) => (
+                  {org !== NO_ORG
+                    && [...new Set(list.map((r) => r.paidAt.slice(0, 10)))].sort().map((d) => (
                       <Link
                         key={d}
                         href={`/payments/statement?org=${encodeURIComponent(org)}&date=${d}`}
@@ -214,10 +203,10 @@ function Block({
               )}
               <ul className="flex flex-col">
                 {list
-                  .sort((a, b) => (b.paidAt ?? '').localeCompare(a.paidAt ?? '') || a.projectName.localeCompare(b.projectName, 'ko'))
+                  .sort((a, b) => b.paidAt.localeCompare(a.paidAt) || a.projectName.localeCompare(b.projectName, 'ko'))
                   .map((r, i) => (
                     <li
-                      key={`${r.projectId}-${r.kind}-${r.label}-${r.paidAt ?? ''}-${i}`}
+                      key={`${r.projectId}-${r.kind}-${r.label}-${r.paidAt}-${i}`}
                       className="flex flex-wrap items-baseline gap-x-3 gap-y-1 border-b border-slate-100 py-2 last:border-b-0"
                     >
                       <Link
@@ -244,7 +233,7 @@ function Block({
                         {won(r.amount)}
                       </span>
                       <span className="w-24 shrink-0 text-right text-tiny tabular-nums text-slate-400">
-                        {showDate ? r.paidAt : `${r.qty}대`}
+                        {r.paidAt}
                       </span>
                     </li>
                   ))}

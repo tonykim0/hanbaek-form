@@ -38,7 +38,7 @@ export interface ProjectRepository {
   listSettlements(viewer: Viewer): Promise<SettlementSummary[]>;
 
   /**
-   * 지급 명세 — 어느 현장의 무슨 비용 몇 차가 누구에게 얼마.
+   * 지급 내역 — 나간(지급 확정된) 돈만. 어느 현장의 어떤 명목이 누구에게 얼마·언제.
    *
    * listSettlements 와 따로 두는 이유: 이쪽은 협력사도 본다. 그래서 마진·기성이 없고,
    * 자기가 받는 쪽 줄만 나간다(영업만 맡은 회사에게 시공비 줄을 주지 않는다).

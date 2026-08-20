@@ -279,14 +279,13 @@ function stepAt(entries: PayoutEntry[], kind: PayoutEntry['kind'], category: '1�
 }
 
 /**
- * 지급 줄 — 원장의 지급 한 건이 한 줄, 아직 안 나간 몫은 「잔여」 한 줄.
+ * 지급 내역 줄 — 원장의 지급 한 건이 한 줄. 나간 돈만 만든다.
+ * 아직 안 나간 몫은 여기서 만들지 않는다 — 잔액은 지급관리(payoutStepsOf)가 센다.
  *
  * ★보는 사람에 따라 줄이 빠진다.★ 영업만 맡은 회사에게 시공비 줄을 주지 않는다.
  * 화면에서 가리는 것이 아니라 여기서 안 만든다 — 서버가 렌더한 값은 브라우저에 통째로 남는다.
  *
- * 조정(자재비·차감…)은 줄이 되지 않는다 — 나간 돈이 아니라 줘야 할 금액의 변화라서,
- * 잔여 계산(계획 + 조정 − 지급)에만 들어간다.
- *
+ * 조정(자재비·차감…)은 줄이 되지 않는다 — 나간 돈이 아니라 줘야 할 금액의 변화다.
  * 마진·기성은 어느 줄에도 없다. 그것은 한백이 운영사에게서 받는 쪽이고 협력사가 볼 것이 아니다.
  */
 export function payoutRowsOf(r: ProjectRecord, viewer: Viewer, rules: RuleMap): PayoutRow[] {
@@ -297,38 +296,22 @@ export function payoutRowsOf(r: ProjectRecord, viewer: Viewer, rules: RuleMap): 
     projectId: d.project.id,
     projectName: d.project.name,
     cpo: d.project.cpo,
-    qty: d.lines.reduce((n, l) => n + l.qty, 0),
   };
-  const sides: Array<{ kind: PayoutRow['kind']; org: string | null; plan: number; show: boolean }> = [
-    {
-      kind: '영업비', org: d.project.salesOrg, show: vis.sales,
-      plan: d.lines.reduce((n, l) => n + (l.rule?.salesUnit ?? 0) * l.qty, 0),
-    },
-    {
-      kind: '시공비', org: d.project.gcOrg, show: vis.cons,
-      plan: d.lines.reduce((n, l) => n + (l.rule?.consUnit ?? 0) * l.qty, 0),
-    },
+  const sides: Array<{ kind: PayoutRow['kind']; org: string | null; show: boolean }> = [
+    { kind: '영업비', org: d.project.salesOrg, show: vis.sales },
+    { kind: '시공비', org: d.project.gcOrg, show: vis.cons },
   ];
 
   return sides
     .filter((side) => side.show)
-    .flatMap((side) => {
-      const { adjust, paid } = payoutSideOf(d.payoutEntries, side.kind);
-      const rows: PayoutRow[] = d.payoutEntries
+    .flatMap((side) =>
+      d.payoutEntries
         .filter((e) => e.kind === side.kind && entryTypeOf(e.category) === '지급')
         .map((e) => ({
           ...base, kind: side.kind, org: side.org,
           label: e.category, amount: e.amount, paidAt: e.at, note: e.note,
-        }));
-      const remaining = side.plan + adjust - paid;
-      if (remaining > 0) {
-        rows.push({
-          ...base, kind: side.kind, org: side.org,
-          label: '잔여', amount: remaining, paidAt: null, note: null,
-        });
-      }
-      return rows;
-    });
+        }))
+    );
 }
 
 /** 정체일이 큰 순 — 오래 멈춘 현장이 위로 */

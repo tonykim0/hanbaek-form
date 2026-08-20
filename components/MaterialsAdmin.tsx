@@ -334,7 +334,7 @@ export default function MaterialsAdmin({ groups }: { groups: MaterialGroup[] }) 
                                 .filter(Boolean)
                                 .join(' · ')}
                             </p>
-                            <p className="text-[11px] text-gray-300 mt-0.5 truncate">
+                            <p className="text-tiny text-gray-300 mt-0.5 truncate">
                               {f.fileName}
                             </p>
                           </div>

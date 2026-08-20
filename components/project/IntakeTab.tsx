@@ -6,7 +6,7 @@
  * 서류는 필수·조건부·선택 세 묶음으로 나눈다. 「해당없음」칸도 지우지 않는다 —
  * 빠뜨린 것과 원래 필요 없는 것을 구별해야 한다(lib/doc-rules).
  */
-import type { ProjectDetail, ProjectDocument } from '@/types/project';
+import type { ContractState, ProjectDetail, ProjectDocument } from '@/types/project';
 import { evaluateDocs, type DocReq } from '@/lib/doc-rules';
 import { DocDelete, DocFileActions, DocUpload, DownloadAll } from '@/components/DocFiles';
 import { useAction } from '@/lib/use-action';
@@ -101,22 +101,22 @@ function FactGroup({ title, rows }: { title: string; rows: Array<[string, string
 }
 
 export function IntakeTab({
-  project, evaluated, byKind, blocked, allPriced, projectId, siteName, canReview,
-  feeMissing, partyInferred, inferredParty, knownOrgs,
+  project, evaluated, byKind, contract, projectId, siteName, canReview,
+  partyInferred, inferredParty, knownOrgs,
 }: {
   knownOrgs: string[];
   project: ProjectDetail['project'];
   evaluated: ReturnType<typeof evaluateDocs>;
   byKind: Map<string, ProjectDocument>;
-  blocked: boolean;
-  allPriced: boolean;
+  /** 계약 판정 — 서버가 한 것을 그대로 쓴다(lib/stage.ts contractStateOf) */
+  contract: ContractState;
   projectId: string;
   siteName: string;
   canReview: boolean;
-  feeMissing: string[];
   partyInferred: boolean;
   inferredParty: string;
 }) {
+  /* 반려된 것은 사유까지 보여줘야 해서 목록으로 따로 모은다 — 개수는 contract.rejected 다 */
   const rejected = evaluated
     .map((d) => ({ key: d.key, label: d.label, doc: byKind.get(d.key) }))
     .filter((x) => x.doc?.status === 'rejected')
@@ -189,11 +189,11 @@ export function IntakeTab({
               <div key={g.req}>
                 <div className="mb-2 flex items-baseline gap-2">
                   <span aria-hidden className={`h-[3px] w-5 rounded-full ${g.rule}`} />
-                  <h3 className="text-[11px] font-black tracking-[0.1em] text-slate-500">{g.label}</h3>
-                  <span className="text-[11px] font-bold tabular-nums text-slate-400">
+                  <h3 className="text-tiny font-black tracking-[0.1em] text-slate-500">{g.label}</h3>
+                  <span className="text-tiny font-bold tabular-nums text-slate-400">
                     {done}/{list.length}
                   </span>
-                  {g.note && <span className="text-[11px] text-slate-400">{g.note}</span>}
+                  {g.note && <span className="text-tiny text-slate-400">{g.note}</span>}
                 </div>
 
                 <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
@@ -219,10 +219,10 @@ export function IntakeTab({
                             {d.label}
                             {/* 확장자는 남긴다 — 무슨 형식으로 내야 하는지는 협력사가 알아야 한다 */}
                             {d.ext && (
-                              <span className="ml-1.5 text-[10px] font-bold text-slate-400">{d.ext}</span>
+                              <span className="ml-1.5 text-micro font-bold text-slate-400">{d.ext}</span>
                             )}
                           </p>
-                          <span className={`shrink-0 text-[11px] font-black ${st.tone}`}>
+                          <span className={`shrink-0 text-tiny font-black ${st.tone}`}>
                             {st.label}
                           </span>
                         </div>
@@ -233,11 +233,11 @@ export function IntakeTab({
                           * 않는다. 조건이 실제로 미달일 때만 아래 한 줄로 알린다(feeMissing).
                           */}
                         {doc?.uploadedAt && (
-                          <p className="mt-1 text-[11px] text-slate-400">{doc.uploadedAt}</p>
+                          <p className="mt-1 text-tiny text-slate-400">{doc.uploadedAt}</p>
                         )}
 
                         {doc?.rejectReason && (
-                          <p className="mt-2 rounded-lg bg-red-50 px-2 py-1.5 text-[11px] leading-snug text-red-800">
+                          <p className="mt-2 rounded-lg bg-red-50 px-2 py-1.5 text-tiny leading-snug text-red-800">
                             {doc.rejectReason}
                           </p>
                         )}
@@ -286,18 +286,16 @@ export function IntakeTab({
           })}
         </div>
 
-        {feeMissing.length > 0 && (
+        {contract.feeMissing.length > 0 && (
           <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-2.5 text-xs font-semibold text-amber-900">
-            영업비 지급조건 미달 — {feeMissing.join(' · ')}
+            영업비 지급조건 미달 — {contract.feeMissing.join(' · ')}
           </p>
         )}
 
         {canReview && (
           <ConfirmContract
             projectId={projectId}
-            blocked={blocked}
-            allPriced={allPriced}
-            rejectedCount={rejected.length}
+            contract={contract}
             confirmedAt={project.contractConfirmedAt}
           />
         )}
@@ -319,25 +317,25 @@ export function IntakeTab({
  */
 function ConfirmContract({
   projectId,
-  blocked,
-  allPriced,
-  rejectedCount,
+  contract,
   confirmedAt,
 }: {
   projectId: string;
-  blocked: boolean;
-  allPriced: boolean;
-  rejectedCount: number;
+  contract: ContractState;
   confirmedAt: string | null;
 }) {
   const { busy, error, run } = useAction();
 
-  // 무엇이 막고 있는지 버튼 이름에 그대로 적는다 — 안내문을 따로 두지 않는다
-  const reason = rejectedCount > 0
-    ? `반려 ${rejectedCount}건`
-    : blocked
+  /*
+   * 무엇이 막고 있는지 버튼 이름에 그대로 적는다 — 안내문을 따로 두지 않는다.
+   * 눌릴 수 있는지는 contract.ready 하나로 판정한다. 저장소도 같은 값을 보므로
+   * 「버튼은 눌리는데 저장이 거절되는」 일이 없다.
+   */
+  const reason = contract.rejected > 0
+    ? `반려 ${contract.rejected}건`
+    : contract.satisfied < contract.requiredTotal
       ? '필수 서류 미충족'
-      : !allPriced
+      : !contract.allPriced
         ? '단가 미지정'
         : null;
 
@@ -371,7 +369,7 @@ function ConfirmContract({
     <div className="mt-4 flex flex-col gap-1.5">
       <button
         type="button"
-        disabled={busy || reason !== null}
+        disabled={busy || !contract.ready}
         onClick={() => send(true)}
         className="self-start rounded-xl bg-brand-700 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-brand-800 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400"
       >

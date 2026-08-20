@@ -13,7 +13,7 @@ export function Fact({ label, value }: { label: string; value: string | null }) 
   if (!value) return null;
   return (
     <div className="flex items-baseline gap-1.5">
-      <dt className="text-[11px] font-bold tracking-[0.04em] text-slate-400">{label}</dt>
+      <dt className="text-tiny font-bold tracking-[0.04em] text-slate-400">{label}</dt>
       <dd className="font-bold text-slate-800">{value}</dd>
     </div>
   );

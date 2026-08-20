@@ -14,7 +14,7 @@
  */
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
-import type { ProjectDetail } from '@/types/project';
+import type { ContractState, ProjectDetail } from '@/types/project';
 import { buildDocContext, evaluateDocs, isPartyInferred, PROCESS_DOCS } from '@/lib/doc-rules';
 import { bandOfColumn, boardColumnOf, type BoardBand } from '@/lib/board';
 import type { Visibility } from '@/lib/roles';
@@ -71,33 +71,11 @@ export default function ProjectDetailView({
   const byKind = useMemo(() => new Map(documents.map((d) => [d.kind, d])), [documents]);
 
   /*
-   * 검수는 「예외를 걸러내는」 방식이다 — 통과 = 제출됐고 반려되지 않음.
-   * 하나하나 승인하게 만들면 현장 138건 × 서류 16칸 = 2천 번을 눌러야 한다.
-   * 판정 기준은 lib/stage.ts 의 deriveStage 와 같아야 한다.
+   * 계약 판정은 서버가 이미 했다(lib/stage.ts contractStateOf → detail.contract).
+   * 여기서 다시 세지 않는다 — 예전에는 이 자리에서 required.every(...) 로 또 셌고,
+   * 조건을 하나 바꿀 때(반려를 필수 여부와 무관하게 보기로 한 것) 화면과 저장소가 갈렸다.
    */
-  const passes = (kind: string) => {
-    const st = byKind.get(kind)?.status;
-    return st === 'uploaded' || st === 'approved';
-  };
-  const required = evaluated.filter((d) => d.req === 'm');
-  const satisfied = required.filter((d) => passes(d.key));
-  const blocked = satisfied.length < required.length;
-  /*
-   * 단계(stage)는 서류 승인 + 단가 지정 둘 다 채워졌을 때 시공으로 넘어간다(deriveStage).
-   * 그래서 「접수 완료」 판정도 서류만 보면 안 된다 — 서류만 보고 넘기면
-   * 단가 미지정 현장이 시공으로 올라가 정산 계획이 비어버린다.
-   */
-  const allPriced = lines.length > 0 && lines.every((l) => l.rule !== null);
-  /** 반려된 서류 수 — 보드가 「계약보완」으로 부르는 조건이다 */
-  const rejectedCount = documents.filter((d) => d.status === 'rejected').length;
-  /**
-   * 필수 서류 칸이 다 찼는가 — 반려 여부는 보지 않는다.
-   * 보드가 계약접수(아직 모으는 중)와 계약검토(다 찼으니 한백 차례)를 가르는 값이다.
-   */
-  const docsFilled = required.every((d) => (byKind.get(d.key)?.status ?? 'none') !== 'none');
-  const feeMissing = evaluated
-    .filter((d) => d.fee && d.req === 'm' && !passes(d.key))
-    .map((d) => d.label);
+  const contract = detail.contract;
 
   const processDone = PROCESS_DOCS.filter((d) =>
     process.docs.find((x) => x.kind === d.key && x.status === 'approved')
@@ -117,13 +95,17 @@ export default function ProjectDetailView({
   const constructionLocked = detail.stage === 'intake';
 
   const tabs: Array<{ key: TabKey; label: string; count: string; locked: boolean; why?: string }> = [
-    { key: 'intake', label: '계약', count: `${satisfied.length}/${required.length}`, locked: false },
+    { key: 'intake', label: '계약', count: `${contract.satisfied}/${contract.requiredTotal}`, locked: false },
     {
       key: 'construction',
       label: '시공',
       count: `${processDone}/${PROCESS_DOCS.length}`,
       locked: constructionLocked,
-      why: blocked ? '필수 서류 미충족' : !allPriced ? '단가 미지정' : undefined,
+      why: !contract.docsFilled
+        ? '필수 서류 미충족'
+        : !contract.allPriced
+          ? '단가 미지정'
+          : undefined,
     },
     {
       key: 'settlement',
@@ -138,10 +120,7 @@ export default function ProjectDetailView({
     <div className="flex flex-col gap-5">
       <SiteHeader
         detail={detail}
-        rejectedCount={rejectedCount}
-        docsFilled={docsFilled}
-        blocked={blocked}
-        allPriced={allPriced}
+        contract={contract}
         canReview={canReview}
         noteAuthor={noteAuthor}
         knownOrgs={knownOrgs}
@@ -167,9 +146,9 @@ export default function ProjectDetailView({
             >
               {t.label}
               {t.locked ? (
-                <span aria-label="잠김" className="ml-1.5 text-[11px]">🔒</span>
+                <span aria-label="잠김" className="ml-1.5 text-tiny">🔒</span>
               ) : t.count ? (
-                <span className="ml-1.5 text-[11px] font-semibold tabular-nums text-slate-400">
+                <span className="ml-1.5 text-tiny font-semibold tabular-nums text-slate-400">
                   {t.count}
                 </span>
               ) : null}
@@ -184,12 +163,10 @@ export default function ProjectDetailView({
               project={project}
               evaluated={evaluated}
               byKind={byKind}
-              blocked={blocked}
-              allPriced={allPriced}
+              contract={contract}
               projectId={project.id}
               siteName={project.name}
               canReview={canReview}
-              feeMissing={feeMissing}
               partyInferred={isPartyInferred(docCtx)}
               inferredParty={docCtx.bldgType === '공동주택' ? '입주자대표회의' : '관리단'}
             />
@@ -220,13 +197,10 @@ export default function ProjectDetailView({
  * 걸림돌은 여기 모은다. 무엇이 이 현장을 세우고 있는지는 탭을 열기 전에 보여야 한다.
  */
 function SiteHeader({
-  detail, rejectedCount, docsFilled, blocked, allPriced, canReview, noteAuthor, knownOrgs,
+  detail, contract, canReview, noteAuthor, knownOrgs,
 }: {
   detail: ProjectDetail;
-  rejectedCount: number;
-  docsFilled: boolean;
-  blocked: boolean;
-  allPriced: boolean;
+  contract: ContractState;
   /** 한백인가 — 협력사에게는 한백이 할 일을 걸림돌로 보여주지 않는다 */
   canReview: boolean;
   noteAuthor: string;
@@ -238,8 +212,8 @@ function SiteHeader({
     stage,
     status: process.status,
     holdState: project.holdState,
-    rejectedDocs: rejectedCount,
-    docsFilled,
+    rejectedDocs: contract.rejected,
+    docsFilled: contract.docsFilled,
   });
   const band = bandOfColumn(column);
   const qty = lines.reduce((s, l) => s + l.qty, 0);
@@ -250,14 +224,14 @@ function SiteHeader({
   if (project.holdState) {
     blockers.push({ label: `보류 — ${project.holdNote ?? project.holdState}`, tone: 'bg-slate-800 text-white' });
   }
-  if (rejectedCount > 0) {
-    blockers.push({ label: `반려 ${rejectedCount}건`, tone: 'bg-red-100 text-red-800' });
+  if (contract.rejected > 0) {
+    blockers.push({ label: `반려 ${contract.rejected}건`, tone: 'bg-red-100 text-red-800' });
   }
-  if (stage === 'intake' && blocked) {
+  if (stage === 'intake' && !contract.docsFilled) {
     blockers.push({ label: '필수 서류 미충족', tone: 'bg-amber-100 text-amber-900' });
   }
   // 단가 지정은 한백이 하는 일이다 — 협력사에게 보이면 무엇을 하라는 말인지 알 수 없다
-  if (canReview && stage === 'intake' && !allPriced) {
+  if (canReview && stage === 'intake' && !contract.allPriced) {
     blockers.push({ label: '단가 미지정', tone: 'bg-amber-100 text-amber-900' });
   }
   if (stalledDays >= 14) {
@@ -279,7 +253,7 @@ function SiteHeader({
         */}
       <div className="mt-2">
         <span
-          className={`inline-flex rounded-full px-3 py-1 text-[13px] font-black ${BAND_TONE[band]}`}
+          className={`inline-flex rounded-full px-3 py-1 text-base font-black ${BAND_TONE[band]}`}
           title="보드에서 이 현장이 서는 칸"
         >
           {column}
@@ -300,7 +274,7 @@ function SiteHeader({
         * 「운영사 … 접수일 … 영업사 … 대기번호」가 한 줄로 흘러서 읽히지 않았다.
         * 나머지 현장 정보는 계약 탭의 「현장 정보」에 있다.
         */}
-      <dl className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-1.5 text-[13px]">
+      <dl className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-1.5 text-base">
         <Fact label="운영사" value={project.cpo} />
         <Fact label="대수" value={`${qty}대`} />
         <Fact label="계약연수" value={terms.length ? `${terms.join('·')}년` : null} />
@@ -309,7 +283,7 @@ function SiteHeader({
         <Fact label="접수일" value={project.createdAt} />
       </dl>
 
-      <dl className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-1.5 border-t border-slate-100 pt-2 text-[13px]">
+      <dl className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-1.5 border-t border-slate-100 pt-2 text-base">
         <EditableFact
           label="영업사"
           value={project.salesOrg}
@@ -346,7 +320,7 @@ function SiteHeader({
       {blockers.length > 0 && (
         <div className="mt-3 flex flex-wrap gap-1.5">
           {blockers.map((b) => (
-            <span key={b.label} className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${b.tone}`}>
+            <span key={b.label} className={`rounded-full px-2.5 py-1 text-tiny font-bold ${b.tone}`}>
               {b.label}
             </span>
           ))}

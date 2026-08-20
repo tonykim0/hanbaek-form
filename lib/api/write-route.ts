@@ -1,0 +1,74 @@
+/**
+ * 쓰기 라우트의 껍데기.
+ *
+ * ★한 곳에 모으는 이유★
+ * 라우트 아홉 개가 같은 네 단계를 각자 적고 있었다 — 권한 확인 → 본문 읽기 → 값 검사 →
+ * 저장소 호출. 벌써 갈라져 있었다: 어떤 곳은 try/catch 로 본문을 읽고 옆에서는
+ * `.catch(() => null)` 을 쓰고, 어떤 곳은 400 을 주고 옆에서는 같은 잘못에 422 를 줬다.
+ *
+ * 화면(lib/use-action.ts)이 `{ error }` 하나만 보고 문구를 띄우므로, 이 응답 모양이
+ * 라우트마다 다르면 화면이 무엇을 믿을지 알 수 없다. 계약을 여기 한 곳에 못 박는다.
+ *
+ *   401  로그인 안 됨            (sessionWrite)
+ *   403  한백 전용인데 협력사임   (adminWrite)
+ *   400  값이 틀렸다             (BadRequest 를 throw)
+ *   422  규칙에 걸렸다           (저장소가 던진 그 밖의 Error)
+ *   200  { ok: true }
+ *
+ * 권한은 여기서도 확인하고 저장소에서 assertAdmin 으로 한 번 더 본다 — 나중에 새 라우트를
+ * 추가할 때 이 껍데기를 안 쓰더라도 저장소가 잡아준다.
+ */
+import { NextResponse } from 'next/server';
+import { requireAdmin } from '@/lib/auth/guard';
+import { actorOf, getSessionUser } from '@/lib/auth/session';
+import type { Actor } from '@/lib/auth/types';
+
+/**
+ * 값이 틀렸다 — 400 으로 나간다.
+ *
+ * 규칙에 걸린 것(422)과 가른다. 「구분이 셋 중 하나가 아니다」는 보낸 값이 틀린 것이고,
+ * 「관리자 계정은 여기서 못 바꾼다」는 값은 맞지만 규칙이 막는 것이다. 둘을 같은 코드로
+ * 두면 화면이 「다시 입력하세요」와 「할 수 없는 일입니다」를 구분해 말할 수 없다.
+ */
+export class BadRequest extends Error {}
+
+type Handler<P, B> = (input: {
+  body: B;
+  params: P;
+  actor: Actor;
+}) => Promise<unknown>;
+
+function wrap<P, B>(adminOnly: boolean, deny: string, handle: Handler<P, B>) {
+  return async (request: Request, ctx: { params: P }): Promise<NextResponse> => {
+    const session = adminOnly ? await requireAdmin() : await getSessionUser();
+    if (!session) {
+      return NextResponse.json({ error: deny }, { status: adminOnly ? 403 : 401 });
+    }
+
+    let body: B;
+    try {
+      body = (await request.json()) as B;
+    } catch {
+      return NextResponse.json({ error: '요청을 읽을 수 없습니다.' }, { status: 400 });
+    }
+
+    try {
+      // 핸들러가 객체를 돌려주면 응답에 실어 보낸다 (묶음 처리의 실패 목록 같은 것)
+      const extra = await handle({ body, params: ctx.params, actor: actorOf(session) });
+      return NextResponse.json(
+        extra && typeof extra === 'object' ? { ok: true, ...extra } : { ok: true }
+      );
+    } catch (err) {
+      const status = err instanceof BadRequest ? 400 : 422;
+      return NextResponse.json({ error: (err as Error).message }, { status });
+    }
+  };
+}
+
+/** 한백 전용 쓰기. deny 는 403 으로 나가는 문구다 — 무엇을 못 하는지 적는다. */
+export const adminWrite = <P, B>(deny: string, handle: Handler<P, B>) =>
+  wrap<P, B>(true, deny, handle);
+
+/** 로그인한 누구나 하는 쓰기 (그 현장의 협력사 · 한백). 누가 무엇을 할 수 있는지는 저장소가 본다. */
+export const sessionWrite = <P, B>(handle: Handler<P, B>) =>
+  wrap<P, B>(false, '로그인이 필요합니다.', handle);

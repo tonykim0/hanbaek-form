@@ -150,10 +150,10 @@ export default function KaptApartmentExplorer({
                       </em>
                     )}
                   </span>
-                  <span className="mt-1.5 block truncate text-[11px] leading-4 text-slate-500">
+                  <span className="mt-1.5 block truncate text-tiny leading-4 text-slate-500">
                     {candidate.roadAddress || candidate.address}
                   </span>
-                  <span className="mt-2 flex flex-wrap gap-1 text-[10px] text-slate-500">
+                  <span className="mt-2 flex flex-wrap gap-1 text-micro text-slate-500">
                     {candidate.region && <span className="rounded bg-white px-1.5 py-1">{candidate.region}</span>}
                     {candidate.households !== null && (
                       <span className="rounded bg-white px-1.5 py-1">
@@ -168,7 +168,7 @@ export default function KaptApartmentExplorer({
             {!candidates.length && (
               <div className="flex min-h-44 min-w-full flex-col items-center justify-center px-5 text-center">
                 <b className="text-sm text-slate-700">단지를 검색해주세요.</b>
-                <span className="mt-2 text-[11px] leading-5 text-slate-500">
+                <span className="mt-2 text-tiny leading-5 text-slate-500">
                   단지명, 법정동 또는 도로명주소를 두 글자 이상 입력할 수 있습니다.
                 </span>
               </div>
@@ -184,7 +184,7 @@ export default function KaptApartmentExplorer({
             aria-busy={loadingDetail}
           >
             <div className="px-5 py-5 sm:px-6">
-              <span className="inline-flex rounded-md bg-brand-50 px-2 py-1 text-[10px] font-black tracking-wide text-brand-700">
+              <span className="inline-flex rounded-md bg-brand-50 px-2 py-1 text-micro font-black tracking-wide text-brand-700">
                 K-apt 공개정보
               </span>
               <h2 className="mt-2 text-xl font-black tracking-[-0.03em] text-slate-900">
@@ -205,7 +205,7 @@ export default function KaptApartmentExplorer({
                     <h3 className="text-base font-black tracking-[-0.02em] text-slate-900">
                       우리단지 기본정보
                     </h3>
-                    <p className="mt-0.5 text-[11px] text-slate-500">
+                    <p className="mt-0.5 text-tiny text-slate-500">
                       주소, 규모, 건축 및 관리 기본사항
                     </p>
                   </div>
@@ -223,7 +223,7 @@ export default function KaptApartmentExplorer({
                           wide ? 'sm:col-span-2' : ''
                         }`}
                       >
-                        <dt className="text-[11px] font-semibold text-slate-500">
+                        <dt className="text-tiny font-semibold text-slate-500">
                           {information.label}
                         </dt>
                         <dd className="mt-1.5 break-words text-sm font-black leading-5 text-slate-900">
@@ -244,7 +244,7 @@ export default function KaptApartmentExplorer({
                     <h3 className="text-base font-black tracking-[-0.02em] text-slate-900">
                       전기차 시설정보
                     </h3>
-                    <p className="mt-0.5 text-[11px] text-slate-500">
+                    <p className="mt-0.5 text-tiny text-slate-500">
                       전기차 주차면, 이용시간과 충전기 설치 상세
                     </p>
                   </div>
@@ -257,7 +257,7 @@ export default function KaptApartmentExplorer({
                         key={information.label}
                         className="min-w-0 rounded-xl border border-brand-100 bg-[#fbfefc] px-4 py-3.5"
                       >
-                        <dt className="text-[11px] font-semibold leading-4 text-slate-500">
+                        <dt className="text-tiny font-semibold leading-4 text-slate-500">
                           {information.label}
                         </dt>
                         <dd className="mt-1.5 break-words text-sm font-black leading-5 text-slate-900">
@@ -270,11 +270,11 @@ export default function KaptApartmentExplorer({
                   <div className="mb-3 mt-6 flex items-center justify-between gap-3 border-b border-slate-100 pb-3">
                     <div>
                       <h4 className="text-sm font-black text-slate-900">충전기 상세</h4>
-                      <p className="mt-0.5 text-[10px] text-slate-500">
+                      <p className="mt-0.5 text-micro text-slate-500">
                         위치와 충전 방식, 운영사업자 정보
                       </p>
                     </div>
-                    <span className="rounded-full bg-brand-50 px-2.5 py-1 text-[10px] font-bold text-brand-700">
+                    <span className="rounded-full bg-brand-50 px-2.5 py-1 text-micro font-bold text-brand-700">
                       {detail.electricVehicle.chargers.length}개 설치 유형
                     </span>
                   </div>
@@ -289,7 +289,7 @@ export default function KaptApartmentExplorer({
                                 <p className="text-xs font-black text-slate-900">
                                   {charger.location} · {charger.installationType}
                                 </p>
-                                <p className="mt-1 text-[11px] leading-4 text-slate-500">
+                                <p className="mt-1 text-tiny leading-4 text-slate-500">
                                   {charger.chargerType}
                                 </p>
                               </div>
@@ -299,7 +299,7 @@ export default function KaptApartmentExplorer({
                                   : `${charger.count.toLocaleString('ko-KR')}대`}
                               </span>
                             </div>
-                            <dl className="mt-4 grid grid-cols-2 gap-3 border-t border-slate-100 pt-3 text-[11px]">
+                            <dl className="mt-4 grid grid-cols-2 gap-3 border-t border-slate-100 pt-3 text-tiny">
                               <div>
                                 <dt className="text-slate-400">충전속도</dt>
                                 <dd className="mt-1 font-bold text-slate-700">{charger.speed}</dd>
@@ -318,7 +318,7 @@ export default function KaptApartmentExplorer({
                       </div>
 
                       <div className="hidden overflow-x-auto rounded-xl border border-slate-200 md:block">
-                        <table className="w-full min-w-[46rem] border-collapse text-[11px]">
+                        <table className="w-full min-w-[46rem] border-collapse text-tiny">
                           <thead>
                             <tr className="bg-slate-50 text-left text-slate-500">
                               <th className="px-3 py-3 font-bold">구분</th>
@@ -359,7 +359,7 @@ export default function KaptApartmentExplorer({
               </section>
             </div>
 
-            <p className="border-t border-slate-200 bg-slate-50 px-5 py-3 text-[10px] leading-5 text-slate-400 sm:px-6">
+            <p className="border-t border-slate-200 bg-slate-50 px-5 py-3 text-micro leading-5 text-slate-400 sm:px-6">
               출처: K-apt 공동주택관리정보시스템 공개 단지정보 · 단지코드{' '}
               {detail.complex.kaptCode}
             </p>

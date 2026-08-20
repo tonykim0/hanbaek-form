@@ -59,14 +59,14 @@ export function DocReview({
           rows={2}
           autoFocus
           placeholder="반려 사유 — 협력사가 이 문장을 보고 고칩니다"
-          className="w-full rounded-lg border border-slate-300 px-2 py-1.5 text-[11px] leading-snug focus:border-brand-500 focus:outline-none"
+          className="w-full rounded-lg border border-slate-300 px-2 py-1.5 text-tiny leading-snug focus:border-brand-500 focus:outline-none"
         />
         <div className="flex gap-1.5">
           <button
             type="button"
             disabled={busy || !reason.trim()}
             onClick={() => send('rejected', reason)}
-            className="rounded-lg bg-red-600 px-2 py-1 text-[11px] font-bold text-white disabled:bg-slate-200 disabled:text-slate-400"
+            className="rounded-lg bg-red-600 px-2 py-1 text-tiny font-bold text-white disabled:bg-slate-200 disabled:text-slate-400"
           >
             {busy ? '처리 중' : '반려 확정'}
           </button>
@@ -74,12 +74,12 @@ export function DocReview({
             type="button"
             disabled={busy}
             onClick={() => { setRejecting(false); setReason(''); setError(null); }}
-            className="rounded-lg border border-slate-300 px-2 py-1 text-[11px] font-bold text-slate-600"
+            className="rounded-lg border border-slate-300 px-2 py-1 text-tiny font-bold text-slate-600"
           >
             취소
           </button>
         </div>
-        {error && <p className="text-[11px] font-semibold text-red-700">{error}</p>}
+        {error && <p className="text-tiny font-semibold text-red-700">{error}</p>}
       </div>
     );
   }
@@ -102,7 +102,7 @@ export function DocReview({
               type="button"
               disabled={busy}
               onClick={() => send('uploaded')}
-              className="rounded-lg bg-brand-700 px-2 py-1 text-[11px] font-bold text-white transition hover:bg-brand-800 disabled:bg-slate-100 disabled:text-slate-400"
+              className="rounded-lg bg-brand-700 px-2 py-1 text-tiny font-bold text-white transition hover:bg-brand-800 disabled:bg-slate-100 disabled:text-slate-400"
             >
               반려 해제
             </button>
@@ -110,7 +110,7 @@ export function DocReview({
               type="button"
               disabled={busy}
               onClick={() => setRejecting(true)}
-              className="rounded-lg border border-red-200 bg-white px-2 py-1 text-[11px] font-bold text-red-700 transition hover:bg-red-50 disabled:text-slate-400"
+              className="rounded-lg border border-red-200 bg-white px-2 py-1 text-tiny font-bold text-red-700 transition hover:bg-red-50 disabled:text-slate-400"
             >
               사유 수정
             </button>
@@ -120,13 +120,13 @@ export function DocReview({
             type="button"
             disabled={busy}
             onClick={() => setRejecting(true)}
-            className="rounded-lg border border-red-200 bg-white px-2 py-1 text-[11px] font-bold text-red-700 transition hover:bg-red-50 disabled:text-slate-400"
+            className="rounded-lg border border-red-200 bg-white px-2 py-1 text-tiny font-bold text-red-700 transition hover:bg-red-50 disabled:text-slate-400"
           >
             반려
           </button>
         )}
       </div>
-      {error && <p className="text-[11px] font-semibold text-red-700">{error}</p>}
+      {error && <p className="text-tiny font-semibold text-red-700">{error}</p>}
     </div>
   );
 }

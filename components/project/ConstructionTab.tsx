@@ -35,7 +35,7 @@ function StatusFlow({ process }: { process: ProjectDetail['process'] }) {
           return (
             <li key={st} className="flex items-center gap-1.5">
               <div
-                className={`rounded-lg px-2.5 py-1.5 text-[11px] font-bold ${
+                className={`rounded-lg px-2.5 py-1.5 text-tiny font-bold ${
                   current
                     ? 'bg-brand-700 text-white'
                     : past
@@ -143,7 +143,7 @@ export function ConstructionTab({ detail, canEdit }: { detail: ProjectDetail; ca
         <div className="mb-3 flex flex-wrap items-baseline justify-between gap-3">
           <h2 className="text-h3 font-black text-slate-900">마일스톤</h2>
           {canEdit && (
-            <p className="text-[11px] text-slate-400">
+            <p className="text-tiny text-slate-400">
               날짜를 넣으면 조건이 열립니다. 단계는 보드나 표에서 옮깁니다.
             </p>
           )}
@@ -174,13 +174,13 @@ export function ConstructionTab({ detail, canEdit }: { detail: ProjectDetail; ca
               )}
               <span className="flex-1" />
               {m.opens && !m.value && (
-                <span className="text-[11px] font-semibold text-slate-400">
+                <span className="text-tiny font-semibold text-slate-400">
                   넣으면 {m.opens} 로 넘길 수 있습니다
                 </span>
               )}
               {m.trigger && (
                 <span
-                  className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold ${
+                  className={`rounded-full px-2.5 py-0.5 text-tiny font-bold ${
                     m.value ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-500'
                   }`}
                 >
@@ -216,11 +216,11 @@ export function ConstructionTab({ detail, canEdit }: { detail: ProjectDetail; ca
                 className={`rounded-xl border p-3 ${done ? 'border-brand-200 bg-brand-50/60' : 'border-slate-200 bg-white'}`}
               >
                 <p className="text-sm font-bold text-slate-800">{d.name}</p>
-                <p className={`mt-1 text-[11px] font-black ${done ? 'text-brand-700' : 'text-slate-400'}`}>
+                <p className={`mt-1 text-tiny font-black ${done ? 'text-brand-700' : 'text-slate-400'}`}>
                   {done ? '제출됨' : '대기'}
                 </p>
                 {doc?.uploadedAt && (
-                  <p className="mt-0.5 text-[10px] text-slate-400">
+                  <p className="mt-0.5 text-micro text-slate-400">
                     {doc.uploadedAt}
                   </p>
                 )}

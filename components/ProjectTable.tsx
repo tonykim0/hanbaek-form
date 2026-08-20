@@ -139,7 +139,7 @@ export default function ProjectTable({
       <div className="overflow-x-auto">
         <table className="w-full min-w-[1180px] text-sm">
           {/* 머리글은 붙여 둔다 — 138건을 훑으면서 어느 열인지 계속 알아야 한다 */}
-          <thead className="sticky top-0 z-10 border-b border-slate-200 bg-slate-50 text-[11px] tracking-[0.06em]">
+          <thead className="sticky top-0 z-10 border-b border-slate-200 bg-slate-50 text-tiny tracking-[0.06em]">
             <tr>
               {head('현장', { sort: 'name' })}
               {head('단계', { sort: 'stage', attr: 'col' })}
@@ -169,18 +169,18 @@ export default function ProjectTable({
                     >
                       {p.name}
                     </Link>
-                    <span className="ml-2 text-[11px] tabular-nums text-slate-400">
+                    <span className="ml-2 text-tiny tabular-nums text-slate-400">
                       {p.mgmtNo ?? p.id}
                     </span>
                     <div className="mt-0.5 flex flex-wrap items-center gap-1">
-                      {p.addr && <span className="text-[11px] text-slate-400">{p.addr}</span>}
+                      {p.addr && <span className="text-tiny text-slate-400">{p.addr}</span>}
                       {p.rejectedDocs > 0 && (
-                        <span className="rounded-full bg-red-100 px-1.5 py-0.5 text-[10px] font-bold text-red-800">
+                        <span className="rounded-full bg-red-100 px-1.5 py-0.5 text-micro font-bold text-red-800">
                           반려 {p.rejectedDocs}
                         </span>
                       )}
                       {!p.priced && (
-                        <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-slate-500">
+                        <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-micro font-bold text-slate-500">
                           단가 미지정
                         </span>
                       )}
@@ -192,7 +192,7 @@ export default function ProjectTable({
                   <td className="px-3 py-2.5 text-right font-bold tabular-nums text-slate-700">
                     {qtyOf(p)}
                     <span
-                      className="ml-1 text-[11px] font-normal text-slate-400"
+                      className="ml-1 text-tiny font-normal text-slate-400"
                       title={p.lines.map((l) => `${l.termYears}년×${l.qty}대`).join(' + ')}
                     >
                       대
@@ -273,7 +273,7 @@ function QueueCell({ p, canEdit }: { p: ProjectSummary; canEdit: boolean }) {
       onKeyDown={(e) => {
         if (e.key === 'Enter') e.currentTarget.blur();
       }}
-      className={`w-[104px] rounded-lg border px-2 py-1 text-[12px] tabular-nums transition placeholder:text-slate-300 focus:outline-none focus:ring-2 focus:ring-brand-100 ${
+      className={`w-[104px] rounded-lg border px-2 py-1 text-small tabular-nums transition placeholder:text-slate-300 focus:outline-none focus:ring-2 focus:ring-brand-100 ${
         error
           ? 'border-red-400 text-red-800'
           : p.envQueueNo
@@ -304,7 +304,7 @@ function StageCell({
     // 색으로 계약·시공·멈춤을 가른다 — 138줄을 훑을 때 글자보다 색이 먼저 읽힌다
     return (
       <span
-        className={`inline-block whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-bold ${
+        className={`inline-block whitespace-nowrap rounded-full px-2.5 py-1 text-tiny font-bold ${
           BAND_TONE[bandOfColumn(col)]
         }`}
       >
@@ -323,7 +323,7 @@ function StageCell({
         value={p.status}
         disabled={busy}
         onChange={(e) => onMove(p, e.target.value as ProcessStatus)}
-        className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-[11px] font-bold text-slate-700 transition hover:border-brand-300 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-100"
+        className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-tiny font-bold text-slate-700 transition hover:border-brand-300 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-100"
       >
         {options.map((s) => (
           <option key={s} value={s}>
@@ -386,7 +386,7 @@ function ColumnFilter({
         aria-label={`${label} 필터`}
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
-        className={`rounded px-1 py-0.5 text-[10px] font-black leading-none transition ${
+        className={`rounded px-1 py-0.5 text-micro font-black leading-none transition ${
           on
             ? 'bg-brand-600 text-white'
             : 'text-slate-300 hover:bg-slate-200 hover:text-slate-600'
@@ -403,7 +403,7 @@ function ColumnFilter({
               return (
                 <label
                   key={v}
-                  className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-[12px] font-semibold text-slate-700 hover:bg-slate-50"
+                  className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-small font-semibold text-slate-700 hover:bg-slate-50"
                 >
                   <input
                     type="checkbox"
@@ -422,7 +422,7 @@ function ColumnFilter({
             <button
               type="button"
               onClick={() => { onChange([]); setOpen(false); }}
-              className="mt-1 w-full rounded-lg border-t border-slate-100 px-2 py-1.5 text-[11px] font-bold text-slate-400 transition hover:text-slate-700"
+              className="mt-1 w-full rounded-lg border-t border-slate-100 px-2 py-1.5 text-tiny font-bold text-slate-400 transition hover:text-slate-700"
             >
               이 열 필터 지우기
             </button>

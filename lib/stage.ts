@@ -2,56 +2,51 @@
  * 현장이 어느 단계에 있는지 판정한다.
  * 저장된 값이 아니라 데이터에서 유도한다 — 단계 필드를 따로 두면 실제와 어긋난다.
  */
-import type { ContractLine, Settlement, Stage } from '@/types/project';
+import type { ContractLine, ContractState, Settlement, Stage } from '@/types/project';
 import { evaluateDocs, type DocContext } from '@/lib/doc-rules';
 import type { ProjectDocument } from '@/types/project';
 
 /**
- * 한백이 확인만 하면 되는 상태인가 — 서류가 다 찼고 반려가 없고 단가가 붙었는가.
+ * 계약이 어디까지 왔고 무엇에 막혀 있는가 — 한 번 계산해서 화면·보드·저장소가 같이 본다.
+ *
+ * ★한 곳에 모은 이유★
+ * 예전에는 이 판정이 세 벌이었다. lib 에 「확인만 남았는가」가 있고, 현장 상세가
+ * required.every(...) 로 다시 세고, 보드 요약이 또 자기 식으로 셌다. 조건을 하나 바꾸면
+ * (반려를 필수 여부와 무관하게 보기로 한 것이 그랬다) 세 곳이 갈려서 「버튼은 눌리는데
+ * 저장이 거절되는」 상태가 생긴다.
  *
  * 검수는 「예외를 걸러내는」 방식이다. 올라온 서류를 하나하나 승인하게 만들면 현장 138건 ×
  * 서류 16칸 = 2천 번을 눌러야 한다. 실제 일은 반대로 돈다 — 묶음을 훑어보고 문제 있는 것만
  * 반려한다. 그래서 통과 조건은 「승인됨」이 아니라 「제출됨 + 반려 없음」이다.
  * 미제출은 여전히 막는다. 없는 서류는 반려할 대상조차 없기 때문이다.
- *
- * ★반려는 필수 여부를 가리지 않는다.★ 조건부·선택 서류가 반려됐어도 계약은 못 넘어간다 —
- * 반려는 「이 계약은 아직 아니다」는 판정이고, 그 판정이 남아 있는 계약을 넘기면
- * 보드의 「계약보완」 칸과 실제가 어긋난다.
  */
-/**
- * 필수 서류 칸이 다 채워졌는가 — 반려 여부는 보지 않는다.
- *
- * ★접수와 검토를 가르는 사실이다.★ 칸이 비어 있으면 협력사가 더 낼 것이 있고(계약접수),
- * 다 찼으면 한백이 볼 차례다(계약검토). 반려는 그보다 먼저 잡히므로(계약보완) 여기서
- * 반려를 셈에 넣으면 두 판정이 겹친다.
- *
- * 「검토 시작」 버튼으로 가르지 않는다. 라벨만 바꾸는 버튼은 누르는 것을 잊은 현장을
- * 영원히 접수에 남긴다 — 단계는 자료에서 유도한다.
- */
-export function requiredDocsFilled(input: {
+export function contractStateOf(input: {
   docCtx: DocContext;
   documents: ProjectDocument[];
-}): boolean {
-  const required = evaluateDocs(input.docCtx).filter((d) => d.req === 'm');
+  lines: Array<Pick<ContractLine, 'pricingRuleId'>>;
+}): ContractState {
+  const evaluated = evaluateDocs(input.docCtx);
   const byKind = new Map(input.documents.map((d) => [d.kind, d]));
-  return required.every((r) => (byKind.get(r.key)?.status ?? 'none') !== 'none');
-}
-
-export function contractReady(input: {
-  docCtx: DocContext;
-  documents: ProjectDocument[];
-  lines: ContractLine[];
-}): boolean {
-  if (input.documents.some((d) => d.status === 'rejected')) return false;
-
-  const required = evaluateDocs(input.docCtx).filter((d) => d.req === 'm');
-  const byKind = new Map(input.documents.map((d) => [d.kind, d]));
-  const docsDone = required.every((r) => {
-    const st = byKind.get(r.key)?.status;
+  const passes = (kind: string) => {
+    const st = byKind.get(kind)?.status;
     return st === 'uploaded' || st === 'approved';
-  });
+  };
+
+  const required = evaluated.filter((d) => d.req === 'm');
+  const satisfied = required.filter((d) => passes(d.key)).length;
+  const docsFilled = required.every((d) => (byKind.get(d.key)?.status ?? 'none') !== 'none');
+  const rejected = input.documents.filter((d) => d.status === 'rejected').length;
   const allPriced = input.lines.length > 0 && input.lines.every((l) => l.pricingRuleId);
-  return docsDone && allPriced;
+
+  return {
+    requiredTotal: required.length,
+    satisfied,
+    docsFilled,
+    rejected,
+    allPriced,
+    ready: rejected === 0 && satisfied === required.length && allPriced,
+    feeMissing: evaluated.filter((d) => d.fee && d.req === 'm' && !passes(d.key)).map((d) => d.label),
+  };
 }
 
 export function deriveStage(input: {
@@ -71,7 +66,8 @@ export function deriveStage(input: {
   const collected = input.settlement.steps.some((s) => s.state === 'collected');
   if (collected || input.settlement.cpoCloseDate) return 'settlement';
 
-  return contractReady(input) && Boolean(input.contractConfirmedAt) ? 'construction' : 'intake';
+  const contract = contractStateOf(input);
+  return contract.ready && Boolean(input.contractConfirmedAt) ? 'construction' : 'intake';
 }
 
 /** 마지막 진척 후 경과일. 노션엔 없는 지표 — 공정·정산 relation 이 끊겨 계산이 안 된다. */

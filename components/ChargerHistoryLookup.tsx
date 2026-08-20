@@ -54,7 +54,7 @@ function useShardLoader<R>(base: string) {
 function SourceHeading({ tag, className }: { tag: string; className: string }) {
   return (
     <div className="px-1 pt-1">
-      <span className={`rounded px-1.5 py-0.5 text-[10px] font-black tracking-wide ${className}`}>
+      <span className={`rounded px-1.5 py-0.5 text-micro font-black tracking-wide ${className}`}>
         {tag}
       </span>
     </div>
@@ -78,7 +78,7 @@ function Stat({
         tone === 'warn' ? 'border-amber-200 bg-amber-50' : 'border-slate-200 bg-white'
       }`}
     >
-      <p className="text-[11px] font-semibold text-slate-500">{label}</p>
+      <p className="text-tiny font-semibold text-slate-500">{label}</p>
       <p
         className={`mt-1 text-2xl font-black tabular-nums tracking-[-0.03em] ${
           tone === 'warn' ? 'text-amber-800' : 'text-slate-900'
@@ -105,7 +105,7 @@ function HistoryTable({ summary }: { summary: Summary }) {
     <div className="overflow-x-auto">
       <table className="w-full min-w-[34rem] text-left text-sm">
         <thead>
-          <tr className="border-b border-slate-200 text-[11px] font-bold tracking-wide text-slate-500">
+          <tr className="border-b border-slate-200 text-tiny font-bold tracking-wide text-slate-500">
             <th className="py-2 pr-3 font-bold">설치시기</th>
             <th className="py-2 pr-3 font-bold">대수</th>
             <th className="py-2 pr-3 font-bold">구분</th>
@@ -125,13 +125,13 @@ function HistoryTable({ summary }: { summary: Summary }) {
               </td>
               <td className="py-2 pr-3 tabular-nums font-semibold text-slate-900">
                 {qty}
-                <span className="ml-1 text-[11px] font-medium text-slate-400">
+                <span className="ml-1 text-tiny font-medium text-slate-400">
                   {fast ? '급속' : '완속'}
                 </span>
               </td>
               <td className="py-2 pr-3">
                 <span
-                  className={`rounded-md px-1.5 py-0.5 text-[11px] font-semibold ${
+                  className={`rounded-md px-1.5 py-0.5 text-tiny font-semibold ${
                     code === 'N' || code === 'U'
                       ? 'bg-slate-100 text-slate-600'
                       : 'bg-amber-100 text-amber-800'
@@ -167,7 +167,7 @@ function MatchedResult({ result }: { result: Extract<LookupResult, { status: '�
         }`}
       >
         <p
-          className={`text-[11px] font-bold tracking-[0.14em] ${
+          className={`text-tiny font-bold tracking-[0.14em] ${
             verdict.tone === 'warn' ? 'text-amber-700' : 'text-brand-700'
           }`}
         >
@@ -202,13 +202,13 @@ function MatchedResult({ result }: { result: Extract<LookupResult, { status: '�
 
       <dl className="grid gap-3 border-t border-slate-100 px-5 py-4 text-sm sm:grid-cols-2">
         <div>
-          <dt className="text-[11px] font-bold tracking-wide text-slate-500">보조금 사업연도</dt>
+          <dt className="text-tiny font-bold tracking-wide text-slate-500">보조금 사업연도</dt>
           <dd className="mt-1 font-semibold tabular-nums text-slate-900">
             {summary.applyYears.length > 0 ? summary.applyYears.join(', ') : '없음'}
           </dd>
         </div>
         <div>
-          <dt className="text-[11px] font-bold tracking-wide text-slate-500">운영기관</dt>
+          <dt className="text-tiny font-bold tracking-wide text-slate-500">운영기관</dt>
           <dd className="mt-1 text-slate-900">
             {summary.operators.map((o) => `${o.name}(${o.qty})`).join(' · ') || '—'}
           </dd>
@@ -216,7 +216,7 @@ function MatchedResult({ result }: { result: Extract<LookupResult, { status: '�
       </dl>
 
       <div className="border-t border-slate-100 px-5 py-4">
-        <p className="mb-2 text-[11px] font-bold tracking-wide text-slate-500">설치 이력</p>
+        <p className="mb-2 text-tiny font-bold tracking-wide text-slate-500">설치 이력</p>
         <HistoryTable summary={summary} />
       </div>
 
@@ -244,7 +244,7 @@ function EmptyResult({
   const isMismatch = result.status === '시군구불일치';
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-5">
-      <p className="text-[11px] font-bold tracking-[0.14em] text-brand-700">DB1 조회 결과</p>
+      <p className="text-tiny font-bold tracking-[0.14em] text-brand-700">DB1 조회 결과</p>
       <h2 className="mt-1 text-xl font-black tracking-[-0.03em] text-slate-900">
         {isMismatch ? '입력한 시 · 군에는 기록이 없습니다' : '등록된 충전기 기록이 없습니다'}
       </h2>

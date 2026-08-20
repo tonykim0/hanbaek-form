@@ -154,7 +154,7 @@ function FeatureCard({
       href={href}
       className={`group flex flex-col rounded-2xl border border-slate-200 ${t.surface} p-5 transition ${t.border}`}
     >
-      <span className={`text-[11px] font-bold tracking-[0.12em] ${t.eyebrow}`}>{eyebrow}</span>
+      <span className={`text-tiny font-bold tracking-[0.12em] ${t.eyebrow}`}>{eyebrow}</span>
       <h3 className="mt-2 text-lg font-black tracking-[-0.02em] text-slate-900">{title}</h3>
       <p className="mt-2 text-sm leading-5 text-slate-500">{description}</p>
       <span
@@ -185,7 +185,7 @@ export default function Home() {
                 rel="noopener noreferrer"
                 className="group flex items-center gap-3 rounded-2xl border border-amber-200 bg-[#fffdf8] px-4 py-3.5 transition hover:border-amber-400 hover:bg-[#fffaf0] sm:px-5"
               >
-                <span className="flex-none rounded-lg bg-amber-100 px-2 py-1 text-[10px] font-black tracking-[0.1em] text-amber-800">
+                <span className="flex-none rounded-lg bg-amber-100 px-2 py-1 text-micro font-black tracking-[0.1em] text-amber-800">
                   안내
                 </span>
                 <span className="min-w-0 flex-1 break-keep text-sm font-bold leading-snug text-slate-900 group-hover:text-amber-900">
@@ -258,7 +258,7 @@ export default function Home() {
               href="/intake"
               className="group flex flex-col rounded-2xl bg-brand-700 p-5 text-white shadow-[0_16px_35px_-24px_rgba(34,69,45,0.9)] transition hover:bg-brand-800"
             >
-              <span className="inline-flex self-start rounded-full bg-white/10 px-2.5 py-1 text-[11px] font-bold text-brand-100">
+              <span className="inline-flex self-start rounded-full bg-white/10 px-2.5 py-1 text-tiny font-bold text-brand-100">
                 NEXT STEP
               </span>
               <h3 className="mt-4 text-xl font-black tracking-[-0.03em]">작성 완료본 접수</h3>
@@ -288,7 +288,7 @@ export default function Home() {
         <section className="mt-12 overflow-hidden rounded-2xl border border-slate-200 bg-white">
           <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4 sm:px-6">
             <div>
-              <p className="text-[11px] font-bold tracking-[0.14em] text-amber-700">UPDATES</p>
+              <p className="text-tiny font-bold tracking-[0.14em] text-amber-700">UPDATES</p>
               <h2 className="mt-0.5 text-lg font-black tracking-[-0.02em]">업데이트 안내</h2>
             </div>
             <span className="text-xs text-slate-400">최근 변경사항</span>
@@ -305,7 +305,7 @@ export default function Home() {
                   <span className="flex items-center gap-2 text-xs tabular-nums text-slate-400">
                     {update.date}
                     {update.isNew && (
-                      <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-black text-amber-800">
+                      <span className="rounded-full bg-amber-100 px-2 py-0.5 text-micro font-black text-amber-800">
                         NEW
                       </span>
                     )}
@@ -323,7 +323,7 @@ export default function Home() {
                     <p className="text-sm font-medium leading-5 text-slate-700">{update.title}</p>
                   )}
                   {update.note && (
-                    <span className="justify-self-start rounded-md bg-slate-100 px-2 py-1 text-[11px] font-semibold text-slate-600 sm:justify-self-end">
+                    <span className="justify-self-start rounded-md bg-slate-100 px-2 py-1 text-tiny font-semibold text-slate-600 sm:justify-self-end">
                       {update.note}
                     </span>
                   )}

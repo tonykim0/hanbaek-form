@@ -132,7 +132,7 @@ export default function PayoutBoard({ rows }: { rows: SettlementSummary[] }) {
               type="button"
               aria-current={org === o}
               onClick={() => setOrg(o)}
-              className={`whitespace-nowrap rounded-[10px] px-3 py-1.5 text-[12px] font-bold transition ${
+              className={`whitespace-nowrap rounded-[10px] px-3 py-1.5 text-small font-bold transition ${
                 org === o ? 'bg-brand-600 text-white' : 'text-slate-500 hover:text-slate-800'
               }`}
             >
@@ -146,7 +146,7 @@ export default function PayoutBoard({ rows }: { rows: SettlementSummary[] }) {
         <Empty />
       ) : (
         <Frame min="1080px">
-          <thead className="border-b border-slate-100 bg-slate-50 text-[11px] font-bold tracking-[0.06em] text-slate-500">
+          <thead className="border-b border-slate-100 bg-slate-50 text-tiny font-bold tracking-[0.06em] text-slate-500">
             <tr>
               <th className="px-3 py-2.5 text-left">현장</th>
               <th className="px-3 py-2.5 text-left">구분</th>
@@ -172,11 +172,11 @@ export default function PayoutBoard({ rows }: { rows: SettlementSummary[] }) {
                 <tr key={p.key} className="transition hover:bg-brand-50/40">
                   <td className="px-3 py-2.5">
                     <SiteLink id={p.projectId} name={p.projectName} />
-                    <p className="mt-0.5 text-[11px] text-slate-400">{p.cpo}</p>
+                    <p className="mt-0.5 text-tiny text-slate-400">{p.cpo}</p>
                   </td>
                   <td className="px-3 py-2.5">
                     <span
-                      className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${
+                      className={`rounded-full px-2 py-0.5 text-tiny font-bold ${
                         p.kind === '영업' ? 'bg-sky-100 text-sky-900' : 'bg-brand-100 text-brand-900'
                       }`}
                     >
@@ -188,7 +188,7 @@ export default function PayoutBoard({ rows }: { rows: SettlementSummary[] }) {
                     {won(p.total)}
                     {p.unpriced > 0 && (
                       <span
-                        className="ml-1 whitespace-nowrap text-[10px] font-bold text-amber-700"
+                        className="ml-1 whitespace-nowrap text-micro font-bold text-amber-700"
                         title="단가가 안 붙은 라인이 있어 실제보다 적습니다"
                       >
                         단가 미지정

@@ -82,7 +82,7 @@ export default function AccountAdmin({
           className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-5"
         >
           <div>
-            <p className="mb-2 text-[11px] font-bold tracking-[0.08em] text-slate-400">구분</p>
+            <p className="mb-2 text-tiny font-bold tracking-[0.08em] text-slate-400">구분</p>
             <div className="flex flex-wrap gap-1.5">
               {KINDS.map((k) => (
                 <button
@@ -101,7 +101,7 @@ export default function AccountAdmin({
                   >
                     {k.label}
                   </span>
-                  <span className="block text-[11px] text-slate-400">{k.note}</span>
+                  <span className="block text-tiny text-slate-400">{k.note}</span>
                 </button>
               ))}
             </div>
@@ -141,13 +141,13 @@ export default function AccountAdmin({
             />
             {knownOrgs.length > 0 && (
               <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                <span className="text-[11px] text-slate-400">쓰이고 있는 소속</span>
+                <span className="text-tiny text-slate-400">쓰이고 있는 소속</span>
                 {knownOrgs.map((o) => (
                   <button
                     key={o}
                     type="button"
                     onClick={() => setOrg(o)}
-                    className={`rounded-full border px-2 py-0.5 text-[11px] font-bold transition ${
+                    className={`rounded-full border px-2 py-0.5 text-tiny font-bold transition ${
                       org === o
                         ? 'border-brand-500 bg-brand-600 text-white'
                         : 'border-slate-200 bg-white text-slate-600 hover:border-brand-300'
@@ -194,7 +194,7 @@ export default function AccountAdmin({
         <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
           <div className="overflow-x-auto">
             <table className="w-full min-w-[720px] text-sm">
-              <thead className="border-b border-slate-100 bg-slate-50 text-[11px] font-bold tracking-[0.06em] text-slate-500">
+              <thead className="border-b border-slate-100 bg-slate-50 text-tiny font-bold tracking-[0.06em] text-slate-500">
                 <tr>
                   <th className="px-3 py-2.5 text-left">로그인 ID</th>
                   <th className="px-3 py-2.5 text-left">이름</th>
@@ -250,7 +250,7 @@ function AccountRow({
       <tr className={a.active ? '' : 'bg-slate-50/60'}>
         <td className="px-3 py-2.5 font-bold text-slate-900">
           {a.id}
-          {a.id === meId && <span className="ml-1.5 text-[10px] font-bold text-brand-700">나</span>}
+          {a.id === meId && <span className="ml-1.5 text-micro font-bold text-brand-700">나</span>}
         </td>
 
         <td className="px-3 py-2.5 text-slate-600">
@@ -272,7 +272,7 @@ function AccountRow({
         <td className="px-3 py-2.5">
           {fixed ? (
             <span
-              className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${
+              className={`rounded-full px-2 py-0.5 text-tiny font-bold ${
                 a.role === 'admin' ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-600'
               }`}
             >
@@ -327,7 +327,7 @@ function AccountRow({
         <td className="px-3 py-2.5 text-right">
           {a.source === '파일' ? (
             <span
-              className="text-[11px] text-slate-400"
+              className="text-tiny text-slate-400"
               title="배포 설정에 있는 계정이라 화면에서 못 바꿉니다"
             >
               고정
@@ -337,7 +337,7 @@ function AccountRow({
               type="button"
               disabled={busy || a.id === meId}
               onClick={() => patch({ active: !a.active })}
-              className={`rounded-lg border px-2.5 py-1 text-[11px] font-bold transition disabled:opacity-40 ${
+              className={`rounded-lg border px-2.5 py-1 text-tiny font-bold transition disabled:opacity-40 ${
                 a.active
                   ? 'border-slate-200 text-slate-600 hover:border-red-300 hover:text-red-700'
                   : 'border-brand-300 bg-brand-50 text-brand-800'
@@ -350,7 +350,7 @@ function AccountRow({
       </tr>
       {error && (
         <tr>
-          <td colSpan={6} className="px-3 pb-2.5 text-[11px] font-semibold text-red-700">
+          <td colSpan={6} className="px-3 pb-2.5 text-tiny font-semibold text-red-700">
             {error}
           </td>
         </tr>
@@ -374,11 +374,11 @@ function Field({
 }) {
   return (
     <label className="block">
-      <span className="mb-1 block text-[11px] font-bold tracking-[0.08em] text-slate-400">
+      <span className="mb-1 block text-tiny font-bold tracking-[0.08em] text-slate-400">
         {label}
       </span>
       {children}
-      {hint && <span className="mt-1 block text-[11px] text-slate-400">{hint}</span>}
+      {hint && <span className="mt-1 block text-tiny text-slate-400">{hint}</span>}
     </label>
   );
 }

@@ -41,7 +41,7 @@ export default function SiteHeader({ active }: { active: ActiveSection }) {
             priority
           />
           <span className="hidden min-w-0 sm:block">
-            <span className="block text-[10px] font-bold tracking-[0.18em] text-brand-700">
+            <span className="block text-micro font-bold tracking-[0.18em] text-brand-700">
               HANBAEK
             </span>
             <span className="block truncate text-sm font-bold leading-none text-slate-900">

@@ -124,10 +124,10 @@ export default function ProjectBoard({
           >
             <header className="mb-2 flex items-center gap-2.5">
               <span aria-hidden className={`h-[3px] w-6 rounded-full ${BAND_RULE[band]}`} />
-              <h2 className={`text-[11px] font-black tracking-[0.12em] ${BAND_TEXT[band]}`}>
+              <h2 className={`text-tiny font-black tracking-[0.12em] ${BAND_TEXT[band]}`}>
                 {band}
               </h2>
-              <span className="text-[11px] font-bold tabular-nums text-slate-400">{total}건</span>
+              <span className="text-tiny font-bold tabular-nums text-slate-400">{total}건</span>
             </header>
 
             {/*
@@ -179,7 +179,7 @@ export default function ProjectBoard({
                       }`}
                     >
                       <header className="flex items-baseline justify-between gap-2 px-1.5 pb-2">
-                        <h3 className="text-[13px] font-black tracking-[-0.01em] text-slate-800">
+                        <h3 className="text-base font-black tracking-[-0.01em] text-slate-800">
                           {col.label}
                         </h3>
                         <span
@@ -203,7 +203,7 @@ export default function ProjectBoard({
                           />
                         ))}
                         {list.length === 0 && (
-                          <p className="flex h-full items-center justify-center rounded-xl border border-dashed border-slate-200 text-[11px] text-slate-300">
+                          <p className="flex h-full items-center justify-center rounded-xl border border-dashed border-slate-200 text-tiny text-slate-300">
                             없음
                           </p>
                         )}
@@ -270,30 +270,30 @@ function Card({
       } ${busy ? 'opacity-50' : ''}`}
     >
       <p className="break-keep text-sm font-bold leading-snug text-slate-900">{p.name}</p>
-      <p className="mt-1 text-[11px] leading-snug text-slate-500">
+      <p className="mt-1 text-tiny leading-snug text-slate-500">
         {p.cpo} · {qty}대{terms.length ? ` · ${terms.join('·')}년` : ''}
       </p>
-      {org && <p className="text-[11px] leading-snug text-slate-400">{org}</p>}
+      {org && <p className="text-tiny leading-snug text-slate-400">{org}</p>}
 
       <div className="mt-2 flex flex-wrap items-center gap-1">
         {p.rejectedDocs > 0 && (
-          <span className="rounded-full bg-red-100 px-1.5 py-0.5 text-[10px] font-bold text-red-800">
+          <span className="rounded-full bg-red-100 px-1.5 py-0.5 text-micro font-bold text-red-800">
             반려 {p.rejectedDocs}
           </span>
         )}
         {!p.priced && (
-          <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-slate-500">
+          <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-micro font-bold text-slate-500">
             단가 미지정
           </span>
         )}
         {p.holdState && (
-          <span className="rounded-full bg-slate-800 px-1.5 py-0.5 text-[10px] font-bold text-white">
+          <span className="rounded-full bg-slate-800 px-1.5 py-0.5 text-micro font-bold text-white">
             {p.holdState}
           </span>
         )}
         {p.stalledDays >= 14 && (
           <span
-            className={`ml-auto text-[10px] font-black tabular-nums ${
+            className={`ml-auto text-micro font-black tabular-nums ${
               p.stalledDays >= 30 ? 'text-red-700' : 'text-amber-700'
             }`}
             title="마지막 진척 후 경과일"

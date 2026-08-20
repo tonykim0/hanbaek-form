@@ -472,6 +472,34 @@ export interface PayoutRow {
   paidAt: string | null;
 }
 
+export interface ContractState {
+  /** 이 현장에 필요한 필수 서류 칸 수 */
+  requiredTotal: number;
+  /** 그중 통과한 것 (제출됐고 반려 안 됨) */
+  satisfied: number;
+  /**
+   * 필수 서류 칸이 다 찼는가 — 반려 여부는 보지 않는다.
+   *
+   * ★접수와 검토를 가르는 사실이다.★ 칸이 비어 있으면 협력사가 더 낼 것이 있고(계약접수),
+   * 다 찼으면 한백이 볼 차례다(계약검토). 반려는 그보다 먼저 잡히므로(계약보완) 여기서
+   * 반려를 셈에 넣으면 두 판정이 겹친다.
+   */
+  docsFilled: boolean;
+  /**
+   * 반려된 서류 수 — 필수 여부를 가리지 않는다.
+   *
+   * 조건부·선택 서류가 반려됐어도 계약은 못 넘어간다. 반려는 「이 계약은 아직 아니다」는
+   * 판정이고, 그 판정이 남은 계약을 넘기면 보드의 「계약보완」 칸과 실제가 어긋난다.
+   */
+  rejected: number;
+  /** 라인마다 단가가 붙었는가 */
+  allPriced: boolean;
+  /** 한백 확인만 남았는가 — 확인 버튼이 열리는 조건이고 저장소도 이것을 본다 */
+  ready: boolean;
+  /** 영업비 지급조건 서류 중 아직 통과하지 못한 것 */
+  feeMissing: string[];
+}
+
 export interface ProjectDetail {
   project: Project;
   lines: ContractLineView[];
@@ -481,6 +509,14 @@ export interface ProjectDetail {
   process: ProcessInfo;
   settlement: Settlement;
   stage: Stage;
+  /**
+   * 계약이 어디까지 왔고 무엇에 막혀 있는가 (lib/stage.ts 의 contractStateOf).
+   *
+   * ★화면은 이것을 다시 계산하지 않는다.★ 예전에는 현장 상세가 required.every(...) 로
+   * 다시 세고 목록 요약이 또 자기 식으로 셌다. 조건을 하나 바꾸면 그 곳들이 갈려서
+   * 「버튼은 눌리는데 저장이 거절되는」 상태가 생긴다.
+   */
+  contract: ContractState;
   court: Court;
   stalledDays: number;
   /** 진행현황 — 최근 것이 위로 온다 */

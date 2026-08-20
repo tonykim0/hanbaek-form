@@ -29,7 +29,7 @@ import { PROCESS_DOCS } from '@/lib/doc-rules';
 import { asProcessStatus, canEnter } from '@/lib/process';
 import type { Actor, PaymentPatch, ProcessPatch, ProjectRepository } from './repository';
 import {
-  ALL_DOC_KEYS, byStalled, contractReadyOf, isProcessDocKind, payoutRowsOf, redactForViewer,
+  ALL_DOC_KEYS, byStalled, contractStateFor, isProcessDocKind, payoutRowsOf, redactForViewer,
   settlementSummaryOf,
   summaryOf, toDetail, type ProjectRecord,
 } from './assemble';
@@ -945,7 +945,7 @@ export const pgRepository: ProjectRepository = {
      * 필수 서류가 비었거나 반려가 남은 계약을 확인해 버리면, 그 뒤로는 무엇이 확인된
      * 것인지 알 수 없어진다. 조건은 lib/stage.ts 가 정본이고 여기서 그것을 부른다.
      */
-    if (confirmed && !contractReadyOf(record)) {
+    if (confirmed && !contractStateFor(record).ready) {
       throw new Error('서류가 다 차고 반려가 없고 단가가 붙어야 계약을 확인할 수 있습니다.');
     }
 

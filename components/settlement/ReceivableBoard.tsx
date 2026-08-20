@@ -71,7 +71,7 @@ export default function ReceivableBoard({ rows }: { rows: SettlementSummary[] })
         <Empty />
       ) : (
         <Frame min="960px">
-          <thead className="border-b border-slate-100 bg-slate-50 text-[11px] font-bold tracking-[0.06em] text-slate-500">
+          <thead className="border-b border-slate-100 bg-slate-50 text-tiny font-bold tracking-[0.06em] text-slate-500">
             <tr>
               <th className="px-3 py-2.5 text-left">현장</th>
               <th className="px-3 py-2.5 text-left">정산 규칙</th>
@@ -88,15 +88,15 @@ export default function ReceivableBoard({ rows }: { rows: SettlementSummary[] })
               <tr key={r.id} className="transition hover:bg-brand-50/40">
                 <td className="px-3 py-2.5">
                   <SiteLink id={r.id} name={r.name} />
-                  <p className="mt-0.5 text-[11px] text-slate-400">
+                  <p className="mt-0.5 text-tiny text-slate-400">
                     {r.cpo} · {r.qty}대 · {r.status}
                   </p>
                 </td>
                 <td className="px-3 py-2.5">
                   {r.ruleName ? (
-                    <span className="text-[12px] text-slate-600">{r.ruleName}</span>
+                    <span className="text-small text-slate-600">{r.ruleName}</span>
                   ) : (
-                    <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-bold text-amber-900">
+                    <span className="rounded-full bg-amber-100 px-2 py-0.5 text-tiny font-bold text-amber-900">
                       미적용
                     </span>
                   )}
@@ -106,13 +106,13 @@ export default function ReceivableBoard({ rows }: { rows: SettlementSummary[] })
                   if (!s) return <td key={no} className="px-3 py-2.5 text-slate-300">—</td>;
                   return (
                     <td key={no} className="px-3 py-2.5">
-                      <span className={`inline-block whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-bold ${STEP_BADGE[s.state]}`}>
+                      <span className={`inline-block whitespace-nowrap rounded-full px-2 py-0.5 text-micro font-bold ${STEP_BADGE[s.state]}`}>
                         {STEP_LABEL[s.state]}
                       </span>
-                      <p className="mt-0.5 text-[11px] font-bold tabular-nums text-slate-700">
+                      <p className="mt-0.5 text-tiny font-bold tabular-nums text-slate-700">
                         {s.planAmount === null ? '—' : won(s.planAmount)}
                       </p>
-                      <p className="text-[10px] text-slate-400">{s.trigger}</p>
+                      <p className="text-micro text-slate-400">{s.trigger}</p>
                     </td>
                   );
                 })}

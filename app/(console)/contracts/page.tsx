@@ -36,7 +36,7 @@ export default async function ContractsPage() {
         </p>
       </div>
 
-      <ol className="mb-5 flex flex-wrap items-center gap-2 text-[12px] font-bold">
+      <ol className="mb-5 flex flex-wrap items-center gap-2 text-small font-bold">
         <Step n={1} label="계약서 작성" now />
         <Arrow />
         <Step n={2} label="서류 접수" href="/projects/new" />
@@ -55,7 +55,7 @@ export default async function ContractsPage() {
           >
             <span className="min-w-0">
               <span className="block text-sm font-bold text-slate-900">{f.cpo}</span>
-              <span className="block text-[11px] text-slate-400">{f.note}</span>
+              <span className="block text-tiny text-slate-400">{f.note}</span>
             </span>
             <span aria-hidden className="shrink-0 text-brand-700">↗</span>
           </a>

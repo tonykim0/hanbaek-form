@@ -23,7 +23,7 @@ import type {
 } from '@/types/project';
 import { buildDocContext, PROCESS_DOCS } from '@/lib/doc-rules';
 import { PAY_SPLIT, payInstallments, settlementForProject } from '@/lib/settlement';
-import { contractReady, deriveStage, requiredDocsFilled, stalledDaysSince } from '@/lib/stage';
+import { contractStateOf, deriveStage, stalledDaysSince } from '@/lib/stage';
 import { entryOkOf } from '@/lib/process';
 import { effectiveVisibility, type Visibility } from '@/lib/roles';
 import type { Viewer } from '@/lib/auth/types';
@@ -130,18 +130,14 @@ function docCtxOf(r: ProjectRecord) {
 }
 
 /**
- * 한백 확인만 남았는가.
+ * 계약 판정 — 저장소가 쓰기를 받아들일지 볼 때 부른다.
  *
- * 계약 확인 버튼이 눌리는지, 저장소가 확인을 받아들이는지 둘 다 이걸로 판정한다 —
- * 조건을 두 곳에 쓰면 「버튼은 눌리는데 저장이 거절되는」 상태가 생긴다.
+ * 화면은 이것을 다시 계산하지 않는다. toDetail 이 같은 값을 detail.contract 로 실어 보내고,
+ * 목록 요약도 여기서 뽑는다 — 조건을 여러 곳에 쓰면 「버튼은 눌리는데 저장이 거절되는」
+ * 상태가 생긴다.
  */
-export function contractReadyOf(r: ProjectRecord): boolean {
-  return contractReady({ docCtx: docCtxOf(r), documents: r.documents, lines: r.lines });
-}
-
-/** 필수 서류 칸이 다 찼는가 — 보드가 계약접수와 계약검토를 가르는 데 쓴다 */
-export function docsFilledOf(r: ProjectRecord): boolean {
-  return requiredDocsFilled({ docCtx: docCtxOf(r), documents: r.documents });
+export function contractStateFor(r: ProjectRecord) {
+  return contractStateOf({ docCtx: docCtxOf(r), documents: r.documents, lines: r.lines });
 }
 
 export function toDetail(r: ProjectRecord): ProjectDetail {
@@ -160,6 +156,7 @@ export function toDetail(r: ProjectRecord): ProjectDetail {
     lines, settlementRule, r.process, r.settlementRaw.cpoCloseDate, r.collected
   );
   const settlement: Settlement = { ...r.settlementRaw, steps };
+  const contract = contractStateOf({ docCtx, documents: r.documents, lines: r.lines });
   const stage = deriveStage({
     docCtx,
     documents: r.documents,
@@ -178,6 +175,8 @@ export function toDetail(r: ProjectRecord): ProjectDetail {
     process: r.process,
     settlement,
     stage,
+    // 계약 판정은 여기서 한 번만 한다 — 화면이 다시 세면 조건이 갈린다
+    contract,
     court: r.court,
     stalledDays: stalledDaysSince(r.lastProgressAt),
   };
@@ -207,10 +206,10 @@ export function summaryOf(r: ProjectRecord): ProjectSummary {
     gcOrg: d.project.gcOrg,
     court: d.court,
     stalledDays: d.stalledDays,
-    priced: d.lines.length > 0 && d.lines.every((l) => l.rule !== null),
-    rejectedDocs: d.documents.filter((x) => x.status === 'rejected').length,
-    // 계약접수(아직 모으는 중)와 계약검토(다 찼으니 한백 차례)를 가른다
-    docsFilled: docsFilledOf(r),
+    // 세 값 모두 d.contract 에서 온다 — 목록이 자기 식으로 다시 세면 보드와 상세가 갈린다
+    priced: d.contract.allPriced,
+    rejectedDocs: d.contract.rejected,
+    docsFilled: d.contract.docsFilled,
     entryOk: entryOkOf(d.process),
   };
 }

@@ -91,12 +91,12 @@ export function SettlementTab({
                   <p className="text-sm font-bold text-slate-800">
                     {s.trigger === '해당없음' ? '해당없음' : `${s.trigger} · ${s.basisLabel}`}
                   </p>
-                  <p className="text-[11px] text-slate-500">
+                  <p className="text-tiny text-slate-500">
                     {s.state === 'na' ? '해당 차수 없음' : triggerSource(s.trigger)}
                   </p>
                 </div>
                 <span
-                  className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold ${
+                  className={`rounded-full px-2.5 py-0.5 text-tiny font-bold ${
                     s.state === 'open'
                       ? 'bg-amber-200 text-amber-900'
                       : s.state === 'collected'
@@ -139,7 +139,7 @@ function ContractLines({ lines, vis }: { lines: ProjectDetail['lines']; vis: Vis
       <h2 className="mb-3 text-h3 font-black text-slate-900">계약 라인 · 단가</h2>
       <div className="overflow-x-auto rounded-xl border border-slate-200">
         <table className="w-full min-w-[640px] text-sm">
-          <thead className="bg-slate-50 text-[11px] font-bold tracking-[0.08em] text-slate-500">
+          <thead className="bg-slate-50 text-tiny font-bold tracking-[0.08em] text-slate-500">
             <tr>
               <th className="px-4 py-2.5 text-left">라인</th>
               <th className="px-4 py-2.5 text-left">적용 단가 케이스</th>
@@ -154,7 +154,7 @@ function ContractLines({ lines, vis }: { lines: ProjectDetail['lines']; vis: Vis
                 <td className="whitespace-nowrap px-4 py-3 font-bold text-slate-800">
                   {l.termYears}년 × {l.qty}대
                   {l.powerType && (
-                    <span className="ml-1.5 text-[11px] font-semibold text-slate-400">
+                    <span className="ml-1.5 text-tiny font-semibold text-slate-400">
                       {l.powerType}
                     </span>
                   )}
@@ -163,7 +163,7 @@ function ContractLines({ lines, vis }: { lines: ProjectDetail['lines']; vis: Vis
                   {l.rule ? (
                     <>
                       {l.rule.caseName}
-                      <span className="ml-1.5 text-[11px] text-slate-400">
+                      <span className="ml-1.5 text-tiny text-slate-400">
                         {l.pricedAt} 확정
                       </span>
                     </>
@@ -187,7 +187,7 @@ function Money({ show, value }: { show: boolean; value: number | null }) {
   if (!show) {
     return (
       <td className="px-4 py-3 text-right">
-        <span className="rounded bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-400">
+        <span className="rounded bg-slate-100 px-2 py-0.5 text-tiny font-semibold text-slate-400">
           권한 없음
         </span>
       </td>
@@ -281,12 +281,12 @@ function PaymentSection({
                     {l.termYears}년 × {l.qty}대
                   </span>
                   {l.powerType && (
-                    <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[11px] font-semibold text-slate-500">
+                    <span className="rounded bg-slate-100 px-1.5 py-0.5 text-tiny font-semibold text-slate-500">
                       {l.powerType}
                     </span>
                   )}
                   {opts && (
-                    <span className="text-[11px] text-slate-400">
+                    <span className="text-tiny text-slate-400">
                       {opts.usedAxes.join(' · ')}(으)로 후보 {opts.exact.length}건
                     </span>
                   )}
@@ -347,7 +347,7 @@ function PaymentSection({
 
       <div className="overflow-x-auto rounded-xl border border-slate-200">
         <table className="w-full min-w-[560px] text-sm">
-          <thead className="bg-slate-50 text-[11px] font-bold tracking-[0.08em] text-slate-500">
+          <thead className="bg-slate-50 text-tiny font-bold tracking-[0.08em] text-slate-500">
             <tr>
               <th className="px-4 py-2.5 text-left">항목</th>
               <th className="px-4 py-2.5 text-left">비율</th>
@@ -431,7 +431,7 @@ function PayRow({
         </td>
       ) : (
         <td className="px-4 py-3 text-right">
-          <span className="rounded bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-400">
+          <span className="rounded bg-slate-100 px-2 py-0.5 text-tiny font-semibold text-slate-400">
             권한 없음
           </span>
         </td>

@@ -487,7 +487,7 @@ export default function IntakeForm({ org, isAdmin = false, knownOrgs = [] }: {
         <h2 className="text-base font-black tracking-[-0.02em] text-slate-900">
           계약서 묶음 올리기
         </h2>
-        <p className="mt-0.5 text-[12px] leading-relaxed text-slate-500">
+        <p className="mt-0.5 text-small leading-relaxed text-slate-500">
           ZIP 하나를 올리면 서류가 칸별로 갈리고, 계약서에서 읽은 값으로 아래가 채워집니다.
           주소가 서류마다 어긋나지 않는지도 함께 봅니다. 채워진 값은 고칠 수 있습니다.
         </p>
@@ -510,7 +510,7 @@ export default function IntakeForm({ org, isAdmin = false, knownOrgs = [] }: {
           />
         </label>
         {autoCount > 0 && (
-          <p className="mt-2 text-[12px] font-bold text-brand-800">
+          <p className="mt-2 text-small font-bold text-brand-800">
             {autoCount}개 칸을 자동으로 채웠습니다 · 서류 {Object.keys(staged).length}건 첨부
           </p>
         )}
@@ -537,7 +537,7 @@ export default function IntakeForm({ org, isAdmin = false, knownOrgs = [] }: {
               <button
                 type="button"
                 onClick={() => { setName(namedRegion); touched('name'); }}
-                className="mt-1 text-[11px] font-bold text-brand-700 underline decoration-brand-300 hover:text-brand-800"
+                className="mt-1 text-tiny font-bold text-brand-700 underline decoration-brand-300 hover:text-brand-800"
               >
                 「{regionPrefixOf(addr)}」 앞에 붙이기
               </button>
@@ -605,12 +605,12 @@ export default function IntakeForm({ org, isAdmin = false, knownOrgs = [] }: {
       <section className="rounded-2xl border border-slate-200 bg-white p-5">
         <div className="mb-1 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
           <h2 className="text-base font-black tracking-[-0.02em] text-slate-900">서류</h2>
-          <p className="text-[12px] font-bold text-slate-500">
+          <p className="text-small font-bold text-slate-500">
             필수 <span className="tabular-nums text-slate-900">{check.satisfiedCount}</span>
             <span className="text-slate-300"> / </span>
             <span className="tabular-nums">{check.requiredCount}</span>
             {issueCount > 0 && (
-              <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] text-amber-900">
+              <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-tiny text-amber-900">
                 확인 필요 {issueCount}
               </span>
             )}
@@ -626,7 +626,7 @@ export default function IntakeForm({ org, isAdmin = false, knownOrgs = [] }: {
             }}
           />
         </div>
-        <p className="mb-4 text-[11px] leading-relaxed text-slate-400">
+        <p className="mb-4 text-tiny leading-relaxed text-slate-400">
           {review
             ? '올린 서류를 한 장씩 읽어 확인했습니다. 짚은 것이 있으면 그 칸에 적혀 있습니다 — 접수를 막지는 않습니다.'
             : '운영사·계약주체·수전방식에 따라 필요한 서류가 바뀝니다. 파일은 접수가 끝난 뒤 이어서 올라갑니다.'}
@@ -641,13 +641,13 @@ export default function IntakeForm({ org, isAdmin = false, knownOrgs = [] }: {
               <div key={sec.req}>
                 <div className="mb-2 flex items-baseline gap-2">
                   <span className={`h-[3px] w-5 rounded-full ${sec.rule}`} />
-                  <h3 className="text-[11px] font-black tracking-[0.1em] text-slate-500">
+                  <h3 className="text-tiny font-black tracking-[0.1em] text-slate-500">
                     {sec.label}
                   </h3>
-                  <span className="text-[11px] font-bold tabular-nums text-slate-400">
+                  <span className="text-tiny font-bold tabular-nums text-slate-400">
                     {done}/{list.length}
                   </span>
-                  <span className="text-[11px] text-slate-400">{sec.note}</span>
+                  <span className="text-tiny text-slate-400">{sec.note}</span>
                 </div>
 
                 <div className="grid gap-2 lg:grid-cols-2">
@@ -672,10 +672,10 @@ export default function IntakeForm({ org, isAdmin = false, knownOrgs = [] }: {
                         }`}
                       >
                         <div className="min-w-0 flex-1">
-                          <p className="flex flex-wrap items-baseline gap-x-1.5 break-keep text-[13px] font-bold leading-snug text-slate-800">
+                          <p className="flex flex-wrap items-baseline gap-x-1.5 break-keep text-base font-bold leading-snug text-slate-800">
                             {d.label}
                             {d.ext && (
-                              <span className="text-[10px] font-bold text-slate-400">{d.ext}</span>
+                              <span className="text-micro font-bold text-slate-400">{d.ext}</span>
                             )}
                           </p>
 
@@ -687,20 +687,20 @@ export default function IntakeForm({ org, isAdmin = false, knownOrgs = [] }: {
                                   style={{ width: `${uploading}%` }}
                                 />
                               </div>
-                              <p className="mt-1 text-[11px] font-bold text-brand-700">
+                              <p className="mt-1 text-tiny font-bold text-brand-700">
                                 올리는 중 {uploading}%
                               </p>
                             </div>
                           ) : filled ? (
                             <p
-                              className="mt-1 truncate text-[11px] text-slate-500"
+                              className="mt-1 truncate text-tiny text-slate-500"
                               title={filled.filename}
                             >
                               {filled.filename}
                             </p>
                           ) : (
                             <p
-                              className={`mt-1 text-[11px] font-bold ${
+                              className={`mt-1 text-tiny font-bold ${
                                 missing ? 'text-red-700' : 'text-slate-300'
                               }`}
                             >
@@ -712,7 +712,7 @@ export default function IntakeForm({ org, isAdmin = false, knownOrgs = [] }: {
                         </div>
 
                         <div className="flex shrink-0 flex-col items-end gap-1">
-                          <label className="inline-flex cursor-pointer items-center rounded-lg border border-slate-300 bg-white px-2 py-1 text-[11px] font-bold text-slate-700 transition hover:border-brand-400 hover:text-brand-800">
+                          <label className="inline-flex cursor-pointer items-center rounded-lg border border-slate-300 bg-white px-2 py-1 text-tiny font-bold text-slate-700 transition hover:border-brand-400 hover:text-brand-800">
                             {filled ? '바꾸기' : '고르기'}
                             <input
                               type="file"
@@ -738,7 +738,7 @@ export default function IntakeForm({ org, isAdmin = false, knownOrgs = [] }: {
                                 delete next[d.key];
                                 setStaged(next);
                               }}
-                              className="text-[11px] font-bold text-slate-400 underline decoration-slate-300 transition hover:text-red-700"
+                              className="text-tiny font-bold text-slate-400 underline decoration-slate-300 transition hover:text-red-700"
                             >
                               빼기
                             </button>
@@ -841,7 +841,7 @@ function Card({
     <section className="rounded-2xl border border-slate-200 bg-white p-5">
       <div className="mb-3">
         <h2 className="text-base font-black tracking-[-0.02em] text-slate-900">{title}</h2>
-        {note && <p className="mt-0.5 text-[11px] text-slate-400">{note}</p>}
+        {note && <p className="mt-0.5 text-tiny text-slate-400">{note}</p>}
       </div>
       {children}
     </section>
@@ -861,7 +861,7 @@ function Field({
 }) {
   return (
     <label className={`block ${span ? 'sm:col-span-2' : ''}`}>
-      <span className="mb-1 flex items-baseline gap-1.5 text-[11px] font-bold tracking-[0.06em] text-slate-400">
+      <span className="mb-1 flex items-baseline gap-1.5 text-tiny font-bold tracking-[0.06em] text-slate-400">
         {label}
         {required && <span className="text-red-500">*</span>}
         {auto && (
@@ -871,7 +871,7 @@ function Field({
         )}
       </span>
       {children}
-      {hint && <span className="mt-1 block text-[11px] text-slate-400">{hint}</span>}
+      {hint && <span className="mt-1 block text-tiny text-slate-400">{hint}</span>}
     </label>
   );
 }
@@ -884,17 +884,17 @@ function Field({
  */
 function Finding({ finding }: { finding: DocFinding }) {
   if (!finding.checked) {
-    return <p className="mt-1.5 text-[10px] text-slate-400">검수하지 못했습니다</p>;
+    return <p className="mt-1.5 text-micro text-slate-400">검수하지 못했습니다</p>;
   }
   if (finding.ok) {
     return (
-      <p className="mt-1.5 text-[10px] font-bold text-brand-700">이상없음</p>
+      <p className="mt-1.5 text-micro font-bold text-brand-700">이상없음</p>
     );
   }
   return (
     <ul className="mt-1.5 flex flex-col gap-0.5">
       {finding.issues.map((x) => (
-        <li key={x} className="text-[10px] leading-snug text-amber-900">
+        <li key={x} className="text-micro leading-snug text-amber-900">
           · {x}
         </li>
       ))}
@@ -920,7 +920,7 @@ function Preview({ url }: { url: string }) {
     <button
       type="button"
       onClick={open}
-      className="mt-1 text-[11px] font-bold text-brand-700 underline-offset-2 transition hover:underline"
+      className="mt-1 text-tiny font-bold text-brand-700 underline-offset-2 transition hover:underline"
     >
       미리보기
     </button>
@@ -971,7 +971,7 @@ function QtyGrid({
     <div className="overflow-hidden rounded-xl border border-slate-200">
       <table className="w-full text-sm">
         {cols.length > 1 && (
-          <thead className="bg-slate-50 text-[11px] font-bold text-slate-500">
+          <thead className="bg-slate-50 text-tiny font-bold text-slate-500">
             <tr>
               <th className="px-3 py-2 text-left" />
               {cols.map((c) => (
@@ -983,7 +983,7 @@ function QtyGrid({
         <tbody className="divide-y divide-slate-100">
           {rows.map((r) => (
             <tr key={r}>
-              <th className="w-[150px] px-3 py-2 text-left text-[12px] font-bold text-slate-600">
+              <th className="w-[150px] px-3 py-2 text-left text-small font-bold text-slate-600">
                 {r.replace('자체투자 ', '').replace(/[()]/g, '')}
               </th>
               {cols.map((c) => {
@@ -998,7 +998,7 @@ function QtyGrid({
                         onChange={(e) => onChange(k, num(e))}
                         className="w-[72px] rounded-lg border border-slate-200 px-2 py-1 text-sm tabular-nums text-slate-900 placeholder:text-slate-300 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-100"
                       />
-                      <span className="text-[12px] text-slate-400">기</span>
+                      <span className="text-small text-slate-400">기</span>
                     </span>
                   </td>
                 );
@@ -1007,7 +1007,7 @@ function QtyGrid({
           ))}
         </tbody>
       </table>
-      <p className="border-t border-slate-100 bg-slate-50 px-3 py-1.5 text-[11px] font-bold text-slate-500">
+      <p className="border-t border-slate-100 bg-slate-50 px-3 py-1.5 text-tiny font-bold text-slate-500">
         합계 <span className="tabular-nums text-slate-800">{total}</span>기
       </p>
     </div>

@@ -71,7 +71,7 @@ export function DocFileActions({
           href={doc.blobUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="rounded-lg border border-slate-300 bg-white px-2 py-1 text-[11px] font-bold text-slate-700 transition hover:bg-slate-50"
+          className="rounded-lg border border-slate-300 bg-white px-2 py-1 text-tiny font-bold text-slate-700 transition hover:bg-slate-50"
         >
           미리보기
         </a>
@@ -80,7 +80,7 @@ export function DocFileActions({
         type="button"
         disabled={busy}
         onClick={download}
-        className="rounded-lg border border-slate-300 bg-white px-2 py-1 text-[11px] font-bold text-slate-700 transition hover:bg-slate-50 disabled:text-slate-400"
+        className="rounded-lg border border-slate-300 bg-white px-2 py-1 text-tiny font-bold text-slate-700 transition hover:bg-slate-50 disabled:text-slate-400"
       >
         {busy ? '받는 중' : '다운로드'}
       </button>
@@ -123,11 +123,11 @@ export function DocDelete({
         type="button"
         disabled={busy}
         onClick={remove}
-        className="mt-2 text-[11px] font-bold text-slate-400 underline decoration-slate-300 transition hover:text-red-700 disabled:text-slate-300"
+        className="mt-2 text-tiny font-bold text-slate-400 underline decoration-slate-300 transition hover:text-red-700 disabled:text-slate-300"
       >
         {busy ? '지우는 중…' : '삭제'}
       </button>
-      {error && <p className="mt-1 text-[11px] font-semibold text-red-700">{error}</p>}
+      {error && <p className="mt-1 text-tiny font-semibold text-red-700">{error}</p>}
     </>
   );
 }
@@ -189,7 +189,7 @@ export function DownloadAll({
       >
         {busy ? '묶는 중…' : `전체 다운로드 (${withFiles.length})`}
       </button>
-      {error && <span className="text-[11px] font-semibold text-amber-700">{error}</span>}
+      {error && <span className="text-tiny font-semibold text-amber-700">{error}</span>}
     </div>
   );
 }
@@ -272,7 +272,7 @@ export function DocUpload({
   return (
     <div className="mt-2">
       <label
-        className={`inline-flex cursor-pointer items-center rounded-lg px-2 py-1 text-[11px] font-bold transition ${
+        className={`inline-flex cursor-pointer items-center rounded-lg px-2 py-1 text-tiny font-bold transition ${
           rejected
             ? 'bg-brand-700 text-white hover:bg-brand-800'
             : 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
@@ -281,7 +281,7 @@ export function DocUpload({
         {busy ? `올리는 중 ${pct}%` : rejected ? '다시 올리기' : hasFile ? '바꾸기' : '올리기'}
         <input type="file" className="hidden" onChange={onPick} disabled={busy} />
       </label>
-      {error && <p className="mt-1 text-[11px] font-semibold text-red-700">{error}</p>}
+      {error && <p className="mt-1 text-tiny font-semibold text-red-700">{error}</p>}
     </div>
   );
 }

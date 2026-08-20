@@ -35,7 +35,7 @@ export function Toggle({
       type="button"
       aria-pressed={on}
       onClick={() => onChange(!on)}
-      className={`mb-3 rounded-full border px-3 py-1.5 text-[12px] font-bold transition ${
+      className={`mb-3 rounded-full border px-3 py-1.5 text-small font-bold transition ${
         on
           ? 'border-brand-500 bg-brand-600 text-white'
           : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
@@ -83,12 +83,12 @@ export function Tile({
 }) {
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-4">
-      <p className="text-[11px] font-bold tracking-[0.06em] text-slate-400">{label}</p>
+      <p className="text-tiny font-bold tracking-[0.06em] text-slate-400">{label}</p>
       <p className={`mt-1 text-xl font-black tabular-nums tracking-[-0.02em] ${TILE_TONE[tone]}`}>
         {won(value)}
         <span className="ml-1 text-xs font-bold text-slate-400">원</span>
       </p>
-      {note && <p className="mt-0.5 text-[11px] text-slate-400">{note}</p>}
+      {note && <p className="mt-0.5 text-tiny text-slate-400">{note}</p>}
     </div>
   );
 }
@@ -109,7 +109,7 @@ export function CrossLink({
     >
       <span className="text-slate-500">{note}</span>
       <span className="font-black tabular-nums text-slate-900">{won(amount)}원</span>
-      <span className="ml-auto text-[12px] font-bold text-brand-700">{label} →</span>
+      <span className="ml-auto text-small font-bold text-brand-700">{label} →</span>
     </Link>
   );
 }

@@ -57,7 +57,7 @@ export function ProgressLog({
     <section className="mt-5 border-t border-slate-100 pt-4">
       <div className="mb-2 flex flex-wrap items-baseline gap-x-2 gap-y-1">
         <h2 className="text-lead font-black text-slate-900">진행현황 및 메모</h2>
-        <span className="text-[11px] font-bold tabular-nums text-slate-400">{notes.length}건</span>
+        <span className="text-tiny font-bold tabular-nums text-slate-400">{notes.length}건</span>
       </div>
 
       {/*
@@ -82,13 +82,13 @@ export function ProgressLog({
         </button>
         {/* 누구 이름으로 남는지 — 버튼 옆에 둔다. 위에 따로 줄을 만들 값이 아니다. */}
         <span
-          className={`rounded px-1.5 py-0.5 text-[10px] font-black ${
+          className={`rounded px-1.5 py-0.5 text-micro font-black ${
             isHanbaek ? 'bg-slate-900 text-white' : 'bg-brand-600 text-white'
           }`}
         >
           {author}
         </span>
-        {error && <span className="text-[11px] font-semibold text-red-700">{error}</span>}
+        {error && <span className="text-tiny font-semibold text-red-700">{error}</span>}
       </div>
 
       {/* 「아직 없습니다」를 적지 않는다 — 위의 0건이 이미 그 말이다 */}
@@ -146,15 +146,15 @@ function NoteItem({
     >
       <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
         <span
-          className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-black ${
+          className={`shrink-0 rounded px-1.5 py-0.5 text-micro font-black ${
             byHanbaek ? 'bg-slate-900 text-white' : 'bg-brand-100 text-brand-900'
           }`}
         >
           {note.author}
         </span>
-        <span className="shrink-0 text-[11px] tabular-nums text-slate-400">{note.at}</span>
+        <span className="shrink-0 text-tiny tabular-nums text-slate-400">{note.at}</span>
         {note.editedAt && (
-          <span className="shrink-0 text-[11px] text-slate-400" title={`${note.editedAt} 에 고침`}>
+          <span className="shrink-0 text-tiny text-slate-400" title={`${note.editedAt} 에 고침`}>
             수정됨
           </span>
         )}
@@ -163,7 +163,7 @@ function NoteItem({
           <button
             type="button"
             onClick={() => { setBody(note.body); setEditing(true); }}
-            className="shrink-0 text-[11px] font-bold text-slate-400 underline decoration-slate-300 transition hover:text-brand-800"
+            className="shrink-0 text-tiny font-bold text-slate-400 underline decoration-slate-300 transition hover:text-brand-800"
           >
             수정
           </button>
@@ -177,14 +177,14 @@ function NoteItem({
             onChange={(e) => setBody(e.target.value)}
             rows={3}
             autoFocus
-            className="w-full resize-y rounded-lg border border-slate-200 px-3 py-2 text-[13px] leading-relaxed text-slate-900 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-100"
+            className="w-full resize-y rounded-lg border border-slate-200 px-3 py-2 text-base leading-relaxed text-slate-900 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-100"
           />
           <div className="flex items-center gap-1.5">
             <button
               type="button"
               disabled={busy || !body.trim()}
               onClick={save}
-              className="rounded-lg bg-brand-700 px-3 py-1 text-[11px] font-bold text-white transition hover:bg-brand-800 disabled:bg-slate-200 disabled:text-slate-400"
+              className="rounded-lg bg-brand-700 px-3 py-1 text-tiny font-bold text-white transition hover:bg-brand-800 disabled:bg-slate-200 disabled:text-slate-400"
             >
               {busy ? '고치는 중…' : '저장'}
             </button>
@@ -192,15 +192,15 @@ function NoteItem({
               type="button"
               disabled={busy}
               onClick={() => { setEditing(false); setBody(note.body); setError(null); }}
-              className="rounded-lg px-2 py-1 text-[11px] font-bold text-slate-400 transition hover:text-slate-600"
+              className="rounded-lg px-2 py-1 text-tiny font-bold text-slate-400 transition hover:text-slate-600"
             >
               취소
             </button>
-            {error && <span className="text-[11px] font-semibold text-red-700">{error}</span>}
+            {error && <span className="text-tiny font-semibold text-red-700">{error}</span>}
           </div>
         </div>
       ) : (
-        <p className="mt-1 whitespace-pre-wrap break-keep text-[13px] leading-relaxed text-slate-700">
+        <p className="mt-1 whitespace-pre-wrap break-keep text-base leading-relaxed text-slate-700">
           {note.body}
         </p>
       )}

@@ -182,7 +182,7 @@ export default function MaterialsBrowser({ groups }: { groups: MaterialGroup[] }
 
               {group.categories.map((category) => (
                 <div key={category.key} className="border-b border-gray-100 last:border-0">
-                  <p className="px-4 sm:px-5 pt-3 pb-1 text-[11px] font-semibold tracking-wide text-gray-400">
+                  <p className="px-4 sm:px-5 pt-3 pb-1 text-tiny font-semibold tracking-wide text-gray-400">
                     {category.label}
                   </p>
                   <ul>
@@ -193,7 +193,7 @@ export default function MaterialsBrowser({ groups }: { groups: MaterialGroup[] }
                           className="group flex items-center gap-3 px-4 sm:px-5 py-3 hover:bg-brand-50/50 transition"
                         >
                           <span
-                            className={`flex-none w-11 h-11 rounded-lg border flex items-center justify-center text-[10px] font-bold ${extStyle(
+                            className={`flex-none w-11 h-11 rounded-lg border flex items-center justify-center text-micro font-bold ${extStyle(
                               file.ext
                             )}`}
                           >

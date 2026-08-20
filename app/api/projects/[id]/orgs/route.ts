@@ -7,31 +7,17 @@
  *
  * 비우면 「어느 업체도 아닌 현장」으로 되돌린다. 이름 다듬기는 저장소가 한다.
  */
-import { NextResponse } from 'next/server';
-import { requireAdmin } from '@/lib/auth/guard';
-import { actorOf } from '@/lib/auth/session';
 import { getRepository } from '@/lib/data';
+import { adminWrite, BadRequest } from '@/lib/api/write-route';
 
-export async function PATCH(
-  request: Request,
-  { params }: { params: { id: string } }
-) {
-  const session = await requireAdmin();
-  if (!session) {
-    return NextResponse.json({ error: '한백 관리자만 지정할 수 있습니다.' }, { status: 403 });
-  }
+type Body = { salesOrg?: string | null; gcOrg?: string | null };
 
-  const body = (await request.json().catch(() => null)) as
-    | { salesOrg?: string | null; gcOrg?: string | null }
-    | null;
-  if (!body || (!('salesOrg' in body) && !('gcOrg' in body))) {
-    return NextResponse.json({ error: '고칠 값이 없습니다.' }, { status: 400 });
+export const PATCH = adminWrite<{ id: string }, Body>(
+  '한백 관리자만 지정할 수 있습니다.',
+  async ({ body, params, actor }) => {
+    if (!body || (!('salesOrg' in body) && !('gcOrg' in body))) {
+      throw new BadRequest('고칠 값이 없습니다.');
+    }
+    await getRepository().setOrgs(params.id, body, actor);
   }
-
-  try {
-    await getRepository().setOrgs(params.id, body, actorOf(session));
-  } catch (err) {
-    return NextResponse.json({ error: (err as Error).message }, { status: 422 });
-  }
-  return NextResponse.json({ ok: true });
-}
+);

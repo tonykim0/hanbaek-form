@@ -1,43 +1,24 @@
 /**
  * POST /api/projects/[id]/env-queue — 환경부 보조금 신청 대기번호
  *
- * 형식을 강제하지 않는다. 「2026-595」로도 오고 번호만 오기도 해서, 규칙을 정하면
- * 형식이 다른 값이 들어올 때 적을 자리가 없어진다. 길이만 막는다.
+ * 접수 뒤에 나오는 값이라 협력사 접수 폼에는 없다. 운영사가 환경부에 접수하고 그 번호를
+ * 우리에게 알려주므로 한백이 콘솔에서 채운다.
+ *
+ * 자체투자 현장은 받을 번호가 없다 — 그 판정은 저장소가 한다(422).
  */
-import { NextResponse } from 'next/server';
-import { requireAdmin } from '@/lib/auth/guard';
 import { getRepository } from '@/lib/data';
-import { actorOf } from '@/lib/auth/session';
+import { adminWrite, BadRequest } from '@/lib/api/write-route';
 
-export async function POST(
-  request: Request,
-  { params }: { params: { id: string } }
-) {
-  const session = await requireAdmin();
-  if (!session) {
-    return NextResponse.json({ error: '한백 관리자만 입력할 수 있습니다.' }, { status: 403 });
+export const POST = adminWrite<{ id: string }, { value?: unknown }>(
+  '한백 관리자만 입력할 수 있습니다.',
+  async ({ body, params, actor }) => {
+    const raw = body.value;
+    if (raw !== null && typeof raw !== 'string') {
+      throw new BadRequest('대기번호는 문자열이어야 합니다.');
+    }
+    // 빈 문자열은 「지운다」는 뜻이다 — 잘못 적은 번호를 되돌릴 길이 있어야 한다
+    const value = raw === null || raw.trim() === '' ? null : raw.trim();
+    if (value !== null && value.length > 40) throw new BadRequest('대기번호가 너무 깁니다.');
+    await getRepository().setEnvQueueNo(params.id, value, actor);
   }
-
-  let body: { value?: unknown };
-  try {
-    body = (await request.json()) as typeof body;
-  } catch {
-    return NextResponse.json({ error: '요청을 읽을 수 없습니다.' }, { status: 400 });
-  }
-
-  const raw = body.value;
-  if (raw !== null && typeof raw !== 'string') {
-    return NextResponse.json({ error: '대기번호는 문자열이어야 합니다.' }, { status: 400 });
-  }
-  const value = raw === null ? null : raw.trim() === '' ? null : raw.trim();
-  if (value !== null && value.length > 40) {
-    return NextResponse.json({ error: '대기번호가 너무 깁니다.' }, { status: 400 });
-  }
-
-  try {
-    await getRepository().setEnvQueueNo(params.id, value, actorOf(session));
-  } catch (err) {
-    return NextResponse.json({ error: (err as Error).message }, { status: 422 });
-  }
-  return NextResponse.json({ ok: true });
-}
+);

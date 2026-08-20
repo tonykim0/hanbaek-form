@@ -321,7 +321,7 @@ function Group({
 }) {
   return (
     <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1.5">
-      <span className="w-[76px] shrink-0 text-[11px] font-bold tracking-[0.04em] text-slate-400">
+      <span className="w-[76px] shrink-0 text-tiny font-bold tracking-[0.04em] text-slate-400">
         {label}
       </span>
       <div className="flex flex-1 flex-wrap gap-1.5">
@@ -333,7 +333,7 @@ function Group({
               type="button"
               aria-pressed={on}
               onClick={() => onToggle(o.value)}
-              className={`rounded-full border px-2.5 py-1 text-[11px] font-bold transition ${
+              className={`rounded-full border px-2.5 py-1 text-tiny font-bold transition ${
                 on
                   ? 'border-brand-500 bg-brand-600 text-white'
                   : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'

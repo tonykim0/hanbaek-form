@@ -30,7 +30,7 @@ function AppliedStat({ applied }: { applied: number }) {
           applied > 0 ? 'border-amber-200 bg-amber-50' : 'border-slate-200 bg-white'
         }`}
       >
-        <p className="text-[11px] font-semibold text-slate-500">보조금 이력 합계 (A)</p>
+        <p className="text-tiny font-semibold text-slate-500">보조금 이력 합계 (A)</p>
         <p
           className={`mt-1 text-2xl font-black tabular-nums tracking-[-0.03em] ${
             applied > 0 ? 'text-amber-800' : 'text-slate-900'
@@ -76,7 +76,7 @@ function Matched({ result }: { result: Extract<LookupResult<SubsidyRecord>, { st
   return (
     <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
       <div className="bg-amber-50 px-5 py-4">
-        <p className="text-[11px] font-bold tracking-[0.14em] text-amber-700">DB2 조회 결과</p>
+        <p className="text-tiny font-bold tracking-[0.14em] text-amber-700">DB2 조회 결과</p>
         <h2 className="mt-1 text-xl font-black tracking-[-0.03em] text-amber-900">
           보조금 신청 기록이 있습니다 — {summary.years.join(', ')}년 {summary.count}건 ·{' '}
           {summary.units.toLocaleString('ko-KR')}기
@@ -94,7 +94,7 @@ function Matched({ result }: { result: Extract<LookupResult<SubsidyRecord>, { st
       <AppliedStat applied={summary.units} />
 
       <div className="border-t border-slate-100 px-5 py-4">
-        <p className="mb-2 text-[11px] font-bold tracking-wide text-slate-500">신청 이력</p>
+        <p className="mb-2 text-tiny font-bold tracking-wide text-slate-500">신청 이력</p>
         <ApplyList summary={summary} />
       </div>
 
@@ -123,7 +123,7 @@ function Empty({
   return (
     <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
      <div className="p-5">
-      <p className="text-[11px] font-bold tracking-[0.14em] text-slate-500">DB2 조회 결과</p>
+      <p className="text-tiny font-bold tracking-[0.14em] text-slate-500">DB2 조회 결과</p>
       <h2 className="mt-1 text-lg font-black tracking-[-0.03em] text-slate-900">
         {isMismatch
           ? '입력한 시 · 군에는 신청 기록이 없습니다'

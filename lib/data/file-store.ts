@@ -19,7 +19,7 @@ import type { Actor, ProjectRepository } from './repository';
 import { canAccessProject, effectiveVisibility, normalizeOrg } from '@/lib/roles';
 import { asProcessStatus, canEnter } from '@/lib/process';
 import {
-  ALL_DOC_KEYS, byStalled, contractReadyOf, emptyProcess, emptySettlement, isProcessDocKind,
+  ALL_DOC_KEYS, byStalled, contractStateFor, emptyProcess, emptySettlement, isProcessDocKind,
   payoutRowsOf,
   redactForViewer, settlementSummaryOf, summaryOf, toDetail, type ProjectRecord,
 } from './assemble';
@@ -391,7 +391,7 @@ export const fileRepository: ProjectRepository = {
     const records = await load();
     const r = records.find((x) => x.project.id === projectId);
     if (!r) throw new Error('현장을 찾을 수 없습니다.');
-    if (confirmed && !contractReadyOf(r)) {
+    if (confirmed && !contractStateFor(r).ready) {
       throw new Error('서류가 다 차고 반려가 없고 단가가 붙어야 계약을 확인할 수 있습니다.');
     }
     const after = confirmed ? new Date().toISOString().slice(0, 10) : null;

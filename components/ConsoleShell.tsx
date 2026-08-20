@@ -132,7 +132,7 @@ export default function ConsoleShell({
   return (
     <div className="min-h-screen bg-[#f7f8f4] text-slate-900">
       <aside
-        className={`fixed inset-y-0 left-0 z-40 flex flex-col border-r border-slate-200 bg-white text-[13px] transition-[width] duration-150 ${
+        className={`fixed inset-y-0 left-0 z-40 flex flex-col border-r border-slate-200 bg-white text-base transition-[width] duration-150 ${
           open ? 'w-[184px]' : 'w-[56px]'
         }`}
       >
@@ -141,8 +141,8 @@ export default function ConsoleShell({
             <Image src="/logo.png" alt="한백" width={24} height={24} className="flex-none" priority />
             {open && (
               <span className="min-w-0 leading-tight">
-                <span className="block text-[13px] font-bold text-slate-900">한백</span>
-                <span className="block truncate text-[10px] text-slate-500">전기차사업관리</span>
+                <span className="block text-base font-bold text-slate-900">한백</span>
+                <span className="block truncate text-micro text-slate-500">전기차사업관리</span>
               </span>
             )}
           </Link>
@@ -152,7 +152,7 @@ export default function ConsoleShell({
           {groups.map((g) => (
             <div key={g.label} className="mb-3">
               {open ? (
-                <p className="px-2 pb-1 text-[10px] font-bold tracking-[0.12em] text-slate-400">
+                <p className="px-2 pb-1 text-micro font-bold tracking-[0.12em] text-slate-400">
                   {g.label}
                 </p>
               ) : (
@@ -180,13 +180,13 @@ export default function ConsoleShell({
                           <>
                             <span className="truncate">{it.label}</span>
                             {it.external && (
-                              <span aria-hidden className="ml-auto text-[11px] text-slate-300">
+                              <span aria-hidden className="ml-auto text-tiny text-slate-300">
                                 ↗
                               </span>
                             )}
                           </>
                         ) : (
-                          <span className="text-[11px] font-bold">{it.short}</span>
+                          <span className="text-tiny font-bold">{it.short}</span>
                         )}
                       </Link>
                     </li>
@@ -203,7 +203,7 @@ export default function ConsoleShell({
             * 정작 알아야 하는 것은 「어느 회사·어떤 권한으로 보고 있나」다.
             */}
           {open && (
-            <p className="truncate px-1.5 pb-2 text-[11px] font-bold leading-tight text-slate-500">
+            <p className="truncate px-1.5 pb-2 text-tiny font-bold leading-tight text-slate-500">
               {org ? `${org} · ` : ''}
               {ROLE_LABEL[role]}
             </p>
@@ -213,7 +213,7 @@ export default function ConsoleShell({
               <button
                 type="submit"
                 title="로그아웃"
-                className="w-full rounded-lg border border-slate-200 py-1.5 text-[11px] font-bold text-slate-500 transition hover:border-slate-300 hover:text-slate-800"
+                className="w-full rounded-lg border border-slate-200 py-1.5 text-tiny font-bold text-slate-500 transition hover:border-slate-300 hover:text-slate-800"
               >
                 {open ? '로그아웃' : '나감'}
               </button>
@@ -223,7 +223,7 @@ export default function ConsoleShell({
               onClick={() => setOpen((v) => !v)}
               aria-expanded={open}
               title={open ? '사이드바 접기' : '사이드바 펼치기'}
-              className="rounded-lg border border-slate-200 px-2 py-1.5 text-[11px] font-bold text-slate-400 transition hover:border-slate-300 hover:text-slate-700"
+              className="rounded-lg border border-slate-200 px-2 py-1.5 text-tiny font-bold text-slate-400 transition hover:border-slate-300 hover:text-slate-700"
             >
               {open ? '«' : '»'}
             </button>

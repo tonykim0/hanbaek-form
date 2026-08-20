@@ -168,7 +168,7 @@ export default function ConsoleShell({
                         target={it.external ? '_blank' : undefined}
                         rel={it.external ? 'noopener' : undefined}
                         title={open ? it.note : `${it.label}${it.note ? ` — ${it.note}` : ''}`}
-                        className={`flex items-center rounded-lg font-semibold transition ${
+                        className={`flex items-center rounded-ctl font-semibold transition ${
                           open ? 'gap-2 px-2 py-1.5' : 'justify-center py-2'
                         } ${
                           active
@@ -213,7 +213,7 @@ export default function ConsoleShell({
               <button
                 type="submit"
                 title="로그아웃"
-                className="w-full rounded-lg border border-slate-200 py-1.5 text-tiny font-bold text-slate-500 transition hover:border-slate-300 hover:text-slate-800"
+                className="w-full rounded-ctl border border-slate-200 py-1.5 text-tiny font-bold text-slate-500 transition hover:border-slate-300 hover:text-slate-800"
               >
                 {open ? '로그아웃' : '나감'}
               </button>
@@ -223,7 +223,7 @@ export default function ConsoleShell({
               onClick={() => setOpen((v) => !v)}
               aria-expanded={open}
               title={open ? '사이드바 접기' : '사이드바 펼치기'}
-              className="rounded-lg border border-slate-200 px-2 py-1.5 text-tiny font-bold text-slate-400 transition hover:border-slate-300 hover:text-slate-700"
+              className="rounded-ctl border border-slate-200 px-2 py-1.5 text-tiny font-bold text-slate-400 transition hover:border-slate-300 hover:text-slate-700"
             >
               {open ? '«' : '»'}
             </button>
@@ -234,7 +234,7 @@ export default function ConsoleShell({
       {/* 본문은 전체 폭을 쓴다 — 보드의 칸이 화면 밖으로 나가지 않게 */}
       <div className={`transition-[padding] duration-150 ${open ? 'pl-[184px]' : 'pl-[56px]'}`}>
         <main className="px-5 pb-16 pt-8 sm:px-7 sm:pt-9">{children}</main>
-        <footer className="border-t border-slate-200 px-6 py-6 text-center text-xs text-slate-400">
+        <footer className="border-t border-slate-200 px-6 py-6 text-center text-small text-slate-400">
           한백 전기차충전사업 · 내부 업무용
         </footer>
       </div>

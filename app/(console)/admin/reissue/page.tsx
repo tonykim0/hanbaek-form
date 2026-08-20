@@ -29,24 +29,24 @@ export default function ReissuePage() {
         <header className="mb-6">
           <Link
             href="/#contracts"
-            className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-brand-700 transition mb-3"
+            className="inline-flex items-center gap-1 text-base text-slate-500 hover:text-brand-700 transition mb-3"
           >
             <span aria-hidden>←</span> 계약서 작성으로
           </Link>
           <div className="flex items-center gap-3">
             <Image src="/logo.png" alt="한백" width={40} height={40} className="flex-none" />
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">서류 재발행 (담당자)</h1>
-              <p className="text-sm text-gray-500 mt-1">
+              <h1 className="text-h1 font-black text-slate-900">서류 재발행 (담당자)</h1>
+              <p className="text-base text-slate-500 mt-1">
                 기존 설치신청서·사전현장컨설팅결과서를 최신 양식으로 자동 변환
               </p>
             </div>
           </div>
         </header>
 
-        <section className="rounded-xl border border-gray-200 bg-white shadow-sm p-4 sm:p-5 mb-5">
-          <h2 className="text-base font-semibold text-gray-900 mb-2">쓰는 순서</h2>
-          <ol className="list-decimal ml-5 space-y-1.5 text-sm text-gray-700">
+        <section className="rounded-panel border border-slate-200 bg-white shadow-sm p-4 sm:p-5 mb-5">
+          <h2 className="text-base font-semibold text-slate-900 mb-2">쓰는 순서</h2>
+          <ol className="list-decimal ml-5 space-y-1.5 text-base text-slate-700">
             <li>아래에서 운영사를 골라 엽니다.</li>
             <li>기존 별지5호 설치신청서 PDF와 별지7호 결과서 PDF를 각각 넣습니다.</li>
             <li><b>두 문서 판독 후 최신 DOCX 다운로드</b>를 누릅니다.</li>
@@ -54,11 +54,11 @@ export default function ReissuePage() {
           </ol>
         </section>
 
-        <section className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden mb-5">
-          <div className="px-4 sm:px-5 py-3 border-b border-gray-100 bg-gray-50/60">
-            <h2 className="text-base font-semibold text-gray-900">운영사 선택</h2>
+        <section className="rounded-panel border border-slate-200 bg-white shadow-sm overflow-hidden mb-5">
+          <div className="px-4 sm:px-5 py-3 border-b border-slate-100 bg-slate-50/60">
+            <h2 className="text-base font-semibold text-slate-900">운영사 선택</h2>
           </div>
-          <ul className="divide-y divide-gray-100">
+          <ul className="divide-y divide-slate-100">
             {CPOS.map((cpo) => (
               <li key={cpo.path}>
                 <Link
@@ -66,10 +66,10 @@ export default function ReissuePage() {
                   className="flex items-center justify-between gap-3 px-4 sm:px-5 py-3.5 hover:bg-brand-50/60 transition"
                 >
                   <span className="min-w-0">
-                    <span className="block text-sm font-semibold text-gray-900">
+                    <span className="block text-base font-semibold text-slate-900">
                       {cpo.name}
                     </span>
-                    <span className="block text-xs text-gray-500">{cpo.note}</span>
+                    <span className="block text-small text-slate-500">{cpo.note}</span>
                   </span>
                   <span aria-hidden className="flex-none text-brand-700">
                     →
@@ -80,11 +80,11 @@ export default function ReissuePage() {
           </ul>
         </section>
 
-        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-900">
+        <div className="rounded-box border border-amber-200 bg-amber-50 px-4 py-3 text-small text-amber-900">
           <p className="font-semibold mb-1">알아두실 점</p>
           <ul className="list-disc ml-4 space-y-1">
             <li>
-              판독·재발행 도구는 주소에 <code className="bg-amber-100 rounded px-1">?import=1</code>{' '}
+              판독·재발행 도구는 주소에 <code className="bg-amber-100 rounded-tag px-1">?import=1</code>{' '}
               이 붙었을 때만 나타납니다. 협력사·영업자가 쓰는 <b>계약서 작성 페이지에는
               보이지 않습니다.</b>
             </li>

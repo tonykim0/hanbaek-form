@@ -12,6 +12,7 @@
 import { useState } from 'react';
 import type { ProjectDocument } from '@/types/project';
 import { useAction } from '@/lib/use-action';
+import { Btn, Err, FIELD } from '@/components/ui';
 
 // ── 검수 조작 (한백 전용) ─────────────────────────────────────────
 /**
@@ -59,27 +60,17 @@ export function DocReview({
           rows={2}
           autoFocus
           placeholder="반려 사유 — 협력사가 이 문장을 보고 고칩니다"
-          className="w-full rounded-lg border border-slate-300 px-2 py-1.5 text-tiny leading-snug focus:border-brand-500 focus:outline-none"
+          className={`${FIELD} leading-snug`}
         />
         <div className="flex gap-1.5">
-          <button
-            type="button"
-            disabled={busy || !reason.trim()}
-            onClick={() => send('rejected', reason)}
-            className="rounded-lg bg-red-600 px-2 py-1 text-tiny font-bold text-white disabled:bg-slate-200 disabled:text-slate-400"
-          >
-            {busy ? '처리 중' : '반려 확정'}
-          </button>
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => { setRejecting(false); setReason(''); setError(null); }}
-            className="rounded-lg border border-slate-300 px-2 py-1 text-tiny font-bold text-slate-600"
-          >
+          <Btn size="sm" kind="stop" disabled={!reason.trim()} busy={busy} onClick={() => send('rejected', reason)}>
+            반려 확정
+          </Btn>
+          <Btn size="sm" kind="side" disabled={busy} onClick={() => { setRejecting(false); setReason(''); setError(null); }}>
             취소
-          </button>
+          </Btn>
         </div>
-        {error && <p className="text-tiny font-semibold text-red-700">{error}</p>}
+        <Err>{error}</Err>
       </div>
     );
   }
@@ -98,35 +89,20 @@ export function DocReview({
         */}
         {status === 'rejected' ? (
           <>
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => send('uploaded')}
-              className="rounded-lg bg-brand-700 px-2 py-1 text-tiny font-bold text-white transition hover:bg-brand-800 disabled:bg-slate-100 disabled:text-slate-400"
-            >
+            <Btn size="sm" busy={busy} onClick={() => send('uploaded')}>
               반려 해제
-            </button>
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => setRejecting(true)}
-              className="rounded-lg border border-red-200 bg-white px-2 py-1 text-tiny font-bold text-red-700 transition hover:bg-red-50 disabled:text-slate-400"
-            >
+            </Btn>
+            <Btn size="sm" kind="undo" disabled={busy} onClick={() => setRejecting(true)}>
               사유 수정
-            </button>
+            </Btn>
           </>
         ) : (
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => setRejecting(true)}
-            className="rounded-lg border border-red-200 bg-white px-2 py-1 text-tiny font-bold text-red-700 transition hover:bg-red-50 disabled:text-slate-400"
-          >
+          <Btn size="sm" kind="undo" disabled={busy} onClick={() => setRejecting(true)}>
             반려
-          </button>
+          </Btn>
         )}
       </div>
-      {error && <p className="text-tiny font-semibold text-red-700">{error}</p>}
+      <Err>{error}</Err>
     </div>
   );
 }

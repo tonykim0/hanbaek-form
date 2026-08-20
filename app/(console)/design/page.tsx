@@ -4,9 +4,17 @@
  * ★문서가 아니라 화면이다.★ 따로 적어 둔 문서는 코드와 어긋나는 순간 쓸모가 없어진다.
  * 이 페이지는 실제 클래스로 그려지므로, 토큰을 바꾸면 여기가 같이 바뀐다.
  *
- * 새 화면을 만들 때 여기서 고른다. 여기 없는 값을 쓰고 싶으면 먼저 여기(그리고
- * tailwind.config.js)에 추가한다 — 그래야 다음 사람이 같은 것을 고른다.
+ * ★그림을 그리지 않고 부품을 그린다.★
+ * 예전에는 여기서 단추 클래스를 손으로 베껴 적었다. 그래서 이 페이지가 「단추는
+ * bg-brand-600 px-3.5 py-2」라고 말하는 동안 코드에는 단추가 10 모양, 배지가 18 모양
+ * 있었다 — 그림은 코드가 어긋난 줄 모른다. 지금은 components/ui.tsx 의 부품을 그대로
+ * 불러다 그린다. 여기서 보이는 것이 화면에 나가는 것이다.
+ *
+ * 새 화면을 만들 때 여기서 고른다. 여기 없는 값이 필요하면 자리에서 클래스를 적지 말고
+ * components/ui.tsx(모양) 와 tailwind.config.js(토큰) 에 먼저 추가한다.
  */
+import { Badge, Blank, Btn, Empty, Err, FIELD, FIELD_CELL, Note, Saved, Tag } from '@/components/ui';
+
 export const metadata = { title: '디자인 기준 — 한백 전기차사업관리' };
 
 /*
@@ -36,11 +44,19 @@ const TYPE: Array<[string, string, string]> = [
   ['text-h1', '24px', '화면에서 가장 큰 숫자·현장명'],
   ['text-h2', '18px', '화면 제목'],
   ['text-h3', '16px', '구역 제목'],
-  ['text-lead', '14px', '카드 표제·단추'],
-  ['text-base', '13px', '본문·카드 내용'],
-  ['text-small', '12px', '표 안의 값'],
-  ['text-tiny', '11px', '라벨·보조 설명'],
-  ['text-micro', '10px', '배지·단위'],
+  ['text-lead', '14px', '카드 표제 · 하는 일 단추 · 목록 행 제목'],
+  ['text-base', '13px', '본문 · 표 안의 값 · 입력칸'],
+  ['text-small', '12px', '보조 설명 · 보조 단추 · 좁은 표 칸'],
+  ['text-tiny', '11px', '라벨 · 표 머리 · 실패 문구'],
+  ['text-micro', '10px', '꼬리표 · 단위'],
+];
+
+/* 빈 값 네 가지 — 무엇이 없는지가 아니라 「왜 없는지」로 갈린다 */
+const EMPTY_KINDS: Array<[React.ReactNode, string, string]> = [
+  [<Empty key="m" kind="miss" />, '넣어야 하는데 안 넣음', '영업사 이름 · 단가 케이스 — 노랑이라 눈에 걸린다'],
+  [<Empty key="w" kind="wait" />, '아직 올 때가 아님', '환경부 대기번호 — 접수 뒤에 오는 값'],
+  [<Empty key="n" kind="na" />, '이 현장에는 규칙상 없음', '자체투자의 대기번호 · 기설치 조사'],
+  [<span key="z" className="font-bold text-slate-800">0건</span>, '세었고 없음', '「아직 없습니다」라고 적지 않는다 — 0건이 그 말이다'],
 ];
 
 export default function DesignPage() {
@@ -66,12 +82,16 @@ export default function DesignPage() {
           <li>· <b className="text-slate-700">brand-600</b> 기본 단추·켜진 필터 · <b className="text-slate-700">brand-700</b> hover</li>
           <li>· <b className="text-slate-700">brand-100/50</b> 배지·연한 강조 배경</li>
           <li>· 빨강은 <b className="text-slate-700">반려·오류</b>만, 노랑은 <b className="text-slate-700">확인 필요</b>만. 그 밖에 쓰지 않는다</li>
+          <li>· 색은 다섯 개다 — <b className="text-slate-700">회색</b>(그 밖의 전부) ·{' '}
+            <b className="text-slate-700">초록</b>(진행·확인) · <b className="text-slate-700">빨강</b>(막는 것) ·{' '}
+            <b className="text-slate-700">노랑</b>(봐야 하는 것) · <b className="text-slate-700">하늘</b>(계약 단계).
+            여섯 번째 색을 쓰고 싶으면 뜻이 겹치는 것이다</li>
         </ul>
 
         <div className="mt-4 grid gap-x-6 gap-y-1 sm:grid-cols-2">
           {SLATE_USE.map(([name, cls, use]) => (
             <div key={name} className="flex items-center gap-2 border-b border-slate-100 py-1.5">
-              <span className={`h-4 w-4 shrink-0 rounded border border-slate-200 ${cls}`} />
+              <span className={`h-4 w-4 shrink-0 rounded-tag border border-slate-200 ${cls}`} />
               <code className="w-20 shrink-0 text-micro font-bold text-slate-600">{name}</code>
               <span className="text-tiny text-slate-500">{use}</span>
             </div>
@@ -97,9 +117,9 @@ export default function DesignPage() {
         </p>
       </Section>
 
-      <Section title="모서리와 간격" note="세 단계 밖으로 나가지 않는다">
+      <Section title="모서리와 간격" note="동글면 상태, 각지면 누르는 것. 네 단계 밖으로 나가지 않는다">
         <div className="flex flex-wrap gap-3">
-          {[['rounded-ctl', '8px', '단추·배지·입력칸'], ['rounded-box', '12px', '카드·표·패널'], ['rounded-panel', '16px', '화면 단위 큰 상자']].map(
+          {[['rounded-tag', '4px', '꼬리표 (셈)'], ['rounded-ctl', '8px', '누르는 것·입력칸'], ['rounded-box', '12px', '카드 안의 표·띠'], ['rounded-panel', '16px', '화면 단위 상자'], ['rounded-full', '동글', '상태 배지 (못 누름)']].map(
             ([cls, px, use]) => (
               <div key={cls} className="w-[190px]">
                 <div className={`flex h-16 items-center justify-center border border-slate-200 bg-slate-50 ${cls}`}>
@@ -118,53 +138,80 @@ export default function DesignPage() {
         </p>
       </Section>
 
-      <Section title="부품" note="같은 일에는 같은 모양을 쓴다">
+      <Section title="부품" note="여기 보이는 것이 components/ui.tsx 다. 자리에서 클래스를 적지 않는다">
         <div className="flex flex-col gap-5">
           <Part label="단추">
-            <button type="button" className="rounded-ctl bg-brand-600 px-3.5 py-2 text-lead font-bold text-white transition hover:bg-brand-700">
-              기본 (하는 일)
-            </button>
-            <button type="button" className="rounded-ctl border border-slate-300 bg-white px-3 py-1.5 text-small font-bold text-slate-700 transition hover:bg-slate-50">
-              보조
-            </button>
-            <button type="button" className="text-tiny font-bold text-slate-400 underline decoration-slate-300 transition hover:text-red-700">
-              되돌릴 수 없는 일
-            </button>
-            <button type="button" disabled className="rounded-ctl bg-slate-200 px-3.5 py-2 text-lead font-bold text-slate-400">
-              막힌 단추
-            </button>
+            <Btn>하는 일</Btn>
+            <Btn kind="side">다른 길</Btn>
+            <Btn kind="stop">반려 확정</Btn>
+            <Btn kind="quiet">고치기</Btn>
+            <Btn kind="undo">확인 취소</Btn>
+            <Btn disabled>단가 미지정 — 확인 불가</Btn>
+            <Btn busy busyLabel="저장 중…">저장</Btn>
+          </Part>
+
+          <Part label="좁은 자리">
+            <Btn size="sm">올리기</Btn>
+            <Btn size="sm" kind="side">닫기</Btn>
+            <Btn size="sm" kind="stop">반려 확정</Btn>
+            <Btn size="sm" kind="quiet">입력</Btn>
+            <Btn size="sm" kind="undo">삭제</Btn>
+            <span className="text-tiny text-slate-400">표·카드 안 — 크기는 이 둘뿐이다</span>
           </Part>
 
           <Part label="배지">
-            <span className="rounded-full bg-sky-100 px-2.5 py-1 text-tiny font-bold text-sky-900">계약 단계</span>
-            <span className="rounded-full bg-brand-100 px-2.5 py-1 text-tiny font-bold text-brand-900">시공 단계</span>
-            <span className="rounded-full bg-slate-800 px-2.5 py-1 text-tiny font-bold text-white">멈춤</span>
-            <span className="rounded bg-red-100 px-1.5 py-0.5 text-micro font-bold text-red-800">반려 2</span>
-            <span className="rounded bg-amber-100 px-1.5 py-0.5 text-micro font-bold text-amber-900">확인 필요</span>
-            <span className="rounded bg-slate-100 px-1.5 py-0.5 text-micro font-bold text-slate-500">단가 미지정</span>
+            <Badge tone="stage">계약</Badge>
+            <Badge tone="ok">시공</Badge>
+            <Badge tone="mute">멈춤</Badge>
+            <span className="text-tiny text-slate-400">한 건에 하나 — 지금 있는 자리</span>
+          </Part>
+
+          <Part label="꼬리표">
+            <Tag tone="stop">반려 2</Tag>
+            <Tag tone="warn">확인 필요</Tag>
+            <Tag tone="mute">단가 미지정</Tag>
+            <span className="text-tiny text-slate-400">여럿이 붙는다 — 그 안에서 세어진 것</span>
           </Part>
 
           <Part label="입력칸">
-            <input placeholder="비어 있음" className="w-[180px] rounded-ctl border border-slate-200 px-3 py-2 text-base text-slate-900 placeholder:text-slate-300 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-100" />
-            <input defaultValue="채워진 값" className="w-[180px] rounded-ctl border border-slate-200 px-3 py-2 text-base text-slate-900 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-100" />
-            <input defaultValue="아직 안 적음" className="w-[180px] rounded-ctl border border-dashed border-slate-300 px-3 py-2 text-base text-slate-500" />
+            <input placeholder="비어 있음" className={`${FIELD} w-[180px]`} />
+            <input defaultValue="채워진 값" className={`${FIELD} w-[180px]`} />
+            <input defaultValue="1,250,000" className={`${FIELD_CELL} w-[110px]`} />
+            <span className="text-tiny text-slate-400">좁은 칸은 표 안에서만</span>
           </Part>
 
-          <Part label="상태 알림">
-            <p className="rounded-box border-l-[3px] border-red-500 bg-red-50 px-4 py-2.5 text-base font-semibold text-red-800">
-              막는 것 — 무엇이 왜 안 되는지 적는다
-            </p>
-            <p className="rounded-box border-l-[3px] border-amber-500 bg-amber-50/70 px-4 py-2.5 text-base text-amber-900">
-              확인할 것 — 접수·저장을 막지는 않는다
-            </p>
+          <Part label="띠">
+            <Note tone="stop" className="w-full">막는 것 — 무엇이 왜 안 되는지 적는다</Note>
+            <Note tone="warn" className="w-full">확인할 것 — 저장을 막지는 않는다</Note>
+            <Note tone="ok" className="w-full">끝난 것 — 언제 누가 했는지 적는다</Note>
           </Part>
 
-          <Part label="빈 상태">
-            <p className="w-full rounded-box border border-dashed border-slate-200 py-8 text-center text-base text-slate-400">
-              조건에 맞는 현장이 없습니다
-            </p>
+          <Part label="누른 뒤">
+            <Err>고치지 못했습니다.</Err>
+            <Saved />
+            <span className="text-tiny text-slate-400">누른 단추 옆에 붙인다. 화면 위에 모아 두지 않는다</span>
+          </Part>
+
+          <Part label="빈 목록">
+            <Blank>조건에 맞는 현장이 0건</Blank>
           </Part>
         </div>
+      </Section>
+
+      <Section title="빈 값" note="네 가지고 서로 다른 말이다. 하나로 뭉치면 빠뜨린 것과 원래 없는 것이 같아 보인다">
+        <div className="flex flex-col divide-y divide-slate-100">
+          {EMPTY_KINDS.map(([node, when, why]) => (
+            <div key={when} className="flex flex-wrap items-baseline gap-x-4 gap-y-1 py-2.5">
+              <span className="w-24 shrink-0">{node}</span>
+              <span className="w-40 shrink-0 text-tiny font-bold text-slate-600">{when}</span>
+              <span className="text-tiny text-slate-400">{why}</span>
+            </div>
+          ))}
+        </div>
+        <p className="mt-3 text-tiny text-slate-500">
+          「해당없음」에는 <b className="text-slate-700">고치는 자리를 주지 않는다</b> — 못 하는 일은
+          눌리지 않게 한다. 칸 자체를 지우지도 않는다.
+        </p>
       </Section>
 
       <Section title="쓰지 않는 것" note="이미 한 번 걷어낸 것들이다">

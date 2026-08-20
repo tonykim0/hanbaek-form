@@ -34,8 +34,8 @@ export default async function AccountsPage() {
   return (
     <>
       <div className="mb-6">
-        <h1 className="text-2xl font-black tracking-[-0.03em] text-slate-900">설정</h1>
-        <p className="mt-1.5 text-sm text-slate-500">
+        <h1 className="text-h1 font-black text-slate-900">설정</h1>
+        <p className="mt-1.5 text-base text-slate-500">
           협력사 계정 등록 · 계정 {accounts.length}개
         </p>
       </div>

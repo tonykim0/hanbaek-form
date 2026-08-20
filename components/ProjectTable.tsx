@@ -22,6 +22,7 @@ import {
   bandOfColumn, BOARD_COLUMNS, boardColumnOf, type BoardBand, type BoardColumn,
 } from '@/lib/board';
 import type { AttrFilters, AttrKey } from '@/lib/project-filter';
+import { Badge, Blank, Tag, type Tone } from '@/components/ui';
 
 type SortKey = 'name' | 'stage' | 'qty' | 'term' | 'created';
 
@@ -39,10 +40,11 @@ function termsOf(p: ProjectSummary): string {
 const maxTermOf = (p: ProjectSummary) => Math.max(0, ...p.lines.map((l) => l.termYears));
 
 /** 단계 배지 색 — 보드의 띠 색과 맞춘다 */
-const BAND_TONE: Record<BoardBand, string> = {
-  계약: 'bg-sky-100 text-sky-900',
-  시공: 'bg-brand-100 text-brand-900',
-  멈춤: 'bg-slate-800 text-white',
+/** 띠 색은 뜻이다 — 부품(components/ui)의 말투 이름으로 부른다. 여기서 색을 적지 않는다 */
+const BAND_TONE: Record<BoardBand, Tone> = {
+  계약: 'stage',
+  시공: 'ok',
+  멈춤: 'hold',
 };
 
 export default function ProjectTable({
@@ -128,16 +130,14 @@ export default function ProjectTable({
 
   if (rows.length === 0) {
     return (
-      <p className="rounded-2xl border border-dashed border-slate-200 py-12 text-center text-sm text-slate-400">
-        조건에 맞는 현장이 없습니다.
-      </p>
+      <Blank>조건에 맞는 현장이 없습니다.</Blank>
     );
   }
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+    <div className="overflow-hidden rounded-panel border border-slate-200 bg-white">
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[1180px] text-sm">
+        <table className="w-full min-w-[1180px] text-base">
           {/* 머리글은 붙여 둔다 — 138건을 훑으면서 어느 열인지 계속 알아야 한다 */}
           <thead className="sticky top-0 z-10 border-b border-slate-200 bg-slate-50 text-tiny tracking-[0.06em]">
             <tr>
@@ -213,9 +213,7 @@ export default function ProjectTable({
                     ) : p.preInstall ? (
                       <span className="text-slate-600">{p.preInstall}</span>
                     ) : (
-                      <span className="rounded bg-amber-100 px-1.5 py-0.5 text-micro font-bold text-amber-900">
-                        조사 필요
-                      </span>
+                      <Tag tone="warn">조사 필요</Tag>
                     )}
                   </td>
                   <Cell value={p.bizType} />
@@ -278,7 +276,7 @@ function QueueCell({ p, canEdit }: { p: ProjectSummary; canEdit: boolean }) {
       onKeyDown={(e) => {
         if (e.key === 'Enter') e.currentTarget.blur();
       }}
-      className={`w-[104px] rounded-lg border px-2 py-1 text-small tabular-nums transition placeholder:text-slate-300 focus:outline-none focus:ring-2 focus:ring-brand-100 ${
+      className={`w-[104px] rounded-ctl border px-2 py-1 text-small tabular-nums transition placeholder:text-slate-300 focus:outline-none focus:ring-2 focus:ring-brand-100 ${
         error
           ? 'border-red-400 text-red-800'
           : p.envQueueNo
@@ -308,13 +306,7 @@ function StageCell({
   if (fixed) {
     // 색으로 계약·시공·멈춤을 가른다 — 138줄을 훑을 때 글자보다 색이 먼저 읽힌다
     return (
-      <span
-        className={`inline-block whitespace-nowrap rounded-full px-2.5 py-1 text-tiny font-bold ${
-          BAND_TONE[bandOfColumn(col)]
-        }`}
-      >
-        {col}
-      </span>
+      <Badge tone={BAND_TONE[bandOfColumn(col)]}>{col}</Badge>
     );
   }
   const options = PROCESS_STATUSES.filter((s) => s === p.status || p.entryOk.includes(s));
@@ -328,7 +320,7 @@ function StageCell({
         value={p.status}
         disabled={busy}
         onChange={(e) => onMove(p, e.target.value as ProcessStatus)}
-        className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-tiny font-bold text-slate-700 transition hover:border-brand-300 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-100"
+        className="rounded-ctl border border-slate-200 bg-white px-2 py-1 text-tiny font-bold text-slate-700 transition hover:border-brand-300 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-100"
       >
         {options.map((s) => (
           <option key={s} value={s}>
@@ -391,7 +383,7 @@ function ColumnFilter({
         aria-label={`${label} 필터`}
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
-        className={`rounded px-1 py-0.5 text-micro font-black leading-none transition ${
+        className={`rounded-tag px-1 py-0.5 text-micro font-black leading-none transition ${
           on
             ? 'bg-brand-600 text-white'
             : 'text-slate-300 hover:bg-slate-200 hover:text-slate-600'
@@ -401,14 +393,14 @@ function ColumnFilter({
       </button>
 
       {open && (
-        <div className="absolute left-0 top-full z-20 mt-1 w-[190px] rounded-xl border border-slate-200 bg-white p-1.5 shadow-lg">
+        <div className="absolute left-0 top-full z-20 mt-1 w-[190px] rounded-box border border-slate-200 bg-white p-1.5 shadow-lg">
           <div className="max-h-[280px] overflow-y-auto">
             {options.map((v) => {
               const checked = picked.includes(v);
               return (
                 <label
                   key={v}
-                  className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-small font-semibold text-slate-700 hover:bg-slate-50"
+                  className="flex cursor-pointer items-center gap-2 rounded-ctl px-2 py-1.5 text-small font-semibold text-slate-700 hover:bg-slate-50"
                 >
                   <input
                     type="checkbox"
@@ -427,7 +419,7 @@ function ColumnFilter({
             <button
               type="button"
               onClick={() => { onChange([]); setOpen(false); }}
-              className="mt-1 w-full rounded-lg border-t border-slate-100 px-2 py-1.5 text-tiny font-bold text-slate-400 transition hover:text-slate-700"
+              className="mt-1 w-full rounded-ctl border-t border-slate-100 px-2 py-1.5 text-tiny font-bold text-slate-400 transition hover:text-slate-700"
             >
               이 열 필터 지우기
             </button>

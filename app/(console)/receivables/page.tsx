@@ -25,19 +25,22 @@ export default async function ReceivablesPage() {
   return (
     <>
       <div className="mb-6">
-        <h1 className="text-2xl font-black tracking-[-0.03em] text-slate-900">운영사 기성관리</h1>
-        <p className="mt-1.5 text-sm text-slate-500">
+        <h1 className="text-h1 font-black text-slate-900">운영사 기성관리</h1>
+        <p className="mt-1.5 text-base text-slate-500">
           운영사 → 한백 · 현장 {rows.length}건
         </p>
       </div>
 
       <ReceivableBoard rows={rows} />
 
-      <p className="mt-4 text-xs leading-relaxed text-slate-400">
-        기성은 청구해서 받는 것이 아니라 트리거가 차면 열립니다 — 환경부 승인일·실착공일은
-        현장 상세의 시공 탭에서 넣고, 준공마감일은 한백이 지정합니다. 회수 체크와 준공마감일
-        지정은 아직 만들지 않았습니다.
-        {repositoryKind() === 'file' && ' 지금은 예시 데이터입니다 (로컬 파일 저장소).'}
+      {/*
+        * 기성은 청구해서 받는 것이 아니라 트리거가 차면 열린다 — 환경부 승인일·실착공일은
+        * 현장 상세의 시공 탭에서 넣고, 준공마감일은 한백이 지정한다. 회수 체크와 준공마감일
+        * 지정은 아직 없다. 이 세 문장이 화면 아래 붙어 있었는데, 넣는 자리가 여기 없다는 것은
+        * 넣는 칸이 없는 것으로 이미 보인다(화면 규칙 2번).
+        */}
+      <p className="mt-4 text-small text-slate-400">
+        {repositoryKind() === 'file' && '지금은 예시 데이터입니다 (로컬 파일 저장소).'}
       </p>
     </>
   );

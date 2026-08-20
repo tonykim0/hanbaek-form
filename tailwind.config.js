@@ -15,8 +15,9 @@ module.exports = {
        * 고르게 되고, 없는 단계를 쓰려면 먼저 여기 추가해야 한다.
        *
        * 쓰는 자리:
-       *   micro 배지·단위   tiny 라벨·보조설명   small 표 안 값   base 본문·카드 제목
-       *   lead 카드 표제     h3 구역 제목        h2 화면 제목      h1 큰 숫자
+       *   micro 꼬리표·단위        tiny 라벨·표 머리·실패 문구
+       *   small 보조 설명·보조 단추  base 본문·표 안의 값·입력칸
+       *   lead 카드 표제·하는 일 단추  h3 구역 제목   h2 화면 제목   h1 큰 숫자
        */
       fontSize: {
         micro: ['10px', { lineHeight: '1.3' }],
@@ -29,10 +30,14 @@ module.exports = {
         h1: ['24px', { lineHeight: '1.25', letterSpacing: '-0.03em' }],
       },
       /*
-       * 모서리 — 세 단계.
-       *   ctl 단추·배지·입력칸   box 카드·표·패널   panel 화면 단위 큰 상자
+       * 모서리 — 네 단계.
+       *   tag 꼬리표(각진 배지)   ctl 누르는 것·입력칸   box 카드 안의 표·띠   panel 화면 단위 상자
+       *
+       * 동글한 상태 배지는 rounded-full 이다. 「동글면 상태, 각지면 누르는 것」이
+       * 눌러 보고 아는 구별이라 남겨 둔다.
        */
       borderRadius: {
+        tag: '4px',
         ctl: '8px',
         box: '12px',
         panel: '16px',

@@ -25,13 +25,13 @@ export default async function ProjectsPage() {
         건수는 필터 막대 아래에 이미 있다(ProjectsView) — 여기 또 적으면 두 곳이
         같은 말을 하고, 필터를 걸면 둘이 다른 숫자를 말한다.
       */}
-      <h1 className="mb-5 text-2xl font-black tracking-[-0.03em] text-slate-900">프로젝트</h1>
+      <h1 className="mb-5 text-h1 font-black text-slate-900">프로젝트</h1>
 
       <ProjectsView projects={projects} canMove={session.role === 'admin'} />
 
       {/* 설명글은 두지 않는다. 남기는 것은 「지금 보는 자료가 무엇인가」뿐이다. */}
       {repositoryKind() === 'file' && (
-        <p className="mt-4 text-xs text-slate-400">지금은 예시 데이터입니다 (로컬 파일 저장소).</p>
+        <p className="mt-4 text-small text-slate-400">지금은 예시 데이터입니다 (로컬 파일 저장소).</p>
       )}
     </>
   );

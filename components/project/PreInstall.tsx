@@ -11,6 +11,7 @@ import type { PreInstall, ProjectDetail, ProjectDocument } from '@/types/project
 import { evaluateDocs, needsPreInstallCheck } from '@/lib/doc-rules';
 import { DocDelete, DocFileActions, DocUpload } from '@/components/DocFiles';
 import { useAction } from '@/lib/use-action';
+import { Badge, Btn, Err, FIELD } from '@/components/ui';
 import { DocReview } from './DocReview';
 import { docState } from './parts';
 
@@ -54,9 +55,7 @@ export function PreInstall({
       <section>
         <div className="flex flex-wrap items-baseline gap-x-2">
           <h2 className="text-h3 font-black text-slate-900">기설치 조사</h2>
-          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-tiny font-bold text-slate-500">
-            해당없음
-          </span>
+          <Badge>해당없음</Badge>
         </div>
       </section>
     );
@@ -77,13 +76,9 @@ export function PreInstall({
       <div className="mb-3 flex flex-wrap items-baseline gap-x-2">
         <h2 className="text-h3 font-black text-slate-900">기설치 조사</h2>
         {project.preChecked ? (
-          <span className="rounded-full bg-brand-100 px-2 py-0.5 text-tiny font-bold text-brand-900">
-            조사함
-          </span>
+          <Badge tone="ok">조사함</Badge>
         ) : (
-          <span className="rounded-full bg-amber-100 px-2 py-0.5 text-tiny font-bold text-amber-900">
-            조사 필요
-          </span>
+          <Badge tone="warn">조사 필요</Badge>
         )}
       </div>
 
@@ -145,25 +140,20 @@ export function PreInstall({
                 rows={2}
                 autoFocus
                 placeholder="예) 지하 2층에 A사 완속 2기 (2023년 설치) — 계약 만료 미확인"
-                className="w-full rounded-ctl border border-slate-200 px-3 py-2 text-base text-slate-900 placeholder:text-slate-300 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-100"
+                className={FIELD}
               />
               <div className="flex items-center gap-1.5">
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={() => void save({ preNote: note, preChecked: true })}
-                  className="rounded-ctl bg-brand-700 px-3 py-1 text-tiny font-bold text-white transition hover:bg-brand-800 disabled:bg-slate-200 disabled:text-slate-400"
-                >
-                  {busy ? '저장 중…' : '저장'}
-                </button>
-                <button
-                  type="button"
+                <Btn size="sm" busy={busy} busyLabel="저장 중…" onClick={() => void save({ preNote: note, preChecked: true })}>
+                  저장
+                </Btn>
+                <Btn
+                  size="sm"
+                  kind="quiet"
                   disabled={busy}
                   onClick={() => { setEditing(false); setNote(project.preNote ?? ''); setError(null); }}
-                  className="rounded-ctl px-2 py-1 text-tiny font-bold text-slate-400 transition hover:text-slate-600"
                 >
                   취소
-                </button>
+                </Btn>
               </div>
             </div>
           ) : (
@@ -214,7 +204,7 @@ export function PreInstall({
         </div>
       </div>
 
-      {error && <p className="mt-2 text-tiny font-semibold text-red-700">{error}</p>}
+      <Err className="mt-2 block">{error}</Err>
     </section>
   );
 }

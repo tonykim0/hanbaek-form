@@ -127,7 +127,7 @@ export default function ProjectDetailView({
         knownOrgs={knownOrgs}
       />
 
-      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+      <div className="overflow-hidden rounded-panel border border-slate-200 bg-white">
         <div className="flex gap-1 border-b border-slate-100 px-3 pt-3" role="tablist">
           {tabs.map((t) => (
             <button
@@ -137,7 +137,7 @@ export default function ProjectDetailView({
               disabled={t.locked}
               title={t.locked ? `계약 완료 후 열립니다${t.why ? ` — ${t.why}` : ''}` : undefined}
               onClick={() => !t.locked && setTab(t.key)}
-              className={`-mb-px rounded-t-lg border-b-2 px-4 py-2.5 text-sm font-bold transition ${
+              className={`-mb-px rounded-t-ctl border-b-2 px-4 py-2.5 text-lead font-bold transition ${
                 t.locked
                   ? 'cursor-not-allowed border-transparent text-slate-300'
                   : tab === t.key
@@ -243,8 +243,8 @@ function SiteHeader({
   }
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6">
-      <Link href="/projects" className="text-xs font-semibold text-slate-400 hover:text-brand-700">
+    <div className="rounded-panel border border-slate-200 bg-white p-5 sm:p-6">
+      <Link href="/projects" className="text-small font-semibold text-slate-400 hover:text-brand-700">
         ← 현장 목록
       </Link>
 
@@ -260,10 +260,10 @@ function SiteHeader({
           {column}
         </span>
       </div>
-      <h1 className="mt-2 text-2xl font-black tracking-[-0.03em] text-slate-900">
+      <h1 className="mt-2 text-h1 font-black text-slate-900">
         {project.name}
       </h1>
-      {project.addr && <p className="mt-1 text-sm text-slate-500">{project.addr}</p>}
+      {project.addr && <p className="mt-1 text-base text-slate-500">{project.addr}</p>}
 
       {/*
         * 두 줄로 나눈다 — 가르는 기준은 「읽는 것」과 「고치는 것」이다.

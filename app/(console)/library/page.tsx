@@ -1,3 +1,4 @@
+import { Note } from '@/components/ui';
 import { redirect } from 'next/navigation';
 import { getSessionUser } from '@/lib/auth/session';
 import MaterialsBrowser from '@/components/MaterialsBrowser';
@@ -25,22 +26,22 @@ export default async function LibraryPage() {
   return (
     <div className="max-w-[880px]">
       <div className="mb-6">
-        <h1 className="text-2xl font-black tracking-[-0.03em] text-slate-900">자료실</h1>
-        <p className="mt-1.5 text-sm text-slate-500">
+        <h1 className="text-h1 font-black text-slate-900">자료실</h1>
+        <p className="mt-1.5 text-base text-slate-500">
           운영사별 영업자료 · 시방서 {fileCount}건
           {lastUpdated && ` · 마지막 업데이트 ${lastUpdated}`}
         </p>
       </div>
 
       {storageMissing && (
-        <p className="mb-4 rounded-xl border-l-[3px] border-amber-500 bg-amber-50/70 px-4 py-3 text-xs text-amber-900">
+        <Note tone="warn" className="mb-4">
           파일 저장소가 연결되지 않아 목록이 비어 있습니다.
-        </p>
+        </Note>
       )}
       {error && (
-        <p className="mb-4 rounded-xl border-l-[3px] border-red-500 bg-red-50 px-4 py-3 text-xs text-red-800">
+        <Note tone="stop" className="mb-4">
           목록을 불러오지 못했습니다 — {error}
-        </p>
+        </Note>
       )}
 
       <MaterialsBrowser groups={groups} />

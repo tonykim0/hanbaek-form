@@ -18,6 +18,7 @@ import { useRouter } from 'next/navigation';
 import type { ProcessStatus, ProjectSummary } from '@/types/project';
 import { PROCESS_STATUSES } from '@/types/project';
 import { BOARD_COLUMNS, boardColumnOf, type BoardBand, type BoardColumn } from '@/lib/board';
+import { Tag } from '@/components/ui';
 
 /** 띠별 강조색 — 카드까지 색을 입히면 읽히지 않는다. 줄 머리글만 물들인다. */
 const BAND_RULE: Record<BoardBand, string> = {
@@ -170,7 +171,7 @@ export default function ProjectBoard({
                         e.preventDefault();
                         drop(col.key);
                       }}
-                      className={`flex min-h-0 min-w-0 flex-col rounded-2xl border p-2.5 transition ${
+                      className={`flex min-h-0 min-w-0 flex-col rounded-panel border p-2.5 transition ${
                         droppable
                           ? 'border-brand-400 bg-brand-50/70 ring-2 ring-brand-200'
                           : rejecting
@@ -183,7 +184,7 @@ export default function ProjectBoard({
                           {col.label}
                         </h3>
                         <span
-                          className={`text-sm font-black tabular-nums ${
+                          className={`text-lead font-black tabular-nums ${
                             list.length > 0 ? 'text-slate-700' : 'text-slate-300'
                           }`}
                         >
@@ -203,7 +204,7 @@ export default function ProjectBoard({
                           />
                         ))}
                         {list.length === 0 && (
-                          <p className="flex h-full items-center justify-center rounded-xl border border-dashed border-slate-200 text-tiny text-slate-300">
+                          <p className="flex h-full items-center justify-center rounded-box border border-dashed border-slate-200 text-tiny text-slate-300">
                             없음
                           </p>
                         )}
@@ -265,11 +266,11 @@ function Card({
           router.push(`/projects/${p.id}`);
         }
       }}
-      className={`rounded-xl border border-slate-200 bg-white p-2.5 text-left transition hover:border-brand-300 hover:bg-brand-50/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-300 ${
+      className={`rounded-box border border-slate-200 bg-white p-2.5 text-left transition hover:border-brand-300 hover:bg-brand-50/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-300 ${
         draggable ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'
       } ${busy ? 'opacity-50' : ''}`}
     >
-      <p className="break-keep text-sm font-bold leading-snug text-slate-900">{p.name}</p>
+      <p className="break-keep text-lead font-bold leading-snug text-slate-900">{p.name}</p>
       <p className="mt-1 text-tiny leading-snug text-slate-500">
         {p.cpo} · {qty}대{terms.length ? ` · ${terms.join('·')}년` : ''}
       </p>
@@ -277,19 +278,13 @@ function Card({
 
       <div className="mt-2 flex flex-wrap items-center gap-1">
         {p.rejectedDocs > 0 && (
-          <span className="rounded-full bg-red-100 px-1.5 py-0.5 text-micro font-bold text-red-800">
-            반려 {p.rejectedDocs}
-          </span>
+          <Tag tone="stop">반려 {p.rejectedDocs}</Tag>
         )}
         {!p.priced && (
-          <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-micro font-bold text-slate-500">
-            단가 미지정
-          </span>
+          <Tag>단가 미지정</Tag>
         )}
         {p.holdState && (
-          <span className="rounded-full bg-slate-800 px-1.5 py-0.5 text-micro font-bold text-white">
-            {p.holdState}
-          </span>
+          <Tag tone="hold">{p.holdState}</Tag>
         )}
         {p.stalledDays >= 14 && (
           <span

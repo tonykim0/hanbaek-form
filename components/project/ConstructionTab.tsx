@@ -12,6 +12,7 @@ import { canEnter, statusIndex, STATUS_GATES } from '@/lib/process';
 import { PROCESS_STATUSES } from '@/types/project';
 import { DocDelete, DocFileActions, DocUpload, DownloadAll } from '@/components/DocFiles';
 import { useAction } from '@/lib/use-action';
+import { Note } from '@/components/ui';
 
 // ── 시공 탭 ─────────────────────────────────────────────────────
 /**
@@ -35,7 +36,7 @@ function StatusFlow({ process }: { process: ProjectDetail['process'] }) {
           return (
             <li key={st} className="flex items-center gap-1.5">
               <div
-                className={`rounded-lg px-2.5 py-1.5 text-tiny font-bold ${
+                className={`rounded-ctl px-2.5 py-1.5 text-tiny font-bold ${
                   current
                     ? 'bg-brand-700 text-white'
                     : past
@@ -57,7 +58,7 @@ function StatusFlow({ process }: { process: ProjectDetail['process'] }) {
         })}
       </ol>
 
-      <ul className="mt-3 flex flex-col gap-1 text-xs text-slate-500">
+      <ul className="mt-3 flex flex-col gap-1 text-small text-slate-500">
         {PROCESS_STATUSES.filter((st) => STATUS_GATES[st] && statusIndex(st) > now).map((st) => {
           const entry = canEnter(st, process);
           return (
@@ -133,7 +134,7 @@ export function ConstructionTab({ detail, canEdit }: { detail: ProjectDetail; ca
       {error && (
         <p
           role="alert"
-          className="rounded-xl border-l-[3px] border-red-500 bg-red-50 px-4 py-3 text-sm font-semibold text-red-800"
+          className="rounded-box border-l-[3px] border-red-500 bg-red-50 px-4 py-3 text-base font-semibold text-red-800"
         >
           {error}
         </p>
@@ -148,9 +149,9 @@ export function ConstructionTab({ detail, canEdit }: { detail: ProjectDetail; ca
             </p>
           )}
         </div>
-        <div className="overflow-hidden rounded-xl border border-slate-200 divide-y divide-slate-100">
+        <div className="overflow-hidden rounded-box border border-slate-200 divide-y divide-slate-100">
           {milestones.map((m) => (
-            <div key={m.field} className="flex flex-wrap items-center gap-3 px-4 py-2.5 text-sm">
+            <div key={m.field} className="flex flex-wrap items-center gap-3 px-4 py-2.5 text-base">
               <span className="w-32 shrink-0 text-slate-500">{m.label}</span>
               {canEdit ? (
                 <input
@@ -159,7 +160,7 @@ export function ConstructionTab({ detail, canEdit }: { detail: ProjectDetail; ca
                   defaultValue={m.value ?? ''}
                   disabled={busyKey === m.field}
                   onChange={(e) => void saveDate(m.field, e.target.value)}
-                  className={`w-[150px] rounded-lg border px-2 py-1 font-semibold tabular-nums transition focus:outline-none focus:ring-2 focus:ring-brand-100 ${
+                  className={`w-[150px] rounded-ctl border px-2 py-1 font-semibold tabular-nums transition focus:outline-none focus:ring-2 focus:ring-brand-100 ${
                     m.value
                       ? 'border-slate-200 text-slate-800'
                       : 'border-dashed border-slate-300 text-slate-400'
@@ -213,9 +214,9 @@ export function ConstructionTab({ detail, canEdit }: { detail: ProjectDetail; ca
             return (
               <div
                 key={d.key}
-                className={`rounded-xl border p-3 ${done ? 'border-brand-200 bg-brand-50/60' : 'border-slate-200 bg-white'}`}
+                className={`rounded-box border p-3 ${done ? 'border-brand-200 bg-brand-50/60' : 'border-slate-200 bg-white'}`}
               >
-                <p className="text-sm font-bold text-slate-800">{d.name}</p>
+                <p className="text-lead font-bold text-slate-800">{d.name}</p>
                 <p className={`mt-1 text-tiny font-black ${done ? 'text-brand-700' : 'text-slate-400'}`}>
                   {done ? '제출됨' : '대기'}
                 </p>
@@ -246,15 +247,15 @@ export function ConstructionTab({ detail, canEdit }: { detail: ProjectDetail; ca
           })}
         </div>
         {p.memo && (
-          <p className="mt-3 rounded-xl bg-slate-50 px-3.5 py-2.5 text-xs text-slate-600">{p.memo}</p>
+          <Note tone="mute" className="mt-3">{p.memo}</Note>
         )}
       </section>
 
-      <p className="rounded-xl border-l-[3px] border-brand-500 bg-brand-50/50 px-4 py-3 text-xs leading-relaxed text-slate-600">
-        진행 단계(계약완료 → 시공진행필요 → 설치완료 → 준공서류 접수/검토 → 준공보완 → 준공)는
-        노션 공정 마스터에 없습니다. 거기엔 메모 필드뿐이라, 이 축은 옮겨오는 게 아니라 이 앱이
-        새로 세웁니다.
-      </p>
+      {/*
+        * 진행 단계(계약완료 → 시공진행필요 → 설치완료 → 준공서류 접수/검토 → 준공보완 → 준공)는
+        * 이 앱이 새로 세운 축이다. 예전에는 이 문장이 화면 아래 띠로 붙어 있었는데,
+        * 쓰는 사람에게는 아무 소용이 없는 말이라 걷어냈다(화면 규칙 2번).
+        */}
     </div>
   );
 }

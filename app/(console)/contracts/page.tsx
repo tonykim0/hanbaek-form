@@ -30,8 +30,8 @@ export default async function ContractsPage() {
   return (
     <>
       <div className="mb-6">
-        <h1 className="text-2xl font-black tracking-[-0.03em] text-slate-900">계약서 작성</h1>
-        <p className="mt-1.5 text-sm text-slate-500">
+        <h1 className="text-h1 font-black text-slate-900">계약서 작성</h1>
+        <p className="mt-1.5 text-base text-slate-500">
           {session.org ?? '소속 없음'} · 운영사 양식을 골라 작성하고, 만든 서류는 접수에서 냅니다
         </p>
       </div>
@@ -51,10 +51,10 @@ export default async function ContractsPage() {
             href={`${f.path}?org=${encodeURIComponent(session.org ?? '')}`}
             target="_blank"
             rel="noopener"
-            className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-4 transition hover:border-brand-300 hover:bg-brand-50/40"
+            className="flex items-center justify-between gap-3 rounded-panel border border-slate-200 bg-white p-4 transition hover:border-brand-300 hover:bg-brand-50/40"
           >
             <span className="min-w-0">
-              <span className="block text-sm font-bold text-slate-900">{f.cpo}</span>
+              <span className="block text-lead font-bold text-slate-900">{f.cpo}</span>
               <span className="block text-tiny text-slate-400">{f.note}</span>
             </span>
             <span aria-hidden className="shrink-0 text-brand-700">↗</span>
@@ -62,7 +62,7 @@ export default async function ContractsPage() {
         ))}
       </div>
 
-      <p className="mt-4 max-w-[880px] text-xs leading-relaxed text-slate-400">
+      <p className="mt-4 max-w-[880px] text-small leading-relaxed text-slate-400">
         양식은 새 탭에서 열립니다 — 로그인 없이 쓰는 화면이라 아직 이 시스템 안으로 들어와
         있지 않습니다. 소속({session.org ?? '없음'})은 주소에 실어 보냅니다. 작성한 서류는
         내려받아 <Link href="/projects/new" className="font-bold text-brand-700 hover:underline">서류 접수</Link>

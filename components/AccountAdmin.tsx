@@ -17,6 +17,7 @@ import { useState } from 'react';
 import { useAction } from '@/lib/use-action';
 import type { AccountView } from '@/lib/auth/types';
 import type { Role } from '@/lib/roles';
+import { Btn, Err, FIELD, FIELD_CELL, Note, PANEL, Saved } from '@/components/ui';
 
 const KINDS: Array<{ role: Role; label: string; note: string }> = [
   { role: 'sales', label: '영업사', note: '영업비만 본다' },
@@ -71,15 +72,15 @@ export default function AccountAdmin({
         <h2 className="mb-3 text-base font-black tracking-[-0.02em] text-slate-900">계정 등록</h2>
 
         {!dbReady && (
-          <p className="mb-3 rounded-xl border-l-[3px] border-amber-500 bg-amber-50/70 px-4 py-3 text-xs text-amber-900">
+          <Note tone="warn" className="mb-3">
             지금은 파일 저장소로 돌고 있어 계정을 만들 수 없습니다. <code>DATABASE_URL</code> 이
             있어야 합니다.
-          </p>
+          </Note>
         )}
 
         <form
           onSubmit={submit}
-          className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-5"
+          className={`flex flex-col gap-4 ${PANEL} p-5`}
         >
           <div>
             <p className="mb-2 text-tiny font-bold tracking-[0.08em] text-slate-400">구분</p>
@@ -90,14 +91,14 @@ export default function AccountAdmin({
                   type="button"
                   aria-pressed={role === k.role}
                   onClick={() => setRole(k.role)}
-                  className={`rounded-xl border px-3.5 py-2 text-left transition ${
+                  className={`rounded-box border px-3.5 py-2 text-left transition ${
                     role === k.role
                       ? 'border-brand-500 bg-brand-50'
                       : 'border-slate-200 bg-white hover:border-slate-300'
                   }`}
                 >
                   <span
-                    className={`block text-sm font-bold ${role === k.role ? 'text-brand-800' : 'text-slate-700'}`}
+                    className={`block text-lead font-bold ${role === k.role ? 'text-brand-800' : 'text-slate-700'}`}
                   >
                     {k.label}
                   </span>
@@ -170,30 +171,22 @@ export default function AccountAdmin({
             />
           </Field>
 
-          {error && (
-            <p role="alert" className="text-sm font-semibold text-red-700">
-              {error}
-            </p>
-          )}
-          {done && <p className="text-sm font-semibold text-brand-800">{done}</p>}
+          <Err className="block">{error}</Err>
+          {done && <Saved>{done}</Saved>}
 
           <div>
-            <button
-              type="submit"
-              disabled={busy || !dbReady}
-              className="rounded-xl bg-brand-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-brand-700 disabled:bg-slate-300"
-            >
-              {busy ? '만드는 중…' : '계정 만들기'}
-            </button>
+            <Btn type="submit" disabled={!dbReady} busy={busy} busyLabel="만드는 중…">
+              계정 만들기
+            </Btn>
           </div>
         </form>
       </section>
 
       <section>
         <h2 className="mb-3 text-base font-black tracking-[-0.02em] text-slate-900">계정</h2>
-        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+        <div className={`overflow-hidden ${PANEL}`}>
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[720px] text-sm">
+            <table className="w-full min-w-[720px] text-base">
               <thead className="border-b border-slate-100 bg-slate-50 text-tiny font-bold tracking-[0.06em] text-slate-500">
                 <tr>
                   <th className="px-3 py-2.5 text-left">로그인 ID</th>
@@ -212,10 +205,12 @@ export default function AccountAdmin({
             </table>
           </div>
         </div>
-        <p className="mt-3 text-xs leading-relaxed text-slate-400">
-          계정은 지우지 않고 중지합니다 — 감사 기록이 로그인 ID 를 가리키고 있어서, 지우면
-          누가 한 일인지 알 수 없어집니다. 관리자 계정은 이 화면에서 만들 수 없습니다.
-        </p>
+        {/*
+          * 계정은 지우지 않고 중지한다 — 감사 기록이 로그인 ID 를 가리키고 있어서, 지우면
+          * 누가 한 일인지 알 수 없어진다. 관리자 계정은 이 화면에서 만들 수 없다.
+          * 이 문장이 화면에 띠로 붙어 있었는데, 「중지」 단추와 없는 단추가 이미 그 말을
+          * 하고 있어서 걷어냈다(화면 규칙 2번).
+          */}
       </section>
     </div>
   );
@@ -337,7 +332,7 @@ function AccountRow({
               type="button"
               disabled={busy || a.id === meId}
               onClick={() => patch({ active: !a.active })}
-              className={`rounded-lg border px-2.5 py-1 text-tiny font-bold transition disabled:opacity-40 ${
+              className={`rounded-ctl border px-2.5 py-1 text-tiny font-bold transition disabled:opacity-40 ${
                 a.active
                   ? 'border-slate-200 text-slate-600 hover:border-red-300 hover:text-red-700'
                   : 'border-brand-300 bg-brand-50 text-brand-800'
@@ -350,7 +345,7 @@ function AccountRow({
       </tr>
       {error && (
         <tr>
-          <td colSpan={6} className="px-3 pb-2.5 text-tiny font-semibold text-red-700">
+          <td colSpan={6} className="px-3 pb-2.5">
             {error}
           </td>
         </tr>
@@ -359,11 +354,8 @@ function AccountRow({
   );
 }
 
-const cellInput =
-  'w-full min-w-[92px] rounded-lg border border-transparent bg-transparent px-1.5 py-1 text-sm text-slate-700 transition hover:border-slate-200 focus:border-brand-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-100 disabled:opacity-50';
-
-const inputClass =
-  'w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-300 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-100';
+const cellInput = `${FIELD_CELL} min-w-[92px]`;
+const inputClass = FIELD;
 
 function Field({
   label, hint, children,

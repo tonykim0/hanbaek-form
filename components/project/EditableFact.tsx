@@ -20,6 +20,7 @@
  */
 import { useState } from 'react';
 import { useAction } from '@/lib/use-action';
+import { Btn, Empty, Err, FIELD, Val } from '@/components/ui';
 
 export function EditableFact({
   label, value, canEdit, url, field, method = 'PATCH', empty = '—', placeholder,
@@ -71,7 +72,7 @@ export function EditableFact({
     return (
       <div className="flex items-baseline gap-1.5">
         <dt className="text-tiny font-bold tracking-[0.04em] text-slate-400">{label}</dt>
-        <dd className="font-bold text-slate-300">해당없음</dd>
+        <dd><Empty kind="na" /></dd>
       </div>
     );
   }
@@ -90,7 +91,7 @@ export function EditableFact({
               if (e.key === 'Enter') void save(draft);
               if (e.key === 'Escape') close();
             }}
-            className="w-full max-w-[280px] rounded-ctl border border-slate-200 px-2.5 py-1.5 text-base text-slate-900 placeholder:text-slate-300 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-100"
+            className={`${FIELD} max-w-[280px]`}
           />
           {suggestions.length > 0 && (
             <div className="flex flex-wrap gap-1">
@@ -99,7 +100,8 @@ export function EditableFact({
                   key={o}
                   type="button"
                   onClick={() => setDraft(o)}
-                  className="rounded-full border border-slate-200 px-2 py-0.5 text-micro font-bold text-slate-500 transition hover:border-brand-300 hover:text-brand-800"
+                  /* 눌러 넣는 것이라 각지다 — 동글한 것은 못 누르는 상태 배지다 */
+                  className="rounded-ctl border border-slate-200 px-2 py-0.5 text-micro font-bold text-slate-500 transition hover:border-brand-300 hover:text-brand-800"
                 >
                   {o}
                 </button>
@@ -107,23 +109,13 @@ export function EditableFact({
             </div>
           )}
           <div className="flex items-center gap-1.5">
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => void save(draft)}
-              className="rounded-ctl bg-brand-700 px-3 py-1 text-tiny font-bold text-white transition hover:bg-brand-800 disabled:bg-slate-200 disabled:text-slate-400"
-            >
-              {busy ? '저장 중…' : '저장'}
-            </button>
-            <button
-              type="button"
-              disabled={busy}
-              onClick={close}
-              className="rounded-ctl px-2 py-1 text-tiny font-bold text-slate-400 transition hover:text-slate-600"
-            >
+            <Btn size="sm" busy={busy} busyLabel="저장 중…" onClick={() => void save(draft)}>
+              저장
+            </Btn>
+            <Btn size="sm" kind="quiet" disabled={busy} onClick={close}>
               취소
-            </button>
-            {error && <span className="text-tiny font-semibold text-red-700">{error}</span>}
+            </Btn>
+            <Err>{error}</Err>
           </div>
         </dd>
       </div>
@@ -133,17 +125,14 @@ export function EditableFact({
   return (
     <div className="flex items-baseline gap-1.5">
       <dt className="text-tiny font-bold tracking-[0.04em] text-slate-400">{label}</dt>
-      <dd className={`font-bold ${value ? 'text-slate-800' : 'text-amber-700'}`}>
-        {value ?? empty}
+      <dd>
+        {/* 비어 있음은 「빠뜨린 것」이라 노랑이다 — 아직 올 때가 아닌 것(—)과 다른 말이다 */}
+        {value ? <Val value={value} /> : <Empty kind="miss" label={empty === '—' ? undefined : empty} />}
       </dd>
       {canEdit && (
-        <button
-          type="button"
-          onClick={() => { setDraft(value ?? ''); setEditing(true); }}
-          className="text-micro font-bold text-slate-400 underline decoration-slate-300 transition hover:text-brand-800"
-        >
+        <Btn size="sm" kind="quiet" onClick={() => { setDraft(value ?? ''); setEditing(true); }}>
           {value ? '고치기' : '입력'}
-        </button>
+        </Btn>
       )}
     </div>
   );

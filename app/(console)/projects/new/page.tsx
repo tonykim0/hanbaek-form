@@ -28,7 +28,7 @@ export default async function ConsoleIntakePage() {
 
   return (
     <>
-      <h1 className="mb-6 text-2xl font-black tracking-[-0.03em] text-slate-900">서류 접수</h1>
+      <h1 className="mb-6 text-h1 font-black text-slate-900">서류 접수</h1>
 
       <IntakeForm org={session.org} isAdmin={isAdmin} knownOrgs={orgs} />
     </>

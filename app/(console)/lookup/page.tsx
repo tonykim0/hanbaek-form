@@ -19,10 +19,10 @@ export default async function LookupPage() {
   return (
     <div className="max-w-[880px]">
       <div className="mb-6">
-        <h1 className="text-2xl font-black tracking-[-0.03em] text-slate-900">
+        <h1 className="text-h1 font-black text-slate-900">
           충전기 · 보조금 이력 조회
         </h1>
-        <p className="mt-1.5 text-sm leading-6 text-slate-500">
+        <p className="mt-1.5 text-base leading-6 text-slate-500">
           두 개의 DB 를 조회합니다. 별개의 자료이니 일치하지 않는 부분은 실제 현장 확인
           바랍니다. 보조금 이력이 있으면 신규 신청 대수 · 기설치 이력 작성에 그대로 반영해야
           합니다.

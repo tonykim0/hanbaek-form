@@ -13,6 +13,7 @@ import type { Visibility } from '@/lib/roles';
 import type { RuleOptions } from '@/lib/pricing-match';
 import { useAction } from '@/lib/use-action';
 import { won } from '@/lib/format';
+import { Btn, Err, FIELD, FIELD_CELL, Note, Saved, Tag } from '@/components/ui';
 
 // ── 정산 탭 ─────────────────────────────────────────────────────
 const STEP_STYLE: Record<SettlementStep['state'], string> = {
@@ -65,11 +66,11 @@ export function SettlementTab({
             <h2 className="text-h3 font-black text-slate-900">기성</h2>
             <div className="flex flex-wrap items-baseline gap-3">
               {rate !== null && (
-                <span className="text-xs font-bold text-slate-500">
+                <span className="text-tiny font-bold text-slate-500">
                   회수율 <span className="tabular-nums text-slate-800">{rate}%</span>
                 </span>
               )}
-              <span className="text-xs font-bold text-slate-500">
+              <span className="text-tiny font-bold text-slate-500">
                 준공마감{' '}
                 {settlement.cpoCloseDate ? (
                   <span className="tabular-nums text-slate-800">{settlement.cpoCloseDate}</span>
@@ -84,11 +85,11 @@ export function SettlementTab({
             {settlement.steps.map((s) => (
               <div
                 key={s.no}
-                className={`flex flex-wrap items-center gap-x-4 gap-y-1 rounded-xl border border-slate-200 border-l-[3px] px-4 py-3 ${STEP_STYLE[s.state]}`}
+                className={`flex flex-wrap items-center gap-x-4 gap-y-1 rounded-box border border-slate-200 border-l-[3px] px-4 py-3 ${STEP_STYLE[s.state]}`}
               >
-                <span className="w-10 shrink-0 text-xs font-bold text-slate-400">{s.no}차</span>
+                <span className="w-10 shrink-0 text-tiny font-bold text-slate-400">{s.no}차</span>
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-bold text-slate-800">
+                  <p className="text-lead font-bold text-slate-800">
                     {s.trigger === '해당없음' ? '해당없음' : `${s.trigger} · ${s.basisLabel}`}
                   </p>
                   <p className="text-tiny text-slate-500">
@@ -106,7 +107,7 @@ export function SettlementTab({
                 >
                   {STEP_LABEL[s.state]}
                 </span>
-                <span className="w-28 shrink-0 text-right text-sm font-black tabular-nums text-slate-800">
+                <span className="w-28 shrink-0 text-right text-lead font-black tabular-nums text-slate-800">
                   {s.planAmount === null ? <span className="text-slate-300">—</span> : won(s.planAmount)}
                 </span>
               </div>
@@ -114,9 +115,9 @@ export function SettlementTab({
           </div>
 
           {!detail.settlementRule && (
-            <p className="mt-3 rounded-xl border-l-[3px] border-amber-500 bg-amber-50/60 px-4 py-2.5 text-xs font-semibold text-amber-900">
+            <Note tone="warn" className="mt-3 font-semibold">
               정산 규칙 미적용 — 기성 단계와 금액이 계산되지 않습니다
-            </p>
+            </Note>
           )}
         </section>
       )}
@@ -137,8 +138,8 @@ function ContractLines({ lines, vis }: { lines: ProjectDetail['lines']; vis: Vis
   return (
     <section>
       <h2 className="mb-3 text-h3 font-black text-slate-900">계약 라인 · 단가</h2>
-      <div className="overflow-x-auto rounded-xl border border-slate-200">
-        <table className="w-full min-w-[640px] text-sm">
+      <div className="overflow-x-auto rounded-box border border-slate-200">
+        <table className="w-full min-w-[640px] text-base">
           <thead className="bg-slate-50 text-tiny font-bold tracking-[0.08em] text-slate-500">
             <tr>
               <th className="px-4 py-2.5 text-left">라인</th>
@@ -187,9 +188,7 @@ function Money({ show, value }: { show: boolean; value: number | null }) {
   if (!show) {
     return (
       <td className="px-4 py-3 text-right">
-        <span className="rounded bg-slate-100 px-2 py-0.5 text-tiny font-semibold text-slate-400">
-          권한 없음
-        </span>
+        <Tag>권한 없음</Tag>
       </td>
     );
   }
@@ -265,7 +264,7 @@ function PaymentSection({
     <section>
       <div className="mb-3 flex flex-wrap items-baseline justify-between gap-3">
         <h2 className="text-h3 font-black text-slate-900">지급</h2>
-        <span className="text-xs text-slate-400">계약 {totalQty}대 기준</span>
+        <span className="text-tiny text-slate-400">계약 {totalQty}대 기준</span>
       </div>
 
       {/* 적용 단가 — 여기서 고른 케이스가 아래 금액을 정한다 */}
@@ -275,15 +274,13 @@ function PaymentSection({
             const opts = ruleOptions[l.id];
             const list = opts ? [...opts.exact, ...opts.others] : [];
             return (
-              <div key={l.id} className="rounded-xl border border-slate-200 p-3">
+              <div key={l.id} className="rounded-box border border-slate-200 p-3">
                 <div className="flex flex-wrap items-baseline gap-2">
-                  <span className="text-sm font-bold text-slate-800">
+                  <span className="text-lead font-bold text-slate-800">
                     {l.termYears}년 × {l.qty}대
                   </span>
                   {l.powerType && (
-                    <span className="rounded bg-slate-100 px-1.5 py-0.5 text-tiny font-semibold text-slate-500">
-                      {l.powerType}
-                    </span>
+                    <Tag>{l.powerType}</Tag>
                   )}
                   {opts && (
                     <span className="text-tiny text-slate-400">
@@ -296,7 +293,7 @@ function PaymentSection({
                   value={l.pricingRuleId ?? ''}
                   disabled={busy}
                   onChange={(e) => pickRule(l.id, e.target.value)}
-                  className="mt-2 w-full rounded-lg border border-slate-300 px-2.5 py-2 text-sm focus:border-brand-500 focus:outline-none disabled:bg-slate-50"
+                  className={`${FIELD} mt-2`}
                 >
                   <option value="">단가 케이스 선택 —</option>
                   {opts && opts.exact.length > 0 && (
@@ -323,13 +320,13 @@ function PaymentSection({
                   const turnkey = l.rule ? turnkeyUnit(l.rule) : null;
                   if (turnkey === null) return null;
                   return (
-                    <p className="mt-1.5 text-xs tabular-nums text-slate-500">
+                    <p className="mt-1.5 text-small tabular-nums text-slate-500">
                       턴키 {won(turnkey)}/대 · 이 라인 {won(turnkey * l.qty)}
                     </p>
                   );
                 })()}
                 {list.length === 0 && (
-                  <p className="mt-1.5 text-xs text-amber-700">
+                  <p className="mt-1.5 text-small text-amber-700">
                     이 운영사의 단가 케이스가 없습니다 — 매트릭스를 확인해주세요.
                   </p>
                 )}
@@ -340,13 +337,13 @@ function PaymentSection({
       )}
 
       {unpriced > 0 && (
-        <p className="mb-3 rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-2.5 text-xs font-semibold text-amber-900">
+        <Note tone="warn" className="mb-3 font-semibold">
           단가 미지정 라인 {unpriced}건 — 지급액이 계산되지 않습니다.
-        </p>
+        </Note>
       )}
 
-      <div className="overflow-x-auto rounded-xl border border-slate-200">
-        <table className="w-full min-w-[560px] text-sm">
+      <div className="overflow-x-auto rounded-box border border-slate-200">
+        <table className="w-full min-w-[560px] text-base">
           <thead className="bg-slate-50 text-tiny font-bold tracking-[0.08em] text-slate-500">
             <tr>
               <th className="px-4 py-2.5 text-left">항목</th>
@@ -373,7 +370,7 @@ function PaymentSection({
       </div>
 
       <div className="mt-3">
-        <label htmlFor="payNote" className="text-xs font-bold text-slate-500">비고</label>
+        <label htmlFor="payNote" className="text-tiny font-bold text-slate-500">비고</label>
         {canReview ? (
           <textarea
             id="payNote"
@@ -382,10 +379,10 @@ function PaymentSection({
             disabled={busy}
             onChange={(e) => setNote(e.target.value)}
             placeholder="감액·보류 사유 등 금액만으로 설명되지 않는 것"
-            className="mt-1 w-full rounded-lg border border-slate-300 px-2.5 py-2 text-sm leading-relaxed focus:border-brand-500 focus:outline-none disabled:bg-slate-50"
+            className={`${FIELD} mt-1 leading-relaxed`}
           />
         ) : (
-          <p className="mt-1 text-sm text-slate-600">
+          <p className="mt-1 text-base text-slate-600">
             {settlement.payNote || <span className="text-slate-300">없음</span>}
           </p>
         )}
@@ -393,16 +390,11 @@ function PaymentSection({
 
       {canReview && (
         <div className="mt-3 flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            disabled={busy || !dirty}
-            onClick={save}
-            className="rounded-xl bg-brand-700 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-brand-800 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400"
-          >
-            {busy ? '저장 중' : dirty ? '지급일·비고 저장' : '변경 없음'}
-          </button>
-          {saved && !dirty && <span className="text-xs font-bold text-brand-700">저장됨</span>}
-          {error && <span className="text-xs font-semibold text-red-700">{error}</span>}
+          <Btn disabled={!dirty} busy={busy} busyLabel="저장 중…" onClick={save}>
+            {dirty ? '지급일·비고 저장' : '변경 없음'}
+          </Btn>
+          {saved && !dirty && <Saved />}
+          <Err>{error}</Err>
         </div>
       )}
     </section>
@@ -431,9 +423,7 @@ function PayRow({
         </td>
       ) : (
         <td className="px-4 py-3 text-right">
-          <span className="rounded bg-slate-100 px-2 py-0.5 text-tiny font-semibold text-slate-400">
-            권한 없음
-          </span>
+          <Tag>권한 없음</Tag>
         </td>
       )}
       <td className="whitespace-nowrap px-4 py-3 text-right tabular-nums text-slate-500">
@@ -444,7 +434,7 @@ function PayRow({
             disabled={busy}
             aria-label={`${label} 지급일`}
             onChange={(e) => onChange(e.target.value)}
-            className="rounded-lg border border-slate-300 px-2 py-1 text-sm tabular-nums focus:border-brand-500 focus:outline-none disabled:bg-slate-50"
+            className={`${FIELD_CELL} tabular-nums`}
           />
         ) : (
           date || <span className="text-slate-300">—</span>

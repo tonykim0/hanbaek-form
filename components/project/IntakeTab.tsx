@@ -13,6 +13,7 @@ import { useAction } from '@/lib/use-action';
 import { DocReview } from './DocReview';
 import { PreInstall } from './PreInstall';
 import { docState } from './parts';
+import { Btn, Err, Note } from '@/components/ui';
 
 // ── 계약 탭 ─────────────────────────────────────────────────────
 /** 서류를 세 묶음으로 가른다 — 접수 화면(components/IntakeForm)과 같은 말·같은 색 */
@@ -147,26 +148,26 @@ export function IntakeTab({
         </div>
 
         {rejected.length > 0 && (
-          <div className="mb-3 rounded-xl border border-red-200 bg-red-50 px-3.5 py-3">
-            <p className="text-sm font-black text-red-900">
+          <Note tone="stop" className="mb-3">
+            <p className="font-black">
               반려된 서류 {rejected.length}건{canReview ? '' : ' — 다시 올려주세요'}
             </p>
             <ul className="mt-1.5 flex flex-col gap-1">
               {rejected.map((d) => (
-                <li key={d.key} className="text-xs leading-relaxed text-red-800">
+                <li key={d.key} className="text-small leading-relaxed">
                   <b className="font-bold">{d.label}</b>
                   {d.reason ? ` — ${d.reason}` : ''}
                 </li>
               ))}
             </ul>
-          </div>
+          </Note>
         )}
 
         {partyInferred && (
-          <p className="mb-3 rounded-xl bg-amber-50 px-3.5 py-2.5 text-xs text-amber-800">
+          <Note tone="warn" className="mb-3">
             계약주체가 비어 있어 건축물유형으로 <b>{inferredParty}</b>로 추정했습니다. 회의록 종류가
             이 추정에 따라 정해집니다.
-          </p>
+          </Note>
         )}
 
         {/*
@@ -204,7 +205,7 @@ export function IntakeTab({
                     return (
                       <div
                         key={d.key}
-                        className={`flex flex-col rounded-xl border border-l-[3px] p-3 ${
+                        className={`flex flex-col rounded-box border border-l-[3px] p-3 ${
                           rejected
                             ? 'border-slate-200 border-l-red-500 bg-red-50/40'
                             : doc?.blobUrl || doc?.status === 'uploaded' || doc?.status === 'approved'
@@ -215,7 +216,7 @@ export function IntakeTab({
                         }`}
                       >
                         <div className="flex items-start justify-between gap-2">
-                          <p className="break-keep text-sm font-bold leading-snug text-slate-800">
+                          <p className="break-keep text-lead font-bold leading-snug text-slate-800">
                             {d.label}
                             {/* 확장자는 남긴다 — 무슨 형식으로 내야 하는지는 협력사가 알아야 한다 */}
                             {d.ext && (
@@ -237,7 +238,7 @@ export function IntakeTab({
                         )}
 
                         {doc?.rejectReason && (
-                          <p className="mt-2 rounded-lg bg-red-50 px-2 py-1.5 text-tiny leading-snug text-red-800">
+                          <p className="mt-2 rounded-ctl bg-red-50 px-2 py-1.5 text-tiny leading-snug text-red-800">
                             {doc.rejectReason}
                           </p>
                         )}
@@ -287,9 +288,9 @@ export function IntakeTab({
         </div>
 
         {contract.feeMissing.length > 0 && (
-          <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-2.5 text-xs font-semibold text-amber-900">
+          <Note tone="warn" className="mt-3 font-semibold">
             영업비 지급조건 미달 — {contract.feeMissing.join(' · ')}
-          </p>
+          </Note>
         )}
 
         {canReview && (
@@ -348,38 +349,29 @@ function ConfirmContract({
 
   if (confirmedAt) {
     return (
-      <div className="mt-4 flex flex-wrap items-baseline gap-x-3 gap-y-1.5">
-        <span className="rounded-xl bg-brand-50 px-3.5 py-2 text-sm font-bold text-brand-900">
-          계약 확인 완료 · {confirmedAt}
-        </span>
-        <button
-          type="button"
-          disabled={busy}
-          onClick={() => send(false)}
-          className="text-tiny font-bold text-slate-400 underline decoration-slate-300 transition hover:text-slate-700 disabled:text-slate-300"
-        >
-          {busy ? '되돌리는 중…' : '확인 취소'}
-        </button>
-        {error && <p className="w-full text-xs font-semibold text-red-700">{error}</p>}
-      </div>
+      <Note tone="ok" className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1.5">
+        <span className="font-bold">계약 확인 완료 · {confirmedAt}</span>
+        {/* 되돌리기는 반대쪽 끝 — 자주 누르는 것과 붙여 두지 않는다 */}
+        <Btn kind="undo" busy={busy} busyLabel="되돌리는 중…" onClick={() => send(false)} className="ml-auto">
+          확인 취소
+        </Btn>
+        <Err className="w-full">{error}</Err>
+      </Note>
     );
   }
 
   return (
     <div className="mt-4 flex flex-col gap-1.5">
-      <button
-        type="button"
-        disabled={busy || !contract.ready}
+      <Btn
+        disabled={!contract.ready}
+        busy={busy}
         onClick={() => send(true)}
-        className="self-start rounded-xl bg-brand-700 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-brand-800 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400"
+        className="self-start"
       >
-        {reason
-          ? `${reason} — 계약 확인 불가`
-          : busy
-            ? '처리 중'
-            : '계약 확인 완료'}
-      </button>
-      {error && <p className="text-xs font-semibold text-red-700">{error}</p>}
+        {/* 막는 것을 단추 이름에 적는다 — 흐린 단추만으로는 왜 안 되는지 알 수 없다 */}
+        {reason ? `${reason} — 계약 확인 불가` : '계약 확인 완료'}
+      </Btn>
+      <Err>{error}</Err>
     </div>
   );
 }

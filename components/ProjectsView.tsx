@@ -15,6 +15,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useAction } from '@/lib/use-action';
+import { FIELD, Note, PANEL } from '@/components/ui';
 import type { ProcessStatus, ProjectSummary } from '@/types/project';
 import { type BoardColumn } from '@/lib/board';
 import {
@@ -184,7 +185,7 @@ export default function ProjectsView({
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="현장명 · 번호 · 주소"
-            className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-100"
+            className={`${FIELD} bg-white`}
           />
         </label>
 
@@ -200,7 +201,7 @@ export default function ProjectsView({
             type="button"
             onClick={() => setOpen((v) => !v)}
             aria-expanded={open}
-            className={`shrink-0 rounded-xl border px-3.5 py-2 text-sm font-bold transition ${
+            className={`shrink-0 rounded-ctl border px-3.5 py-2 text-lead font-bold transition ${
               open || activeCount > 0
                 ? 'border-brand-300 bg-brand-50 text-brand-800'
                 : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
@@ -214,7 +215,7 @@ export default function ProjectsView({
           <button
             type="button"
             onClick={clear}
-            className="shrink-0 rounded-xl px-2.5 py-2 text-sm font-semibold text-slate-500 transition hover:text-slate-800"
+            className="shrink-0 rounded-ctl px-2.5 py-2 text-lead font-semibold text-slate-500 transition hover:text-slate-800"
           >
             지우기
           </button>
@@ -222,7 +223,7 @@ export default function ProjectsView({
       </div>
 
       {open && view === 'table' && (
-        <div className="mb-4 flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4">
+        <div className={`mb-4 flex flex-col gap-3 ${PANEL} p-4`}>
           {/*
             * 모든 축을 다 편다. 표에서는 열 머리글에서도 같은 축을 걸 수 있고, 여기 걸든
             * 저기 걸든 같은 상태다 — 보드에서도 쓰려면 이 자리가 있어야 한다.
@@ -247,7 +248,7 @@ export default function ProjectsView({
         </div>
       )}
 
-      <p className="mb-3 text-xs font-semibold text-slate-500">
+      <p className="mb-3 text-small font-semibold text-slate-500">
         {activeCount > 0 ? (
           <>
             {filtered.length}건 <span className="font-normal text-slate-400">/ 전체 {projects.length}건</span>
@@ -257,14 +258,7 @@ export default function ProjectsView({
         )}
       </p>
 
-      {error && (
-        <p
-          role="alert"
-          className="mb-4 rounded-xl border-l-[3px] border-red-500 bg-red-50 px-4 py-3 text-sm font-semibold text-red-800"
-        >
-          {error}
-        </p>
-      )}
+      {error && <Note tone="stop" className="mb-4">{error}</Note>}
 
       {view === 'board' ? (
         <ProjectBoard projects={filtered} canMove={canMove} onMove={move} busyId={busyKey} />
@@ -293,14 +287,14 @@ function Tabs({ view, onChange }: { view: ViewKey; onChange: (v: ViewKey) => voi
     { key: 'table', label: '표' },
   ];
   return (
-    <div className="flex shrink-0 rounded-xl border border-slate-200 bg-white p-0.5">
+    <div className="flex shrink-0 rounded-ctl border border-slate-200 bg-white p-0.5">
       {items.map((it) => (
         <button
           key={it.key}
           type="button"
           onClick={() => onChange(it.key)}
           aria-current={view === it.key}
-          className={`rounded-[10px] px-3.5 py-1.5 text-sm font-bold transition ${
+          className={`rounded-ctl px-3.5 py-1.5 text-lead font-bold transition ${
             view === it.key ? 'bg-brand-600 text-white' : 'text-slate-500 hover:text-slate-800'
           }`}
         >

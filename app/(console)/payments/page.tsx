@@ -174,7 +174,7 @@ function Block({
                       </Link>
                       <span className="w-14 shrink-0 text-tiny text-slate-400">{r.cpo}</span>
                       <span
-                        className={`w-14 shrink-0 rounded px-1.5 py-0.5 text-center text-micro font-bold ${
+                        className={`w-14 shrink-0 rounded-tag px-1.5 py-0.5 text-center text-micro font-bold ${
                           r.kind === '영업비' ? 'bg-sky-100 text-sky-900' : 'bg-brand-100 text-brand-900'
                         }`}
                       >

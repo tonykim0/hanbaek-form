@@ -308,7 +308,7 @@ function Donut({
               <>
                 <span
                   aria-hidden
-                  className="mt-[3px] h-2.5 w-2.5 shrink-0 rounded-sm"
+                  className="mt-[3px] h-2.5 w-2.5 shrink-0 rounded-tag"
                   style={{ background: s.color }}
                 />
                 <span className="min-w-0 flex-1 truncate text-small font-bold text-slate-700">{s.value}</span>

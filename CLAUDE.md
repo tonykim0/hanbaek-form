@@ -51,3 +51,7 @@
 - 한백 전용 쓰기는 라우트에서 `requireAdmin()`, 저장소에서 `assertAdmin()` 으로 두 번 막는다.
 - `next build` 를 `next dev` 가 돌고 있는 중에 실행하지 않는다. `.next` 가 깨진다.
 - 비밀번호·접속 문자열을 대화에 남기지 않는다. `.env.local` 에 직접 넣는다.
+- **함수 지역은 `icn1`(서울) 이다** — `vercel.json` 의 `regions`. DB(Supabase `ap-northeast-2`)와
+  같은 도시여야 한다. 기본값 `iad1`(버지니아) 에서는 질의마다 태평양을 건너 180~250ms 씩
+  붙는다. 콘솔은 화면 하나에 여러 번 왕복하므로 그대로 느려진다. JSON 에 주석을 못 달아
+  여기 적는다.

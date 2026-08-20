@@ -189,6 +189,20 @@ export interface ProjectRepository {
   addPricingRule(input: NewPricingRule, actor: Actor): Promise<string>;
 
   /**
+   * 케이스의 적용 시작·비고를 고친다. [한백 전용]
+   *
+   * 금액·축은 여기서도 못 고친다 — 라인이 참조하므로 소급 변경이 된다. 적용 시작과 비고는
+   * 지급액 계산에 안 쓰여 안전하고, 시드가 「2026년 하반기」처럼 대략만 아는 값을 넣는
+   * 일이 실제로 있어 고치는 자리가 있어야 한다(화면 규칙 7).
+   * 적용 시작을 옮기면 다른 케이스와 같은 칸·같은 시작이 될 수 있어 중복 검사를 다시 한다.
+   */
+  setPricingRuleMeta(
+    id: string,
+    patch: { startDate?: string; note?: string | null },
+    actor: Actor
+  ): Promise<void>;
+
+  /**
    * 케이스를 쓰거나 그만 쓴다. [한백 전용]
    *
    * 지우지 않는다 — 이미 이 케이스를 참조하는 계약 라인이 있으면 지급액을 계산할 수 없게 된다.

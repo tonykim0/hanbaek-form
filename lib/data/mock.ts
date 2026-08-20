@@ -215,6 +215,9 @@ export const mockRepository: ProjectRepository = {
   async setPricingRuleActive(): Promise<void> {
     throw new Error(READ_ONLY);
   },
+  async setPricingRuleMeta(): Promise<void> {
+    throw new Error(READ_ONLY);
+  },
   async setDocumentStatus(): Promise<void> {
     throw new Error(READ_ONLY);
   },

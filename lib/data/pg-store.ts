@@ -1143,6 +1143,49 @@ export const pgRepository: ProjectRepository = {
     }
   },
 
+  async setPricingRuleMeta(id, patch, actor): Promise<void> {
+    assertAdmin(actor, '단가 케이스 정보 수정');
+    const db = getDb();
+    await db.transaction(async (tx) => {
+      const all = (await tx.select().from(pricingRules)).map(rowToRule);
+      const me = all.find((r) => r.id === id);
+      if (!me) throw new Error('없는 단가 케이스입니다.');
+
+      const next = {
+        ...me,
+        startDate: patch.startDate !== undefined ? patch.startDate.trim() : me.startDate,
+        note: patch.note !== undefined ? (patch.note?.trim() || null) : me.note,
+      };
+      if (next.startDate === me.startDate && next.note === me.note) return;
+      if (!next.startDate) throw new Error('적용 시작을 비울 수 없습니다.');
+
+      // 적용 시작을 옮기면 다른 케이스와 같은 칸·같은 시작이 될 수 있다
+      if (next.active) {
+        const dup = duplicateOf(next, all.filter((r) => r.id !== id));
+        if (dup) {
+          throw new Error(`그 적용 시작에는 같은 조건의 케이스가 이미 있습니다 — ${dup.caseName}`);
+        }
+      }
+
+      await tx
+        .update(pricingRules)
+        .set({ startDate: next.startDate, note: next.note })
+        .where(eq(pricingRules.id, id));
+      if (next.startDate !== me.startDate) {
+        await writeAudit(tx, {
+          projectId: null, actor, action: '단가 케이스 적용 시작 변경',
+          field: id, oldValue: me.startDate, newValue: next.startDate,
+        });
+      }
+      if (next.note !== me.note) {
+        await writeAudit(tx, {
+          projectId: null, actor, action: '단가 케이스 비고 변경',
+          field: id, oldValue: me.note, newValue: next.note,
+        });
+      }
+    });
+  },
+
   async setPricingRuleActive(id, active, actor): Promise<void> {
     assertAdmin(actor, '단가 케이스 사용 여부 변경');
     const db = getDb();

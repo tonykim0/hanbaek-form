@@ -24,7 +24,7 @@ import {
 import { won } from '@/lib/format';
 import { useAction } from '@/lib/use-action';
 import { startKey } from '@/lib/pricing-match';
-import { Badge, Blank, Btn, Choice, Err, FIELD, PANEL, Tag } from '@/components/ui';
+import { Badge, Blank, Btn, Choice, Err, FIELD, FIELD_CELL, PANEL, Tag } from '@/components/ui';
 
 const POWER_TYPES = ['한전불입', '모자분리'] as const;
 const TERMS = [5, 7, 10] as const;
@@ -297,6 +297,24 @@ function CaseList({ rules }: { rules: PricingRule[] }) {
 
 function Row({ r }: { r: PricingRule }) {
   const { busy, error, run } = useAction();
+  const [editing, setEditing] = useState(false);
+  const [startDraft, setStartDraft] = useState(r.startDate);
+  const [noteDraft, setNoteDraft] = useState(r.note ?? '');
+
+  /*
+   * 고칠 수 있는 것은 적용 시작과 비고뿐이다 — 지급액 계산에 안 쓰인다.
+   * 시드가 「2026년 하반기」처럼 대략만 아는 값을 넣는 일이 실제로 있어서(하반기 6행)
+   * 정확한 날짜는 여기서 고친다. 금액·축은 불변 — 고치면 소급 변경이다.
+   */
+  async function saveMeta() {
+    const ok = await run({
+      url: '/api/pricing',
+      method: 'PATCH',
+      body: { id: r.id, startDate: startDraft, note: noteDraft.trim() || null },
+      fail: '고치지 못했습니다.',
+    });
+    if (ok) setEditing(false);
+  }
 
   return (
     <tr className={r.active ? '' : 'bg-slate-50/60'}>
@@ -304,11 +322,40 @@ function Row({ r }: { r: PricingRule }) {
         <p className={`break-keep font-bold ${r.active ? 'text-slate-800' : 'text-slate-400'}`}>
           {r.caseName}
         </p>
-        <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-tiny text-slate-400">
-          <code className="text-micro">{r.id}</code>
-          <span>{r.bizYear}년 · {r.startDate}</span>
-          {r.note && <span className="break-keep">{r.note}</span>}
-        </p>
+        {editing ? (
+          <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+            <input
+              value={startDraft}
+              onChange={(e) => setStartDraft(e.target.value)}
+              placeholder="2026년 7월 21일"
+              className={`${FIELD_CELL} max-w-[150px]`}
+            />
+            <input
+              value={noteDraft}
+              onChange={(e) => setNoteDraft(e.target.value)}
+              placeholder="비고"
+              className={`${FIELD_CELL} max-w-[260px]`}
+            />
+            <Btn size="sm" busy={busy} busyLabel="저장 중…" onClick={() => void saveMeta()}>
+              저장
+            </Btn>
+            <Btn
+              size="sm"
+              kind="quiet"
+              disabled={busy}
+              onClick={() => { setEditing(false); setStartDraft(r.startDate); setNoteDraft(r.note ?? ''); }}
+            >
+              취소
+            </Btn>
+          </div>
+        ) : (
+          <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-tiny text-slate-400">
+            <code className="text-micro">{r.id}</code>
+            <span>{r.bizYear}년 · {r.startDate}</span>
+            {r.note && <span className="break-keep">{r.note}</span>}
+            <Btn size="sm" kind="quiet" onClick={() => setEditing(true)}>고치기</Btn>
+          </p>
+        )}
       </td>
       <td className="px-3 py-2.5">
         <div className="flex flex-wrap gap-1">

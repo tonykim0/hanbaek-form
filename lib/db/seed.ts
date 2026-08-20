@@ -90,9 +90,10 @@ async function seedRules() {
     console.warn('  단가는 불변입니다. 바꿔야 한다면 새 케이스를 추가하세요.');
   }
 
+  /* 적용 시작도 축이다 — 시간축이 케이스의 정체를 가른다(같은 칸의 반기 개정을 이것으로 구분한다) */
   const axisOf = (r: { cpo: string; bizType: string; powerType: string; replType: string;
-    channel: string; termYears: unknown; bldgTypes: unknown }) =>
-    [r.cpo, r.bizType, r.powerType, r.replType, r.channel,
+    channel: string; startDate: string; termYears: unknown; bldgTypes: unknown }) =>
+    [r.cpo, r.bizType, r.powerType, r.replType, r.channel, r.startDate,
       JSON.stringify(r.termYears), JSON.stringify(r.bldgTypes)].join('|');
 
   const axis = PRICING_RULES.filter((seed) => {
@@ -123,7 +124,8 @@ async function seedRules() {
       console.warn(`    ${d.id}  DB(${axisOf(row)}) → 시드(${axisOf(d)})`);
       await db.update(pricingRules).set({
         cpo: d.cpo, bizType: d.bizType, powerType: d.powerType, replType: d.replType,
-        channel: d.channel, termYears: d.termYears, bldgTypes: d.bldgTypes, caseName: d.caseName,
+        channel: d.channel, startDate: d.startDate,
+        termYears: d.termYears, bldgTypes: d.bldgTypes, caseName: d.caseName,
       }).where(eq(pricingRules.id, d.id));
     }
   }

@@ -4,8 +4,12 @@
  * ★불변★ 한 번 계약 라인에 지정된 케이스는 수정하지 않는다. 조건이 바뀌면 새 행을 추가한다.
  * 그래서 계약 라인은 값을 복사(스냅샷)하지 않고 이 케이스를 참조만 한다.
  *
- * 원본 CSV 28행 → 34행. 차이의 이유:
+ * 원본 CSV 28행 → 36행. 차이의 이유:
  *   · 「모자분리/한전불입」 겸용 6행을 수전방식별로 분리 (한백 확정 방침)
+ *   · SK 「위치변경/제자리교체」 겸용 2행을 교체유형별로 분리 (2026-08-20 한백 확인 —
+ *     공동주택 신규위치는 아파트 전용 행이 따로 맡으므로 이 분리로 겹침이 사라진다)
+ *   · (하반기) 행 6개의 적용 시작이 상반기 날짜로 복사돼 있던 것을 「2026년 하반기」로 —
+ *     정확한 날짜는 한백이 화면에서 고친다
  *   · 계약기간·신설교체·건축물유형이 케이스명과 어긋난 행은 케이스명을 신뢰해 바로잡음
  *
  * 턴키 = salesUnit + consUnit + margin, 배포가 = salesUnit + consUnit — 28행 전부 검산 완료.
@@ -132,29 +136,67 @@ export const PRICING_RULES: PricingRule[] = [
     active: true,
   },
   {
-    id: "sk-y10-mother-move-self",
-    caseName: "SK일렉링크 | 전체 | 10년 위치변경 / 제자리교체  | 모자분리 [자체투자]",
+    /*
+     * 「위치변경 / 제자리교체」 겸용 행(sk-y7-mother-move-self)을 뜻대로 분리 (2026-08-20 한백 확인):
+     * 두 교체유형 다 이 금액이되, 공동주택 신규위치만 아파트 전용 케이스(sk-h1/h2-…-apt-self)가
+     * 따로 맡는다. 그래서 제자리교체는 공동+상업, 신규위치는 상업시설만 이 행이 덮는다 —
+     * 한 칸에 금액 다른 케이스가 겹치지 않게.
+     */
+    id: "sk-y10-mother-inplace-both-2026",
+    caseName: "SK일렉링크 (2026년 1월 26일) | 전체 | 10년 자체투자 (제자리교체) | 모자분리",
     cpo: "SK일렉링크", bizType: "자체투자", powerType: "모자분리",
-    termYears: [10], bldgTypes: ["공동주택", "상업시설"], replType: "자체투자 (신규위치)",
+    termYears: [10], bldgTypes: ["공동주택", "상업시설"], replType: "자체투자 (제자리교체)",
     bizYear: 2026, startDate: "2026년 1월 26일",
     channel: "턴키",
     salesUnit: 500000, consUnit: 900000, margin: 100000,
     defaultSettlementRuleId: "lump-100",
     supervisionBearer: "운영사", safetyFeeBearer: "한백 대납(회수)",
-    note: null,
+    note: "스탠드·캐노피·분전반 — 상업시설 미지급 · 공동주택 지급 (2026-08-20 한백 확인)",
     active: true,
   },
   {
-    id: "sk-y7-mother-move-self",
-    caseName: "SK일렉링크 | 전체 | 7년 위치변경 / 제자리교체 | 모자분리 [자체투자]",
+    id: "sk-y10-mother-move-biz-2026",
+    caseName: "SK일렉링크 (2026년 1월 26일) | 상업시설 | 10년 자체투자 (신규위치) | 모자분리",
     cpo: "SK일렉링크", bizType: "자체투자", powerType: "모자분리",
-    termYears: [7], bldgTypes: ["공동주택", "상업시설"], replType: "자체투자 (신규위치)",
+    termYears: [10], bldgTypes: ["상업시설"], replType: "자체투자 (신규위치)",
     bizYear: 2026, startDate: "2026년 1월 26일",
     channel: "턴키",
     salesUnit: 500000, consUnit: 900000, margin: 100000,
     defaultSettlementRuleId: "lump-100",
     supervisionBearer: "운영사", safetyFeeBearer: "한백 대납(회수)",
-    note: "[SK 자체투자 정책 최종 확정안]  1. [위치변경] 아파트 전용 자체투자 (부자재 ❌) - 대상: 공동주택(아파트)에 한함 - 시공 형태: 기존 위치가 아닌 다른 위치로 변경하여 설치 - 단가: 7년 계약 175만 원 / 10년 계약 185만 원 (턴키 기준)…",
+    note: "스탠드·캐노피·분전반 미지급. 공동주택 신규위치는 아파트 전용 케이스가 맡는다",
+    active: true,
+  },
+  {
+    /*
+     * 「위치변경 / 제자리교체」 겸용 행(sk-y7-mother-move-self)을 뜻대로 분리 (2026-08-20 한백 확인):
+     * 두 교체유형 다 이 금액이되, 공동주택 신규위치만 아파트 전용 케이스(sk-h1/h2-…-apt-self)가
+     * 따로 맡는다. 그래서 제자리교체는 공동+상업, 신규위치는 상업시설만 이 행이 덮는다 —
+     * 한 칸에 금액 다른 케이스가 겹치지 않게.
+     */
+    id: "sk-y7-mother-inplace-both-2026",
+    caseName: "SK일렉링크 (2026년 1월 26일) | 전체 | 7년 자체투자 (제자리교체) | 모자분리",
+    cpo: "SK일렉링크", bizType: "자체투자", powerType: "모자분리",
+    termYears: [7], bldgTypes: ["공동주택", "상업시설"], replType: "자체투자 (제자리교체)",
+    bizYear: 2026, startDate: "2026년 1월 26일",
+    channel: "턴키",
+    salesUnit: 500000, consUnit: 900000, margin: 100000,
+    defaultSettlementRuleId: "lump-100",
+    supervisionBearer: "운영사", safetyFeeBearer: "한백 대납(회수)",
+    note: "스탠드·캐노피·분전반 — 상업시설 미지급 · 공동주택 지급 (2026-08-20 한백 확인)",
+    active: true,
+  },
+  {
+    id: "sk-y7-mother-move-biz-2026",
+    caseName: "SK일렉링크 (2026년 1월 26일) | 상업시설 | 7년 자체투자 (신규위치) | 모자분리",
+    cpo: "SK일렉링크", bizType: "자체투자", powerType: "모자분리",
+    termYears: [7], bldgTypes: ["상업시설"], replType: "자체투자 (신규위치)",
+    bizYear: 2026, startDate: "2026년 1월 26일",
+    channel: "턴키",
+    salesUnit: 500000, consUnit: 900000, margin: 100000,
+    defaultSettlementRuleId: "lump-100",
+    supervisionBearer: "운영사", safetyFeeBearer: "한백 대납(회수)",
+    note: "스탠드·캐노피·분전반 미지급. 공동주택 신규위치는 아파트 전용 케이스가 맡는다",
     active: true,
   },
   {
@@ -292,7 +334,7 @@ export const PRICING_RULES: PricingRule[] = [
     caseName: "SK일렉링크 (하반기) | 공동주택 | 7년 신규 위치변경 | 모자분리 [자체투자]",
     cpo: "SK일렉링크", bizType: "자체투자", powerType: "모자분리",
     termYears: [7], bldgTypes: ["공동주택"], replType: "자체투자 (신규위치)",
-    bizYear: 2026, startDate: "2026년 1월 26일",
+    bizYear: 2026, startDate: "2026년 하반기",
     channel: "턴키",
     salesUnit: 900000, consUnit: 900000, margin: 200000,
     defaultSettlementRuleId: "lump-100",
@@ -383,7 +425,7 @@ export const PRICING_RULES: PricingRule[] = [
     caseName: "SK일렉링크 (하반기) | 전체 | 10년 신규 | 한전불입",
     cpo: "SK일렉링크", bizType: "환경부", powerType: "한전불입",
     termYears: [10], bldgTypes: ["공동주택", "상업시설"], replType: "환경부 신규",
-    bizYear: 2026, startDate: "2026년 1월 26일",
+    bizYear: 2026, startDate: "2026년 하반기",
     channel: "턴키",
     salesUnit: 1000000, consUnit: 1200000, margin: 200000,
     defaultSettlementRuleId: "sk-2step",
@@ -409,7 +451,7 @@ export const PRICING_RULES: PricingRule[] = [
     caseName: "플러그링크 (하반기) | 공동주택 | 7년 신규 | 모자분리",
     cpo: "플러그링크", bizType: "환경부", powerType: "모자분리",
     termYears: [7], bldgTypes: ["공동주택"], replType: "환경부 신규",
-    bizYear: 2026, startDate: "2026년 1월 20일",
+    bizYear: 2026, startDate: "2026년 하반기",
     channel: "턴키",
     salesUnit: 1200000, consUnit: 1000000, margin: 200000,
     defaultSettlementRuleId: "pl-2step",
@@ -422,7 +464,7 @@ export const PRICING_RULES: PricingRule[] = [
     caseName: "플러그링크 (하반기) | 공동주택 | 10년 신규 | 모자분리",
     cpo: "플러그링크", bizType: "환경부", powerType: "모자분리",
     termYears: [10], bldgTypes: ["공동주택"], replType: "환경부 신규",
-    bizYear: 2026, startDate: "2026년 1월 20일",
+    bizYear: 2026, startDate: "2026년 하반기",
     channel: "턴키",
     salesUnit: 1400000, consUnit: 1000000, margin: 200000,
     defaultSettlementRuleId: "pl-2step",
@@ -435,7 +477,7 @@ export const PRICING_RULES: PricingRule[] = [
     caseName: "플러그링크 (하반기) | 공동주택 | 10년 신규 | 한전불입",
     cpo: "플러그링크", bizType: "환경부", powerType: "한전불입",
     termYears: [10], bldgTypes: ["공동주택"], replType: "환경부 신규",
-    bizYear: 2026, startDate: "2026년 1월 20일",
+    bizYear: 2026, startDate: "2026년 하반기",
     channel: "턴키",
     salesUnit: 1000000, consUnit: 1000000, margin: 200000,
     defaultSettlementRuleId: "pl-2step",
@@ -448,7 +490,7 @@ export const PRICING_RULES: PricingRule[] = [
     caseName: "플러그링크 (하반기) | 공동주택 | 7년 신규 | 한전불입",
     cpo: "플러그링크", bizType: "환경부", powerType: "한전불입",
     termYears: [7], bldgTypes: ["공동주택"], replType: "환경부 신규",
-    bizYear: 2026, startDate: "2026년 1월 20일",
+    bizYear: 2026, startDate: "2026년 하반기",
     channel: "턴키",
     salesUnit: 900000, consUnit: 900000, margin: 200000,
     defaultSettlementRuleId: "pl-2step",

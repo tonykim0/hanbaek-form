@@ -496,6 +496,25 @@ export const fileRepository: ProjectRepository = {
     return id;
   },
 
+  async setPricingRuleMeta(id, patch, actor): Promise<void> {
+    if (actor.role !== 'admin') throw new Error('단가 케이스 정보 수정은 한백 관리자만 할 수 있습니다.');
+    const list = await loadRules();
+    const me = list.find((r) => r.id === id);
+    if (!me) throw new Error('없는 단가 케이스입니다.');
+    const startDate = patch.startDate !== undefined ? patch.startDate.trim() : me.startDate;
+    const note = patch.note !== undefined ? (patch.note?.trim() || null) : me.note;
+    if (startDate === me.startDate && note === me.note) return;
+    if (!startDate) throw new Error('적용 시작을 비울 수 없습니다.');
+    const next = { ...me, startDate, note };
+    if (next.active) {
+      const dup = duplicateOf(next, list.filter((r) => r.id !== id));
+      if (dup) throw new Error(`그 적용 시작에는 같은 조건의 케이스가 이미 있습니다 — ${dup.caseName}`);
+    }
+    me.startDate = startDate;
+    me.note = note;
+    await saveRules(list);
+  },
+
   async setPricingRuleActive(id, active, actor): Promise<void> {
     if (actor.role !== 'admin') throw new Error('단가 케이스 변경은 한백 관리자만 할 수 있습니다.');
     const list = await loadRules();

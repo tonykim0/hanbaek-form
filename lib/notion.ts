@@ -7,10 +7,14 @@
  */
 import { Client, APIResponseError } from '@notionhq/client';
 import JSZip from 'jszip';
-import type { ExtractedMetadata, ClassifiedFile, ClassifiedFileInfo, FileCategory } from '@/types/intake';
+import type {
+  ClassifiedFile, ClassifiedFileInfo, ExtractedMetadata, FileCategory, PowerInlet,
+} from '@/types/intake';
+import type { CpoName, PowerType } from '@/types/project';
 import type { NormalizedFile } from './files';
 import { buildStandardName, isPdfFile } from './files';
-import { excelCategory } from './doc-category-map';
+import { excelCategory, kindOfCategory } from './doc-category-map';
+import { buildDocContext, evaluateDocs, type DocContext } from './doc-rules';
 import { splitPdf, mergePdfs } from './pdf-split';
 import { createHash } from 'crypto';
 
@@ -432,101 +436,76 @@ export async function attachUploadItemsToPage(
   return { classifiedFiles, warnings };
 }
 
-// 사업구분과 무관하게 항상 필수인 서류
-// (행위신고 업무대행 동의서는 템플릿에서 제외되어 더 이상 필수 아님)
-// (합의서는 SK일렉링크·현대엔지니어링 제외 조건부 → 아래에서 별도 처리)
-// (한전 전기요금 청구서는 수전방식 조건부 → 아래 needsKepcoBill 로 판정)
-const COMMON_REQUIRED_DOCS = [
-  '계약서',
-  '직인사용 동의서',
-  '사전현장컨설팅 결과서',
-  '건축물대장',
-] as const;
-
-/**
- * 한국전력 전기요금 청구서는 모자분리 현장만 낸다 (2026-08-20 한백 확인).
- *
- * 모자분리는 기존 세대 계량에서 충전기 몫을 떼어내는 방식이라 지금 요금 상태를 봐야 한다.
- * 한전불입은 새 인입을 받는 것이라 볼 청구서가 없다 — 그런데 여기서는 수전방식과 무관하게
- * 항상 필수로 두고 있어서, 한전불입 현장이 낼 수 없는 서류를 「누락」으로 통보받았다.
- *
- * 판정 기준은 lib/doc-rules.ts 가 정본이고 이것을 그 규칙에 맞춘 것이다.
- * 전력인입을 못 읽었으면(null) 요구하지 않는다 — 있는지 없는지 모르는 것을 누락이라
- * 적으면 사람이 매번 확인해야 하고, 그러면 이 통보를 아무도 믿지 않게 된다.
- */
-const needsKepcoBill = (metadata: ExtractedMetadata): boolean =>
-  metadata.전력인입 === '모자분리' || metadata.전력인입 === '모자분리 + 한전수전';
-
-// 환경부 사업일 때만 필수인 서류
-const ENV_ONLY_REQUIRED_DOCS = [
-  '전기차충전시설 설치신청서',
-  '개인정보 동의서',
-] as const;
-
 /**
  * 접수 서류 누락 점검 결과 문구를 만든다. ('누락서류' 속성용)
- * - 공통 필수: 계약서·직인사용 동의서·사전현장컨설팅 결과서·건축물대장
- *   + 사업자등록증(또는 고유번호증)
- * - 한전 전기요금 청구서: 모자분리 현장만 (한전불입은 낼 청구서가 없다)
- * - 합의서: SK일렉링크·현대엔지니어링·에버온 제외하고 필수 (이들은 조건부 → 면제)
- * - 환경부 전용: 전기차충전시설 설치신청서·개인정보 동의서
- * - 건물유형 조건부: 공동주택 → 입주자대표회의 회의록 / 그 외(상업시설) → 관리단 회의록
- * - 사진대지: 사전현장컨설팅 결과서와 함께 필수 (플러그링크·나이스인프라는 실사보고서로 대체하여 면제)
+ *
+ * ★판정을 여기서 하지 않는다★
+ * 예전에는 이 파일이 필수 서류 목록을 따로 갖고 있었다 — COMMON_REQUIRED_DOCS,
+ * ENV_ONLY_REQUIRED_DOCS, 합의서면제, 사진대지면제, needsKepcoBill. 주석에는
+ * 「판정 기준은 lib/doc-rules.ts 가 정본이고 이것을 그 규칙에 맞춘 것」이라고 적어뒀지만,
+ * 손으로 맞춘 사본이라 이미 갈려 있었다(2026-08-20 대조):
+ *
+ *   합의서       여기: SK일렉링크·현대엔지니어링·에버온만 면제(나머지 필수)
+ *                정본: 플러그링크·나이스인프라만 필수 — 정반대였다
+ *   개인정보·설치신청서   여기: 환경부만 / 정본: 항상 필수
+ *   별지2·기설치 설치이력  여기: 아예 검사하지 않았다
+ *
+ * 그래서 목록을 지우고 정본을 부른다. 협력사가 포털에서 받는 「누락」 통보와 한백이
+ * 콘솔에서 보는 「필수」가 같은 규칙에서 나온다 — 갈리면 포털에서는 다 냈다는데
+ * 콘솔에서 계약이 안 넘어간다.
  */
 export function buildMissingDocsNote(metadata: ExtractedMetadata | null): string {
   if (!metadata) return 'AI 분류 실패 — 서류 누락 여부 수동 확인 필요';
 
-  const present = new Set((metadata.files ?? []).map((f) => f.category));
-  const missing: string[] = [];
-
-  for (const doc of COMMON_REQUIRED_DOCS) {
-    if (!present.has(doc)) missing.push(doc);
-  }
-  if (needsKepcoBill(metadata) && !present.has('한전 전기요금 청구서')) {
-    missing.push('한전 전기요금 청구서');
-  }
-  if (!present.has('사업자등록증') && !present.has('고유번호증')) {
-    missing.push('사업자등록증(또는 고유번호증)');
-  }
-
-  // 환경부 전용 서류 (설치신청서 유무 또는 사업구분으로 환경부 판별)
-  const is환경부 =
-    metadata.사업구분 === '환경부' || present.has('전기차충전시설 설치신청서');
-  if (is환경부) {
-    for (const doc of ENV_ONLY_REQUIRED_DOCS) {
-      if (!present.has(doc)) missing.push(doc);
-    }
-  }
-
-  // 건물유형별 회의록 (유형 미확인 시 오탐 방지 위해 검사 안 함)
-  if (metadata.건축물유형 === '공동주택') {
-    if (!present.has('입주자대표회의 회의록')) missing.push('입주자대표회의 회의록');
-  } else if (metadata.건축물유형 === '상업시설') {
-    if (!present.has('관리단 회의록')) missing.push('관리단 회의록');
-  }
-
-  const cpos = metadata.CPO ?? [];
-
-  // 합의서: SK일렉링크·현대엔지니어링·에버온은 조건부(면제), 그 외 CPO는 필수
-  const 합의서면제 = cpos.some(
-    (c) => c === 'SK일렉링크' || c === '현대엔지니어링' || c === '에버온'
+  /* 여러 카테고리가 한 칸으로 모인다(사업자등록증·고유번호증 → bizreg) — 칸으로 세야 한다 */
+  const present = new Set(
+    (metadata.files ?? [])
+      .map((f) => kindOfCategory(f.category))
+      .filter((kind): kind is string => Boolean(kind))
   );
-  if (!합의서면제 && !present.has('합의서')) {
-    missing.push('합의서');
-  }
 
-  // 사진대지: 사전현장컨설팅 결과서와 함께 필수
-  // (단 플러그링크·나이스인프라는 사진대지 대신 실사보고서를 제출하므로 면제)
-  const 사진대지면제 = cpos.some(
-    (c) => c === '플러그링크' || c === '나이스인프라'
-  );
-  if (cpos.length > 0 && !사진대지면제 && !present.has('사진대지')) {
-    missing.push('사진대지(사전현장컨설팅)');
-  }
+  const missing = evaluateDocs(docContextOf(metadata))
+    .filter((d) => d.req === 'm' && !present.has(d.key))
+    .map((d) => d.label);
 
   if (missing.length === 0) return '이상 없음';
   return `⚠ 누락 ${missing.length}건: ${missing.join(', ')}`;
 }
+
+/**
+ * 판독 결과를 서류 규칙이 쓰는 꼴로 옮긴다.
+ *
+ * ★같은 것을 두 낱말로 부른다★
+ * 포털은 수전방식을 「한전수전」이라 하고 콘솔은 「한전불입」이라 한다. 값이 다른 것이
+ * 아니라 이름만 다르다. 여기서 한 번 옮기고, 어느 쪽 낱말이 어느 쪽 것인지 적어둔다.
+ *
+ * 없는 값은 없다고 넘긴다 — 계약주체는 노션 접수에 없어서 건축물유형에서 유도되고
+ * (doc-rules resolveParty), 기설치 여부는 접수 시점에 모른다. 모르는 것을 있다고
+ * 넘기면 낼 수 없는 서류를 누락으로 통보하게 된다.
+ */
+function docContextOf(m: ExtractedMetadata): DocContext {
+  const POWER: Record<PowerInlet, PowerType> = {
+    '한전수전': '한전불입',
+    '모자분리': '모자분리',
+    '모자분리 + 한전수전': '한전불입+모자분리',
+  };
+
+  return buildDocContext({
+    // 판독은 운영사를 여럿 읽을 수 있다. 서류 규칙은 한 곳을 본다 — 첫 곳을 쓴다.
+    cpo: asCpoName(m.CPO?.[0]),
+    contractParty: null,
+    bldgType: m.건축물유형,
+    projectPowerType: m.전력인입 ? POWER[m.전력인입] : null,
+    linePowerTypes: [],
+    preInstall: '없음',
+    bizType: m.사업구분,
+  });
+}
+
+/** 콘솔이 아는 운영사인가. 모르는 이름이면 null — 그 운영사 전용 서류를 요구하지 않는다. */
+const KNOWN_CPOS: CpoName[] = ['플러그링크', '나이스인프라', '현대엔지니어링', 'SK일렉링크', '에버온'];
+const asCpoName = (name: string | undefined): CpoName | null =>
+  KNOWN_CPOS.find((c) => c === name) ?? null;
 
 // Notion rich_text 한 조각의 최대 길이(2000자). 초과 시 create 전체가 400.
 const NOTION_TEXT_MAX = 2000;

@@ -21,7 +21,14 @@ import type {
 export type DocReq = 'm' | 'c' | 'o';
 
 export interface DocContext {
-  cpo: CpoName;
+  /**
+   * 운영사. 모를 수도 있다.
+   *
+   * 콘솔은 운영사 다섯 곳을 안다(CpoName). 포털의 접수 판독은 그보다 넓은 목록을 읽어서
+   * 「대영채비」처럼 콘솔이 모르는 이름이 올 수 있고, 아직 못 읽은 경우도 있다. 그때는
+   * 운영사별 조건을 걸지 않는다 — 모르는 운영사에게 그 운영사 양식을 요구할 수 없다.
+   */
+  cpo: CpoName | null;
   contractParty: ContractParty | null;
   bldgType: BuildingType | null;
   /** 계약 라인 중 하나라도 모자분리면 true (혼용 현장 대응) */
@@ -54,19 +61,42 @@ interface DocSpec {
   label?: (ctx: DocContext) => string;
 }
 
-/** 합의서를 받는 운영사 */
-const SURVEY_CPOS: CpoName[] = ['플러그링크', '나이스인프라'];
+/**
+ * 프로모션 요금 합의서를 받는 운영사.
+ *
+ * 이 둘만 필수인 이유는 **양식이 이 둘밖에 없다**는 것이다(2026-08-20 한백 확인) —
+ * 다른 운영사는 낼 서류 자체가 존재하지 않는다. 「면제」가 아니라 「없다」다.
+ *
+ * 예전 이름은 SURVEY_CPOS 였다. 실사보고서용으로 만든 상수를 합의서에 다시 쓴 것이라
+ * 무엇을 가리키는 목록인지 이름이 거짓말을 하고 있었다.
+ */
+const AGREEMENT_CPOS: CpoName[] = ['플러그링크', '나이스인프라'];
+
+/**
+ * 환경부 사업만 내는 서류.
+ *
+ * 「자체투자가 아니면」이 아니라 「환경부면」으로 센다. 두 값뿐이라 지금은 같은 답이지만,
+ * 사업구분을 아직 모르는 현장(null)에서 갈린다 — 모르는 것을 필수로 걸면 낼 수 없는
+ * 서류 때문에 계약이 막힌다.
+ */
+const envOnly = (c: DocContext): DocReq => (c.bizType === '환경부' ? 'm' : 'o');
 
 const SPECS: DocSpec[] = [
   { key: 'contract', name: '전기차충전 토탈솔루션 계약서', req: () => 'm' },
   {
     key: 'agreement',
     name: '프로모션 요금 합의서',
-    req: (c) => (SURVEY_CPOS.includes(c.cpo) ? 'm' : 'o'),
+    req: (c) => (c.cpo && AGREEMENT_CPOS.includes(c.cpo) ? 'm' : 'o'),
   },
   { key: 'sealuse', name: '직인사용 동의서', req: () => 'm' },
-  { key: 'privacy', name: '개인정보 수집·이용 동의서', req: () => 'm' },
-  { key: 'apply', name: '전기차 완속충전시설 설치신청서', req: () => 'm' },
+  /*
+   * 개인정보 동의서와 설치신청서는 환경부 서류다 (2026-08-20 한백 확인).
+   * 환경부에 보조금을 신청하면서 내는 것이라, 자체투자 현장은 낼 곳이 없다.
+   * 사업구분을 모르면(null) 요구하지 않는다 — 모르는 것을 누락이라 적으면
+   * 사람이 매번 확인해야 하고, 그러면 이 판정을 아무도 믿지 않게 된다.
+   */
+  { key: 'privacy', name: '개인정보 수집·이용 동의서', req: (c) => envOnly(c) },
+  { key: 'apply', name: '전기차 완속충전시설 설치신청서', req: (c) => envOnly(c) },
   { key: 'consult', name: '사전현장컨설팅 결과서', fee: true, req: () => 'm' },
   {
     key: 'minutes',
@@ -109,14 +139,14 @@ const SPECS: DocSpec[] = [
      * 조사 자체를 하지 않으므로 낼 것이 없다 — 여기서 필수로 두면 자체투자 현장이
      * 만들 수 없는 엑셀 때문에 계약이 영구히 막힌다.
      */
-    req: (c) => (c.bizType === '자체투자' ? 'o' : 'm'),
+    req: (c) => envOnly(c),
     preinstall: true,
   },
   {
     key: 'legacyev',
     name: '기설치 증빙자료',
     // 기설치가 있는 환경부 현장만 증빙이 필수다. 없으면 낼 것이 없다.
-    req: (c) => (c.bizType !== '자체투자' && c.preInstall === '있음' ? 'm' : 'o'),
+    req: (c) => (c.bizType === '환경부' && c.preInstall === '있음' ? 'm' : 'o'),
     preinstall: true,
   },
   {
@@ -182,7 +212,7 @@ export function evaluateDocs(ctx: DocContext): EvaluatedDoc[] {
 }
 
 export function buildDocContext(input: {
-  cpo: CpoName;
+  cpo: CpoName | null;
   contractParty: ContractParty | null;
   bldgType: BuildingType | null;
   projectPowerType: PowerType | null;

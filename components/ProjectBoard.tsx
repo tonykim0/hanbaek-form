@@ -9,13 +9,12 @@
  * 옮기는 일 자체(요청·임시 위치·실패 처리)는 껍데기 ProjectsView 가 쥔다. 표에서도 같은
  * 동작을 쓰기 때문이다 — 두 벌로 두면 한쪽만 고쳐지는 일이 생긴다.
  *
- * 끌어다 놓으면 공정 단계가 바뀐다. 다만 아무 데나 놓을 수는 없다 —
- * 계약 칸은 서류·단가에서 유도되는 값이라 옮길 대상이 아니고, 공정 칸도 조건이 있다.
- * 놓을 수 없는 칸은 끌기 시작할 때 미리 흐려진다. 놓고 나서 거절당하는 것보다 낫다.
+ * 끌어 옮기지 않는다 — 스치는 끌기에 단계가 바뀐다(한백 확인). 대신 카드가 다음 걸음을
+ * 민다: 조건이 차면 카드에 「다음 단계로 넘기기」가 뜨고, 안 찼으면 막는 것이 적힌다.
  */
 import { useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import type { ProjectSummary } from '@/types/project';
+import type { ProcessStatus, ProjectSummary } from '@/types/project';
 import { BOARD_COLUMNS, boardColumnOf, type BoardBand, type BoardColumn } from '@/lib/board';
 import { Tag } from '@/components/ui';
 
@@ -32,7 +31,7 @@ const BAND_TEXT: Record<BoardBand, string> = {
 };
 
 export default function ProjectBoard({
-  projects, band, busyId,
+  projects, band, canMove, onMove, busyId,
 }: {
   /** 이미 걸러진 목록. 임시 위치도 반영돼 있다. */
   projects: ProjectSummary[];
@@ -43,6 +42,9 @@ export default function ProjectBoard({
    * 쪼개도 칸이 들어갈 자리가 생긴다.
    */
   band: '계약' | '시공';
+  /** 다음 단계로 넘길 수 있는가 (한백만) — 카드의 넘기기 단추가 이것으로 갈린다 */
+  canMove: boolean;
+  onMove: (p: ProjectSummary, status: ProcessStatus) => void;
   busyId: string | null;
 }) {
   const columns = useMemo(() => {
@@ -58,10 +60,6 @@ export default function ProjectBoard({
     return byKey;
   }, [projects]);
 
-  /*
-   * 카드를 끌어 옮기지 않는다 — 스치는 끌기에 단계가 바뀐다(한백 확인).
-   * 옮기는 자리는 표의 단계 셀렉트다. 보드는 보고, 눌러 들어가는 곳.
-   */
   const visible = BOARD_COLUMNS.filter(
     // 보류는 멈춘 현장이 있을 때만 나타난다. 늘 비어 있는 칸은 자리만 먹는다.
     (c) => c.key !== '보류' || (columns.get('보류')?.length ?? 0) > 0
@@ -161,7 +159,13 @@ export default function ProjectBoard({
 
                       <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto">
                         {list.map((p) => (
-                          <Card key={p.id} p={p} busy={busyId === p.id} />
+                          <Card
+                            key={p.id}
+                            p={p}
+                            busy={busyId === p.id}
+                            canMove={canMove}
+                            onMove={onMove}
+                          />
                         ))}
                         {list.length === 0 && (
                           <p className="flex h-full items-center justify-center rounded-box border border-dashed border-slate-200 text-tiny text-slate-300">
@@ -188,12 +192,25 @@ export default function ProjectBoard({
  * 카드가 눌리는 물건처럼 생겼는데 정작 글자를 맞춰 눌러야 했다.
  * 키보드로도 들어갈 수 있게 role·tabIndex·Enter 를 둔다.
  */
-function Card({ p, busy }: { p: ProjectSummary; busy: boolean }) {
+function Card({
+  p, busy, canMove, onMove,
+}: {
+  p: ProjectSummary;
+  busy: boolean;
+  canMove: boolean;
+  onMove: (p: ProjectSummary, status: ProcessStatus) => void;
+}) {
   const router = useRouter();
   const qty = p.lines.reduce((sum, l) => sum + l.qty, 0);
   const org = p.salesOrg ?? p.gcOrg;
   // 계약연수는 라인마다 다를 수 있다 — 「7·10년」처럼 둘 다 적는다
   const terms = [...new Set(p.lines.map((l) => l.termYears))].sort((a, b) => a - b);
+  /*
+   * 다음 걸음을 카드가 민다 — 준비되면 여기서 바로 넘기고, 안 됐으면 무엇이 막는지
+   * 카드에 적힌다(막는 문구는 게이트의 need 그대로). 계약 유도 단계(접수·검토·보완)와
+   * 멈춘 현장에는 안 붙는다 — 그쪽의 다음 걸음은 서류·검수·보류 해제라 이 축이 아니다.
+   */
+  const next = p.stage !== 'intake' && !p.holdState ? p.nextStep : null;
 
   return (
     <article
@@ -236,6 +253,26 @@ function Card({ p, busy }: { p: ProjectSummary; busy: boolean }) {
           </span>
         )}
       </div>
+
+      {next && (
+        next.ready && canMove ? (
+          <button
+            type="button"
+            disabled={busy}
+            onClick={(e) => {
+              e.stopPropagation(); // 카드 자체는 상세로 가는 링크다 — 넘기기가 그걸 삼키면 안 된다
+              onMove(p, next.status);
+            }}
+            className="mt-2 w-full rounded-ctl border border-brand-300 bg-brand-50 px-2 py-1 text-tiny font-bold text-brand-800 transition hover:bg-brand-100 disabled:opacity-50"
+          >
+            {next.status} 로 넘기기 →
+          </button>
+        ) : (
+          <p className={`mt-2 text-micro font-semibold ${next.ready ? 'text-brand-700' : 'text-amber-700'}`}>
+            {next.ready ? `${next.status} 준비됨` : `다음: ${next.need}`}
+          </p>
+        )
+      )}
     </article>
   );
 }

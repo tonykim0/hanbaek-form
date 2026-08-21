@@ -129,6 +129,9 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
           ready: Boolean(p.chargerRecvDate), blocked: '수령일 미입력 — 완료 불가',
         },
       },
+    ],
+    // 충전기가 현장에 있다 — 착공일이 적히면 「착공」이 열린다
+    '충전기 수령': [
       {
         /*
          * 착공예정일과 실착공일을 구분하지 않는다 — 시공팀이 착공일 하나만 적는다(한백 확인).

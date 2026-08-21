@@ -54,10 +54,15 @@ export const STATUS_GATES: Record<ProcessStatus, StatusGate | null> = {
     need: '운영사 시공승인일 · 행위신고 완료 체크',
     met: (p) => Boolean(p.cpoApprovalDate) && Boolean(p.notifyDoneAt),
   },
-  // 공사가 실제로 시작됐다 — 충전기가 현장에 왔고(수령 완료 체크) 착공일이 적혔다
+  // 충전기가 현장에 왔다 — 수령 완료 체크가 그 선언이다
+  '충전기 수령': {
+    need: '충전기 수령 완료 체크',
+    met: (p) => Boolean(p.chargerDoneAt),
+  },
+  // 공사가 실제로 시작됐다 — 수령은 앞 단계(충전기 수령)가 이미 확인했다
   '착공': {
-    need: '충전기 수령 완료 체크 · 착공일',
-    met: (p) => Boolean(p.chargerDoneAt) && Boolean(p.startActualDate),
+    need: '착공일',
+    met: (p) => Boolean(p.startActualDate),
   },
   '설치완료': {
     need: '설치완료 사진 · 설치 완료 체크',
@@ -183,6 +188,7 @@ export const COURT_AFTER_STATUS: Record<ProcessStatus, Court> = {
   '계약완료': '한백',             // 다음 일: 운영사에 계약서 제출 — 한백이 한다
   '운영사 계약서 제출': '운영사', // 시공승인 회신을 기다린다
   '시공진행필요': '시공사',
+  '충전기 수령': '시공사',        // 다음 일: 착공일 입력
   '착공': '시공사',               // 공사 중
   '설치완료': '시공사',           // 개통 절차 진행
   '개통완료': '시공사',           // 준공서류 준비

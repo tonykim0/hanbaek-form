@@ -26,7 +26,8 @@ import type {
 import { buildDocContext, PROCESS_DOCS } from '@/lib/doc-rules';
 import { entryTypeOf, payoutSideOf, settlementForProject } from '@/lib/settlement';
 import { contractStateOf, deriveStage, stalledDaysSince } from '@/lib/stage';
-import { entryOkOf } from '@/lib/process';
+import { canEnter, entryOkOf } from '@/lib/process';
+import { PROCESS_STATUSES } from '@/types/project';
 import { effectiveVisibility, type Visibility } from '@/lib/roles';
 import type { Viewer } from '@/lib/auth/types';
 import { SETTLEMENT_RULE_BY_ID } from './seed/settlement-rules';
@@ -235,7 +236,20 @@ export function summaryOf(r: ProjectRecord, rules: RuleMap): ProjectSummary {
     rejectedDocs: d.contract.rejected,
     docsFilled: d.contract.docsFilled,
     entryOk: entryOkOf(d.process),
+    nextStep: nextStepOf(d.process),
   };
+}
+
+/**
+ * 다음 단계와 그 준비 상태 — 보드 카드가 「다음: 무엇」을 밀어주는 데 쓴다.
+ * 마지막 단계(준공)면 null. 조건 문구는 게이트의 need 그대로다 — 따로 적으면 갈린다.
+ */
+function nextStepOf(process: ProjectRecord['process']): ProjectSummary['nextStep'] {
+  const idx = PROCESS_STATUSES.indexOf(process.status);
+  const next = PROCESS_STATUSES[idx + 1];
+  if (!next) return null;
+  const entry = canEnter(next, process);
+  return { status: next, ready: entry.ok, need: entry.ok ? null : entry.blockedBy };
 }
 
 /**

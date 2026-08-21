@@ -2,6 +2,7 @@ import { getRepository, repositoryKind } from '@/lib/data';
 import { getSessionUser, viewerOf } from '@/lib/auth/session';
 import { redirect } from 'next/navigation';
 import ProjectsView from '@/components/ProjectsView';
+import { phaseOfProject } from '@/lib/board';
 
 export const metadata = { title: '시공 — 한백 전기차사업관리' };
 
@@ -15,8 +16,8 @@ export default async function ConstructionPage() {
   const session = await getSessionUser();
   if (!session) redirect('/login?next=/construction');
   const all = await getRepository().listProjects(viewerOf(session));
-  // 정산 단계 현장도 시공 보드에 선다(준공 칸 등) — 계약 전만 아니면 시공 국면이다
-  const projects = all.filter((p) => p.stage !== 'intake');
+  // 시공진행필요부터가 시공이다 — 계약완료·운영사 계약서 제출은 계약 페이지에 있다(한백 확인)
+  const projects = all.filter((p) => phaseOfProject(p) === '시공');
 
   return (
     <>

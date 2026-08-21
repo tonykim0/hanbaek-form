@@ -19,7 +19,7 @@ import { useAction } from '@/lib/use-action';
 import { today } from '@/lib/date';
 import { Btn, Choice, Empty, Err, Val } from '@/components/ui';
 import { buildDocContext, evaluateDocs, isPartyInferred, PROCESS_DOCS } from '@/lib/doc-rules';
-import { bandOfColumn, boardColumnOf, type BoardBand } from '@/lib/board';
+import { bandOfColumn, boardColumnOf, phaseOfProject, type BoardBand } from '@/lib/board';
 import type { ProcessEdit } from '@/lib/process';
 import type { Visibility } from '@/lib/roles';
 import type { RuleOptions } from '@/lib/pricing-match';
@@ -268,12 +268,12 @@ function SiteHeader({
 
   return (
     <div className="rounded-panel border border-slate-200 bg-white p-5 sm:p-6">
-      {/* 온 곳으로 돌아간다 — 계약 중이면 계약 목록, 계약이 끝났으면 시공 목록 */}
+      {/* 온 곳으로 돌아간다 — 이 현장이 서 있는 국면의 목록으로 */}
       <Link
-        href={stage === 'intake' ? '/projects' : '/construction'}
+        href={phaseOfProject({ stage, status: process.status }) === '계약' ? '/projects' : '/construction'}
         className="text-small font-semibold text-slate-400 hover:text-brand-700"
       >
-        ← {stage === 'intake' ? '계약 목록' : '시공 목록'}
+        ← {phaseOfProject({ stage, status: process.status }) === '계약' ? '계약 목록' : '시공 목록'}
       </Link>
 
       {/*

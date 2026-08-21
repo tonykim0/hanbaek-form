@@ -35,17 +35,15 @@ export interface BoardColumnDef {
   /** 칸이 하는 일 — 머리글에 그대로 나간다 */
 }
 
-/*
- * 공정 상태는 전부 시공 띠다.
- *
- * 예전에는 계약완료·운영사 계약서 제출을 계약 띠에 뒀다(사람이 계약의 끝으로 읽어서).
- * 계약·시공을 페이지로 가른 뒤에는 그러면 안 된다 — 시공 페이지는 시공 띠만 그리므로,
- * 계약 띠로 매핑된 상태의 현장이 어느 보드에도 안 선다. 계약이 끝난 현장의 상태 칸은
- * 전부 시공 페이지의 칸이고, 「계약완료」는 그 보드의 진입 칸(시공 대기)이다.
+/**
+ * 계약완료·운영사 계약서 제출까지가 계약이다(한백 확인) — 운영사에 내는 것은 계약 일의
+ * 끝이고, 시공은 환경부 승인·운영사 시공승인 뒤에 시작한다. 페이지를 가르는 판정
+ * (phaseOfProject)도 이 매핑을 따른다 — stage 로만 가르면 계약완료 현장이 시공 페이지로
+ * 넘어가 버린다.
  */
 const BAND_OF_STATUS: Record<ProcessStatus, BoardBand> = {
-  '계약완료': '시공',
-  '운영사 계약서 제출': '시공',
+  '계약완료': '계약',
+  '운영사 계약서 제출': '계약',
   '시공진행필요': '시공',
   '착공': '시공',
   '설치완료': '시공',
@@ -54,6 +52,15 @@ const BAND_OF_STATUS: Record<ProcessStatus, BoardBand> = {
   '준공보완': '시공',
   '준공': '시공',
 };
+
+/**
+ * 이 현장이 계약·시공 어느 국면인가 — 계약/시공 페이지가 이걸로 인구를 가른다.
+ * 보류 현장도 국면을 따라간다(보류 칸은 양쪽 페이지에 각자 선다).
+ */
+export function phaseOfProject(p: { stage: Stage; status: ProcessStatus }): '계약' | '시공' {
+  if (p.stage === 'intake') return '계약';
+  return BAND_OF_STATUS[p.status] === '계약' ? '계약' : '시공';
+}
 
 export const BOARD_COLUMNS: BoardColumnDef[] = [
   {

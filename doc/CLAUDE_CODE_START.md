@@ -1,5 +1,8 @@
 # Claude Code 시작 프롬프트
 
+> ★역사 문서★ 2026-08 착수 때 한 번 쓰인 시작 프롬프트다. 「노션이 백엔드다」는 그 시점
+> 이야기이고, 지금 콘솔의 정본은 자체 Postgres 다. 현재 규칙은 `CLAUDE.md` 를 본다.
+
 아래를 Claude Code 첫 메시지로 붙여넣으세요. (hanbaek-form repo를 clone 한 폴더에서 실행)
 같은 폴더에 `SYSTEM_ARCHITECTURE.md`와 `INTAKE_SPEC.md`를 함께 두세요.
 

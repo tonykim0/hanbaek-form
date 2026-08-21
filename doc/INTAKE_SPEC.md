@@ -1,8 +1,8 @@
 # 한백 EV 계약서 접수 시스템 — 구현 사양
 
-> 이 문서는 Claude Code에서 `hanbaek-form` repo에 접수 시스템을 구현하기 위한 인수인계 문서다.
-> 채팅에서 HTML 프로토타입(`hanbaek-intake-v4.html`)까지 만들었고, 이제 실제 앱으로 옮긴다.
-> 프로토타입은 참고용 UI 레퍼런스이지 이식 대상이 아니다. 로직/규칙만 가져오고 Next.js로 새로 짠다.
+> ★역사 문서★ 2026-08 착수 시점의 사양이고, 접수는 구현됐다. **정본은 코드다**:
+> 서류 종류·조건부 필수 규칙은 `lib/doc-rules.ts`, 접수 폼은 `components/IntakeForm.tsx`,
+> 자동분류는 `lib/intake-auto.ts`·`lib/prompts.ts`. 이 문서의 표와 어긋나면 코드가 맞다.
 
 ## 0. 결정 사항 (먼저 읽을 것)
 

@@ -88,7 +88,8 @@
 | `/receivables` | 운영사 기성관리 — 차수·트리거·회수 | 한백만 |
 | `/pricing` | 단가 케이스 관리 | 한백만 |
 | `/library` · `/lookup` · `/apartments` | 자료실 · 충전기/보조금 이력 · K-apt 조회 — 포털과 같은 컴포넌트 | 전부 |
-| `/admin/accounts` | 계정 관리 | 한백만 |
+| `/settings` | 협력사 정보 — 자기 사업자등록증·정산 계좌를 적는다 | 협력사 (한백은 `/admin/accounts` 에서 전 계정을) |
+| `/admin/accounts` | 계정 관리 · 협력사 정보(사업자등록증·계좌·통장사본) | 한백만 |
 | `/admin/materials` · `/admin/reissue` | 자료실 관리 · 서류 재발행 — 메뉴에 없다, 주소를 아는 사람만 | 한백만 |
 | `/design` | 부품 카탈로그 — `components/ui.tsx` 를 그려 보는 화면 | 한백만 |
 

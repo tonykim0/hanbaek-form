@@ -98,6 +98,14 @@ const GROUPS: Group[] = [
     ],
   },
   {
+    // 협력사가 자기 사업자등록증·정산 계좌를 적는 자리 — 한백의 「설정」은 관리 묶음에 있다
+    label: '설정',
+    partnerOnly: true,
+    items: [
+      { href: '/settings', label: '협력사 정보', short: '정보', note: '정산 계좌 · 사업자등록증' },
+    ],
+  },
+  {
     label: '관리',
     adminOnly: true,
     items: [

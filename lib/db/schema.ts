@@ -24,6 +24,24 @@ export const users = pgTable('users', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
+/**
+ * 협력사 정보 — 계정마다 사업자등록증·정산 계좌를 둔다.
+ *
+ * 지급(하도급 정산)에 쓰는 값이라 계정이 아니라 회사의 것에 가깝지만, 지금 계정은
+ * 회사당 하나라 계정에 붙인다. 파일(사업자등록증·통장사본)은 Vercel Blob 에 두고
+ * 여기는 URL 만 둔다. 배포 설정(AUTH_USERS) 계정은 users 행이 없어 여기 못 붙는다.
+ */
+export const partnerDetails = pgTable('partner_details', {
+  userId: text('user_id').primaryKey().references(() => users.id),
+  bizRegNo: text('biz_reg_no'),                 // 사업자등록번호 — 숫자 10자리
+  bizCertUrl: text('biz_cert_url'),             // 사업자등록증 파일
+  bankName: text('bank_name'),
+  bankAccountNo: text('bank_account_no'),
+  bankHolder: text('bank_holder'),              // 예금주
+  bankbookUrl: text('bankbook_url'),            // 통장사본 파일
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
 // ── 규칙 (불변) ─────────────────────────────────────────────────
 export const settlementRules = pgTable('settlement_rules', {
   id: text('id').primaryKey(),

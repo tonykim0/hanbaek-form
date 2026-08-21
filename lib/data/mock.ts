@@ -99,7 +99,6 @@ export const SEED_RECORDS: MockRecord[] = [
       commDoneDate: '2026-07-02',
       docs: processDocs(['notify', 'elecapply', 'safety', 'kepcofee', 'completion', 'photoDone', 'comm']),
       status: '준공서류 접수/검토',
-      memo: '준공서류 제출 완료. 운영사 마감 회차 대기 중.',
     },
     settlementRaw: emptySettlement('HB-2026-018'),
     /*

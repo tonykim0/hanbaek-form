@@ -118,19 +118,25 @@ export function entryOkOf(process: ProcessInfo): ProcessStatus[] {
 /**
  * 이 상태로 넘어갈 수 있는가. 막고 있는 조건을 함께 돌려준다.
  *
- * ★그 상태의 조건만 보지 않는다.★ 앞선 단계의 조건까지 전부 본다.
+ * ★그 상태의 조건만 보지 않는다.★ 지금 자리에서 목표까지 건너는 단계의 조건을 전부 본다.
  * '준공보완'·'준공' 처럼 조건이 없는 상태로 곧장 건너뛰면 「준공서류가 없는 준공」이
  * 만들어진다 — 표·보드에서 단계를 직접 고를 수 있게 되면서 실제로 열린 구멍이다.
- * 흐름이 한 줄이므로 뒤 단계는 앞 단계의 조건을 이미 지났다는 뜻이어야 한다.
  *
- * 되돌리는 것은 막지 않는다. 앞으로 가는 조건만 누적되므로 뒤 단계에서 앞 단계로
- * 내려오는 길은 그대로 열려 있다.
+ * ★지금 서 있는 자리까지는 지난 것으로 친다.★ 처음부터 전부 검사했더니, 이미
+ * 접수/검토에 서 있는 현장이 옛 칸(계약서 제출 체크 등)이 비어 있다고 준공으로 못
+ * 갔다 — 시드·이관 데이터는 단계가 값보다 앞서 있을 수 있고, 그 자리는 사람이
+ * 이미 통과시킨 것이다.
+ *
+ * 되돌리는 것은 막지 않는다 — 뒤 단계에서 앞 단계로 내려오는 길은 늘 열려 있다.
  */
 export function canEnter(
   status: ProcessStatus,
   process: ProcessInfo
 ): { ok: true } | { ok: false; blockedBy: string } {
-  for (const st of PROCESS_STATUSES.slice(0, statusIndex(status) + 1)) {
+  const from = statusIndex(process.status);
+  const to = statusIndex(status);
+  if (to <= from) return { ok: true };
+  for (const st of PROCESS_STATUSES.slice(from + 1, to + 1)) {
     const gate = STATUS_GATES[st];
     if (gate && !gate.met(process)) return { ok: false, blockedBy: gate.need };
   }

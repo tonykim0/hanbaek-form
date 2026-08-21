@@ -251,7 +251,12 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
           * ★보는 것(칩 선택)과 옮기는 것(패널의 넘기기 단추)을 가른다★ — 스치는 클릭에
           * 단계가 바뀌면 안 된다(보드 끌기를 걷어낸 것과 같은 이유).
           */}
-        <div className="flex items-center gap-1 overflow-x-auto pb-2" role="tablist" aria-label="공정 단계">
+        {/*
+          * 스크롤 컨테이너는 세로도 자른다(overflow-x 를 주면 y 가 auto 가 된다) —
+          * 칩의 ring 이 위에서 잘려 흰 띠가 칩을 자르는 것처럼 보였다. 위아래 여백을
+          * ring 폭보다 넉넉히 준다.
+          */}
+        <div className="flex items-center gap-1 overflow-x-auto px-0.5 pb-2 pt-1.5" role="tablist" aria-label="공정 단계">
           {STEPS.map((st, i) => {
             // 자리 비교는 전역 순서(statusIndex)로 — STEPS 는 행위신고부터라 i 가 어긋난다
             const idx = statusIndex(st);
@@ -272,7 +277,7 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
                   role="tab"
                   aria-selected={selected === st}
                   onClick={() => setSelected(st)}
-                  className={`shrink-0 whitespace-nowrap rounded-ctl px-2.5 py-1 text-tiny font-bold transition ${tone} ${
+                  className={`shrink-0 whitespace-nowrap rounded-ctl px-3 py-1.5 text-small font-bold transition ${tone} ${
                     selected === st ? 'ring-2 ring-brand-400' : 'hover:ring-2 hover:ring-brand-200'
                   }`}
                 >
@@ -297,29 +302,46 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
           const selState = selIdx < now ? 'past' : selIdx === now ? 'current' : 'future';
           const selEntry = canEnter(selected, p);
           const selGroups = GROUPS_BY_STATUS[selected] ?? [];
+          // 지금 구간의 다음 걸음 — 무엇이 차면 어디로 가는지 이 자리에 보여야 한다
+          const nextStatus = PROCESS_STATUSES[now + 1] ?? null;
+          const nextEntry = nextStatus ? canEnter(nextStatus, p) : null;
           return (
             <div className="mt-1 flex flex-col gap-4">
-              {/* 옮기기 — 조건이 찬 구간만. 잠긴 구간은 막는 것이 그 자리에 적힌다. */}
-              {edit === 'all' && selState !== 'current' && (
-                selEntry.ok ? (
-                  <button
-                    type="button"
-                    disabled={busyKey === 'status'}
-                    onClick={() => moveStatus(selected)}
-                    className={`w-fit rounded-ctl border px-3 py-1.5 text-small font-bold transition disabled:opacity-50 ${
-                      selState === 'past'
-                        ? 'border-slate-300 bg-white text-slate-600 hover:border-slate-400'
-                        : 'border-brand-300 bg-brand-50 text-brand-800 hover:bg-brand-100'
-                    }`}
-                  >
-                    {selState === 'past' ? `← ${selected} 로 되돌리기` : `${selected} 로 넘기기 →`}
-                  </button>
-                ) : (
-                  <p className="text-tiny font-semibold text-slate-400">
-                    🔒 {STATUS_GATES[selected]?.need} 필요
-                  </p>
-                )
-              )}
+              {/* 구간 머리 — 무엇을 보고 있고, 그 구간으로 옮길 수 있으면 단추가 여기 선다 */}
+              <div className="flex flex-wrap items-center gap-2">
+                <h3 className="text-base font-black text-slate-900">{selected}</h3>
+                <span
+                  className={`rounded-full px-2 py-0.5 text-micro font-bold ${
+                    selState === 'current'
+                      ? 'bg-brand-100 text-brand-900'
+                      : selState === 'past'
+                        ? 'bg-slate-100 text-slate-500'
+                        : 'border border-slate-200 bg-white text-slate-400'
+                  }`}
+                >
+                  {selState === 'current' ? '지금 구간' : selState === 'past' ? '지난 구간' : '오지 않은 구간'}
+                </span>
+                {edit === 'all' && selState !== 'current' && (
+                  selEntry.ok ? (
+                    <button
+                      type="button"
+                      disabled={busyKey === 'status'}
+                      onClick={() => moveStatus(selected)}
+                      className={`rounded-ctl border px-3 py-1 text-small font-bold transition disabled:opacity-50 ${
+                        selState === 'past'
+                          ? 'border-slate-300 bg-white text-slate-600 hover:border-slate-400'
+                          : 'border-brand-300 bg-brand-50 text-brand-800 hover:bg-brand-100'
+                      }`}
+                    >
+                      {selState === 'past' ? `← 이 구간으로 되돌리기` : `이 구간으로 넘기기 →`}
+                    </button>
+                  ) : (
+                    <p className="text-tiny font-semibold text-slate-400">
+                      🔒 {STATUS_GATES[selected]?.need} 필요
+                    </p>
+                  )
+                )}
+              </div>
 
               {selGroups.map((g) => (
                 <div key={g.title}>
@@ -403,6 +425,33 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
                   </div>
                 </div>
               ))}
+
+              {/*
+                * 다음 걸음 — 지금 구간을 볼 때, 무엇이 차면 어디로 가는지 그 자리에 보인다.
+                * 완료 체크를 했는데 딴 조건(시공승인일 등)이 비어 못 넘어가던 것이
+                * 아무 말 없이 지나갔다 — 그 이유가 여기 적힌다.
+                * 접수/검토 구간은 뺀다 — 거기는 검토 판정 상자가 다음 걸음이다.
+                */}
+              {selState === 'current' && nextStatus && selected !== '준공서류 접수/검토' && nextEntry && (
+                nextEntry.ok ? (
+                  edit === 'all' ? (
+                    <button
+                      type="button"
+                      disabled={busyKey === 'status'}
+                      onClick={() => moveStatus(nextStatus)}
+                      className="w-fit rounded-ctl border border-brand-300 bg-brand-50 px-3 py-1.5 text-small font-bold text-brand-800 transition hover:bg-brand-100 disabled:opacity-50"
+                    >
+                      다음 — {nextStatus} 로 넘기기 →
+                    </button>
+                  ) : (
+                    <p className="text-small font-bold text-brand-700">다음: {nextStatus} — 준비됨</p>
+                  )
+                ) : (
+                  <p className="text-small font-semibold text-amber-700">
+                    다음: {nextStatus} — {(nextEntry as { blockedBy: string }).blockedBy} 필요
+                  </p>
+                )
+              )}
 
               {/* 준공서류 검토 판정 — 한백이 보고, 이상 없으면 준공·아니면 보완으로 */}
               {selected === '준공서류 접수/검토' &&

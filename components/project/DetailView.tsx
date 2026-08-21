@@ -16,7 +16,8 @@ import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import type { ContractState, Court, ProjectDetail, SettlementRuleChoice } from '@/types/project';
 import { useAction } from '@/lib/use-action';
-import { Btn, Choice, Err } from '@/components/ui';
+import { today } from '@/lib/date';
+import { Btn, Choice, Empty, Err, Val } from '@/components/ui';
 import { buildDocContext, evaluateDocs, isPartyInferred, PROCESS_DOCS } from '@/lib/doc-rules';
 import { bandOfColumn, boardColumnOf, type BoardBand } from '@/lib/board';
 import type { ProcessEdit } from '@/lib/process';
@@ -145,6 +146,7 @@ export default function ProjectDetailView({
         canReview={canReview}
         noteAuthor={noteAuthor}
         knownOrgs={knownOrgs}
+        processEdit={processEdit}
       />
 
       <div className="overflow-hidden rounded-panel border border-slate-200 bg-white">
@@ -219,7 +221,7 @@ export default function ProjectDetailView({
  * 걸림돌은 여기 모은다. 무엇이 이 현장을 세우고 있는지는 탭을 열기 전에 보여야 한다.
  */
 function SiteHeader({
-  detail, contract, canReview, noteAuthor, knownOrgs,
+  detail, contract, canReview, noteAuthor, knownOrgs, processEdit,
 }: {
   detail: ProjectDetail;
   contract: ContractState;
@@ -228,6 +230,7 @@ function SiteHeader({
   noteAuthor: string;
   /** 이미 쓰이고 있는 업체 이름 — 영업사·시공사를 고칠 때 골라 넣는다 */
   knownOrgs: string[];
+  processEdit: ProcessEdit;
 }) {
   const { project, lines, stage, process, stalledDays } = detail;
   const column = boardColumnOf({
@@ -356,6 +359,12 @@ function SiteHeader({
         </div>
       )}
 
+      {/*
+        * 승인 — 시공 탭에 있었는데 여기로 올렸다(한백 확인). 승인 대기 구간에 자주 보고
+        * 적는 값이라 탭을 열지 않고 진행현황 및 메모 바로 위에서 읽고 적는다.
+        * 시공 탭에서는 뺐다 — 같은 값을 두 곳에 두지 않는다(화면 규칙 5).
+        */}
+      <ApprovalFacts projectId={project.id} process={process} edit={processEdit} />
 
       <ProgressLog projectId={project.id} notes={detail.notes} author={noteAuthor} />
 
@@ -369,6 +378,117 @@ const BAND_TONE: Record<BoardBand, string> = {
   시공: 'bg-brand-100 text-brand-900',
   멈춤: 'bg-slate-800 text-white',
 };
+
+/**
+ * 승인 사실 줄 — 환경부 승인일 · 운영사 계약서 제출 · 운영사 시공승인일.
+ *
+ * 진행현황 및 메모 바로 위에 있다. 환경부 승인일과 제출 체크는 한백이 적고,
+ * 시공승인일은 그 현장의 시공사도 적는다 — 판정은 저장소(assertProcessWrite)가 다시 한다.
+ * 제출 체크는 협력사에게 줄 자체를 안 그린다(몰라도 되는 값).
+ */
+function ApprovalFacts({
+  projectId, process, edit,
+}: {
+  projectId: string;
+  process: ProjectDetail['process'];
+  edit: ProcessEdit;
+}) {
+  const { busyKey, error, run } = useAction();
+  const save = (field: string, value: string | null) =>
+    void run({
+      url: `/api/projects/${projectId}/process`,
+      body: { [field]: value },
+      fail: '저장하지 못했습니다.',
+      key: field,
+    });
+
+  return (
+    <dl className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-1.5 border-t border-slate-100 pt-2 text-base">
+      <DateFact
+        label="환경부 승인일"
+        value={process.envApprovalDate}
+        canEdit={edit === 'all'}
+        busy={busyKey === 'envApprovalDate'}
+        onSave={(v) => save('envApprovalDate', v)}
+        hint="기성 「환경부 승인」 트리거가 이 날짜로 열립니다"
+      />
+      {edit === 'all' && (
+        <div className="flex items-baseline gap-1.5">
+          <dt className="text-tiny font-bold tracking-[0.04em] text-slate-400">운영사 계약서 제출</dt>
+          <dd>
+            <label className="flex cursor-pointer items-center gap-1.5">
+              <input
+                type="checkbox"
+                aria-label="운영사 계약서 제출"
+                checked={Boolean(process.cpoSubmitDate)}
+                disabled={busyKey === 'cpoSubmitDate'}
+                onChange={(e) => save('cpoSubmitDate', e.target.checked ? today() : null)}
+              />
+              <span className={`font-bold ${process.cpoSubmitDate ? 'text-slate-800' : 'text-amber-700'}`}>
+                {process.cpoSubmitDate ? '제출됨' : '미제출'}
+              </span>
+            </label>
+          </dd>
+        </div>
+      )}
+      <DateFact
+        label="운영사 시공승인일"
+        value={process.cpoApprovalDate}
+        canEdit={edit !== 'none'}
+        busy={busyKey === 'cpoApprovalDate'}
+        onSave={(v) => save('cpoApprovalDate', v)}
+        hint="넣으면 「시공진행필요」로 넘길 수 있습니다"
+      />
+      <Err>{error}</Err>
+    </dl>
+  );
+}
+
+/** 머리말의 날짜 사실 — 평소엔 글자, 고칠 때만 달력(화면 규칙 4). EditableFact 의 날짜판. */
+function DateFact({
+  label, value, canEdit, busy, onSave, hint,
+}: {
+  label: string;
+  value: string | null;
+  canEdit: boolean;
+  busy: boolean;
+  onSave: (v: string | null) => void;
+  hint?: string;
+}) {
+  const [editing, setEditing] = useState(false);
+  return (
+    <div className="flex items-baseline gap-1.5" title={hint}>
+      <dt className="text-tiny font-bold tracking-[0.04em] text-slate-400">{label}</dt>
+      {editing && canEdit ? (
+        <dd className="flex items-center gap-1.5">
+          <input
+            type="date"
+            autoFocus
+            aria-label={label}
+            defaultValue={value ?? ''}
+            disabled={busy}
+            onChange={(e) => {
+              onSave(e.target.value === '' ? null : e.target.value);
+              setEditing(false);
+            }}
+            className="rounded-ctl border border-slate-200 px-2 py-0.5 text-small font-semibold tabular-nums"
+          />
+          <Btn size="sm" kind="quiet" disabled={busy} onClick={() => setEditing(false)}>취소</Btn>
+        </dd>
+      ) : (
+        <>
+          {/* 승인일은 기다리는 값이다 — 비어 있음은 「아직 올 때가 아님」(—) */}
+          <dd>{value ? <Val value={value} /> : <Empty kind="wait" />}</dd>
+          {canEdit && (
+            <Btn size="sm" kind="quiet" onClick={() => setEditing(true)}>
+              {value ? '고치기' : '입력'}
+            </Btn>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
 
 const COURTS: Court[] = ['한백', '영업사', '시공사', '운영사'];
 

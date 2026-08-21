@@ -14,7 +14,6 @@ import {
 } from '@/lib/process';
 import { PROCESS_STATUSES } from '@/types/project';
 import { DocDelete, DocFileActions, DocUpload, DownloadAll } from '@/components/DocFiles';
-import { today } from '@/lib/date';
 import { useAction } from '@/lib/use-action';
 import { Note } from '@/components/ui';
 
@@ -107,8 +106,8 @@ function StatusFlow({
 
 /** 고칠 수 있는 날짜 칸 — 이름은 서버(ProcessPatch)와 같아야 한다 */
 type DateField =
-  | 'envApprovalDate' | 'cpoSubmitDate' | 'cpoApprovalDate' | 'chargerOrderDate' | 'chargerShipDate'
-  | 'chargerRecvDate' | 'startActualDate' | 'installDoneDate' | 'commDoneDate';
+  | 'chargerOrderDate' | 'chargerShipDate' | 'chargerRecvDate'
+  | 'startActualDate' | 'installDoneDate' | 'commDoneDate';
 
 export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit: ProcessEdit }) {
   const p = detail.process;
@@ -157,6 +156,11 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
     });
   };
 
+  /*
+   * 승인 관련(환경부 승인일 · 운영사 계약서 제출 · 운영사 시공승인일)은 여기 없다 —
+   * 머리말의 「진행현황 및 메모」 위에 있다(한백 확인). 승인 대기 구간에 자주 보고 적는
+   * 값이라 탭을 열지 않고 읽고 적는다. 같은 값을 두 곳에 두지 않는다(화면 규칙 5).
+   */
   const milestones: Array<{
     label: string;
     field: DateField;
@@ -164,23 +168,7 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
     trigger?: string;
     /** 이 날짜가 무엇을 여는지 — 왜 적어야 하는지 알려준다 */
     opens?: string;
-    /** 날짜가 아니라 했다/안 했다 — 체크로 적고, 체크한 날이 저장된다 */
-    flag?: boolean;
   }> = [
-    { label: '환경부 승인일', field: 'envApprovalDate', value: p.envApprovalDate, trigger: '환경부 승인' },
-    {
-      /*
-       * 우리가 운영사에 계약서를 냈는가 — 낸 날은 따로 기록할 필요가 없다(한백 확인).
-       * 이 줄이 없으면 「안 낸 현장」과 「내고 환경부를 기다리는 현장」이 구분되지 않는다.
-       * 한백이 하는 일이고 협력사는 몰라도 되는 값이라, 협력사 화면에는 줄 자체를 안 그린다.
-       */
-      label: '운영사 계약서 제출', field: 'cpoSubmitDate', value: p.cpoSubmitDate,
-      opens: '운영사 계약서 제출', flag: true,
-    },
-    {
-      label: '운영사 시공승인일', field: 'cpoApprovalDate', value: p.cpoApprovalDate,
-      trigger: '시공진행필요', opens: '시공진행필요',
-    },
     { label: '충전기 발주일', field: 'chargerOrderDate', value: p.chargerOrderDate },
     { label: '충전기 출고일', field: 'chargerShipDate', value: p.chargerShipDate },
     { label: '충전기 수령일', field: 'chargerRecvDate', value: p.chargerRecvDate },
@@ -200,7 +188,6 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
    * 충전기 발주·수령은 행위신고와 별개의 줄기라 따로 묶는다(한백 확인).
    */
   const GROUPS: Array<{ title: string; fields: DateField[]; docs: string[] }> = [
-    { title: '승인', fields: ['envApprovalDate', 'cpoSubmitDate', 'cpoApprovalDate'], docs: [] },
     { title: '행위신고', fields: [], docs: ['notify'] },
     { title: '충전기', fields: ['chargerOrderDate', 'chargerShipDate', 'chargerRecvDate'], docs: [] },
     { title: '착공', fields: ['startActualDate'], docs: [] },
@@ -250,10 +237,7 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
           */}
         <div className="flex flex-col gap-5">
         {GROUPS.map((g) => {
-          // 여부 줄(운영사 계약서 제출)은 한백만 본다 — 협력사는 몰라도 되는 값이다
-          const rows = milestones.filter(
-            (m) => g.fields.includes(m.field) && (!m.flag || edit === 'all')
-          );
+          const rows = milestones.filter((m) => g.fields.includes(m.field));
           const groupDocs = PROCESS_DOCS.filter((d) => (g.docs as readonly string[]).includes(d.key));
           if (rows.length === 0 && groupDocs.length === 0) return null;
           return (
@@ -265,20 +249,7 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
             <Fragment key={m.field}>
             <div className="flex flex-wrap items-center gap-3 px-4 py-2.5 text-base">
               <span className="w-32 shrink-0 text-slate-500">{m.label}</span>
-              {m.flag ? (
-                <label className="flex w-[150px] cursor-pointer items-center gap-2">
-                  <input
-                    type="checkbox"
-                    aria-label={m.label}
-                    checked={Boolean(m.value)}
-                    disabled={busyKey === m.field}
-                    onChange={(e) => void saveDate(m.field, e.target.checked ? today() : '')}
-                  />
-                  <span className={`font-semibold ${m.value ? 'text-slate-800' : 'text-slate-400'}`}>
-                    {m.value ? '제출됨' : '미제출'}
-                  </span>
-                </label>
-              ) : canEditField(m.field) ? (
+              {canEditField(m.field) ? (
                 <input
                   type="date"
                   aria-label={m.label}
@@ -303,7 +274,7 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
               <span className="flex-1" />
               {m.opens && !m.value && (
                 <span className="text-tiny font-semibold text-slate-400">
-                  {m.flag ? '체크하면' : '넣으면'} {m.opens} 로 넘길 수 있습니다
+                  넣으면 {m.opens} 로 넘길 수 있습니다
                 </span>
               )}
               {m.trigger && (

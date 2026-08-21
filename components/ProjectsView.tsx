@@ -37,9 +37,13 @@ const split = (v: string | null): string[] => (v ? v.split(',').filter(Boolean) 
 
 export default function ProjectsView({
   projects,
+  band,
   canMove,
 }: {
+  /** 이 페이지 국면의 현장들 — 페이지(서버)가 이미 국면으로 걸러서 넘긴다 */
   projects: ProjectSummary[];
+  /** 보드가 그리는 국면 (계약 · 시공) — 사이드바 메뉴가 페이지를 가른다 */
+  band: '계약' | '시공';
   /** 단계를 옮길 수 있는가 (한백만) */
   canMove: boolean;
 }) {
@@ -261,7 +265,7 @@ export default function ProjectsView({
       {error && <Note tone="stop" className="mb-4">{error}</Note>}
 
       {view === 'board' ? (
-        <ProjectBoard projects={filtered} busyId={busyKey} />
+        <ProjectBoard projects={filtered} band={band} busyId={busyKey} />
       ) : (
         <ProjectTable
           projects={filtered}

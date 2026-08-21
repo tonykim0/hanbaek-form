@@ -268,8 +268,12 @@ function SiteHeader({
 
   return (
     <div className="rounded-panel border border-slate-200 bg-white p-5 sm:p-6">
-      <Link href="/projects" className="text-small font-semibold text-slate-400 hover:text-brand-700">
-        ← 현장 목록
+      {/* 온 곳으로 돌아간다 — 계약 중이면 계약 목록, 계약이 끝났으면 시공 목록 */}
+      <Link
+        href={stage === 'intake' ? '/projects' : '/construction'}
+        className="text-small font-semibold text-slate-400 hover:text-brand-700"
+      >
+        ← {stage === 'intake' ? '계약 목록' : '시공 목록'}
       </Link>
 
       {/*

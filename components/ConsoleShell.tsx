@@ -50,7 +50,9 @@ const GROUPS: Group[] = [
     label: '진행',
     items: [
       { href: '/dashboard', label: '대시보드', short: '대시' },
-      { href: '/projects', label: '프로젝트', short: '프로' },
+      // 계약과 시공을 페이지로 가른다 — 한 화면에 접으면 띠 높이가 반쪽이다 (한백 확인)
+      { href: '/projects', label: '계약', short: '계약' },
+      { href: '/construction', label: '시공', short: '시공' },
     ],
   },
   {

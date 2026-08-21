@@ -32,10 +32,17 @@ const BAND_TEXT: Record<BoardBand, string> = {
 };
 
 export default function ProjectBoard({
-  projects, busyId,
+  projects, band, busyId,
 }: {
   /** 이미 걸러진 목록. 임시 위치도 반영돼 있다. */
   projects: ProjectSummary[];
+  /**
+   * 이 보드가 그리는 국면 — 계약 또는 시공.
+   * 두 띠를 한 화면에 접어 넣던 때는 줄마다 높이가 반쪽이었다. 페이지를 국면별로
+   * 나눴으므로(사이드바 계약/시공) 한 띠가 화면 전부를 쓴다 — 시공 단계를 더
+   * 쪼개도 칸이 들어갈 자리가 생긴다.
+   */
+  band: '계약' | '시공';
   busyId: string | null;
 }) {
   const columns = useMemo(() => {
@@ -70,7 +77,7 @@ export default function ProjectBoard({
    * 칸 안쪽은 따로 스크롤한다. 한 칸에 60건이 쌓여도 그 칸만 길어지고 아래 줄은
    * 제자리에 있어야 한다 — 안 그러면 계약 칸이 부풀어 시공 줄을 화면 밖으로 밀어낸다.
    */
-  const bands: BoardBand[] = ['계약', '시공', '멈춤'];
+  const bands: BoardBand[] = [band, '멈춤'];
 
   /*
    * 계약과 시공이 남은 높이를 반씩 쓴다.

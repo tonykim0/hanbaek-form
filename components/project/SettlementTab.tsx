@@ -7,7 +7,10 @@
  * (redactForViewer) — 서버가 렌더한 데이터는 브라우저에 통째로 실린다.
  */
 import { useState } from 'react';
-import type { PayoutCategory, PayoutEntry, PayoutKind, ProjectDetail, SettlementStep } from '@/types/project';
+import type {
+  PayoutCategory, PayoutEntry, PayoutKind, ProjectDetail, SettlementRule, SettlementRuleChoice,
+  SettlementStep,
+} from '@/types/project';
 import { PAYOUT_CATEGORIES, PAYOUT_KINDS } from '@/types/project';
 import {
   entryTypeOf, payoutSideOf, payoutStepsOf, recoveryRate, triggerSource, turnkeyUnit,
@@ -17,7 +20,7 @@ import type { Visibility } from '@/lib/roles';
 import type { RuleOptions } from '@/lib/pricing-match';
 import { useAction } from '@/lib/use-action';
 import { won } from '@/lib/format';
-import { Btn, Choice, Err, FIELD, FIELD_CELL, Note, Saved, Tag } from '@/components/ui';
+import { Btn, Choice, Empty, Err, FIELD, FIELD_CELL, Note, Saved, Tag } from '@/components/ui';
 
 // ── 정산 탭 ─────────────────────────────────────────────────────
 const STEP_STYLE: Record<SettlementStep['state'], string> = {
@@ -35,12 +38,14 @@ const STEP_LABEL: Record<SettlementStep['state'], string> = {
 };
 
 export function SettlementTab({
-  detail, vis, canReview, ruleOptions,
+  detail, vis, canReview, ruleOptions, settlementRuleChoices,
 }: {
   detail: ProjectDetail;
   vis: Visibility;
   canReview: boolean;
   ruleOptions: RuleOptions | null;
+  /** 정산 규칙 후보 — 이름에 기성 모양이 들어 있어 한백이 아니면 null */
+  settlementRuleChoices: SettlementRuleChoice[] | null;
 }) {
   const { settlement, lines } = detail;
   const rate = recoveryRate(settlement.steps);
@@ -88,6 +93,13 @@ export function SettlementTab({
             </div>
           </div>
 
+          <RuleFact
+            projectId={detail.project.id}
+            rule={detail.settlementRule}
+            canEdit={canReview}
+            choices={settlementRuleChoices}
+          />
+
           <div className="flex flex-col gap-2">
             {settlement.steps.map((s) => (
               <div
@@ -121,12 +133,80 @@ export function SettlementTab({
             ))}
           </div>
 
-          {!detail.settlementRule && (
-            <Note tone="warn" className="mt-3 font-semibold">
-              정산 규칙 미적용 — 기성 단계와 금액이 계산되지 않습니다
-            </Note>
-          )}
         </section>
+      )}
+    </div>
+  );
+}
+
+/**
+ * 정산 규칙 — 평소엔 글자, 고칠 때만 셀렉트(화면 규칙 4).
+ *
+ * 단가 케이스를 지정하면 제안값이 들어오지만, 그것은 현장에 규칙이 없을 때 한 번뿐이다.
+ * 제안이 틀린 현장·제안값이 없는 케이스의 현장을 여기서 고친다 — 넣는 자리를 만들면
+ * 고치는 자리도 만든다(규칙 7). 이 자리가 없어서 DB 를 직접 만져야 했다.
+ *
+ * 규칙이 없으면 아래 세 차수가 전부 「해당없음」에 금액 — 로 서는데, 그 이유가 이 줄이다 —
+ * 미지정이 그 말이므로 따로 안내문을 두지 않는다.
+ */
+function RuleFact({
+  projectId, rule, canEdit, choices,
+}: {
+  projectId: string;
+  rule: SettlementRule | null;
+  canEdit: boolean;
+  choices: SettlementRuleChoice[] | null;
+}) {
+  const { busy, error, setError, run } = useAction();
+  const [editing, setEditing] = useState(false);
+
+  const pick = (ruleId: string) =>
+    void run({
+      url: `/api/projects/${projectId}/settlement-rule`,
+      body: { ruleId: ruleId || null },
+      fail: '정산 규칙을 적용하지 못했습니다.',
+    }).then((ok) => { if (ok) setEditing(false); });
+
+  return (
+    <div className="mb-3 flex flex-wrap items-center gap-2">
+      <span className="text-tiny font-bold tracking-[0.04em] text-slate-400">정산 규칙</span>
+      {editing && choices ? (
+        <>
+          <select
+            autoFocus
+            value={rule?.id ?? ''}
+            disabled={busy}
+            onChange={(e) => pick(e.target.value)}
+            className={`${FIELD} max-w-[420px]`}
+          >
+            <option value="">미지정</option>
+            {/*
+              * 적용된 중지 규칙은 후보에 없다 — 그대로 두면 셀렉트가 빈칸으로 그려져,
+              * 빈칸인 줄 알고 고르다 멀쩡한 현장이 미지정이 된다(단가 셀렉트와 같은 이유).
+              */}
+            {rule && !choices.some((c) => c.id === rule.id) && (
+              <option value={rule.id}>{rule.name} (중지됨)</option>
+            )}
+            {choices.map((c) => (
+              <option key={c.id} value={c.id}>{c.name}</option>
+            ))}
+          </select>
+          <Btn size="sm" kind="quiet" disabled={busy} onClick={() => { setEditing(false); setError(null); }}>
+            취소
+          </Btn>
+          <Err>{error}</Err>
+        </>
+      ) : (
+        <>
+          {rule
+            ? <span className="text-base font-bold text-slate-800">{rule.name}</span>
+            : <Empty kind="miss" />}
+          {canEdit && choices && (
+            <Btn size="sm" kind="quiet" onClick={() => setEditing(true)}>
+              {rule ? '고치기' : '지정'}
+            </Btn>
+          )}
+        </>
       )}
     </div>
   );

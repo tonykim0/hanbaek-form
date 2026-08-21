@@ -87,7 +87,7 @@ export default function ReceivableBoard({ rows }: { rows: SettlementSummary[] })
             {shown.map((r) => (
               <tr key={r.id} className="transition hover:bg-brand-50/40">
                 <td className="px-3 py-2.5">
-                  <SiteLink id={r.id} name={r.name} />
+                  <SiteLink id={r.id} name={r.name} tab="settlement" />
                   <p className="mt-0.5 text-tiny text-slate-400">
                     {r.cpo} · {r.qty}대 · {r.status}
                   </p>

@@ -37,6 +37,7 @@ import {
   settlementSummaryOf,
   summaryOf, toDetail, type ProjectRecord, type RuleMap,
 } from './assemble';
+import { SETTLEMENT_RULE_BY_ID } from './seed/settlement-rules';
 
 /** 트랜잭션 핸들. db 와 같은 질의 인터페이스를 갖는다. */
 type TxLike = Parameters<Parameters<ReturnType<typeof getDb>['transaction']>[0]>[0];
@@ -716,6 +717,42 @@ export const pgRepository: ProjectRepository = {
           field: f, oldValue: row[f] ?? null, newValue: patch[f] ?? null,
         });
       }
+    });
+  },
+
+  async setSettlementRule(projectId, ruleId, actor): Promise<void> {
+    assertAdmin(actor, '정산 규칙 적용');
+    /*
+     * 규칙의 정본은 코드다 — 조립(assemble)이 SETTLEMENT_RULE_BY_ID 로 읽으므로,
+     * DB 테이블에만 있는 규칙을 넣으면 저장은 되는데 화면에선 미적용으로 보인다.
+     * 그 어긋남이 생기지 않게 여기서 같은 맵으로 확인한다.
+     */
+    if (ruleId !== null) {
+      const rule = SETTLEMENT_RULE_BY_ID.get(ruleId);
+      if (!rule) throw new Error('없는 정산 규칙입니다.');
+      if (!rule.active) throw new Error('중지된 정산 규칙은 적용할 수 없습니다.');
+    }
+
+    const db = getDb();
+    await db.transaction(async (tx) => {
+      const [row] = await tx
+        .select({ settle: projects.settlementRuleId })
+        .from(projects)
+        .where(eq(projects.id, projectId))
+        .limit(1);
+      if (!row) throw new Error('현장을 찾을 수 없습니다.');
+      if (row.settle === ruleId) return;
+
+      // lastProgressAt 은 건드리지 않는다 — 규칙을 고르는 것은 설정이지 현장의 진척이 아니다
+      await tx
+        .update(projects)
+        .set({ settlementRuleId: ruleId, settlementAppliedAt: ruleId ? today() : null })
+        .where(eq(projects.id, projectId));
+
+      await writeAudit(tx, {
+        projectId, actor, action: ruleId ? '정산 규칙 적용' : '정산 규칙 해제',
+        field: 'settlementRuleId', oldValue: row.settle, newValue: ruleId,
+      });
     });
   },
 

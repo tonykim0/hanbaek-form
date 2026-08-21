@@ -11,6 +11,7 @@
  * 받는 곳이 다르고 따로 나간다.
  */
 import { useMemo, useState } from 'react';
+import Link from 'next/link';
 import type { PayoutKind, SettlementSummary } from '@/types/project';
 import { payoutStepsOf } from '@/lib/settlement';
 import { today } from '@/lib/date';
@@ -91,7 +92,8 @@ export default function PayoutBoard({ rows }: { rows: SettlementSummary[] }) {
       margin: rows.reduce((n, r) => n + r.marginTotal, 0),
       unpriced: rows.filter((r) => r.unpricedLines > 0).length,
       orphanCount: orphan.length,
-      orphanSites: [...new Set(orphan.map((p) => p.projectName))],
+      orphanSites: [...new Map(orphan.map((p) => [p.projectId, p.projectName]))]
+        .map(([id, name]) => ({ id, name })),
       orphanDue: due(orphan),
     };
   }, [payable, orphan, rows]);
@@ -149,8 +151,17 @@ export default function PayoutBoard({ rows }: { rows: SettlementSummary[] }) {
 
       {money.orphanCount > 0 && (
         <p className="mb-4 rounded-xl border-l-[3px] border-amber-500 bg-amber-50/70 px-4 py-3 text-xs leading-relaxed text-amber-900">
-          받는 곳이 정해지지 않은 지급 <b>{money.orphanCount}건</b> ({money.orphanSites.join(' · ')})
-          — 합계 {won(money.orphanDue)}원. <b>합계에서 빼 두었고 지급 처리도 안 됩니다.</b>{' '}
+          받는 곳이 정해지지 않은 지급 <b>{money.orphanCount}건</b> (
+          {/* 이름이 곧 가는 길이다 — 고치는 자리(현장 정보)는 어느 탭에서든 머리말에 보인다 */}
+          {money.orphanSites.map((s, i) => (
+            <span key={s.id}>
+              {i > 0 && ' · '}
+              <Link href={`/projects/${s.id}`} className="font-bold underline underline-offset-2 hover:text-amber-950">
+                {s.name}
+              </Link>
+            </span>
+          ))}
+          ) — 합계 {won(money.orphanDue)}원. <b>합계에서 빼 두었고 지급 처리도 안 됩니다.</b>{' '}
           현장 상세의 현장 정보에서 영업사·시공사를 지정하면 들어옵니다.
         </p>
       )}
@@ -251,7 +262,7 @@ export default function PayoutBoard({ rows }: { rows: SettlementSummary[] }) {
                     )}
                   </td>
                   <td className="px-3 py-2.5">
-                    <SiteLink id={p.projectId} name={p.projectName} />
+                    <SiteLink id={p.projectId} name={p.projectName} tab="settlement" />
                     <p className="mt-0.5 text-tiny text-slate-400">{p.cpo}</p>
                   </td>
                   <td className="px-3 py-2.5">

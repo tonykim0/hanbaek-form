@@ -29,6 +29,7 @@ import {
 import { SEED_RECORDS } from './mock';
 import { needsPreInstallCheck } from '@/lib/doc-rules';
 import { PRICING_RULES } from './seed/pricing-rules';
+import { SETTLEMENT_RULE_BY_ID } from './seed/settlement-rules';
 import { checkPricingRule, duplicateOf, normalizePricingRule, pricingRuleId } from '@/lib/pricing-match';
 
 const DATA_DIR = path.join(process.cwd(), '.data');
@@ -338,6 +339,24 @@ export const fileRepository: ProjectRepository = {
     if (!r) throw new Error('현장을 찾을 수 없습니다.');
     Object.assign(r.settlementRaw, patch);
     r.lastProgressAt = today();
+    await save(records);
+  },
+
+  async setSettlementRule(projectId, ruleId, actor): Promise<void> {
+    if (actor.role !== 'admin') throw new Error('정산 규칙 적용은 한백 관리자만 할 수 있습니다.');
+    // 규칙의 정본은 코드다 — 없는 규칙을 넣으면 화면에서 미적용으로 보인다 (pg-store 와 같은 판정)
+    if (ruleId !== null) {
+      const rule = SETTLEMENT_RULE_BY_ID.get(ruleId);
+      if (!rule) throw new Error('없는 정산 규칙입니다.');
+      if (!rule.active) throw new Error('중지된 정산 규칙은 적용할 수 없습니다.');
+    }
+    const records = await load();
+    const r = records.find((x) => x.project.id === projectId);
+    if (!r) throw new Error('현장을 찾을 수 없습니다.');
+    if (r.project.settlementRuleId === ruleId) return;
+    // lastProgressAt 은 건드리지 않는다 — 규칙을 고르는 것은 설정이지 현장의 진척이 아니다
+    r.project.settlementRuleId = ruleId;
+    r.project.settlementAppliedAt = ruleId ? today() : null;
     await save(records);
   },
 

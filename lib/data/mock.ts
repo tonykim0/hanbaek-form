@@ -265,6 +265,9 @@ export const mockRepository: ProjectRepository = {
   async setPayment(): Promise<void> {
     throw new Error(READ_ONLY);
   },
+  async setSettlementRule(): Promise<void> {
+    throw new Error(READ_ONLY);
+  },
   async addPayoutEntry(): Promise<string> {
     throw new Error(READ_ONLY);
   },

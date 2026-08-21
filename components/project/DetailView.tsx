@@ -14,7 +14,7 @@
  */
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
-import type { ContractState, ProjectDetail } from '@/types/project';
+import type { ContractState, ProjectDetail, SettlementRuleChoice } from '@/types/project';
 import { buildDocContext, evaluateDocs, isPartyInferred, PROCESS_DOCS } from '@/lib/doc-rules';
 import { bandOfColumn, boardColumnOf, type BoardBand } from '@/lib/board';
 import type { Visibility } from '@/lib/roles';
@@ -26,7 +26,7 @@ import { EditableFact } from './EditableFact';
 import { ProgressLog } from './ProgressLog';
 import { SettlementTab } from './SettlementTab';
 
-type TabKey = 'intake' | 'construction' | 'settlement';
+export type TabKey = 'intake' | 'construction' | 'settlement';
 
 export default function ProjectDetailView({
   detail,
@@ -35,6 +35,8 @@ export default function ProjectDetailView({
   noteAuthor,
   knownOrgs,
   ruleOptions,
+  settlementRuleChoices,
+  initialTab,
 }: {
   detail: ProjectDetail;
   /** 세션에서 계산된 가시성. 화면에서 고를 수 있는 값이 아니다. */
@@ -50,8 +52,20 @@ export default function ProjectDetailView({
    * 원가·마진이 들어 있어서 협력사 브라우저로 보내면 안 된다. 한백이 아니면 null.
    */
   ruleOptions: RuleOptions | null;
+  /** 정산 규칙 후보 — 이름에 기성 모양이 들어 있어 한백이 아니면 null (단가 후보와 같은 이유) */
+  settlementRuleChoices: SettlementRuleChoice[] | null;
+  /**
+   * URL(?tab=)로 열 탭 — 기성·지급 화면이 「정산 탭에서 지정해야 합니다」라고 말하므로,
+   * 거기서 오는 링크는 그 탭을 바로 연다. 없으면 단계가 정한다.
+   */
+  initialTab: TabKey | null;
 }) {
-  const [tab, setTab] = useState<TabKey>(detail.stage);
+  // 잠긴 시공 탭은 URL 로도 못 연다 — 화면에서 못 누르는 것은 주소로도 안 된다
+  const [tab, setTab] = useState<TabKey>(
+    initialTab && !(initialTab === 'construction' && detail.stage === 'intake')
+      ? initialTab
+      : detail.stage
+  );
   const { project, lines, documents, process, settlement } = detail;
 
   const docCtx = useMemo(
@@ -179,6 +193,7 @@ export default function ProjectDetailView({
               vis={vis}
               canReview={canReview}
               ruleOptions={ruleOptions}
+              settlementRuleChoices={settlementRuleChoices}
             />
           )}
         </div>

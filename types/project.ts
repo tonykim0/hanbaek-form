@@ -178,6 +178,12 @@ export interface SettlementRule {
 }
 
 /**
+ * 화면에서 규칙을 고를 때 받는 후보. 이름에 기성 모양(트리거·금액)이 들어 있어
+ * 협력사에게 보내면 안 된다 — 서버가 한백일 때만 만들어 넘긴다(단가 후보와 같은 이유).
+ */
+export type SettlementRuleChoice = Pick<SettlementRule, 'id' | 'name'>;
+
+/**
  * 단가 규칙 (매트릭스 케이스).
  *
  * ★불변★ 한 번 계약 라인에 지정되면 수정하지 않는다. 조건이 바뀌면 새 행을 추가한다.

@@ -11,10 +11,14 @@ import { won } from '@/lib/format';
 
 export { won };
 
-export function SiteLink({ id, name }: { id: string; name: string }) {
+/**
+ * 기성·지급 화면에서 현장으로 가는 길은 정산 탭으로 바로 간다 — 이 화면들이 「정산 탭에서
+ * 지정해야 합니다」라고 말해 놓고, 눌러 가면 계약 탭이 열리는 것이 길을 두 번 걷게 했다.
+ */
+export function SiteLink({ id, name, tab }: { id: string; name: string; tab?: 'settlement' }) {
   return (
     <Link
-      href={`/projects/${id}`}
+      href={`/projects/${id}${tab ? `?tab=${tab}` : ''}`}
       className="font-bold text-slate-900 hover:text-brand-800 hover:underline"
     >
       {name}

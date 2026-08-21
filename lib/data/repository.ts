@@ -214,6 +214,17 @@ export interface ProjectRepository {
   setPayment(projectId: string, patch: PaymentPatch, actor: Actor): Promise<void>;
 
   /**
+   * 현장의 정산 규칙을 적용하거나 바꾼다. [한백 전용]
+   *
+   * 단가 케이스를 지정하면 제안값이 들어오지만(setLinePricing), 그것은 현장에 규칙이
+   * 없을 때 한 번뿐이다. 제안이 틀린 현장·제안값이 없는 케이스의 현장은 여기로 고친다 —
+   * 넣는 자리를 만들면 고치는 자리도 만든다. 이것이 없어서 DB 를 직접 만져야 했다.
+   *
+   * null 은 미지정으로 되돌린다 — 기성 단계·금액 계산이 멈춘다.
+   */
+  setSettlementRule(projectId: string, ruleId: string | null, actor: Actor): Promise<void>;
+
+  /**
    * 회차 지급 처리 — 지금 지급할 회차(1차/2차)를 모아서 한 지급일로 기록한다. [한백 전용]
    *
    * ★금액은 받지 않는다.★ 1차 = 지급할 총액(계획+조정)의 70%, 2차 = 잔액으로 정해져
@@ -301,9 +312,5 @@ export type ProcessPatch = Partial<
 export type PaymentPatch = Partial<Pick<Settlement, 'payNote'>>;
 
 /*
- * 다음 단계에서 이 인터페이스에 붙일 쓰기 작업.
- *
- *   setSettlementRule(projectId, ruleId)                  — 현장별 정산규칙 적용       [한백]
- *
  * 정산 쪽(준공마감 지정·기성 회수 체크)은 뒤로 미뤄 둔다 — 영업이 도는 것이 먼저다.
  */

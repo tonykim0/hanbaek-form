@@ -1,9 +1,11 @@
 import { notFound } from 'next/navigation';
-import ProjectDetailView from '@/components/project/DetailView';
+import ProjectDetailView, { type TabKey } from '@/components/project/DetailView';
 import { getRepository } from '@/lib/data';
 import { actorOf, getSessionUser, viewerOf } from '@/lib/auth/session';
 import { effectiveVisibility } from '@/lib/roles';
 import { matchingRules, type RuleOptions } from '@/lib/pricing-match';
+import { SETTLEMENT_RULES } from '@/lib/data/seed/settlement-rules';
+import type { SettlementRuleChoice } from '@/types/project';
 import { knownOrgs } from '@/lib/orgs';
 import { redirect } from 'next/navigation';
 
@@ -14,9 +16,21 @@ export async function generateMetadata({ params }: { params: { id: string } }) {
   return { title: detail ? `${detail.project.name} — 한백 EV 콘솔` : '현장 관리' };
 }
 
-export default async function ProjectPage({ params }: { params: { id: string } }) {
+export default async function ProjectPage({
+  params,
+  searchParams,
+}: {
+  params: { id: string };
+  searchParams: { tab?: string };
+}) {
   const session = await getSessionUser();
   if (!session) redirect(`/login?next=/projects/${params.id}`);
+
+  // 기성·지급 화면에서 오는 길이 정산 탭을 바로 연다. 모르는 값은 단계가 정하는 대로.
+  const initialTab: TabKey | null =
+    searchParams.tab === 'intake' || searchParams.tab === 'construction' || searchParams.tab === 'settlement'
+      ? searchParams.tab
+      : null;
 
   // 권한 밖 현장은 「없음」과 구분되지 않게 404 로 돌려준다 — 존재 여부가 새지 않게
   const detail = await getRepository().getProject(params.id, viewerOf(session));
@@ -40,6 +54,15 @@ export default async function ProjectPage({ params }: { params: { id: string } }
     ? Object.fromEntries(detail.lines.map((l) => [l.id, matchingRules(detail.project, l, rules)]))
     : null;
 
+  /*
+   * 정산 규칙 후보 — 규칙의 정본은 코드다(assemble 이 SETTLEMENT_RULE_BY_ID 로 읽는다).
+   * 이름에 기성 모양이 들어 있어 한백일 때만 만든다. 클라이언트에서 시드 파일을 직접
+   * import 하면 번들에 실려 협력사에게도 간다 — 그래서 서버에서 걸러 넘긴다.
+   */
+  const settlementRuleChoices: SettlementRuleChoice[] | null = isAdmin
+    ? SETTLEMENT_RULES.filter((r) => r.active).map(({ id, name }) => ({ id, name }))
+    : null;
+
   return (
     <ProjectDetailView
       detail={detail}
@@ -53,6 +76,8 @@ export default async function ProjectPage({ params }: { params: { id: string } }
       noteAuthor={isAdmin ? '한백' : session.org ?? '협력사'}
       knownOrgs={orgs}
       ruleOptions={ruleOptions}
+      settlementRuleChoices={settlementRuleChoices}
+      initialTab={initialTab}
     />
   );
 }

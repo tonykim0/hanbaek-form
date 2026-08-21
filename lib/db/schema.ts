@@ -164,6 +164,12 @@ export const processes = pgTable('processes', {
   installedSpots: integer('installed_spots'),
   installedUnits: integer('installed_units'),
   commDoneDate: text('comm_done_date'),
+  /** 묶음별 완료 체크(체크한 날) — 단계 이동을 잠근다. types/project.ts ProcessInfo 주석 참조 */
+  notifyDoneAt: text('notify_done_at'),
+  chargerDoneAt: text('charger_done_at'),
+  installConfirmedAt: text('install_confirmed_at'),
+  openDoneAt: text('open_done_at'),
+  completionSubmitAt: text('completion_submit_at'),
   /** 진행현황 6단계 (types/project.ts PROCESS_STATUSES) */
   status: text('status').notNull().default('계약완료'),
   memo: text('memo'),

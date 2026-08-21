@@ -372,6 +372,16 @@ export interface ProcessInfo {
   installedSpots: number | null;
   installedUnits: number | null;
   commDoneDate: string | null;
+  /**
+   * 묶음별 완료 체크 — 파일을 다 올리고 작업이 끝났는지 사람이 선언한다(체크한 날 저장).
+   * 파일이 있다는 것과 일이 끝났다는 것은 다른 말이라, 단계 이동은 이 체크를 조건으로
+   * 잠근다(lib/process.ts STATUS_GATES). 시공사가 체크하고 한백이 해제할 수 있다.
+   */
+  notifyDoneAt: string | null;       // 행위신고 완료 → 「시공진행필요」 조건
+  chargerDoneAt: string | null;      // 충전기 수령 완료 (잠그는 단계 없음 — 기록용)
+  installConfirmedAt: string | null; // 설치 완료 → 「설치완료」 조건
+  openDoneAt: string | null;         // 개통 완료 → 「준공서류 접수/검토」 조건
+  completionSubmitAt: string | null; // 준공서류 제출 완료 → 「준공보완·준공」 조건
   docs: ProjectDocument[];
   status: ProcessStatus;
   memo: string | null;

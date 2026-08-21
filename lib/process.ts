@@ -45,21 +45,29 @@ export const STATUS_GATES: Record<ProcessStatus, StatusGate | null> = {
     need: '제출 체크',
     met: (p) => Boolean(p.cpoSubmitDate),
   },
-  // 환경부 승인 뒤 운영사가 따로 통보한다. 공정에서 유도할 수 없어 입력받는다.
+  /*
+   * 운영사 시공승인(환경부 승인 뒤 따로 통보)과 행위신고 완료 체크 — 둘 다 있어야 한다.
+   * 행위신고는 승인을 기다리는 동안 미리 해놓는 일이고(1~2주), 끝나지 않았으면
+   * 시공을 시작할 수 없다(한백 확인). 파일이 있다고 통과가 아니라 사람이 완료를 선언한다.
+   */
   '시공진행필요': {
-    need: '운영사 시공승인일',
-    met: (p) => Boolean(p.cpoApprovalDate),
+    need: '운영사 시공승인일 · 행위신고 완료 체크',
+    met: (p) => Boolean(p.cpoApprovalDate) && Boolean(p.notifyDoneAt),
   },
   '설치완료': {
-    need: '설치완료 사진',
-    met: (p) => docApproved(p, 'photoDone'),
+    need: '설치완료 사진 · 설치 완료 체크',
+    met: (p) => docApproved(p, 'photoDone') && Boolean(p.installConfirmedAt),
   },
-  // 시공팀이 준공서류를 접수하면 넘어간다
+  // 시공팀이 준공서류를 접수하면 넘어간다 — 개통 절차가 끝났다는 체크도 있어야 한다
   '준공서류 접수/검토': {
-    need: '준공서류',
-    met: (p) => docApproved(p, 'completion'),
+    need: '준공서류 · 개통 완료 체크',
+    met: (p) => docApproved(p, 'completion') && Boolean(p.openDoneAt),
   },
-  '준공보완': null,   // 검토 결과 보완이 필요하다는 한백·운영사 판단
+  // 검토 결과 보완이 필요하다는 한백·운영사 판단 — 시공팀이 제출을 끝냈다고 선언한 뒤의 일이다
+  '준공보완': {
+    need: '준공서류 제출 완료 체크',
+    met: (p) => Boolean(p.completionSubmitAt),
+  },
   '준공': null,       // 보완이 해소되었다는 판단
 };
 

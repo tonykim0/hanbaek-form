@@ -51,6 +51,12 @@ function parse(raw: string): ProjectRecord[] {
     // 설치 실적이 생기기 전의 파일에는 이 칸이 없다
     r.process.installedSpots = r.process.installedSpots ?? null;
     r.process.installedUnits = r.process.installedUnits ?? null;
+    // 완료 체크가 생기기 전의 파일에는 이 칸들이 없다
+    r.process.notifyDoneAt = r.process.notifyDoneAt ?? null;
+    r.process.chargerDoneAt = r.process.chargerDoneAt ?? null;
+    r.process.installConfirmedAt = r.process.installConfirmedAt ?? null;
+    r.process.openDoneAt = r.process.openDoneAt ?? null;
+    r.process.completionSubmitAt = r.process.completionSubmitAt ?? null;
   }
   return records;
 }

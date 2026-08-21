@@ -308,6 +308,7 @@ export type ProcessPatch = Partial<
     | 'chargerRecvDate' | 'startPlanDate' | 'startActualDate' | 'installDoneDate'
     | 'installedSpots' | 'installedUnits'
     | 'commDoneDate' | 'memo'
+    | 'notifyDoneAt' | 'chargerDoneAt' | 'installConfirmedAt' | 'openDoneAt' | 'completionSubmitAt'
   >
 >;
 

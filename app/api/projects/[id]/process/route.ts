@@ -10,10 +10,11 @@
 import { getRepository } from '@/lib/data';
 import type { ProcessPatch } from '@/lib/data/repository';
 
-/** 고칠 수 있는 날짜 칸 */
+/** 고칠 수 있는 날짜 칸 — 완료 체크(*DoneAt·*ConfirmedAt·*SubmitAt)도 체크한 날짜로 저장된다 */
 const DATE_FIELDS = [
   'envApprovalDate', 'cpoSubmitDate', 'cpoApprovalDate', 'chargerOrderDate', 'chargerShipDate',
   'chargerRecvDate', 'startPlanDate', 'startActualDate', 'installDoneDate', 'commDoneDate',
+  'notifyDoneAt', 'chargerDoneAt', 'installConfirmedAt', 'openDoneAt', 'completionSubmitAt',
 ] as const;
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;

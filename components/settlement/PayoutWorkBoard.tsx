@@ -1,87 +1,44 @@
 'use client';
 
 /**
- * 협력사 지급관리 — 송금 대상·금액·지급일을 확정하는 업무함.
+ * 협력사 지급관리 — 줄에서 바로 확정하는 표.
  *
- * 금액 차례와 업무 조건을 모두 충족한 줄만 선택할 수 있다.
  *   영업비 1차 = 계약완료 · 2차 = 개통완료
  *   시공비 1차 = 설치완료 · 2차 = 개통완료
  *
- * 표 한 벌이 전부다(한백 확인) — 현장·구분마다 총 지급액, 1차·2차 각각의 금액과
- * 지급시기(트리거)·지급일(나갔으면)·조건(안 나갔으면)이 한 줄에 선다. 위에 있던
- * 「영업비 지급 계획」 합계 구역은 걷어냈다 — 줄마다 다 보이는 것을 또 합쳐 보여줄
- * 이유가 없다. 남은 금액 열도 걷어냈다(한백 확인) — 2차 칸이 그 말을 한다.
+ * 현장·구분마다 총 지급액, 회차 금액(지급시기 포함), 회차 지급 칸이 한 줄에 선다.
+ * 지급 칸은 나갔으면 지급일, 차례가 왔으면 지급일을 골라 그 자리에서 확정한다(한백만).
  *
- * 「확정」은 실제 은행 이체가 아니라 송금할 묶음을 원장에 고정하는 일이다. 바로 기록하지
- * 않고 검토 단계를 한 번 거친다 — 대상·금액·날짜 중 하나를 잘못 고른 채 묶음 전체가
- * 원장에 들어가는 것을 막기 위해서다.
+ * ★일괄 확정(체크박스 → 검토 → 묶음 확정)은 걷어냈다(한백 확인).★ 「송금 대상으로
+ * 확정한 누계」까지 끌고 다니는 흐름이 너무 복잡했다 — 지급은 한 줄씩 확정한다.
+ *
+ * ★협력사도 본다.★ 자기 몫 줄만 내려오고(페이지가 가른다, lib/payout-board) 확정
+ * 칸은 읽기다 — 이번에 받을 금액과 지급시기를 여기서 확인한다.
  */
 import { useMemo, useState } from 'react';
-import type { PayoutKind, PayoutMilestones, SettlementSummary } from '@/types/project';
 import { payoutPrerequisiteBlockersOf, payoutReleaseOf, payoutStepsOf } from '@/lib/settlement';
+import type { PayoutRowInput } from '@/lib/payout-board';
 import { today } from '@/lib/date';
 import { useAction } from '@/lib/use-action';
 import { DatePicker } from '@/components/DatePicker';
-import { Btn, Empty as EmptyValue, Err, FIELD_CELL, Saved, Tag } from '@/components/ui';
-import { CrossLink, Empty, Frame, SiteLink, won } from './parts';
-
-interface Payout {
-  key: string;
-  projectId: string;
-  projectName: string;
-  cpo: string;
-  kind: PayoutKind;
-  org: string | null;
-  plan: number;
-  adjust: number;
-  confirmed: number;
-  unpriced: number;
-  milestones: PayoutMilestones;
-  feeMissing: string[];
-  /** 회차 지급 기록의 지급일 — 원장에서 유도(stepAt) */
-  step1At: string | null;
-  step2At: string | null;
-}
+import { Btn, Empty as EmptyValue, Err, FIELD_CELL, Tag } from '@/components/ui';
+import { Empty, Frame, SiteLink, won } from './parts';
 
 type WorkState = '지급 가능' | '조건 대기' | '확정 완료';
 
-interface PayoutWork extends Payout {
+interface PayoutWork extends PayoutRowInput {
   state: WorkState;
   blockers: string[];
   open: { no: 1 | 2; amount: number } | null;
-  release: ReturnType<typeof payoutReleaseOf> | null;
   due: number;
   step1Amount: number;
   step2Amount: number;
   step1Done: boolean;
   step2Done: boolean;
-  remaining: number;
 }
 
-function payoutsOf(rows: SettlementSummary[]): Payout[] {
-  return rows.flatMap((r) => [
-    {
-      key: `${r.id}|영업비`, projectId: r.id, projectName: r.name, cpo: r.cpo,
-      kind: '영업비' as const, org: r.salesOrg, plan: r.salesTotal,
-      adjust: r.salesAdjust, confirmed: r.salesPaid,
-      unpriced: r.unpricedLines, milestones: r.payoutMilestones,
-      feeMissing: r.salesFeeMissing,
-      step1At: r.salesStep1At, step2At: r.salesStep2At,
-    },
-    {
-      key: `${r.id}|시공비`, projectId: r.id, projectName: r.name, cpo: r.cpo,
-      kind: '시공비' as const, org: r.gcOrg, plan: r.consTotal,
-      adjust: r.consAdjust, confirmed: r.consPaid,
-      unpriced: r.unpricedLines, milestones: r.payoutMilestones,
-      feeMissing: [],
-      step1At: r.consStep1At, step2At: r.consStep2At,
-    },
-  ]);
-}
-
-function workOf(p: Payout): PayoutWork {
+function workOf(p: PayoutRowInput): PayoutWork {
   const steps = payoutStepsOf(p.plan, p.adjust, p.confirmed);
-  const remaining = steps.due - p.confirmed;
   const prerequisites = payoutPrerequisiteBlockersOf({
     kind: p.kind, org: p.org, unpriced: p.unpriced, feeMissing: p.feeMissing,
   });
@@ -94,14 +51,10 @@ function workOf(p: Payout): PayoutWork {
   };
 
   if (p.unpriced > 0) {
-    return {
-      ...p, ...stepFields, state: '조건 대기', blockers: prerequisites,
-      open: null, release: null, remaining: 0,
-    };
+    return { ...p, ...stepFields, state: '조건 대기', blockers: prerequisites, open: null };
   }
-
   if (!steps.open) {
-    return { ...p, ...stepFields, state: '확정 완료', blockers: [], open: null, release: null, remaining };
+    return { ...p, ...stepFields, state: '확정 완료', blockers: [], open: null };
   }
 
   const release = payoutReleaseOf(p.kind, steps.open.no, p.milestones);
@@ -114,8 +67,6 @@ function workOf(p: Payout): PayoutWork {
     state: blockers.length > 0 ? '조건 대기' : '지급 가능',
     blockers,
     open: steps.open,
-    release,
-    remaining,
   };
 }
 
@@ -129,98 +80,48 @@ const STEP_FILTERS = ['전체', '1차', '2차'] as const;
 type KindFilter = (typeof KIND_FILTERS)[number];
 type StepFilter = (typeof STEP_FILTERS)[number];
 
-export default function PayoutWorkBoard({ rows }: { rows: SettlementSummary[] }) {
+export default function PayoutWorkBoard({
+  rows, canConfirm,
+}: {
+  rows: PayoutRowInput[];
+  /** 지급일을 골라 확정할 수 있는가 — 한백만. 협력사는 같은 표를 읽기만 한다. */
+  canConfirm: boolean;
+}) {
   const [org, setOrg] = useState<string | null>(null);
   const [kindFilter, setKindFilter] = useState<KindFilter>('전체');
   const [stepFilter, setStepFilter] = useState<StepFilter>('전체');
-  const [sel, setSel] = useState<Set<string>>(new Set());
-  const [at, setAt] = useState(today());
-  const [reviewing, setReviewing] = useState(false);
-  const [justConfirmed, setJustConfirmed] = useState(false);
-  const { busy, error, setError, run } = useAction();
 
-  const work = useMemo(() => payoutsOf(rows).map(workOf), [rows]);
+  const work = useMemo(() => rows.map(workOf), [rows]);
   const orgs = useMemo(
     () => [...new Set(work.map((p) => p.org).filter(Boolean) as string[])]
       .sort((a, b) => a.localeCompare(b, 'ko')),
     [work]
   );
 
-  const confirmedTotal = useMemo(() => work.reduce((n, p) => n + p.confirmed, 0), [work]);
-
   const shown = work
     .filter((p) => org === null || p.org === org)
     .filter((p) => kindFilter === '전체' || p.kind === kindFilter)
     .filter((p) => stepFilter === '전체' || p.open?.no === (stepFilter === '1차' ? 1 : 2));
-  const selectable = shown.filter((p) => p.state === '지급 가능' && p.open !== null);
-  const selected = selectable.filter((p) => sel.has(p.key));
-  const selectedTotal = selected.reduce((n, p) => n + (p.open?.amount ?? 0), 0);
-  const selectedOrgs = new Set(selected.map((p) => p.org).filter(Boolean)).size;
-
-  const resetChoice = () => {
-    setSel(new Set());
-    setReviewing(false);
-    setJustConfirmed(false);
-    setError(null);
-  };
-
-  const toggle = (key: string) => {
-    setReviewing(false);
-    setJustConfirmed(false);
-    setSel((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
-  };
-
-  const allShownSelected = selectable.length > 0 && selectable.every((p) => sel.has(p.key));
-  const toggleAll = () => {
-    setReviewing(false);
-    setJustConfirmed(false);
-    setSel((prev) => {
-      const next = new Set(prev);
-      if (allShownSelected) selectable.forEach((p) => next.delete(p.key));
-      else selectable.forEach((p) => next.add(p.key));
-      return next;
-    });
-  };
-
-  async function confirmBatch() {
-    const ok = await run({
-      url: '/api/payouts',
-      body: { at, items: selected.map((p) => ({ projectId: p.projectId, kind: p.kind })) },
-      fail: '지급 확정에 실패했습니다.',
-    });
-    if (ok) {
-      setSel(new Set());
-      setReviewing(false);
-      setJustConfirmed(true);
-    }
-  }
-
-  const blocked = selected.length === 0 ? '선택 없음' : !at ? '지급일 미입력' : null;
 
   return (
     <div>
-      <div className="mb-3 flex flex-wrap items-center gap-2">
+      <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-2">
         {/* 필터는 펼쳐 두지 않는다(한백 확인) — 칩 일곱 개가 표보다 먼저 눈을 먹었다 */}
-        <label className="flex items-center gap-1.5 text-small font-bold text-slate-500">
+        <label className="flex items-center gap-1.5 whitespace-nowrap text-small font-bold text-slate-500">
           구분
           <select
             value={kindFilter}
-            onChange={(e) => { resetChoice(); setKindFilter(e.target.value as KindFilter); }}
+            onChange={(e) => setKindFilter(e.target.value as KindFilter)}
             className={`${FIELD_CELL} w-auto min-w-[92px]`}
           >
             {KIND_FILTERS.map((label) => <option key={label} value={label}>{label}</option>)}
           </select>
         </label>
-        <label className="flex items-center gap-1.5 text-small font-bold text-slate-500">
+        <label className="flex items-center gap-1.5 whitespace-nowrap text-small font-bold text-slate-500">
           지급시기
           <select
             value={stepFilter}
-            onChange={(e) => { resetChoice(); setStepFilter(e.target.value as StepFilter); }}
+            onChange={(e) => setStepFilter(e.target.value as StepFilter)}
             className={`${FIELD_CELL} w-auto min-w-[92px]`}
           >
             {STEP_FILTERS.map((label) => <option key={label} value={label}>{label}</option>)}
@@ -228,11 +129,11 @@ export default function PayoutWorkBoard({ rows }: { rows: SettlementSummary[] })
         </label>
 
         {orgs.length > 1 && (
-          <label className="flex items-center gap-1.5 text-small font-bold text-slate-500">
+          <label className="flex items-center gap-1.5 whitespace-nowrap text-small font-bold text-slate-500">
             지급처
             <select
               value={org ?? ''}
-              onChange={(e) => { resetChoice(); setOrg(e.target.value || null); }}
+              onChange={(e) => setOrg(e.target.value || null)}
               className={`${FIELD_CELL} w-auto min-w-[140px]`}
             >
               <option value="">전체</option>
@@ -240,87 +141,27 @@ export default function PayoutWorkBoard({ rows }: { rows: SettlementSummary[] })
             </select>
           </label>
         )}
-
-        <div className="ml-auto flex flex-wrap items-center gap-2">
-          <DatePicker
-            ariaLabel="지급일"
-            value={at || null}
-            disabled={busy}
-            onChange={(value) => {
-              setAt(value ?? '');
-              setReviewing(false);
-              setJustConfirmed(false);
-            }}
-            empty="지급일 선택"
-          />
-          <Btn disabled={blocked !== null} onClick={() => { setError(null); setReviewing(true); }}>
-            {blocked ?? `선택 ${selected.length}건 ${won(selectedTotal)}원 확정 내용 검토`}
-          </Btn>
-          {justConfirmed && <Saved>지급 확정됨</Saved>}
-        </div>
       </div>
-      <div className="mb-3 text-right"><Err>{error}</Err></div>
-
-      {reviewing && selected.length > 0 && (
-        <section aria-label="송금 대상 확정 검토" className="mb-4 rounded-panel border border-brand-200 bg-white p-4">
-          <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <div>
-              <h2 className="text-h3 font-black text-slate-900">송금 대상 확정 검토</h2>
-              <p className="mt-0.5 text-small text-slate-500">실제 이체가 아니라 송금할 묶음을 원장에 확정합니다.</p>
-            </div>
-            <dl className="flex flex-wrap gap-x-5 gap-y-1 text-base tabular-nums">
-              <div><dt className="inline text-slate-400">지급일 </dt><dd className="inline font-black text-slate-900">{at}</dd></div>
-              <div><dt className="inline text-slate-400">지급처 </dt><dd className="inline font-black text-slate-900">{selectedOrgs}곳</dd></div>
-              <div><dt className="inline text-slate-400">금액 </dt><dd className="inline font-black text-slate-900">{won(selectedTotal)}원</dd></div>
-            </dl>
-          </div>
-
-          <ul className="mt-3 divide-y divide-slate-100 border-y border-slate-100">
-            {selected.map((p) => (
-              <li key={p.key} className="flex flex-wrap items-baseline gap-x-3 gap-y-1 py-2 text-base">
-                <span className="w-36 shrink-0 font-black text-slate-800">{p.org}</span>
-                <span className="min-w-[180px] flex-1 text-slate-600">{p.projectName} · {p.kind} {p.open?.no}차</span>
-                <span className="font-black tabular-nums text-slate-900">{won(p.open?.amount ?? 0)}원</span>
-              </li>
-            ))}
-          </ul>
-
-          <div className="mt-3 flex flex-wrap items-center justify-end gap-2">
-            <Btn kind="side" disabled={busy} onClick={() => setReviewing(false)}>다시 선택</Btn>
-            <Btn busy={busy} busyLabel="확정 중…" onClick={confirmBatch}>
-              {selected.length}건 · {won(selectedTotal)}원 · {at} 확정
-            </Btn>
-          </div>
-        </section>
-      )}
 
       {shown.length === 0 ? (
         <Empty />
       ) : (
-        <Frame min="1000px">
+        <Frame min="1120px">
           <thead className="border-b border-slate-100 bg-slate-50 text-tiny font-bold tracking-[0.06em] text-slate-500">
             <tr>
-              <th className="w-10 px-3 py-2.5">
-                <input type="checkbox" aria-label="보이는 지급 가능 항목 전부 선택"
-                  checked={allShownSelected} disabled={selectable.length === 0 || busy} onChange={toggleAll} />
-              </th>
               <th className="px-3 py-2.5 text-left">현장</th>
               <th className="px-3 py-2.5 text-left">지급처</th>
               <th className="px-3 py-2.5 text-left">구분</th>
               <th className="px-3 py-2.5 text-right">총 지급액</th>
               <th className="px-3 py-2.5 text-right">1차 · 70%</th>
+              <th className="px-3 py-2.5 text-right">1차 지급</th>
               <th className="px-3 py-2.5 text-right">2차 · 잔액</th>
+              <th className="px-3 py-2.5 text-right">2차 지급</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {shown.map((p) => (
               <tr key={p.key} className="transition hover:bg-brand-50/40">
-                <td className="px-3 py-2.5 text-center">
-                  {p.state === '지급 가능' ? (
-                    <input type="checkbox" aria-label={`${p.projectName} ${p.kind} ${p.open?.no}차 선택`}
-                      checked={sel.has(p.key)} disabled={busy} onChange={() => toggle(p.key)} />
-                  ) : <span className="text-slate-300">—</span>}
-                </td>
                 <td className="px-3 py-2.5">
                   <SiteLink id={p.projectId} name={p.projectName} tab="settlement" />
                   <p className="mt-0.5 text-tiny text-slate-400">{p.cpo}</p>
@@ -339,29 +180,25 @@ export default function PayoutWorkBoard({ rows }: { rows: SettlementSummary[] })
                     <p key={reason} className="text-micro font-bold text-amber-700">{reason}</p>
                   ))}
                 </td>
-                <StepCell p={p} no={1} />
-                <StepCell p={p} no={2} />
+                <StepAmountCell p={p} no={1} />
+                <StepPayCell p={p} no={1} canConfirm={canConfirm} />
+                <StepAmountCell p={p} no={2} />
+                <StepPayCell p={p} no={2} canConfirm={canConfirm} />
               </tr>
             ))}
           </tbody>
         </Frame>
       )}
-
-      <CrossLink href="/payments" label="지급 및 기성관리" amount={confirmedTotal} note="송금 대상으로 확정한 누계는" />
     </div>
   );
 }
 
-/**
- * 회차 한 칸 — 금액 밑에 지급시기(트리거)와 그 회차의 사정이 붙는다.
- * 나갔으면 지급일, 지금 차례면 지급 가능 또는 막는 조건, 아직이면 「1차 뒤」.
- */
-function StepCell({ p, no }: { p: PayoutWork; no: 1 | 2 }) {
+/** 회차 금액 한 칸 — 금액 밑에 지급시기(트리거)가 늘 붙는다 */
+function StepAmountCell({ p, no }: { p: PayoutWork; no: 1 | 2 }) {
   if (p.due <= 0) {
     return <td className="px-3 py-2.5 text-right align-top text-slate-300">—</td>;
   }
   const done = no === 1 ? p.step1Done : p.step2Done;
-  const at = no === 1 ? p.step1At : p.step2At;
   const amount = p.open?.no === no ? p.open.amount : no === 1 ? p.step1Amount : p.step2Amount;
   // 회차의 지급시기 — 영업비 1차=계약완료 · 시공비 1차=설치완료 · 2차=개통완료
   const trigger = payoutReleaseOf(p.kind, no, p.milestones).trigger;
@@ -372,13 +209,35 @@ function StepCell({ p, no }: { p: PayoutWork; no: 1 | 2 }) {
         {won(amount)}
       </p>
       <p className="text-micro text-slate-400">지급시기 {trigger}</p>
+    </td>
+  );
+}
+
+/**
+ * 회차 지급 한 칸 — 나갔으면 지급일, 차례면 지급일을 골라 확정(한백) 또는
+ * 「지급 예정」(협력사), 조건이 안 찼으면 그 사정, 아직이면 「1차 뒤」.
+ */
+function StepPayCell({ p, no, canConfirm }: { p: PayoutWork; no: 1 | 2; canConfirm: boolean }) {
+  if (p.due <= 0) {
+    return <td className="px-3 py-2.5 text-right align-top text-slate-300">—</td>;
+  }
+  const done = no === 1 ? p.step1Done : p.step2Done;
+  const at = no === 1 ? p.step1At : p.step2At;
+  const trigger = payoutReleaseOf(p.kind, no, p.milestones).trigger;
+
+  return (
+    <td className="whitespace-nowrap px-3 py-2.5 text-right align-top">
       {done ? (
-        <p className="text-micro font-bold text-brand-800">지급 {at ?? '완료'}</p>
+        <p className="text-small font-bold tabular-nums text-brand-800">{at ?? '지급됨'}</p>
       ) : p.open?.no === no ? (
         p.state === '지급 가능' ? (
-          <Tag tone="ok">지급 가능</Tag>
+          canConfirm ? (
+            <StepConfirm p={p} />
+          ) : (
+            <Tag tone="ok">지급 예정</Tag>
+          )
         ) : (
-          // 지급시기는 바로 윗줄에 있다 — 트리거 대기는 「대기」로 줄여 같은 말을 두 번 안 적는다
+          // 지급시기는 옆 칸에 있다 — 트리거 대기는 「대기」로 줄여 같은 말을 두 번 안 적는다
           p.blockers.map((reason) => (
             <p key={reason} className="text-micro font-bold text-amber-700">
               {reason === `${trigger} 대기` ? '대기' : reason}
@@ -389,5 +248,37 @@ function StepCell({ p, no }: { p: PayoutWork; no: 1 | 2 }) {
         <p className="text-micro font-bold text-slate-300">1차 뒤</p>
       )}
     </td>
+  );
+}
+
+/**
+ * 줄에서 바로 확정 — 지급일(예정일)을 골라 그 회차를 원장에 고정한다.
+ * 금액은 보내지 않는다 — 1차 70% / 2차 잔액은 정해져 있어 저장소가 계산해 넣는다.
+ */
+function StepConfirm({ p }: { p: PayoutWork }) {
+  const { busy, error, run } = useAction();
+  const [at, setAt] = useState(today());
+
+  const confirm = () =>
+    void run({
+      url: '/api/payouts',
+      body: { at, items: [{ projectId: p.projectId, kind: p.kind }] },
+      fail: '확정하지 못했습니다.',
+    });
+
+  return (
+    <div className="flex flex-col items-end gap-1">
+      <DatePicker
+        ariaLabel={`${p.projectName} ${p.kind} ${p.open?.no}차 지급일`}
+        value={at || null}
+        disabled={busy}
+        onChange={(value) => setAt(value ?? '')}
+        empty="지급일 선택"
+      />
+      <Btn size="sm" disabled={!at} busy={busy} busyLabel="확정 중…" onClick={confirm}>
+        {p.open?.no}차 확정
+      </Btn>
+      <Err>{error}</Err>
+    </div>
   );
 }

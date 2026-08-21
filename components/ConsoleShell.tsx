@@ -84,7 +84,8 @@ const GROUPS: Group[] = [
     label: '정산',
     items: [
       { href: '/payments', label: '지급 및 기성관리', short: '내역' },
-      { href: '/payouts', label: '협력사 지급관리', short: '지급', adminOnly: true },
+      // 협력사도 연다(한백 확인) — 자기가 받을 지급의 회차·금액·지급시기를 본다
+      { href: '/payouts', label: '협력사 지급관리', short: '지급' },
       { href: '/receivables', label: '운영사 기성관리', short: '기성', adminOnly: true },
     ],
   },

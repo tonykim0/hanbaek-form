@@ -502,7 +502,7 @@ function PaymentSection({
           : won(unit);
         return (
         <div className="overflow-x-auto rounded-box border border-slate-200">
-          <table className="w-full min-w-[520px] text-base">
+          <table className="w-full min-w-[680px] text-base">
             <thead className="bg-slate-50 text-tiny font-bold tracking-[0.08em] text-slate-500">
               <tr>
                 <th className="px-3 py-2 text-left">구분</th>
@@ -552,13 +552,14 @@ function PaymentSection({
                           </span>
                         </td>
                         {/* 지급시기 — 상태는 둘뿐이다: 지급완료(날짜) 또는 미지급 */}
+                        {/* 태그 아래 날짜 — 옆으로 붙이면 마지막 열이 날짜만큼 밀려 표가 가로로 넘친다 */}
                         <td className="whitespace-nowrap px-3 py-2.5">
                           {done ? (
-                            <span className="inline-flex items-baseline gap-1.5">
+                            <span className="inline-flex flex-col items-start gap-0.5">
                               <span className="rounded-tag bg-brand-50 px-1.5 py-0.5 text-tiny font-bold text-brand-800">
                                 지급완료
                               </span>
-                              <span className="text-small font-semibold tabular-nums text-slate-600">{at ?? ''}</span>
+                              <span className="text-tiny font-semibold tabular-nums text-slate-500">{at ?? ''}</span>
                             </span>
                           ) : (
                             <span className="rounded-tag bg-amber-100 px-1.5 py-0.5 text-tiny font-bold text-amber-900">

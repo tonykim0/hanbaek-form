@@ -13,14 +13,12 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import type {
-  PayoutCategory, PayoutEntry, PayoutKind, ProjectDetail, SettlementRule, SettlementRuleChoice,
+  PayoutEntry, PayoutKind, ProjectDetail, SettlementRule, SettlementRuleChoice,
   SettlementStep,
 } from '@/types/project';
-import { PAYOUT_CATEGORIES, PAYOUT_KINDS } from '@/types/project';
 import {
-  entryTypeOf, payoutSideOf, payoutStepsOf, recoveryRate, triggerSource, turnkeyUnit,
+  distributionUnit, entryTypeOf, payoutSideOf, payoutStepsOf, recoveryRate, triggerSource, turnkeyUnit,
 } from '@/lib/settlement';
-import { today } from '@/lib/date';
 import type { Visibility } from '@/lib/roles';
 import type { RuleOptions } from '@/lib/pricing-match';
 import { useAction } from '@/lib/use-action';
@@ -245,9 +243,12 @@ function ContractLines({ lines, vis }: { lines: ProjectDetail['lines']; vis: Vis
               <th className="px-3 py-2 text-left">적용 단가 케이스</th>
               <th className="px-3 py-2 text-right">영업비/대</th>
               <th className="px-3 py-2 text-right">시공비/대</th>
-              {/* 마진을 같이 보인다 — 영업+시공+마진 = 턴키가 눈에서 검산돼야 한다(매트릭스 정의) */}
-              {vis.cost && <th className="px-3 py-2 text-right">마진/대</th>}
-              {vis.cost && <th className="px-3 py-2 text-right">턴키/대</th>}
+              {/*
+                * 협력사가 말하는 턴키단가 = 영업비 + 시공비 (배포가, 한백 확인).
+                * 마진은 이 탭에 없다 — 운영사 쪽 금액(마진 포함 턴키)은 기성 탭의 일이다.
+                * 양쪽을 다 보는 사람(턴키업체·한백)에게만 합이 뜬다.
+                */}
+              {vis.sales && vis.cons && <th className="px-3 py-2 text-right">턴키단가/대</th>}
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -270,8 +271,9 @@ function ContractLines({ lines, vis }: { lines: ProjectDetail['lines']; vis: Vis
                 </td>
                 <Money show={vis.sales} value={l.rule?.salesUnit ?? null} />
                 <Money show={vis.cons} value={l.rule?.consUnit ?? null} />
-                {vis.cost && <Money show value={l.rule?.margin ?? null} />}
-                {vis.cost && <Money show value={l.rule ? turnkeyUnit(l.rule) : null} />}
+                {vis.sales && vis.cons && (
+                  <Money show value={l.rule ? distributionUnit(l.rule) : null} />
+                )}
               </tr>
             ))}
           </tbody>
@@ -407,7 +409,6 @@ function PayConditions({
  * 어긋난다 — 선금·차액·회수·차감이 노션 정산관리 115행 중 10행에 비고 문장으로만 있었다.
  * 그래서 확정한 지급은 원장에 한 건씩 적고, 잔액 = 계획 + 조정 − 지급 으로 센다.
  */
-const CATEGORY_INFO = new Map(PAYOUT_CATEGORIES.map((c) => [c.key, c]));
 
 function PaymentSection({
   projectId, lines, entries, salesOrg, gcOrg, payNote, vis, canReview,
@@ -438,8 +439,14 @@ function PaymentSection({
   return (
     <section>
       <div className="mb-2 flex flex-wrap items-baseline justify-between gap-3">
-        <h2 className="text-h3 font-black text-slate-900">지급</h2>
-        <span className="text-tiny text-slate-400">계약 {totalQty}대 기준</span>
+        <div className="flex flex-wrap items-baseline gap-2">
+          <h2 className="text-h3 font-black text-slate-900">지급관리</h2>
+          <span className="text-tiny text-slate-400">계약 {totalQty}대 기준</span>
+        </div>
+        {/* 지급 내역·거래명세서는 이 데이터에서 유도된다 — 같은 것의 다른 면 */}
+        <Link href="/payments" className="text-tiny font-bold text-brand-700 hover:underline">
+          지급 내역 · 거래명세서 →
+        </Link>
       </div>
 
       {unpriced > 0 && (
@@ -455,6 +462,7 @@ function PaymentSection({
         * 대당은 라인마다 다를 수 있어 하나일 때만 숫자를 적는다 — 라인별 값은 적용조건 표가 말한다.
         * 합계는 배포가(영업+시공)다 — 턴키는 마진까지 포함한 운영사 쪽 금액이라 이 표의 합이 아니다.
         */}
+      <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_300px]">
       {(() => {
         const unitOf = (pick: (r: NonNullable<ProjectDetail['lines'][number]['rule']>) => number | null) => {
           const values = lines
@@ -471,20 +479,18 @@ function PaymentSection({
           return {
             ...side,
             unit: unitOf((r) => (side.kind === '영업비' ? r.salesUnit : r.consUnit)),
-            adjust, paid, steps,
-            remaining: steps.due - paid,
+            adjust, steps,
             stepAt: (cat: '1차' | '2차') =>
               entries.find((e) => e.kind === side.kind && e.category === cat)?.at ?? null,
           };
         });
-        const sum = (f: (r: (typeof rows)[number]) => number) => rows.reduce((s, r) => s + f(r), 0);
         const unitCell = (unit: number | 'mixed' | null) =>
           unit === null ? <span className="text-slate-300">—</span>
           : unit === 'mixed' ? <span className="text-tiny font-semibold text-slate-400">라인별</span>
           : won(unit);
         return (
         <div className="overflow-x-auto rounded-box border border-slate-200">
-          <table className="w-full min-w-[760px] text-base">
+          <table className="w-full min-w-[520px] text-base">
             <thead className="bg-slate-50 text-tiny font-bold tracking-[0.08em] text-slate-500">
               <tr>
                 <th className="px-3 py-2 text-left">구분</th>
@@ -492,8 +498,6 @@ function PaymentSection({
                 <th className="px-3 py-2 text-right">총 지급액</th>
                 <th className="px-3 py-2 text-right">1차 · 70%</th>
                 <th className="px-3 py-2 text-right">2차 · 잔액</th>
-                <th className="px-3 py-2 text-right">지급됨</th>
-                <th className="px-3 py-2 text-right">잔액</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 tabular-nums">
@@ -527,28 +531,15 @@ function PaymentSection({
                         <span className={`font-bold ${done ? 'text-slate-900' : 'text-slate-500'}`}>
                           {won(amount)}
                         </span>
+                        {/* 지급 상태는 둘뿐이다 — 지급완료(날짜와 함께) 또는 미지급 */}
                         <span
-                          className={`block text-tiny font-bold ${
-                            done ? 'text-brand-800' : r.steps.open?.no === no ? 'text-amber-700' : 'text-slate-300'
-                          }`}
+                          className={`block text-tiny font-bold ${done ? 'text-brand-800' : 'text-amber-700'}`}
                         >
-                          {done ? `지급 ${at ?? '—'}` : r.steps.open?.no === no ? '미지급' : '1차 뒤'}
+                          {done ? `지급완료${at ? ` · ${at}` : ''}` : '미지급'}
                         </span>
                       </td>
                     );
                   })}
-                  <td className="whitespace-nowrap px-3 py-2.5 text-right font-semibold text-slate-700">
-                    {r.paid === 0 ? <span className="text-slate-300">0원</span> : won(r.paid)}
-                  </td>
-                  <td className="whitespace-nowrap px-3 py-2.5 text-right">
-                    <span
-                      className={`font-bold ${
-                        r.remaining > 0 ? 'text-amber-800' : r.remaining < 0 ? 'text-red-700' : 'text-slate-400'
-                      }`}
-                    >
-                      {r.remaining === 0 ? '0원' : won(r.remaining)}
-                    </span>
-                  </td>
                 </tr>
               ))}
               {rows.length > 1 && (
@@ -557,21 +548,15 @@ function PaymentSection({
                   <td className="whitespace-nowrap px-3 py-2.5 text-right text-slate-700">
                     {unitCell(
                       rows.every((r) => typeof r.unit === 'number')
-                        ? rows.reduce((s, r) => s + (r.unit as number), 0)
+                        ? rows.reduce((sum, r) => sum + (r.unit as number), 0)
                         : rows.some((r) => r.unit === 'mixed') ? 'mixed' : null
                     )}
                   </td>
                   <td className="whitespace-nowrap px-3 py-2.5 text-right text-slate-900">
-                    {won(sum((r) => r.steps.due))}
+                    {won(rows.reduce((sum, r) => sum + r.steps.due, 0))}
                   </td>
                   <td className="px-3 py-2.5" />
                   <td className="px-3 py-2.5" />
-                  <td className="whitespace-nowrap px-3 py-2.5 text-right text-slate-700">
-                    {won(sum((r) => r.paid))}
-                  </td>
-                  <td className="whitespace-nowrap px-3 py-2.5 text-right text-slate-900">
-                    {won(sum((r) => r.remaining))}
-                  </td>
                 </tr>
               )}
             </tbody>
@@ -580,226 +565,11 @@ function PaymentSection({
         );
       })()}
 
-      <Ledger projectId={projectId} entries={entries} canReview={canReview} />
-
+      {/* 특이사항·회수·추가지급은 우선 비고에 메모로 적는다(한백 확인) — 전용 기능은 쓰면서 정한다 */}
       <PayNoteBox projectId={projectId} payNote={payNote} canReview={canReview} />
-    </section>
-  );
-}
-
-/**
- * 지급 원장 — 확정한 송금(지급)과 줘야 할 금액의 변화(조정)를 한 건씩 적는다.
- *
- * 고치기가 없다 — 지우고 다시 넣는다. 지운 값은 감사 로그에 남는다.
- * 지우기는 두 번 누른다(지우기 → 삭제 확정) — 금액 기록이라 스치는 클릭에 없어지면 안 된다.
- */
-function Ledger({
-  projectId, entries, canReview,
-}: {
-  projectId: string;
-  entries: PayoutEntry[];
-  canReview: boolean;
-}) {
-  const { busy, error, run } = useAction();
-  const [confirmDel, setConfirmDel] = useState<string | null>(null);
-
-  // 넣는 폼
-  const [kind, setKind] = useState<PayoutKind>('영업비');
-  const [category, setCategory] = useState<PayoutCategory>('회수');
-  const [amount, setAmount] = useState('');
-  const [minus, setMinus] = useState(false); // 재정산만 방향을 고른다
-  const [at, setAt] = useState(today());
-  const [note, setNote] = useState('');
-
-  const cat = CATEGORY_INFO.get(category)!;
-  const magnitude = Math.abs(Math.round(Number(amount)));
-  const amountOk = amount.trim() !== '' && Number.isFinite(Number(amount)) && magnitude > 0;
-
-  // 못 넣는 이유를 버튼 이름에 적는다(화면 규칙 3)
-  const blocked = !amountOk ? '금액 미입력' : !at ? '날짜 미입력' : null;
-
-  async function add() {
-    const signed = cat.sign === -1 ? -magnitude : cat.sign === 1 ? magnitude : minus ? -magnitude : magnitude;
-    const ok = await run({
-      url: `/api/projects/${projectId}/payouts`,
-      body: { kind, category, amount: signed, at, note: note.trim() || null },
-      fail: '기록하지 못했습니다.',
-    });
-    if (ok) {
-      setAmount('');
-      setNote('');
-    }
-  }
-
-  const del = (entryId: string) =>
-    void run({
-      url: `/api/projects/${projectId}/payouts`,
-      method: 'DELETE',
-      body: { entryId },
-      fail: '지우지 못했습니다.',
-    }).then(() => setConfirmDel(null));
-
-  return (
-    <div className="mt-4">
-      {/*
-       * 이 기록이 정본이고, 지급 내역(/payments)과 거래명세서는 여기서 유도된다 —
-       * 따로 적는 두 장부가 아니라 같은 것의 다른 면이다. 그 길을 링크로 보인다.
-       */}
-      <div className="mb-2 flex flex-wrap items-baseline gap-2">
-        <h3 className="text-base font-black text-slate-900">지급·조정 기록</h3>
-        <span className="text-tiny text-slate-400">{entries.length}건</span>
-        <Link
-          href="/payments"
-          className="ml-auto text-tiny font-bold text-brand-700 hover:underline"
-        >
-          지급 내역 · 거래명세서에서 보기 →
-        </Link>
       </div>
 
-      {entries.length > 0 && (
-        <div className="overflow-x-auto rounded-box border border-slate-200">
-          <table className="w-full min-w-[560px] text-base">
-            <thead className="bg-slate-50 text-tiny font-bold tracking-[0.08em] text-slate-500">
-              <tr>
-                <th className="px-3 py-2 text-left">날짜</th>
-                <th className="px-3 py-2 text-left">구분</th>
-                <th className="px-3 py-2 text-left">명목</th>
-                <th className="px-3 py-2 text-right">금액</th>
-                <th className="px-3 py-2 text-left">메모</th>
-                {canReview && <th className="px-3 py-2" />}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {entries.map((e) => (
-                <tr key={e.id}>
-                  <td className="whitespace-nowrap px-3 py-2 tabular-nums text-slate-600">{e.at}</td>
-                  <td className="whitespace-nowrap px-3 py-2">
-                    <Tag tone={e.kind === '영업비' ? 'stage' : 'ok'}>{e.kind}</Tag>
-                  </td>
-                  <td className="whitespace-nowrap px-3 py-2 text-slate-700">
-                    {e.category}
-                    <span className="ml-1 text-micro text-slate-400">{entryTypeOf(e.category)}</span>
-                  </td>
-                  <td className={`whitespace-nowrap px-3 py-2 text-right font-bold tabular-nums ${e.amount < 0 ? 'text-amber-800' : 'text-slate-800'}`}>
-                    {won(e.amount)}
-                  </td>
-                  <td className="px-3 py-2 text-small text-slate-500">
-                    {e.note ?? <span className="text-slate-300">—</span>}
-                  </td>
-                  {canReview && (
-                    <td className="whitespace-nowrap px-3 py-2 text-right">
-                      {confirmDel === e.id ? (
-                        <span className="inline-flex items-center gap-1">
-                          <Btn kind="stop" size="sm" busy={busy} busyLabel="지우는 중…" onClick={() => del(e.id)}>
-                            삭제 확정
-                          </Btn>
-                          <Btn kind="undo" size="sm" disabled={busy} onClick={() => setConfirmDel(null)}>
-                            취소
-                          </Btn>
-                        </span>
-                      ) : (
-                        <Btn kind="undo" size="sm" disabled={busy} onClick={() => setConfirmDel(e.id)}>
-                          지우기
-                        </Btn>
-                      )}
-                    </td>
-                  )}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-      {entries.length === 0 && (
-        <p className="rounded-box border border-dashed border-slate-200 py-5 text-center text-base text-slate-400">
-          기록 0건
-        </p>
-      )}
-
-      {canReview && (
-        <div className="mt-3 rounded-box border border-slate-200 p-3">
-          <div className="flex flex-wrap items-end gap-2">
-            <div className="flex gap-1">
-              {PAYOUT_KINDS.map((k) => (
-                <Choice key={k} on={kind === k} disabled={busy} onClick={() => setKind(k)}>
-                  {k}
-                </Choice>
-              ))}
-            </div>
-            <label className="flex flex-col gap-1">
-              <span className="text-micro font-bold text-slate-500">명목</span>
-              <select
-                value={category}
-                disabled={busy}
-                onChange={(e) => setCategory(e.target.value as PayoutCategory)}
-                className={FIELD_CELL}
-              >
-                {/*
-                  * 예외만 적는다 — 회차(1차·2차)는 금액이 정해져 있어 「협력사 지급관리」의
-                  * 지급 확정이 계산해 넣는다. 여기 열어두면 유도값과 어긋난 금액이 남는다.
-                  */}
-                <optgroup label="지급 — 돈이 움직였다">
-                  {PAYOUT_CATEGORIES.filter((c) => c.manual && c.type === '지급').map((c) => (
-                    <option key={c.key} value={c.key}>{c.key}</option>
-                  ))}
-                </optgroup>
-                <optgroup label="조정 — 줘야 할 금액이 바뀐다">
-                  {PAYOUT_CATEGORIES.filter((c) => c.manual && c.type === '조정').map((c) => (
-                    <option key={c.key} value={c.key}>{c.key}</option>
-                  ))}
-                </optgroup>
-              </select>
-            </label>
-            <label className="flex flex-col gap-1">
-              <span className="text-micro font-bold text-slate-500">
-                금액(원){cat.sign === -1 && ' — 빼는 돈으로 적힌다'}
-              </span>
-              <input
-                type="number"
-                min={0}
-                value={amount}
-                disabled={busy}
-                onChange={(e) => setAmount(e.target.value)}
-                className={`${FIELD_CELL} w-32 tabular-nums`}
-              />
-            </label>
-            {cat.sign === 0 && (
-              <div className="flex gap-1">
-                <Choice on={!minus} disabled={busy} onClick={() => setMinus(false)}>더 줌</Choice>
-                <Choice on={minus} disabled={busy} onClick={() => setMinus(true)}>덜 줌</Choice>
-              </div>
-            )}
-            <label className="flex flex-col gap-1">
-              <span className="text-micro font-bold text-slate-500">
-                {cat.type === '지급' ? '지급일' : '발생일'}
-              </span>
-              <input
-                type="date"
-                value={at}
-                disabled={busy}
-                onChange={(e) => setAt(e.target.value)}
-                className={`${FIELD_CELL} tabular-nums`}
-              />
-            </label>
-            <label className="flex min-w-[160px] flex-1 flex-col gap-1">
-              <span className="text-micro font-bold text-slate-500">메모</span>
-              <input
-                type="text"
-                value={note}
-                disabled={busy}
-                onChange={(e) => setNote(e.target.value)}
-                className={FIELD_CELL}
-              />
-            </label>
-            <Btn disabled={blocked !== null} busy={busy} busyLabel="기록 중…" onClick={add}>
-              {blocked ?? '기록'}
-            </Btn>
-          </div>
-          <Err className="mt-2">{error}</Err>
-        </div>
-      )}
-      {!canReview && <Err className="mt-2">{error}</Err>}
-    </div>
+    </section>
   );
 }
 
@@ -828,7 +598,7 @@ function PayNoteBox({
   }
 
   return (
-    <div className="mt-3">
+    <div>
       <label htmlFor="payNote" className="text-tiny font-bold text-slate-500">비고</label>
       {canReview ? (
         <>

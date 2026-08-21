@@ -26,6 +26,26 @@ import { Badge, Blank, Tag, type Tone } from '@/components/ui';
 
 type SortKey = 'name' | 'stage' | 'qty' | 'term' | 'created';
 
+/**
+ * 골라 볼 수 있는 열 — 현장(이름)만 항상 있다.
+ * 고른 것은 브라우저에 페이지별로 남는다(계약·시공이 각자 다른 열을 본다).
+ */
+const PICKABLE = [
+  { key: 'stage', label: '단계', attr: 'col' },
+  { key: 'qty', label: '대수' },
+  { key: 'term', label: '계약연수', attr: 'term' },
+  { key: 'cpo', label: '운영사', attr: 'cpo' },
+  { key: 'queue', label: '환경부 대기번호', attr: 'queue' },
+  { key: 'pre', label: '기설치 조사', attr: 'pre' },
+  { key: 'biz', label: '사업유형', attr: 'biz' },
+  { key: 'bldg', label: '건축물', attr: 'bldg' },
+  { key: 'power', label: '수전방식', attr: 'power' },
+  { key: 'sales', label: '영업사', attr: 'sales' },
+  { key: 'gc', label: '시공사', attr: 'gc' },
+  { key: 'created', label: '접수일' },
+] as const satisfies readonly { key: string; label: string; attr?: AttrKey }[];
+type ColKey = (typeof PICKABLE)[number]['key'];
+
 const COLUMN_ORDER = new Map(BOARD_COLUMNS.map((c, i) => [c.key, i]));
 const qtyOf = (p: ProjectSummary) => p.lines.reduce((s, l) => s + l.qty, 0);
 
@@ -63,6 +83,40 @@ export default function ProjectTable({
 }) {
   const [sort, setSort] = useState<SortKey>('stage');
   const [desc, setDesc] = useState(false);
+
+  /*
+   * 숨긴 열 — 기본은 전부 보인다. 계약·시공 페이지가 각자 기억한다(브라우저 저장).
+   * 저장값이 없거나 깨졌으면 조용히 기본으로 돈다.
+   */
+  const storageKey = `hb-table-cols-${tab}`;
+  const [hidden, setHidden] = useState<Set<ColKey>>(new Set());
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(storageKey);
+      if (raw) setHidden(new Set(JSON.parse(raw) as ColKey[]));
+    } catch { /* 기본(전부 보기)으로 */ }
+  }, [storageKey]);
+
+  const show = (k: ColKey) => !hidden.has(k);
+
+  function setHiddenAndSave(next: Set<ColKey>) {
+    setHidden(next);
+    try { localStorage.setItem(storageKey, JSON.stringify([...next])); } catch { /* 못 남겨도 화면은 돈다 */ }
+  }
+
+  function toggleColumn(key: ColKey) {
+    const next = new Set(hidden);
+    if (next.has(key)) {
+      next.delete(key);
+    } else {
+      next.add(key);
+      // 숨긴 열에 걸려 있던 필터는 푼다 — 안 보이는 필터가 몰래 표를 거르면 안 된다
+      const def = PICKABLE.find((c) => c.key === key);
+      const attr = def && 'attr' in def ? def.attr : undefined;
+      if (attr && (filters[attr]?.length ?? 0) > 0) onFilter(attr, []);
+    }
+    setHiddenAndSave(next);
+  }
 
   const rows = useMemo(() => {
     const dir = desc ? -1 : 1;
@@ -130,32 +184,39 @@ export default function ProjectTable({
     );
   }
 
-  if (rows.length === 0) {
-    return (
-      <Blank>조건에 맞는 현장이 없습니다.</Blank>
-    );
-  }
-
   return (
+    <div>
+      <div className="mb-2 flex justify-end">
+        <ColumnPicker
+          hidden={hidden}
+          onToggle={toggleColumn}
+          onReset={() => setHiddenAndSave(new Set())}
+        />
+      </div>
+
+      {rows.length === 0 ? (
+        <Blank>조건에 맞는 현장이 없습니다.</Blank>
+      ) : (
     <div className="overflow-hidden rounded-panel border border-slate-200 bg-white">
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[1180px] text-base">
+        {/* 열을 많이 숨기면 최소 폭도 푼다 — 몇 열 안 남았는데 가로 스크롤이 생기면 이상하다 */}
+        <table className={`w-full text-base ${hidden.size >= 4 ? '' : 'min-w-[1180px]'}`}>
           {/* 머리글은 붙여 둔다 — 138건을 훑으면서 어느 열인지 계속 알아야 한다 */}
           <thead className="sticky top-0 z-10 border-b border-slate-200 bg-slate-50 text-tiny tracking-[0.06em]">
             <tr>
               {head('현장', { sort: 'name' })}
-              {head('단계', { sort: 'stage', attr: 'col' })}
-              {head('대수', { sort: 'qty', align: 'right' })}
-              {head('계약연수', { sort: 'term', attr: 'term' })}
-              {head('운영사', { attr: 'cpo' })}
-              {head('환경부 대기번호', { attr: 'queue' })}
-              {head('기설치 조사', { attr: 'pre' })}
-              {head('사업유형', { attr: 'biz' })}
-              {head('건축물', { attr: 'bldg' })}
-              {head('수전방식', { attr: 'power' })}
-              {head('영업사', { attr: 'sales' })}
-              {head('시공사', { attr: 'gc' })}
-              {head('접수일', { sort: 'created' })}
+              {show('stage') && head('단계', { sort: 'stage', attr: 'col' })}
+              {show('qty') && head('대수', { sort: 'qty', align: 'right' })}
+              {show('term') && head('계약연수', { sort: 'term', attr: 'term' })}
+              {show('cpo') && head('운영사', { attr: 'cpo' })}
+              {show('queue') && head('환경부 대기번호', { attr: 'queue' })}
+              {show('pre') && head('기설치 조사', { attr: 'pre' })}
+              {show('biz') && head('사업유형', { attr: 'biz' })}
+              {show('bldg') && head('건축물', { attr: 'bldg' })}
+              {show('power') && head('수전방식', { attr: 'power' })}
+              {show('sales') && head('영업사', { attr: 'sales' })}
+              {show('gc') && head('시공사', { attr: 'gc' })}
+              {show('created') && head('접수일', { sort: 'created' })}
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -188,50 +249,148 @@ export default function ProjectTable({
                       )}
                     </div>
                   </td>
-                  <td className="px-3 py-2.5">
-                    <StageCell p={p} col={col} canMove={canMove} onMove={onMove} busy={busy} />
-                  </td>
-                  <td className="px-3 py-2.5 text-right font-bold tabular-nums text-slate-700">
-                    {qtyOf(p)}
-                    <span
-                      className="ml-1 text-tiny font-normal text-slate-400"
-                      title={p.lines.map((l) => `${l.termYears}년×${l.qty}대`).join(' + ')}
-                    >
-                      대
-                    </span>
-                  </td>
-                  <td className="whitespace-nowrap px-3 py-2.5 text-slate-600">{termsOf(p)}</td>
-                  <td className="whitespace-nowrap px-3 py-2.5 text-slate-600">{p.cpo}</td>
-                  <td className="px-3 py-2.5">
-                    <QueueCell p={p} canEdit={canMove} />
-                  </td>
+                  {show('stage') && (
+                    <td className="px-3 py-2.5">
+                      <StageCell p={p} col={col} canMove={canMove} onMove={onMove} busy={busy} />
+                    </td>
+                  )}
+                  {show('qty') && (
+                    <td className="px-3 py-2.5 text-right font-bold tabular-nums text-slate-700">
+                      {qtyOf(p)}
+                      <span
+                        className="ml-1 text-tiny font-normal text-slate-400"
+                        title={p.lines.map((l) => `${l.termYears}년×${l.qty}대`).join(' + ')}
+                      >
+                        대
+                      </span>
+                    </td>
+                  )}
+                  {show('term') && (
+                    <td className="whitespace-nowrap px-3 py-2.5 text-slate-600">{termsOf(p)}</td>
+                  )}
+                  {show('cpo') && (
+                    <td className="whitespace-nowrap px-3 py-2.5 text-slate-600">{p.cpo}</td>
+                  )}
+                  {show('queue') && (
+                    <td className="px-3 py-2.5">
+                      <QueueCell p={p} canEdit={canMove} />
+                    </td>
+                  )}
                   {/*
                     조사 전은 눈에 걸려야 한다 — 환경부 사업은 현장마다 해야 하는 일이다.
                     자체투자는 조사할 이유가 없으므로 「조사 필요」로 세지 않는다.
                   */}
-                  <td className="whitespace-nowrap px-3 py-2.5">
-                    {p.bizType === '자체투자' ? (
-                      <span className="text-slate-300">해당없음</span>
-                    ) : p.preInstall ? (
-                      <span className="text-slate-600">{p.preInstall}</span>
-                    ) : (
-                      <Tag tone="warn">조사 필요</Tag>
-                    )}
-                  </td>
-                  <Cell value={p.bizType} />
-                  <Cell value={p.bldgType} />
-                  <Cell value={p.powerType} />
-                  <Cell value={p.salesOrg} />
-                  <Cell value={p.gcOrg} />
-                  <td className="whitespace-nowrap px-3 py-2.5 tabular-nums text-slate-500">
-                    {p.createdAt}
-                  </td>
+                  {show('pre') && (
+                    <td className="whitespace-nowrap px-3 py-2.5">
+                      {p.bizType === '자체투자' ? (
+                        <span className="text-slate-300">해당없음</span>
+                      ) : p.preInstall ? (
+                        <span className="text-slate-600">{p.preInstall}</span>
+                      ) : (
+                        <Tag tone="warn">조사 필요</Tag>
+                      )}
+                    </td>
+                  )}
+                  {show('biz') && <Cell value={p.bizType} />}
+                  {show('bldg') && <Cell value={p.bldgType} />}
+                  {show('power') && <Cell value={p.powerType} />}
+                  {show('sales') && <Cell value={p.salesOrg} />}
+                  {show('gc') && <Cell value={p.gcOrg} />}
+                  {show('created') && (
+                    <td className="whitespace-nowrap px-3 py-2.5 tabular-nums text-slate-500">
+                      {p.createdAt}
+                    </td>
+                  )}
                 </tr>
               );
             })}
           </tbody>
         </table>
       </div>
+    </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * 표 항목 고르기 — 현장(이름)은 항상 있고 나머지 열을 켜고 끈다.
+ * 끈 것이 있으면 개수가 단추에 붙는다 — 열이 왜 없는지 표만 보고 알 수 있어야 한다.
+ */
+function ColumnPicker({
+  hidden, onToggle, onReset,
+}: {
+  hidden: Set<ColKey>;
+  onToggle: (key: ColKey) => void;
+  onReset: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const box = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const off = (e: MouseEvent) => {
+      if (!box.current?.contains(e.target as Node)) setOpen(false);
+    };
+    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
+    document.addEventListener('mousedown', off);
+    document.addEventListener('keydown', esc);
+    return () => {
+      document.removeEventListener('mousedown', off);
+      document.removeEventListener('keydown', esc);
+    };
+  }, [open]);
+
+  return (
+    <div ref={box} className="relative">
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+        className={`flex items-center gap-1.5 rounded-ctl border px-2.5 py-1 text-tiny font-bold transition ${
+          hidden.size > 0
+            ? 'border-brand-300 bg-brand-50 text-brand-800'
+            : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:text-slate-700'
+        }`}
+      >
+        표 항목
+        {hidden.size > 0 && (
+          <span className="rounded-tag bg-brand-600 px-1.5 py-0.5 text-micro font-bold text-white tabular-nums">
+            {hidden.size} 숨김
+          </span>
+        )}
+      </button>
+
+      {open && (
+        <div className="absolute right-0 top-full z-20 mt-1 w-[200px] rounded-box border border-slate-200 bg-white p-1.5 shadow-lg">
+          {PICKABLE.map((c) => {
+            const on = !hidden.has(c.key);
+            return (
+              <label
+                key={c.key}
+                className="flex cursor-pointer items-center gap-2 rounded-ctl px-2 py-1.5 text-small font-semibold text-slate-700 hover:bg-slate-50"
+              >
+                <input
+                  type="checkbox"
+                  checked={on}
+                  onChange={() => onToggle(c.key)}
+                  className="h-3.5 w-3.5 accent-brand-600"
+                />
+                <span className="truncate">{c.label}</span>
+              </label>
+            );
+          })}
+          {hidden.size > 0 && (
+            <button
+              type="button"
+              onClick={() => { onReset(); setOpen(false); }}
+              className="mt-1 w-full rounded-ctl border-t border-slate-100 px-2 py-1.5 text-tiny font-bold text-slate-400 transition hover:text-slate-700"
+            >
+              전부 보기
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }

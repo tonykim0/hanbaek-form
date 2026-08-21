@@ -103,7 +103,6 @@ const GROUPS: Group[] = [
     adminOnly: true,
     items: [
       { href: '/admin/materials', label: '자료실 관리', short: '관리' },
-      { href: '/admin/reissue', label: '서류 재발행', short: '재발' },
       { href: '/admin/accounts', label: '설정', short: '설정' },
       /*
        * 디자인 기준(/design)은 메뉴에 없다 — 화면을 만드는 사람의 도구라서

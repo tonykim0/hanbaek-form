@@ -21,10 +21,12 @@ const TOOLS = [
   { href: '/apartments', label: 'K-APT 정보' },
 ];
 
-/** 접수는 협력사에게 사이드바(주 업무)지만 한백에게는 가끔 있는 일이라 여기다 */
+/** 접수·재발행은 협력사에게 사이드바(주 업무)지만 한백에게는 가끔 있는 일이라 여기다 */
 const ADMIN_INTAKE = [
   { href: '/projects/new', label: '서류 접수' },
   { href: '/contracts', label: '계약서 작성' },
+  // 사이드바 관리에 있던 것을 올렸다(한백 확인) — 접수·계약서와 같은 「가끔 하는 서류 일」이다
+  { href: '/admin/reissue', label: '서류 재발행' },
 ];
 
 interface Todo {

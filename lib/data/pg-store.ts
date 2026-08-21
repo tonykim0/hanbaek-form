@@ -28,7 +28,7 @@ import type {
 import type { Viewer } from '@/lib/auth/types';
 import { canAccessProject, effectiveVisibility, normalizeOrg } from '@/lib/roles';
 import { needsPreInstallCheck, PROCESS_DOCS } from '@/lib/doc-rules';
-import { asProcessStatus, canEnter } from '@/lib/process';
+import { asProcessStatus, assertProcessWrite, canEnter } from '@/lib/process';
 import type { Actor, PaymentPatch, ProcessPatch, ProjectRepository } from './repository';
 import { checkPricingRule, duplicateOf, normalizePricingRule, pricingRuleId } from '@/lib/pricing-match';
 import { checkPayoutEntry, payoutSideOf, payoutStepsOf } from '@/lib/settlement';
@@ -998,18 +998,20 @@ export const pgRepository: ProjectRepository = {
   },
 
   async updateProcess(projectId, patch: ProcessPatch, actor): Promise<void> {
-    assertAdmin(actor, '공정 날짜 입력');
     const fields = Object.keys(patch) as Array<keyof ProcessPatch>;
     if (fields.length === 0) return;
 
     const db = getDb();
     await db.transaction(async (tx) => {
       const [project] = await tx
-        .select({ id: projects.id })
+        .select({ id: projects.id, gcOrg: projects.gcOrg })
         .from(projects)
         .where(eq(projects.id, projectId))
         .limit(1);
       if (!project) throw new Error('현장을 찾을 수 없습니다.');
+
+      // 한백은 전부, 그 현장의 시공사는 한백 전용 칸(환경부 승인·충전기 발주)을 뺀 전부
+      assertProcessWrite(actor, project.gcOrg, fields);
 
       const [before] = await tx
         .select()

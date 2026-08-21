@@ -2,7 +2,8 @@ import { notFound } from 'next/navigation';
 import ProjectDetailView, { type TabKey } from '@/components/project/DetailView';
 import { getRepository } from '@/lib/data';
 import { actorOf, getSessionUser, viewerOf } from '@/lib/auth/session';
-import { effectiveVisibility } from '@/lib/roles';
+import { effectiveVisibility, normalizeOrg } from '@/lib/roles';
+import type { ProcessEdit } from '@/lib/process';
 import { matchingRules, type RuleOptions } from '@/lib/pricing-match';
 import { SETTLEMENT_RULES } from '@/lib/data/seed/settlement-rules';
 import type { SettlementRuleChoice } from '@/types/project';
@@ -63,6 +64,17 @@ export default async function ProjectPage({
     ? SETTLEMENT_RULES.filter((r) => r.active).map(({ id, name }) => ({ id, name }))
     : null;
 
+  /*
+   * 공정 입력 권한 — 한백은 전부, 그 현장의 시공사는 한백 전용 두 칸을 뺀 전부.
+   * 실제 판정은 저장소(assertProcessWrite)가 다시 한다 — 여기 값은 화면이 칸을
+   * 잠그는 데만 쓴다. 영업만(sales)은 공정을 적지 않는다.
+   */
+  const isGcHere =
+    (session.role === 'cons' || session.role === 'salesCons') &&
+    normalizeOrg(session.org) !== null &&
+    normalizeOrg(session.org) === normalizeOrg(detail.project.gcOrg);
+  const processEdit: ProcessEdit = isAdmin ? 'all' : isGcHere ? 'partner' : 'none';
+
   return (
     <ProjectDetailView
       detail={detail}
@@ -78,6 +90,7 @@ export default async function ProjectPage({
       ruleOptions={ruleOptions}
       settlementRuleChoices={settlementRuleChoices}
       initialTab={initialTab}
+      processEdit={processEdit}
     />
   );
 }

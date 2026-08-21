@@ -8,9 +8,12 @@
  */
 import type { ProjectDetail } from '@/types/project';
 import { PROCESS_DOCS } from '@/lib/doc-rules';
-import { canEnter, statusIndex, STATUS_GATES } from '@/lib/process';
+import {
+  canEnter, isHanbaekOnlyProcessField, statusIndex, STATUS_GATES, type ProcessEdit,
+} from '@/lib/process';
 import { PROCESS_STATUSES } from '@/types/project';
 import { DocDelete, DocFileActions, DocUpload, DownloadAll } from '@/components/DocFiles';
+import { today } from '@/lib/date';
 import { useAction } from '@/lib/use-action';
 import { Note } from '@/components/ui';
 
@@ -83,10 +86,19 @@ type DateField =
   | 'envApprovalDate' | 'cpoSubmitDate' | 'cpoApprovalDate' | 'chargerOrderDate' | 'chargerRecvDate'
   | 'startPlanDate' | 'startActualDate' | 'installDoneDate' | 'commDoneDate';
 
-export function ConstructionTab({ detail, canEdit }: { detail: ProjectDetail; canEdit: boolean }) {
+export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit: ProcessEdit }) {
   const p = detail.process;
   // 칸이 여덟 개라 어느 칸이 저장 중인지 알아야 한다 — 그 칸만 잠근다
   const { busyKey, error, run } = useAction();
+
+  /*
+   * 시공사는 한백 전용 두 칸(환경부 승인일·충전기 발주일)을 뺀 전부를 직접 적는다 —
+   * 노션 공정관리처럼 단계별 일자·파일을 협력사가 올린다. 저장소가 같은 판정을
+   * 다시 하므로(assertProcessWrite) 여기는 칸을 잠그는 것뿐이다.
+   */
+  const canEditField = (field: DateField) =>
+    edit === 'all' || (edit === 'partner' && !isHanbaekOnlyProcessField(field));
+  const canEdit = edit !== 'none';
 
   const saveDate = (field: DateField, value: string) =>
     void run({
@@ -104,16 +116,18 @@ export function ConstructionTab({ detail, canEdit }: { detail: ProjectDetail; ca
     trigger?: string;
     /** 이 날짜가 무엇을 여는지 — 왜 적어야 하는지 알려준다 */
     opens?: string;
+    /** 날짜가 아니라 했다/안 했다 — 체크로 적고, 체크한 날이 저장된다 */
+    flag?: boolean;
   }> = [
     { label: '환경부 승인일', field: 'envApprovalDate', value: p.envApprovalDate, trigger: '환경부 승인' },
     {
       /*
-       * 우리가 계약서를 낸 날이다. 내면 운영사가 승인·접수하고(형식이다) 환경부 대기번호가
-       * 나오기를 기다린다 — 이 칸이 비어 있으면 우리가 안 낸 것인지 환경부를 기다리는
-       * 것인지 알 수 없다.
+       * 우리가 운영사에 계약서를 냈는가 — 낸 날은 따로 기록할 필요가 없다(한백 확인).
+       * 이 줄이 없으면 「안 낸 현장」과 「내고 환경부를 기다리는 현장」이 구분되지 않는다.
+       * 한백이 하는 일이고 협력사는 몰라도 되는 값이라, 협력사 화면에는 줄 자체를 안 그린다.
        */
-      label: '운영사 계약서 제출일', field: 'cpoSubmitDate', value: p.cpoSubmitDate,
-      opens: '운영사 계약서 제출',
+      label: '운영사 계약서 제출', field: 'cpoSubmitDate', value: p.cpoSubmitDate,
+      opens: '운영사 계약서 제출', flag: true,
     },
     {
       label: '운영사 시공승인일', field: 'cpoApprovalDate', value: p.cpoApprovalDate,
@@ -150,10 +164,24 @@ export function ConstructionTab({ detail, canEdit }: { detail: ProjectDetail; ca
           )}
         </div>
         <div className="overflow-hidden rounded-box border border-slate-200 divide-y divide-slate-100">
-          {milestones.map((m) => (
+          {/* 여부 줄(운영사 계약서 제출)은 한백만 본다 — 협력사는 몰라도 되는 값이다 */}
+          {milestones.filter((m) => !m.flag || edit === 'all').map((m) => (
             <div key={m.field} className="flex flex-wrap items-center gap-3 px-4 py-2.5 text-base">
               <span className="w-32 shrink-0 text-slate-500">{m.label}</span>
-              {canEdit ? (
+              {m.flag ? (
+                <label className="flex w-[150px] cursor-pointer items-center gap-2">
+                  <input
+                    type="checkbox"
+                    aria-label={m.label}
+                    checked={Boolean(m.value)}
+                    disabled={busyKey === m.field}
+                    onChange={(e) => void saveDate(m.field, e.target.checked ? today() : '')}
+                  />
+                  <span className={`font-semibold ${m.value ? 'text-slate-800' : 'text-slate-400'}`}>
+                    {m.value ? '제출됨' : '미제출'}
+                  </span>
+                </label>
+              ) : canEditField(m.field) ? (
                 <input
                   type="date"
                   aria-label={m.label}
@@ -169,14 +197,16 @@ export function ConstructionTab({ detail, canEdit }: { detail: ProjectDetail; ca
               ) : (
                 <span
                   className={`w-[150px] font-semibold tabular-nums ${m.value ? 'text-slate-800' : 'text-slate-300'}`}
+                  /* 시공사에게 잠긴 칸 — 왜 입력칸이 아닌지 그 자리에서 말한다 */
+                  title={canEdit && isHanbaekOnlyProcessField(m.field) ? '한백이 적는 칸입니다' : undefined}
                 >
-                  {m.value ?? '비어 있음'}
+                  {m.value ?? (canEdit && isHanbaekOnlyProcessField(m.field) ? '한백 입력 대기' : '비어 있음')}
                 </span>
               )}
               <span className="flex-1" />
               {m.opens && !m.value && (
                 <span className="text-tiny font-semibold text-slate-400">
-                  넣으면 {m.opens} 로 넘길 수 있습니다
+                  {m.flag ? '체크하면' : '넣으면'} {m.opens} 로 넘길 수 있습니다
                 </span>
               )}
               {m.trigger && (
@@ -234,7 +264,8 @@ export function ConstructionTab({ detail, canEdit }: { detail: ProjectDetail; ca
                   rejected={false}
                   hasFile={Boolean(doc?.blobUrl)}
                 />
-                {canEdit && doc && doc.status !== 'none' && (
+                {/* 지우기는 한백만 — 협력사는 다시 올리는 것으로 고친다(덮어쓴다) */}
+                {edit === 'all' && doc && doc.status !== 'none' && (
                   <DocDelete
                     projectId={detail.project.id}
                     kind={d.key}

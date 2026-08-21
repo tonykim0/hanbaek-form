@@ -351,8 +351,9 @@ export interface ProcessInfo {
   chargerRecvDate: string | null;
   startPlanDate: string | null;
   /**
-   * 운영사에 계약서를 낸 날. 「운영사 계약서 제출」로 넘어가는 근거다.
-   * 우리가 하는 일이라 통보를 기다릴 것이 없다 — 낸 날을 그대로 적는다.
+   * 운영사에 계약서를 냈는가. 「운영사 계약서 제출」로 넘어가는 근거다.
+   * 날짜가 아니라 여부다 — 체크한 날이 저장되지만 화면은 제출됨/미제출만 보여준다.
+   * 한백이 하는 일이고 협력사는 몰라도 되는 값이라, 협력사 화면에는 줄을 안 그린다.
    */
   cpoSubmitDate: string | null;
   /**

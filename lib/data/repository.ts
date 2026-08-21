@@ -272,14 +272,16 @@ export interface ProjectRepository {
   setEnvQueueNo(projectId: string, value: string | null, actor: Actor): Promise<void>;
 
   /**
-   * 공정 마일스톤 날짜·메모. [한백 전용] 넘긴 필드만 바뀐다.
+   * 공정 마일스톤 날짜·메모. [한백 · 그 현장의 시공사] 넘긴 필드만 바뀐다.
    *
    * 날짜는 조건이지 전이가 아니다 — 운영사 시공승인일을 넣으면 「시공진행필요」로 넘길 수
    * 있게 되지만, 넘기는 것은 사람이 한다. 날짜 입력이 곧 단계 이동이면 잘못 적은 하루가
    * 현장을 다음 단계로 밀어버린다.
    *
-   * 협력사에게는 아직 열지 않는다. 시공사가 실착공일을 직접 넣는 흐름은 정해지지 않았고,
-   * 환경부·운영사 승인일은 한백이 통보받는 값이라 협력사가 적을 자리가 아니다.
+   * 시공사가 직접 적는다 — 실착공·설치완료는 현장이 아는 값이라, 잠겨 있으면 전화·카톡으로
+   * 받아 한백이 대신 적게 된다. 예외만 한백 전용이다(lib/process.ts
+   * HANBAEK_ONLY_PROCESS_FIELDS): 환경부 승인일(환경부가 한백에 통보)·충전기 발주일(발주는
+   * 한백이 한다)·운영사 계약서 제출(한백이 낸다). 판정은 assertProcessWrite 한 곳이다.
    */
   updateProcess(projectId: string, patch: ProcessPatch, actor: Actor): Promise<void>;
 

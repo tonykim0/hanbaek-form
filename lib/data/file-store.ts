@@ -17,7 +17,7 @@ import type {
 import type { Viewer } from '@/lib/auth/types';
 import type { Actor, ProjectRepository } from './repository';
 import { canAccessProject, effectiveVisibility, normalizeOrg } from '@/lib/roles';
-import { asProcessStatus, canEnter } from '@/lib/process';
+import { asProcessStatus, assertProcessWrite, canEnter } from '@/lib/process';
 import { stamp, today } from '@/lib/date';
 import { checkPayoutEntry, payoutSideOf, payoutStepsOf } from '@/lib/settlement';
 import {
@@ -469,10 +469,11 @@ export const fileRepository: ProjectRepository = {
   },
 
   async updateProcess(projectId, patch, actor): Promise<void> {
-    if (actor.role !== 'admin') throw new Error('공정 날짜 입력은 한백 관리자만 할 수 있습니다.');
     const records = await load();
     const r = records.find((x) => x.project.id === projectId);
     if (!r) throw new Error('현장을 찾을 수 없습니다.');
+    // 한백은 전부, 그 현장의 시공사는 한백 전용 칸을 뺀 전부 (pg-store 와 같은 판정)
+    assertProcessWrite(actor, r.project.gcOrg, Object.keys(patch));
     Object.assign(r.process, patch);
     r.lastProgressAt = today();
     await save(records);

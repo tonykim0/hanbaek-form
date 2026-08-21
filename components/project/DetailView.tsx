@@ -17,6 +17,7 @@ import Link from 'next/link';
 import type { ContractState, ProjectDetail, SettlementRuleChoice } from '@/types/project';
 import { buildDocContext, evaluateDocs, isPartyInferred, PROCESS_DOCS } from '@/lib/doc-rules';
 import { bandOfColumn, boardColumnOf, type BoardBand } from '@/lib/board';
+import type { ProcessEdit } from '@/lib/process';
 import type { Visibility } from '@/lib/roles';
 import type { RuleOptions } from '@/lib/pricing-match';
 import { ConstructionTab } from './ConstructionTab';
@@ -37,6 +38,7 @@ export default function ProjectDetailView({
   ruleOptions,
   settlementRuleChoices,
   initialTab,
+  processEdit,
 }: {
   detail: ProjectDetail;
   /** 세션에서 계산된 가시성. 화면에서 고를 수 있는 값이 아니다. */
@@ -59,6 +61,8 @@ export default function ProjectDetailView({
    * 거기서 오는 링크는 그 탭을 바로 연다. 없으면 단계가 정한다.
    */
   initialTab: TabKey | null;
+  /** 공정 입력 권한 — 한백 전부(all) · 그 현장의 시공사(partner) · 보기만(none) */
+  processEdit: ProcessEdit;
 }) {
   // 잠긴 시공 탭은 URL 로도 못 연다 — 화면에서 못 누르는 것은 주소로도 안 된다
   const [tab, setTab] = useState<TabKey>(
@@ -186,7 +190,7 @@ export default function ProjectDetailView({
               inferredParty={docCtx.bldgType === '공동주택' ? '입주자대표회의' : '관리단'}
             />
           )}
-          {tab === 'construction' && <ConstructionTab detail={detail} canEdit={canReview} />}
+          {tab === 'construction' && <ConstructionTab detail={detail} edit={processEdit} />}
           {tab === 'settlement' && (
             <SettlementTab
               detail={detail}

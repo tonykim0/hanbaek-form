@@ -1,8 +1,11 @@
 /**
- * POST /api/projects/[id]/process — 공정 마일스톤 날짜·메모
+ * POST /api/projects/[id]/process — 공정 마일스톤 날짜·메모 [한백 · 그 현장의 시공사]
  *
  * 넘긴 필드만 바뀐다. 상태(status)는 여기서 받지 않는다 — 조건을 확인해야 하므로
  * /status 로만 움직인다. 날짜는 그 조건의 근거일 뿐이다.
+ *
+ * 누가 어느 칸을 적는지는 저장소가 본다(assertProcessWrite) — 시공사는 한백 전용
+ * 두 칸(환경부 승인일·충전기 발주일)을 뺀 전부를 직접 적는다.
  */
 import { getRepository } from '@/lib/data';
 import type { ProcessPatch } from '@/lib/data/repository';
@@ -14,10 +17,9 @@ const DATE_FIELDS = [
 ] as const;
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
-import { adminWrite, BadRequest } from '@/lib/api/write-route';
+import { BadRequest, sessionWrite } from '@/lib/api/write-route';
 
-export const POST = adminWrite<{ id: string }, Record<string, unknown>>(
-  '한백 관리자만 입력할 수 있습니다.',
+export const POST = sessionWrite<{ id: string }, Record<string, unknown>>(
   async ({ body, params, actor }) => {
     const patch: ProcessPatch = {};
     for (const f of DATE_FIELDS) {

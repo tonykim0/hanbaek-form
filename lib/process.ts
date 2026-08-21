@@ -12,6 +12,7 @@
  */
 import type { ProcessInfo, ProjectDocument, ProcessStatus } from '@/types/project';
 import { PROCESS_STATUSES } from '@/types/project';
+import { normalizeOrg } from '@/lib/roles';
 
 export interface StatusGate {
   /** 사람이 읽는 조건 — 화면에 그대로 나간다 */
@@ -31,14 +32,17 @@ const docApproved = (process: ProcessInfo, key: string): boolean =>
 export const STATUS_GATES: Record<ProcessStatus, StatusGate | null> = {
   '계약완료': null,   // 서류·단가가 다 차고 한백이 확인하면 여기서 시작한다
   /*
-   * 우리가 운영사에 계약서를 낸 날. 우리가 하는 일이라 통보를 기다릴 것이 없다.
+   * 우리가 운영사에 계약서를 냈는가. 우리가 하는 일이라 통보를 기다릴 것이 없다.
    *
    * 낸 뒤로는 운영사 쪽이 알아서 승인·접수하고(형식이다), 환경부 대기번호가 나오기를
    * 기다린다. 이 칸이 없던 동안은 「안 낸 현장」과 「내고 환경부를 기다리는 현장」이
    * 계약완료에 같이 있었다 — 그 둘은 할 일이 다르다.
+   *
+   * 날짜가 아니라 여부다 — 낸 날을 따로 기록할 필요가 없다(한백 확인). 저장은 체크한
+   * 날짜로 남지만(cpoSubmitDate) 화면은 제출됨/미제출만 보여준다.
    */
   '운영사 계약서 제출': {
-    need: '운영사 계약서 제출일',
+    need: '제출 체크',
     met: (p) => Boolean(p.cpoSubmitDate),
   },
   // 환경부 승인 뒤 운영사가 따로 통보한다. 공정에서 유도할 수 없어 입력받는다.
@@ -116,4 +120,64 @@ export function canEnter(
  */
 export function contractNeedsFix(documents: ProjectDocument[]): string[] {
   return documents.filter((d) => d.status === 'rejected').map((d) => d.kind);
+}
+
+// ── 공정 입력 권한 ──────────────────────────────────────────────
+/**
+ * 한백만 적는 공정 칸.
+ *
+ * 나머지 날짜·메모는 그 현장의 시공사가 직접 적는다 — 실착공·설치완료는 현장이 아는
+ * 값이라, 잠겨 있으면 전화·카톡으로 받아 한백이 대신 적게 된다. 이 플랫폼으로 소통하는
+ * 것이 양사의 목적이므로(노션 공정관리의 방식) 예외만 잠근다:
+ *   환경부 승인일 — 환경부가 한백에 통보하는 값이다.
+ *   충전기 발주일 — 발주는 한백이 한다.
+ *   운영사 계약서 제출 — 한백이 내는 것이고, 협력사는 몰라도 되는 값이라 화면에도 그리지
+ *     않는다(값 자체는 진행 게이트 판정에 쓰여 내려간다 — 돈이 아니라 지우지는 않는다).
+ */
+export const HANBAEK_ONLY_PROCESS_FIELDS = [
+  'envApprovalDate', 'chargerOrderDate', 'cpoSubmitDate',
+] as const;
+
+const HANBAEK_ONLY_LABEL: Record<(typeof HANBAEK_ONLY_PROCESS_FIELDS)[number], string> = {
+  envApprovalDate: '환경부 승인일',
+  chargerOrderDate: '충전기 발주일',
+  cpoSubmitDate: '운영사 계약서 제출',
+};
+
+/** 화면이 칸을 잠글 때 쓰는 판정 — 저장소(assertProcessWrite)와 같은 기준이어야 한다 */
+export function isHanbaekOnlyProcessField(field: string): boolean {
+  return (HANBAEK_ONLY_PROCESS_FIELDS as readonly string[]).includes(field);
+}
+
+/** 이 사람이 공정을 얼마나 고칠 수 있나 — 서버(page)가 세션으로 정해서 화면에 내려보낸다 */
+export type ProcessEdit = 'all' | 'partner' | 'none';
+
+/**
+ * 공정 쓰기 권한 — 한백은 전부, 그 현장의 시공사는 한백 전용 칸을 뺀 전부.
+ *
+ * 라우트는 로그인만 본다(sessionWrite). 누가 어느 칸을 적는지는 여기 한 곳이고,
+ * pg-store 와 file-store 가 같은 판정을 부른다 — 화면에서만 잠그면 라우트를 직접
+ * 불러 뚫린다. 소속 비교는 normalizeOrg — 「에코일렉」과 「에코일렉 」이 갈리면
+ * 그 시공사는 자기 현장에 아무것도 못 적는다.
+ */
+export function assertProcessWrite(
+  actor: { role: string; org: string | null },
+  gcOrg: string | null,
+  fields: ReadonlyArray<string>
+): void {
+  if (actor.role === 'admin') return;
+  const isGc =
+    (actor.role === 'cons' || actor.role === 'salesCons') &&
+    actor.org !== null &&
+    gcOrg !== null &&
+    normalizeOrg(actor.org) === normalizeOrg(gcOrg);
+  if (!isGc) {
+    throw new Error('공정 입력은 한백 관리자와 그 현장의 시공사만 할 수 있습니다.');
+  }
+  const blocked = fields.find(isHanbaekOnlyProcessField);
+  if (blocked) {
+    throw new Error(
+      `${HANBAEK_ONLY_LABEL[blocked as (typeof HANBAEK_ONLY_PROCESS_FIELDS)[number]]}은 한백이 적는 칸입니다.`
+    );
+  }
 }

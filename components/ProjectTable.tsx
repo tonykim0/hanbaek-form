@@ -31,30 +31,32 @@ type SortKey = 'name' | 'stage' | 'qty' | 'term' | 'created';
  * 고른 것은 브라우저에 페이지별로 남는다(계약·시공이 각자 다른 열을 본다).
  */
 const PICKABLE = [
-  { key: 'stage', label: '단계', attr: 'col' },
-  { key: 'qty', label: '대수' },
-  { key: 'term', label: '계약연수', attr: 'term' },
-  { key: 'cpo', label: '운영사', attr: 'cpo' },
-  { key: 'queue', label: '환경부 대기번호', attr: 'queue' },
-  { key: 'pre', label: '기설치 조사', attr: 'pre' },
-  { key: 'biz', label: '사업유형', attr: 'biz' },
-  { key: 'bldg', label: '건축물', attr: 'bldg' },
-  { key: 'power', label: '수전방식', attr: 'power' },
-  { key: 'sales', label: '영업사', attr: 'sales' },
-  { key: 'gc', label: '시공사', attr: 'gc' },
+  { key: 'stage', label: '단계', attr: 'col', group: '기본' },
+  { key: 'qty', label: '대수', group: '기본' },
+  { key: 'term', label: '계약연수', attr: 'term', group: '기본' },
+  { key: 'cpo', label: '운영사', attr: 'cpo', group: '기본' },
+  { key: 'sales', label: '영업사', attr: 'sales', group: '기본' },
+  { key: 'gc', label: '시공사', attr: 'gc', group: '기본' },
+  { key: 'created', label: '접수일', group: '기본' },
+  // 영업(계약) 단계에서 다루는 속성
+  { key: 'queue', label: '환경부 대기번호', attr: 'queue', group: '영업' },
+  { key: 'pre', label: '기설치 조사', attr: 'pre', group: '영업' },
+  { key: 'biz', label: '사업유형', attr: 'biz', group: '영업' },
+  { key: 'bldg', label: '건축물', attr: 'bldg', group: '영업' },
+  { key: 'power', label: '수전방식', attr: 'power', group: '영업' },
   // 시공 마일스톤 — 날짜의 유무가 곧 그 일의 여부다. 완료 체크는 ✓ 로 얹는다.
-  { key: 'envApproval', label: '환경부 승인' },
-  { key: 'cpoApproval', label: '시공승인' },
-  { key: 'notify', label: '행위신고' },
-  { key: 'chargerOrder', label: '충전기 발주' },
-  { key: 'chargerRecv', label: '충전기 수령' },
-  { key: 'start', label: '착공' },
-  { key: 'install', label: '설치완료' },
-  { key: 'comm', label: '개통' },
-  { key: 'completion', label: '준공서류' },
-  { key: 'created', label: '접수일' },
-] as const satisfies readonly { key: string; label: string; attr?: AttrKey }[];
+  { key: 'envApproval', label: '환경부 승인', group: '시공' },
+  { key: 'cpoApproval', label: '시공승인', group: '시공' },
+  { key: 'notify', label: '행위신고', group: '시공' },
+  { key: 'chargerOrder', label: '충전기 발주', group: '시공' },
+  { key: 'chargerRecv', label: '충전기 수령', group: '시공' },
+  { key: 'start', label: '착공', group: '시공' },
+  { key: 'install', label: '설치완료', group: '시공' },
+  { key: 'comm', label: '개통', group: '시공' },
+  { key: 'completion', label: '준공서류', group: '시공' },
+] as const satisfies readonly { key: string; label: string; attr?: AttrKey; group: '기본' | '영업' | '시공' }[];
 type ColKey = (typeof PICKABLE)[number]['key'];
+const PICK_GROUPS = ['기본', '영업', '시공'] as const;
 
 /**
  * 페이지별 기본 열 — 사용자가 「표 항목」에서 고르기 전의 시작점.
@@ -416,24 +418,32 @@ function ColumnPicker({
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full z-20 mt-1 w-[200px] rounded-box border border-slate-200 bg-white p-1.5 shadow-lg">
-          {PICKABLE.map((c) => {
-            const on = !hidden.has(c.key);
-            return (
-              <label
-                key={c.key}
-                className="flex cursor-pointer items-center gap-2 rounded-ctl px-2 py-1.5 text-small font-semibold text-slate-700 hover:bg-slate-50"
-              >
-                <input
-                  type="checkbox"
-                  checked={on}
-                  onChange={() => onToggle(c.key)}
-                  className="h-3.5 w-3.5 accent-brand-600"
-                />
-                <span className="truncate">{c.label}</span>
-              </label>
-            );
-          })}
+        /* 왼쪽 기준으로 오른쪽을 향해 연다 — right 기준이면 사이드바 밑으로 들어간다 */
+        <div className="absolute left-0 top-full z-30 mt-1 max-h-[70vh] w-[210px] overflow-y-auto rounded-box border border-slate-200 bg-white p-1.5 shadow-lg">
+          {PICK_GROUPS.map((group) => (
+            <div key={group}>
+              <p className="px-2 pb-0.5 pt-2 text-micro font-bold tracking-[0.12em] text-slate-400 first:pt-1">
+                {group}
+              </p>
+              {PICKABLE.filter((c) => c.group === group).map((c) => {
+                const on = !hidden.has(c.key);
+                return (
+                  <label
+                    key={c.key}
+                    className="flex cursor-pointer items-center gap-2 rounded-ctl px-2 py-1.5 text-small font-semibold text-slate-700 hover:bg-slate-50"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={on}
+                      onChange={() => onToggle(c.key)}
+                      className="h-3.5 w-3.5 accent-brand-600"
+                    />
+                    <span className="truncate">{c.label}</span>
+                  </label>
+                );
+              })}
+            </div>
+          ))}
           {!isDefault && (
             <button
               type="button"

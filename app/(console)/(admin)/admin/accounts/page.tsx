@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
 import { getSessionUser, viewerOf } from '@/lib/auth/session';
 import { userStore } from '@/lib/auth/users';
-import { getRepository, repositoryKind } from '@/lib/data';
+import { getRepository } from '@/lib/data';
 import AccountAdmin from '@/components/AccountAdmin';
 
 export const metadata = {
@@ -45,7 +45,7 @@ export default async function AccountsPage() {
         accounts={accounts}
         knownOrgs={knownOrgs}
         meId={session.id}
-        dbReady={repositoryKind() === 'postgres'}
+        dbReady
       />
     </>
   );

@@ -1,4 +1,4 @@
-import { getRepository, repositoryKind } from '@/lib/data';
+import { getRepository } from '@/lib/data';
 import { getSessionUser, viewerOf } from '@/lib/auth/session';
 import { redirect } from 'next/navigation';
 import ProjectsView from '@/components/ProjectsView';
@@ -25,9 +25,6 @@ export default async function ConstructionPage() {
 
       <ProjectsView projects={projects} band="시공" canMove={session.role === 'admin'} />
 
-      {repositoryKind() === 'file' && (
-        <p className="mt-4 text-small text-slate-400">지금은 예시 데이터입니다 (로컬 파일 저장소).</p>
-      )}
     </>
   );
 }

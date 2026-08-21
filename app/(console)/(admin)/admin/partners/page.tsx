@@ -2,7 +2,6 @@ import { redirect } from 'next/navigation';
 import { getSessionUser } from '@/lib/auth/session';
 import { userStore } from '@/lib/auth/users';
 import { listPartnerDetails } from '@/lib/auth/partner-details';
-import { repositoryKind } from '@/lib/data';
 import PartnerDetailsSection from '@/components/PartnerDetailsSection';
 
 export const metadata = {
@@ -38,7 +37,7 @@ export default async function PartnersPage() {
       <PartnerDetailsSection
         accounts={partners}
         details={details}
-        dbReady={repositoryKind() === 'postgres'}
+        dbReady
         heading={false}
       />
     </>

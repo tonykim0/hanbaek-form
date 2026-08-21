@@ -1,28 +1,17 @@
 /**
- * 시드 현장 5건 — 화면 골격을 세우고 빈 DB 를 채우는 데 쓴다.
+ * 시드 현장 5건 — 빈 DB 를 채운다(`npm run db:seed`).
  *
  * 실제 노션 매트릭스(dec6088d…)에서 읽은 케이스를 참조한다. 금액 자체는 최종확인 전이지만
  * 화면이 다뤄야 할 형태는 이것이 맞다.
  *
- * 조립 로직(toDetail·단계 판정)은 여기 없다 — lib/data/assemble.ts 에 한 벌만 둔다.
+ * ★여기 저장소 구현은 없다.★ 예전에는 읽기 전용 mockRepository(메서드 34개가 전부
+ * throw)가 같이 있었는데 아무도 쓰지 않았다 — 개발 DB 가 분리되면서 파일 저장소와 함께
+ * 걷어냈다(2026-08-22). 조립 로직은 lib/data/assemble.ts 에 한 벌만 있다.
  */
-import type {
-  LineAxes, PayoutRow, PricingRule, ProjectDetail, ProjectDocument, ProjectSummary, SettlementRule,
-  SettlementSummary,
-} from '@/types/project';
-import type { ProjectRepository } from './repository';
-import type { Viewer } from '@/lib/auth/types';
-import { canAccessProject, effectiveVisibility } from '@/lib/roles';
+import type { ProjectDocument } from '@/types/project';
 import {
-  ALL_DOC_KEYS, byStalled, emptyProcess, emptySettlement, processDocs,
-  redactForViewer, settlementSummaryOf, summaryOf, toDetail,
-  type ProjectRecord, type RuleMap, type SettleMap,
+  ALL_DOC_KEYS, emptyProcess, emptySettlement, processDocs, type ProjectRecord,
 } from './assemble';
-import { PRICING_RULES } from './seed/pricing-rules';
-import { SETTLEMENT_RULES } from './seed/settlement-rules';
-
-/** 저장소를 옮기는 동안 예전 이름을 쓰는 코드가 있어 남겨둔다 */
-export type MockRecord = ProjectRecord;
 
 function docs(
   approved: string[],
@@ -43,7 +32,7 @@ function docs(
 }
 
 
-export const SEED_RECORDS: MockRecord[] = [
+export const SEED_RECORDS: ProjectRecord[] = [
   {
     project: {
       id: 'HB-2026-041', mgmtNo: 'HB-2026-041', cpo: '플러그링크',
@@ -198,156 +187,3 @@ export const SEED_RECORDS: MockRecord[] = [
   }
 
 ];
-
-const READ_ONLY = 'mockRepository 는 읽기 전용입니다. lib/data/file-store 또는 pg-store 를 사용하세요.';
-
-/** 읽기 전용 대체물이라 단가·정산 규칙은 시드 그대로다 */
-const SEED_RULE_MAP: RuleMap = new Map(PRICING_RULES.map((r) => [r.id, r]));
-const SEED_SETTLE_MAP: SettleMap = new Map(SETTLEMENT_RULES.map((r) => [r.id, r]));
-
-export const mockRepository: ProjectRepository = {
-  async listProjects(viewer: Viewer): Promise<ProjectSummary[]> {
-    return SEED_RECORDS
-      .filter((r) => canAccessProject(viewer.role, viewer.org, r.project))
-      .map((r) => summaryOf(r, SEED_RULE_MAP, SEED_SETTLE_MAP))
-      .sort(byStalled);
-  },
-
-  async listSettlements(viewer: Viewer): Promise<SettlementSummary[]> {
-    if (viewer.role !== 'admin') return [];
-    return SEED_RECORDS
-      .map((r) => settlementSummaryOf(r, SEED_RULE_MAP, SEED_SETTLE_MAP))
-      .sort((a, b) => b.planTotal - a.planTotal);
-  },
-
-  // 메모리 저장은 불가능하다 — Next 가 라우트별로 서버 번들을 따로 만들어서
-  // API 핸들러에서 쓴 값이 페이지 번들에서는 보이지 않는다. file-store 나 pg-store 를 쓴다.
-  async createProject(): Promise<string> {
-    throw new Error(READ_ONLY);
-  },
-  async addPricingRule(): Promise<string> {
-    throw new Error(READ_ONLY);
-  },
-  async updatePricingRule(): Promise<void> {
-    throw new Error(READ_ONLY);
-  },
-  async setPricingRuleActive(): Promise<void> {
-    throw new Error(READ_ONLY);
-  },
-  async setPricingRuleMeta(): Promise<void> {
-    throw new Error(READ_ONLY);
-  },
-  async setDocumentStatus(): Promise<void> {
-    throw new Error(READ_ONLY);
-  },
-  async deleteDocument(): Promise<{ blobUrl: string | null }> {
-    throw new Error(READ_ONLY);
-  },
-  async addNote(): Promise<void> {
-    throw new Error(READ_ONLY);
-  },
-  async editNote(): Promise<void> {
-    throw new Error(READ_ONLY);
-  },
-  async confirmContract(): Promise<void> {
-    throw new Error(READ_ONLY);
-  },
-  async setCourt(): Promise<void> {
-    throw new Error(READ_ONLY);
-  },
-  async setHold(): Promise<void> {
-    throw new Error(READ_ONLY);
-  },
-  async setProjectName(): Promise<void> {
-    throw new Error(READ_ONLY);
-  },
-  async deleteProject(): Promise<{ blobUrls: string[] }> {
-    throw new Error(READ_ONLY);
-  },
-  async setOrgs(): Promise<void> {
-    throw new Error(READ_ONLY);
-  },
-  async setPreInstall(): Promise<void> {
-    throw new Error(READ_ONLY);
-  },
-  async listPayouts(): Promise<PayoutRow[]> {
-    return [];
-  },
-
-  async listPayoutOverview(): Promise<{ plans: never[]; history: never[] }> {
-    return { plans: [], history: [] };
-  },
-  async setLinePricing(): Promise<void> {
-    throw new Error(READ_ONLY);
-  },
-  async setPayment(): Promise<void> {
-    throw new Error(READ_ONLY);
-  },
-  async setSettlementRule(): Promise<void> {
-    throw new Error(READ_ONLY);
-  },
-  async addPayoutEntry(): Promise<string> {
-    throw new Error(READ_ONLY);
-  },
-  async runPayoutBatch(): Promise<{ count: number; total: number }> {
-    throw new Error(READ_ONLY);
-  },
-  async deletePayoutEntry(): Promise<void> {
-    throw new Error(READ_ONLY);
-  },
-  async setProcessStatus(): Promise<void> {
-    throw new Error(READ_ONLY);
-  },
-  async updateProcess(): Promise<void> {
-    throw new Error(READ_ONLY);
-  },
-  async setEnvQueueNo(): Promise<void> {
-    throw new Error(READ_ONLY);
-  },
-  async setBizYear(): Promise<void> {
-    throw new Error(READ_ONLY);
-  },
-  async uploadDocument(): Promise<void> {
-    throw new Error(READ_ONLY);
-  },
-
-  async listLineAxes(actor): Promise<LineAxes[]> {
-    if (actor.role !== 'admin') throw new Error('단가 판정 축 조회는 한백 관리자만 할 수 있습니다.');
-    const records = SEED_RECORDS;
-    return records.flatMap((r) =>
-      r.lines.map((l) => ({
-        lineId: l.id,
-        projectId: r.project.id,
-        projectName: r.project.name,
-        cpo: r.project.cpo,
-        bizType: r.project.bizType,
-        bldgType: r.project.bldgType,
-        projectReplType: r.project.replType,
-        termYears: l.termYears,
-        qty: l.qty,
-        powerType: l.powerType,
-        lineReplType: l.replType,
-        pricingRuleId: l.pricingRuleId,
-      }))
-    );
-  },
-
-  async listPricingRules(actor): Promise<PricingRule[]> {
-    if (actor.role !== 'admin') throw new Error('단가 케이스 조회는 한백 관리자만 할 수 있습니다.');
-    return PRICING_RULES;
-  },
-
-  async listSettlementRules(actor): Promise<SettlementRule[]> {
-    if (actor.role !== 'admin') throw new Error('정산 규칙 조회는 한백 관리자만 할 수 있습니다.');
-    return SETTLEMENT_RULES;
-  },
-
-  async getProject(id: string, viewer: Viewer): Promise<ProjectDetail | null> {
-    const r = SEED_RECORDS.find((x) => x.project.id === id);
-    if (!r || !canAccessProject(viewer.role, viewer.org, r.project)) return null;
-    return redactForViewer(
-      toDetail(r, SEED_RULE_MAP, SEED_SETTLE_MAP),
-      effectiveVisibility(viewer.role, viewer.org, r.project)
-    );
-  },
-};

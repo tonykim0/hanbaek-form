@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
-import { getRepository, repositoryKind } from '@/lib/data';
+import { getRepository } from '@/lib/data';
 import { getSessionUser, viewerOf } from '@/lib/auth/session';
 import ReceivableBoard from '@/components/settlement/ReceivableBoard';
 
@@ -40,8 +40,7 @@ export default async function ReceivablesPage() {
         * 넣는 칸이 없는 것으로 이미 보인다(화면 규칙 2번).
         */}
       <p className="mt-4 text-small text-slate-400">
-        {repositoryKind() === 'file' && '지금은 예시 데이터입니다 (로컬 파일 저장소).'}
-      </p>
+              </p>
     </>
   );
 }

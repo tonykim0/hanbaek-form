@@ -95,6 +95,7 @@ function toProject(r: ProjectRow): Project {
     preInstall: r.preInstall as PreInstall,
     preNote: r.preNote,
     preChecked: r.preChecked,
+    preRejectReason: r.preRejectReason,
     powerType: r.powerType as PowerType | null,
     replType: r.replType as ReplType | null,
     bizType: r.bizType as BizType | null,
@@ -1159,6 +1160,7 @@ export const pgRepository: ProjectRepository = {
         .select({
           id: projects.id, salesOrg: projects.salesOrg, gcOrg: projects.gcOrg,
           preInstall: projects.preInstall, preNote: projects.preNote, preChecked: projects.preChecked,
+          preRejectReason: projects.preRejectReason,
           bizType: projects.bizType,
         })
         .from(projects)
@@ -1177,29 +1179,50 @@ export const pgRepository: ProjectRepository = {
         throw new Error('이 현장의 기설치를 적을 권한이 없습니다.');
       }
 
+      /*
+       * 조사 반려 — 한백이 「다시 조사해라」를 사유와 함께 되돌린다(한백 확인).
+       * 사유를 적으면 조사 표시가 풀리고 공이 영업사로 넘어간다. 협력사가 조사를
+       * 다시 저장하면(값 선택·확인 표시) 사유가 지워진다 — 보완이 반려를 푼다.
+       */
+      if (patch.preRejectReason !== undefined && actor.role !== 'admin') {
+        throw new Error('기설치 조사 반려는 한백 관리자만 할 수 있습니다.');
+      }
+      const rejecting =
+        typeof patch.preRejectReason === 'string' && patch.preRejectReason.trim() !== '';
+      const fixing = patch.preInstall !== undefined || patch.preChecked === true;
+
       const next = {
         preInstall: patch.preInstall ?? (row.preInstall as PreInstall),
         preNote: 'preNote' in patch ? (patch.preNote?.trim() || null) : row.preNote,
-        preChecked: patch.preChecked ?? row.preChecked,
+        preChecked: rejecting ? false : (patch.preChecked ?? row.preChecked),
+        preRejectReason: rejecting
+          ? patch.preRejectReason!.trim()
+          : patch.preRejectReason === null || fixing
+            ? null
+            : row.preRejectReason,
       };
       if (
         next.preInstall === row.preInstall
         && next.preNote === row.preNote
         && next.preChecked === row.preChecked
+        && next.preRejectReason === row.preRejectReason
       ) return;
 
       const day = today();
       await tx
         .update(projects)
-        // 조사는 진척이다 — 정체일 기준을 갱신한다
-        .set({ ...next, lastProgressAt: day })
+        // 조사는 진척이다 — 정체일 기준을 갱신한다. 반려는 보완 차례라 공이 영업사로.
+        .set({ ...next, lastProgressAt: day, ...(rejecting ? { court: '영업사' } : {}) })
         .where(eq(projects.id, projectId));
 
       await writeAudit(tx, {
-        projectId, actor, action: '기설치 조사',
+        projectId, actor,
+        action: rejecting ? '기설치 조사 반려' : '기설치 조사',
         field: 'preInstall',
         oldValue: `${row.preInstall}${row.preChecked ? ' (확인)' : ''}`,
-        newValue: `${next.preInstall}${next.preChecked ? ' (확인)' : ''}`,
+        newValue: rejecting
+          ? `반려 — ${next.preRejectReason}`
+          : `${next.preInstall}${next.preChecked ? ' (확인)' : ''}`,
       });
     });
   },

@@ -109,6 +109,8 @@ export const projects = pgTable('projects', {
    * 환경부 사업은 현장마다 이 조사를 해야 해서, 안 한 현장을 골라내는 것이 실제 업무다.
    */
   preChecked: boolean('pre_checked').notNull().default(false),
+  /** 기설치 조사 반려 사유 — 한백이 되돌린 이유. 다시 조사하면 지워진다 */
+  preRejectReason: text('pre_reject_reason'),
   powerType: text('power_type'),
   replType: text('repl_type'),
   bizType: text('biz_type'),

@@ -114,10 +114,18 @@ export interface ProjectRepository {
    * 하고 한백이 확인하므로 양쪽이 쓴다 — 한백만 쓸 수 있으면 조사한 사람이 적을 자리가 없다.
    *
    * preChecked 는 「봤다」는 표시다. preInstall 의 '없음' 과 「아직 안 봤음」을 가른다.
+   *
+   * preRejectReason 은 조사 반려다 [한백 전용] — 사유를 적으면 조사 표시가 풀리고 공이
+   * 영업사로 넘어간다. 협력사가 조사를 다시 저장하면 사유가 지워진다(보완이 반려를 푼다).
    */
   setPreInstall(
     projectId: string,
-    patch: { preInstall?: PreInstall; preNote?: string | null; preChecked?: boolean },
+    patch: {
+      preInstall?: PreInstall;
+      preNote?: string | null;
+      preChecked?: boolean;
+      preRejectReason?: string | null;
+    },
     actor: Actor
   ): Promise<void>;
 

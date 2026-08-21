@@ -51,6 +51,8 @@ function parse(raw: string): ProjectRecord[] {
     // 설치 실적이 생기기 전의 파일에는 이 칸이 없다
     r.process.installedSpots = r.process.installedSpots ?? null;
     r.process.installedUnits = r.process.installedUnits ?? null;
+    // 조사 반려가 생기기 전의 파일에는 이 칸이 없다
+    r.project.preRejectReason = r.project.preRejectReason ?? null;
     // 완료 체크가 생기기 전의 파일에는 이 칸들이 없다
     r.process.notifyDate = r.process.notifyDate ?? null;
     r.process.chargerQty = r.process.chargerQty ?? null;
@@ -187,7 +189,7 @@ export const fileRepository: ProjectRepository = {
       name: draft.name, addr: draft.addr, bldgType: draft.bldgType,
       contractParty: draft.contractParty, parkTotal: draft.parkTotal,
       mgr: draft.mgr, tel: draft.tel, mail: draft.mail,
-      preInstall: draft.preInstall, preNote: draft.preNote, preChecked: false,
+      preInstall: draft.preInstall, preNote: draft.preNote, preChecked: false, preRejectReason: null,
       powerType: draft.powerType, replType: draft.replType,
       bizType: draft.bizType,
       // 사업연도는 접수 연도로 시작한다 — 이월 현장만 한백이 고친다 (pg-store 와 같은 판정)
@@ -543,9 +545,22 @@ export const fileRepository: ProjectRepository = {
       throw new Error('이 현장의 기설치를 적을 권한이 없습니다.');
     }
 
+    // 조사 반려는 한백만, 보완이 반려를 푼다 (pg-store 와 같은 판정)
+    if (patch.preRejectReason !== undefined && actor.role !== 'admin') {
+      throw new Error('기설치 조사 반려는 한백 관리자만 할 수 있습니다.');
+    }
+    const rejecting = typeof patch.preRejectReason === 'string' && patch.preRejectReason.trim() !== '';
+    const fixing = patch.preInstall !== undefined || patch.preChecked === true;
     if (patch.preInstall) r.project.preInstall = patch.preInstall;
     if ('preNote' in patch) r.project.preNote = patch.preNote?.trim() || null;
     if (patch.preChecked !== undefined) r.project.preChecked = patch.preChecked;
+    if (rejecting) {
+      r.project.preChecked = false;
+      r.project.preRejectReason = patch.preRejectReason!.trim();
+      r.court = '영업사';
+    } else if (patch.preRejectReason === null || fixing) {
+      r.project.preRejectReason = null;
+    }
     r.lastProgressAt = today();
     await save(records);
   },

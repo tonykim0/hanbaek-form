@@ -39,6 +39,9 @@ export function PreInstall({
   const { busy, error, setError, run } = useAction();
   const [note, setNote] = useState(project.preNote ?? '');
   const [editing, setEditing] = useState(false);
+  /** 조사 반려 — 여는 것과 확정을 가른다(화면 규칙 12). 사유 없는 반려는 저장소가 거절한다. */
+  const [rejecting, setRejecting] = useState(false);
+  const [rejectReason, setRejectReason] = useState('');
 
   const STATES: PreInstall[] = ['없음', '있음'];
 
@@ -75,12 +78,68 @@ export function PreInstall({
     <section>
       <div className="mb-3 flex flex-wrap items-baseline gap-x-2">
         <h2 className="text-h3 font-black text-slate-900">기설치 조사</h2>
-        {project.preChecked ? (
+        {project.preRejectReason ? (
+          <Badge tone="stop">조사 반려</Badge>
+        ) : project.preChecked ? (
           <Badge tone="ok">조사함</Badge>
         ) : (
           <Badge tone="warn">조사 필요</Badge>
         )}
+        {/* 반려는 되돌리기 어려운 판정이 아니라 「다시 조사해라」다 — 여는 단추는 글자만 */}
+        {canReview && project.preChecked && !rejecting && (
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => { setRejecting(true); setRejectReason(''); }}
+            className="ml-auto text-tiny font-bold text-red-700 underline decoration-red-300 transition hover:text-red-900"
+          >
+            조사 반려
+          </button>
+        )}
       </div>
+
+      {/* 반려 사유 — 협력사가 무엇을 다시 봐야 하는지 그 자리에 적힌다 */}
+      {project.preRejectReason && (
+        <p className="mb-3 rounded-ctl bg-red-50 px-3 py-2 text-small leading-snug text-red-800">
+          {project.preRejectReason}
+        </p>
+      )}
+
+      {rejecting && (
+        <div className="mb-3 flex flex-col gap-1.5">
+          <textarea
+            value={rejectReason}
+            onChange={(e) => setRejectReason(e.target.value)}
+            rows={2}
+            autoFocus
+            placeholder="무엇을 다시 조사해야 하나 — 예) 지하 2층 확인 안 됨, 사진 다시"
+            className={FIELD}
+          />
+          <div className="flex items-center gap-1.5">
+            <Btn
+              kind="stop"
+              size="sm"
+              busy={busy}
+              busyLabel="반려 중…"
+              disabled={!rejectReason.trim()}
+              onClick={async () => {
+                const ok = await run({
+                  url: `/api/projects/${project.id}/preinstall`,
+                  method: 'PATCH',
+                  body: { preRejectReason: rejectReason.trim() },
+                  fail: '반려하지 못했습니다.',
+                });
+                if (ok) setRejecting(false);
+              }}
+            >
+              반려 확정
+            </Btn>
+            <Btn size="sm" kind="quiet" disabled={busy} onClick={() => { setRejecting(false); setError(null); }}>
+              취소
+            </Btn>
+          </div>
+        </div>
+      )}
 
       {/*
         * 상자를 겹치지 않는다(CLAUDE.md 화면 규칙 1). 감싸는 판넬 안에 증빙 카드가

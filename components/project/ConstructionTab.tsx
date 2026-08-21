@@ -14,7 +14,7 @@
  * 단계 이동은 한백이 노드를 눌러서 한다 — 조건이 찬 노드만 눌리고, 지난 노드를
  * 누르면 되돌아간다(조건은 누적이라 뒤로는 늘 열려 있다).
  */
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import type { ProcessStatus, ProjectDetail } from '@/types/project';
 import { PROCESS_STATUSES } from '@/types/project';
 import { PROCESS_DOCS } from '@/lib/doc-rules';
@@ -59,8 +59,9 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
   /** 설치 실적 옆에 두는 비교 기준 — 계약과 실제가 다른 것은 흔하다 */
   const contractQty = detail.lines.reduce((s, l) => s + l.qty, 0);
   const { busyKey, error, run } = useAction();
-  /** 지난 구간 펼침 상태 — 기본은 요약 한 줄로 접힌다 */
-  const [openMap, setOpenMap] = useState<Record<string, boolean>>({});
+  /** 스테퍼에서 보고 있는 구간 — 단계가 바뀌면 그 구간을 따라간다 */
+  const [selected, setSelected] = useState<ProcessStatus>(p.status);
+  useEffect(() => setSelected(p.status), [p.status]);
 
   const canEditField = (field: DateField) =>
     edit === 'all' || (edit === 'partner' && !isHanbaekOnlyProcessField(field));
@@ -192,16 +193,6 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
 
   const now = statusIndex(p.status);
 
-  /** 접힌 지난 구간의 요약 한 줄 — 묶음마다 완료 여부 하나씩 */
-  const summarize = (groups: Group[]): string =>
-    groups
-      .map((g) => {
-        if (g.check) return `${g.title} ${p[g.check.field] ? '✓' : '미완'}`;
-        const first = g.rows[0];
-        return `${g.title} ${first?.value ?? '—'}`;
-      })
-      .join(' · ');
-
   return (
     <div className="flex flex-col gap-5">
       {error && (
@@ -223,27 +214,17 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
           />
         </div>
 
-        <ol className="flex flex-col">
+        {/*
+          * 가로 스테퍼 — 단계가 왼쪽에서 오른쪽으로 흐른다(한백 확인). 세로 타임라인은
+          * 단계가 늘수록 화면이 길어졌다. 칩을 누르면 그 구간의 일이 아래 패널에 나온다.
+          * ★보는 것(칩 선택)과 옮기는 것(패널의 넘기기 단추)을 가른다★ — 스치는 클릭에
+          * 단계가 바뀌면 안 된다(보드 끌기를 걷어낸 것과 같은 이유).
+          */}
+        <div className="flex items-center gap-1 overflow-x-auto pb-2" role="tablist" aria-label="공정 단계">
           {PROCESS_STATUSES.map((st, i) => {
-            const groups = GROUPS_BY_STATUS[st] ?? [];
-            const gate = STATUS_GATES[st];
-            const entry = canEnter(st, p);
             const state = i < now ? 'past' : i === now ? 'current' : 'future';
-            const clickable = edit === 'all' && state !== 'current' && entry.ok;
-            const busy = busyKey === 'status';
-            const last = i === PROCESS_STATUSES.length - 1;
-
-            const dot =
-              state === 'current'
-                ? 'bg-brand-600 ring-4 ring-brand-100'
-                : state === 'past'
-                  ? 'bg-brand-400'
-                  : 'bg-slate-200';
-            const rail =
-              state === 'past' ? 'border-brand-200'
-              : state === 'current' ? 'border-brand-400'
-              : 'border-slate-200';
-            const chip =
+            const entry = canEnter(st, p);
+            const tone =
               state === 'current'
                 ? 'bg-brand-700 text-white'
                 : state === 'past'
@@ -251,151 +232,147 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
                   : entry.ok
                     ? 'border border-slate-200 bg-white text-slate-600'
                     : 'bg-slate-100 text-slate-400';
-
-            const collapsed = state === 'past' && groups.length > 0 && !openMap[st];
-
             return (
-              <li key={st}>
-                {/* 단계 노드 */}
-                <div className="flex flex-wrap items-center gap-2">
-                  <span aria-hidden className={`h-3 w-3 shrink-0 rounded-full ${dot}`} />
-                  {clickable ? (
-                    <button
-                      type="button"
-                      disabled={busy}
-                      onClick={() => moveStatus(st)}
-                      title={state === 'past' ? '이 단계로 되돌립니다' : '이 단계로 옮깁니다'}
-                      className={`rounded-ctl px-2.5 py-1 text-small font-bold transition hover:ring-2 hover:ring-brand-300 ${chip} ${busy ? 'opacity-50' : ''}`}
-                    >
-                      {st}
-                    </button>
-                  ) : (
-                    <span className={`rounded-ctl px-2.5 py-1 text-small font-bold ${chip}`}>
-                      {st}
-                    </span>
-                  )}
-                  {/* 잠긴 미래 단계 — 막는 것을 그 자리에 적는다 */}
-                  {state === 'future' && gate && !entry.ok && (
-                    <span className="text-tiny font-semibold text-slate-400">
-                      🔒 {gate.need} 필요
-                    </span>
-                  )}
-                  {state === 'future' && entry.ok && edit === 'all' && (
-                    <span className="text-tiny font-semibold text-brand-700">준비됨</span>
-                  )}
-                </div>
-
-                {/* 구간 몸통 — 왼쪽 선이 노드를 잇는다. 마지막 노드 뒤에는 선이 없다. */}
-                {(groups.length > 0 || !last) && (
-                  <div className={`ml-[5px] border-l-2 ${rail} ${groups.length > 0 ? 'my-1.5 flex flex-col gap-3 py-2 pl-5' : 'h-4'}`}>
-                    {collapsed ? (
-                      <button
-                        type="button"
-                        onClick={() => setOpenMap((m) => ({ ...m, [st]: true }))}
-                        className="w-fit text-left text-tiny font-semibold text-slate-500 transition hover:text-slate-800"
-                        title="펼쳐서 값을 보거나 고칩니다"
-                      >
-                        {summarize(groups)} <span className="text-slate-400">— 펼치기</span>
-                      </button>
-                    ) : (
-                      groups.map((g) => (
-                        <div key={g.title} className={state === 'future' ? 'opacity-70' : ''}>
-                          {/* 묶음 이름이 단계 이름과 같으면 안 적는다 — 바로 위 노드가 이미 그 말이다 */}
-                          {g.title !== st && (
-                            <h3 className="mb-1.5 text-tiny font-bold tracking-[0.06em] text-slate-400">
-                              {g.title}
-                            </h3>
-                          )}
-                          <div className="max-w-2xl overflow-hidden rounded-box border border-slate-200 bg-white divide-y divide-slate-100">
-                            {g.rows.map((m) => (
-                              <DateRow
-                                key={m.field}
-                                m={m}
-                                canEdit={canEditField(m.field)}
-                                lockedForPartner={canEdit && isHanbaekOnlyProcessField(m.field)}
-                                busy={busyKey === m.field}
-                                onSave={saveDate}
-                              />
-                            ))}
-
-                            {/* 수령 수량 — 무엇이 몇 개 왔는지 센다. 수령 완료 체크의 조건이다. */}
-                            {g.title === '충전기' && (
-                              <CountsRow
-                                label="수령 수량"
-                                items={[
-                                  { field: 'chargerQty', prefix: '충전기', unit: '대', value: p.chargerQty },
-                                  { field: 'modemQty', prefix: '모뎀', unit: '개', value: p.modemQty },
-                                ]}
-                                canEdit={canEditField('chargerRecvDate')}
-                                busyKey={busyKey}
-                                onSave={saveCount}
-                                compare={{
-                                  label: `계약 ${contractQty}대`,
-                                  mismatch: p.chargerQty !== null && p.chargerQty !== contractQty,
-                                }}
-                              />
-                            )}
-                            {/* 설치 실적 — 설치완료일 바로 아래, 시공사가 적는다 */}
-                            {g.title === '설치' && (
-                              <CountsRow
-                                label="설치 실적"
-                                items={[
-                                  { field: 'installedSpots', unit: '거점', value: p.installedSpots },
-                                  { field: 'installedUnits', unit: '기', value: p.installedUnits },
-                                ]}
-                                canEdit={canEditField('installDoneDate')}
-                                busyKey={busyKey}
-                                onSave={saveCount}
-                                compare={{
-                                  label: `계약 ${contractQty}대`,
-                                  mismatch: p.installedUnits !== null && p.installedUnits !== contractQty,
-                                }}
-                              />
-                            )}
-
-                            {g.docs.map((kind) => {
-                              const spec = PROCESS_DOCS.find((x) => x.key === kind);
-                              if (!spec) return null;
-                              return (
-                                <DocRow
-                                  key={kind}
-                                  projectId={detail.project.id}
-                                  siteName={detail.project.name}
-                                  spec={spec}
-                                  doc={p.docs.find((x) => x.kind === kind)}
-                                  canDelete={edit === 'all'}
-                                />
-                              );
-                            })}
-
-                            {g.check && (
-                              <CheckRow
-                                check={g.check}
-                                value={p[g.check.field]}
-                                canEdit={canEdit}
-                                busy={busyKey === g.check.field}
-                                onToggle={saveCheck}
-                              />
-                            )}
-                          </div>
-                        </div>
-                      ))
-                    )}
-                    {!collapsed && state === 'past' && groups.length > 0 && (
-                      <button
-                        type="button"
-                        onClick={() => setOpenMap((m) => ({ ...m, [st]: false }))}
-                        className="w-fit text-tiny font-semibold text-slate-400 transition hover:text-slate-700"
-                      >
-                        접기
-                      </button>
-                    )}
-                  </div>
+              <Fragment key={st}>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={selected === st}
+                  onClick={() => setSelected(st)}
+                  className={`shrink-0 whitespace-nowrap rounded-ctl px-2.5 py-1 text-tiny font-bold transition ${tone} ${
+                    selected === st ? 'ring-2 ring-brand-400' : 'hover:ring-2 hover:ring-brand-200'
+                  }`}
+                >
+                  {state === 'past' && <span aria-hidden className="mr-1 opacity-70">✓</span>}
+                  {st}
+                  {state === 'future' && !entry.ok && <span aria-label="잠김" className="ml-1 opacity-70">🔒</span>}
+                </button>
+                {i < PROCESS_STATUSES.length - 1 && (
+                  <span
+                    aria-hidden
+                    className={`h-[2px] w-3 shrink-0 rounded-full ${i < now ? 'bg-brand-300' : 'bg-slate-200'}`}
+                  />
                 )}
-              </li>
+              </Fragment>
             );
           })}
-        </ol>
+        </div>
+
+        {/* 보고 있는 구간의 일 */}
+        {(() => {
+          const selIdx = statusIndex(selected);
+          const selState = selIdx < now ? 'past' : selIdx === now ? 'current' : 'future';
+          const selEntry = canEnter(selected, p);
+          const selGroups = GROUPS_BY_STATUS[selected] ?? [];
+          return (
+            <div className="mt-1 flex flex-col gap-4">
+              {/* 옮기기 — 조건이 찬 구간만. 잠긴 구간은 막는 것이 그 자리에 적힌다. */}
+              {edit === 'all' && selState !== 'current' && (
+                selEntry.ok ? (
+                  <button
+                    type="button"
+                    disabled={busyKey === 'status'}
+                    onClick={() => moveStatus(selected)}
+                    className={`w-fit rounded-ctl border px-3 py-1.5 text-small font-bold transition disabled:opacity-50 ${
+                      selState === 'past'
+                        ? 'border-slate-300 bg-white text-slate-600 hover:border-slate-400'
+                        : 'border-brand-300 bg-brand-50 text-brand-800 hover:bg-brand-100'
+                    }`}
+                  >
+                    {selState === 'past' ? `← ${selected} 로 되돌리기` : `${selected} 로 넘기기 →`}
+                  </button>
+                ) : (
+                  <p className="text-tiny font-semibold text-slate-400">
+                    🔒 {STATUS_GATES[selected]?.need} 필요
+                  </p>
+                )
+              )}
+
+              {selGroups.map((g) => (
+                <div key={g.title}>
+                  {/* 묶음 이름이 단계 이름과 같으면 안 적는다 — 위 칩이 이미 그 말이다 */}
+                  {g.title !== selected && (
+                    <h3 className="mb-1.5 text-tiny font-bold tracking-[0.06em] text-slate-400">
+                      {g.title}
+                    </h3>
+                  )}
+                  <div className="max-w-2xl overflow-hidden rounded-box border border-slate-200 bg-white divide-y divide-slate-100">
+                    {g.rows.map((m) => (
+                      <DateRow
+                        key={m.field}
+                        m={m}
+                        canEdit={canEditField(m.field)}
+                        lockedForPartner={canEdit && isHanbaekOnlyProcessField(m.field)}
+                        busy={busyKey === m.field}
+                        onSave={saveDate}
+                      />
+                    ))}
+
+                    {/* 수령 수량 — 무엇이 몇 개 왔는지 센다. 수령 완료 체크의 조건이다. */}
+                    {g.title === '충전기' && (
+                      <CountsRow
+                        label="수령 수량"
+                        items={[
+                          { field: 'chargerQty', prefix: '충전기', unit: '대', value: p.chargerQty },
+                          { field: 'modemQty', prefix: '모뎀', unit: '개', value: p.modemQty },
+                        ]}
+                        canEdit={canEditField('chargerRecvDate')}
+                        busyKey={busyKey}
+                        onSave={saveCount}
+                        compare={{
+                          label: `계약 ${contractQty}대`,
+                          mismatch: p.chargerQty !== null && p.chargerQty !== contractQty,
+                        }}
+                      />
+                    )}
+                    {/* 설치 실적 — 설치완료일 바로 아래, 시공사가 적는다 */}
+                    {g.title === '설치' && (
+                      <CountsRow
+                        label="설치 실적"
+                        items={[
+                          { field: 'installedSpots', unit: '거점', value: p.installedSpots },
+                          { field: 'installedUnits', unit: '기', value: p.installedUnits },
+                        ]}
+                        canEdit={canEditField('installDoneDate')}
+                        busyKey={busyKey}
+                        onSave={saveCount}
+                        compare={{
+                          label: `계약 ${contractQty}대`,
+                          mismatch: p.installedUnits !== null && p.installedUnits !== contractQty,
+                        }}
+                      />
+                    )}
+
+                    {g.docs.map((kind) => {
+                      const spec = PROCESS_DOCS.find((x) => x.key === kind);
+                      if (!spec) return null;
+                      return (
+                        <DocRow
+                          key={kind}
+                          projectId={detail.project.id}
+                          siteName={detail.project.name}
+                          spec={spec}
+                          doc={p.docs.find((x) => x.kind === kind)}
+                          canDelete={edit === 'all'}
+                        />
+                      );
+                    })}
+
+                    {g.check && (
+                      <CheckRow
+                        check={g.check}
+                        value={p[g.check.field]}
+                        canEdit={canEdit}
+                        busy={busyKey === g.check.field}
+                        onToggle={saveCheck}
+                      />
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          );
+        })()}
 
         {p.memo && (
           <Note tone="mute" className="mt-3">{p.memo}</Note>

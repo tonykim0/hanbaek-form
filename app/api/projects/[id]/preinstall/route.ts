@@ -13,11 +13,24 @@ import type { PreInstall } from '@/types/project';
 const STATES: PreInstall[] = ['없음', '있음'];
 import { sessionWrite, BadRequest } from '@/lib/api/write-route';
 
-type Body = { preInstall?: string; preNote?: string | null; preChecked?: boolean };
+type Body = {
+  preInstall?: string;
+  preNote?: string | null;
+  preChecked?: boolean;
+  /** 조사 반려 사유 [한백 전용 — 저장소가 판정]. null 은 반려 해제. */
+  preRejectReason?: string | null;
+};
 
 export const PATCH = sessionWrite<{ id: string }, Body>(async ({ body, params, actor }) => {
   if (body.preInstall !== undefined && !STATES.includes(body.preInstall as PreInstall)) {
     throw new BadRequest(`기설치는 ${STATES.join(' · ')} 중 하나여야 합니다.`);
+  }
+  if (
+    body.preRejectReason !== undefined
+    && body.preRejectReason !== null
+    && (typeof body.preRejectReason !== 'string' || !body.preRejectReason.trim())
+  ) {
+    throw new BadRequest('반려 사유를 입력해주세요.');
   }
   await getRepository().setPreInstall(
     params.id,
@@ -25,6 +38,7 @@ export const PATCH = sessionWrite<{ id: string }, Body>(async ({ body, params, a
       preInstall: body.preInstall as PreInstall | undefined,
       ...('preNote' in body ? { preNote: body.preNote ?? null } : {}),
       ...(body.preChecked !== undefined ? { preChecked: body.preChecked } : {}),
+      ...('preRejectReason' in body ? { preRejectReason: body.preRejectReason ?? null } : {}),
     },
     actor
   );

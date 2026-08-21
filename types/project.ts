@@ -108,6 +108,11 @@ export interface Project {
    * 안 한 현장을 골라내는 것이 그 업무의 절반이다.
    */
   preChecked: boolean;
+  /**
+   * 기설치 조사 반려 사유 — 한백이 「다시 조사해라」를 되돌린 이유. null 이면 반려 아님.
+   * 협력사가 조사를 다시 저장하면 지워진다(보완이 반려를 푼다 — 서류 반려와 같은 규칙).
+   */
+  preRejectReason: string | null;
   powerType: PowerType | null;
   /**
    * 현장 대표 교체유형 — 계약 라인이 전부 같을 때만 채운다.

@@ -169,7 +169,7 @@ export function contractStateFor(r: ProjectRecord) {
 /** 지급 화면과 저장소 검증이 같이 보는 회차 트리거 날짜. */
 export function payoutMilestonesFor(r: ProjectRecord): PayoutMilestones {
   return {
-    contractReceivedAt: r.project.createdAt,
+    contractCompletedAt: r.project.contractConfirmedAt,
     installCompletedAt: r.process.installConfirmedAt,
     openedAt: r.process.openDoneAt,
   };

@@ -582,8 +582,8 @@ export interface ProjectSummary {
  * 약속을 타입이 지켜주지 못하고, 언젠가 협력사 화면으로 실려 나간다.
  */
 export interface PayoutMilestones {
-  /** 영업비 1차 — 콘솔에 계약이 접수된 날 */
-  contractReceivedAt: string;
+  /** 영업비 1차 — 한백이 계약 확인을 완료한 날 */
+  contractCompletedAt: string | null;
   /** 시공비 1차 — 설치 완료 체크일 */
   installCompletedAt: string | null;
   /** 영업비·시공비 2차 — 개통 완료 체크일 */

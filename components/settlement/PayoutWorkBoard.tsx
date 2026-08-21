@@ -4,7 +4,7 @@
  * 하도급사 지급관리 — 송금 대상·금액·지급일을 확정하는 업무함.
  *
  * 금액 차례와 업무 조건을 모두 충족한 줄만 선택할 수 있다.
- *   영업비 1차 = 계약접수 · 2차 = 개통완료
+ *   영업비 1차 = 계약완료 · 2차 = 개통완료
  *   시공비 1차 = 설치완료 · 2차 = 개통완료
  *
  * 「확정」은 실제 은행 이체가 아니라 송금할 묶음을 원장에 고정하는 일이다. 바로 기록하지
@@ -18,7 +18,7 @@ import { today } from '@/lib/date';
 import { useAction } from '@/lib/use-action';
 import { DatePicker } from '@/components/DatePicker';
 import { Btn, Choice, Empty as EmptyValue, Err, FIELD_CELL, Saved, Tag } from '@/components/ui';
-import { CrossLink, Empty, Frame, SiteLink, Tile, won } from './parts';
+import { CrossLink, Empty, Frame, SiteLink, won } from './parts';
 
 interface Payout {
   key: string;
@@ -36,13 +36,15 @@ interface Payout {
 }
 
 type WorkState = '지급 가능' | '조건 대기' | '확정 완료';
-type WorkFilter = WorkState | '전체';
 
 interface PayoutWork extends Payout {
   state: WorkState;
   blockers: string[];
   open: { no: 1 | 2; amount: number } | null;
   release: ReturnType<typeof payoutReleaseOf> | null;
+  due: number;
+  step1Amount: number;
+  step2Amount: number;
   remaining: number;
 }
 
@@ -75,14 +77,15 @@ function workOf(p: Payout): PayoutWork {
   if (p.unpriced > 0) {
     return {
       ...p, state: '조건 대기', blockers: prerequisites,
-      open: null, release: null, remaining: 0,
+      open: null, release: null, due: steps.due,
+      step1Amount: steps.parts[0], step2Amount: steps.parts[1], remaining: 0,
     };
   }
 
   if (!steps.open) {
     return {
       ...p, state: '확정 완료', blockers: [], open: null, release: null,
-      remaining,
+      due: steps.due, step1Amount: steps.parts[0], step2Amount: steps.parts[1], remaining,
     };
   }
 
@@ -96,17 +99,27 @@ function workOf(p: Payout): PayoutWork {
     blockers,
     open: steps.open,
     release,
+    due: steps.due,
+    step1Amount: steps.parts[0],
+    step2Amount: steps.parts[1],
     remaining,
   };
 }
 
-const KIND_FILTERS = ['전체', '영업비', '시공비'] as const;
-const WORK_FILTERS: WorkFilter[] = ['지급 가능', '조건 대기', '확정 완료', '전체'];
+const PAYOUT_FILTERS = [
+  { label: '전체' },
+  { label: '영업비', kind: '영업비' as const },
+  { label: '시공비', kind: '시공비' as const },
+  { label: '영업비 1차 지급시기', kind: '영업비' as const, no: 1 as const },
+  { label: '영업비 2차 지급시기', kind: '영업비' as const, no: 2 as const },
+  { label: '시공비 1차 지급시기', kind: '시공비' as const, no: 1 as const },
+  { label: '시공비 2차 지급시기', kind: '시공비' as const, no: 2 as const },
+] as const;
+type PayoutFilter = (typeof PAYOUT_FILTERS)[number]['label'];
 
 export default function PayoutWorkBoard({ rows }: { rows: SettlementSummary[] }) {
   const [org, setOrg] = useState<string | null>(null);
-  const [kindFilter, setKindFilter] = useState<(typeof KIND_FILTERS)[number]>('전체');
-  const [workFilter, setWorkFilter] = useState<WorkFilter>('지급 가능');
+  const [payoutFilter, setPayoutFilter] = useState<PayoutFilter>('전체');
   const [sel, setSel] = useState<Set<string>>(new Set());
   const [at, setAt] = useState(today());
   const [reviewing, setReviewing] = useState(false);
@@ -123,22 +136,21 @@ export default function PayoutWorkBoard({ rows }: { rows: SettlementSummary[] })
   const money = useMemo(() => {
     const sum = (list: PayoutWork[], value: (p: PayoutWork) => number) =>
       list.reduce((n, p) => n + value(p), 0);
-    const ready = work.filter((p) => p.state === '지급 가능');
-    const waiting = work.filter((p) => p.state === '조건 대기');
+    const sales = work.filter((p) => p.kind === '영업비');
     return {
-      ready: sum(ready, (p) => p.open?.amount ?? 0),
-      readyCount: ready.length,
-      waiting: sum(waiting, (p) => p.open?.amount ?? 0),
-      waitingCount: waiting.length,
+      salesTotal: sum(sales, (p) => p.due),
+      salesStep1: sum(sales, (p) => p.step1Amount),
+      salesStep2: sum(sales, (p) => p.step2Amount),
+      salesUnpriced: sum(sales, (p) => p.unpriced),
       confirmed: sum(work, (p) => p.confirmed),
-      remaining: sum(work, (p) => Math.max(0, p.remaining)),
     };
   }, [work]);
 
+  const filter = PAYOUT_FILTERS.find((item) => item.label === payoutFilter)!;
   const shown = work
     .filter((p) => org === null || p.org === org)
-    .filter((p) => kindFilter === '전체' || p.kind === kindFilter)
-    .filter((p) => workFilter === '전체' || p.state === workFilter);
+    .filter((p) => !('kind' in filter) || p.kind === filter.kind)
+    .filter((p) => !('no' in filter) || p.open?.no === filter.no);
   const selectable = shown.filter((p) => p.state === '지급 가능' && p.open !== null);
   const selected = selectable.filter((p) => sel.has(p.key));
   const selectedTotal = selected.reduce((n, p) => n + (p.open?.amount ?? 0), 0);
@@ -191,34 +203,36 @@ export default function PayoutWorkBoard({ rows }: { rows: SettlementSummary[] })
 
   return (
     <div>
-      <section aria-label="지급 업무 합계" className="mb-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Tile label={`지급 가능 ${money.readyCount}건`} value={money.ready} tone="in" />
-        <Tile label={`조건 대기 ${money.waitingCount}건`} value={money.waiting} tone="wait" />
-        <Tile label="확정 누계" value={money.confirmed} tone="out" />
-        <Tile label="남은 지급" value={money.remaining} />
+      <section aria-label="영업비 지급 계획" className="mb-5 rounded-panel border border-slate-200 bg-white px-5 py-4">
+        <div className="flex flex-wrap items-center justify-between gap-x-8 gap-y-3">
+          <h2 className="text-h3 font-black text-slate-900">영업비 지급 계획</h2>
+          {money.salesUnpriced > 0 && <Tag tone="warn">단가 미지정 {money.salesUnpriced}건 제외</Tag>}
+        </div>
+        <dl className="mt-3 grid gap-x-8 gap-y-3 border-t border-slate-100 pt-3 sm:grid-cols-3">
+          <div>
+            <dt className="text-tiny font-bold tracking-[0.06em] text-slate-400">총 지급 영업비</dt>
+            <dd className="mt-1 text-xl font-black tabular-nums text-slate-900">{won(money.salesTotal)}<span className="ml-1 text-xs text-slate-400">원</span></dd>
+          </div>
+          <div>
+            <dt className="text-tiny font-bold tracking-[0.06em] text-slate-400">1차 지급액 · 70%</dt>
+            <dd className="mt-1 text-xl font-black tabular-nums text-brand-900">{won(money.salesStep1)}<span className="ml-1 text-xs text-slate-400">원</span></dd>
+          </div>
+          <div>
+            <dt className="text-tiny font-bold tracking-[0.06em] text-slate-400">2차 잔액</dt>
+            <dd className="mt-1 text-xl font-black tabular-nums text-amber-800">{won(money.salesStep2)}<span className="ml-1 text-xs text-slate-400">원</span></dd>
+          </div>
+        </dl>
       </section>
 
       <div className="mb-3 flex flex-wrap items-center gap-2">
-        <div className="flex flex-wrap gap-1" aria-label="업무 상태">
-          {WORK_FILTERS.map((state) => (
+        <div className="flex flex-wrap gap-1" aria-label="지급 구분과 회차">
+          {PAYOUT_FILTERS.map((item) => (
             <Choice
-              key={state}
-              on={workFilter === state}
-              onClick={() => { resetChoice(); setWorkFilter(state); }}
+              key={item.label}
+              on={payoutFilter === item.label}
+              onClick={() => { resetChoice(); setPayoutFilter(item.label); }}
             >
-              {state}{state !== '전체' && ` ${work.filter((p) => p.state === state).length}`}
-            </Choice>
-          ))}
-        </div>
-
-        <div className="flex gap-1" aria-label="지급 구분">
-          {KIND_FILTERS.map((kind) => (
-            <Choice
-              key={kind}
-              on={kindFilter === kind}
-              onClick={() => { resetChoice(); setKindFilter(kind); }}
-            >
-              {kind}
+              {item.label}
             </Choice>
           ))}
         </div>

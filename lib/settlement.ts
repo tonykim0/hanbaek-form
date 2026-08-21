@@ -165,15 +165,15 @@ export function payoutReleaseOf(
   kind: PayoutKind,
   no: 1 | 2,
   milestones: PayoutMilestones
-): { trigger: '계약접수' | '설치완료' | '개통완료'; metAt: string | null; met: boolean } {
+): { trigger: '계약완료' | '설치완료' | '개통완료'; metAt: string | null; met: boolean } {
   if (no === 2) {
     return { trigger: '개통완료', metAt: milestones.openedAt, met: milestones.openedAt !== null };
   }
   if (kind === '영업비') {
     return {
-      trigger: '계약접수',
-      metAt: milestones.contractReceivedAt,
-      met: milestones.contractReceivedAt !== '',
+      trigger: '계약완료',
+      metAt: milestones.contractCompletedAt,
+      met: milestones.contractCompletedAt !== null,
     };
   }
   return {

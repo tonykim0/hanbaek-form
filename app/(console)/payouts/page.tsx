@@ -26,9 +26,22 @@ export default async function PayoutsPage() {
     rows = payoutsOfSummaries(await repo.listSettlements(viewerOf(session)));
   } else {
     const mine = await repo.listProjects(viewerOf(session));
-    const details = (
-      await Promise.all(mine.map((p) => repo.getProject(p.id, viewerOf(session))))
-    ).filter((d): d is NonNullable<typeof d> => d !== null);
+    /*
+     * ★현장마다 상세를 읽되 한꺼번에 몰지 않는다.★
+     *
+     * 상세 하나가 쿼리 열 개쯤(recordsOf 의 병렬 조회 + 진행현황)이다. 현장 전부를
+     * Promise.all 로 동시에 던지면 커넥션 풀(lib/db/client 의 max 5)에 수십 개가 쌓여
+     * 큐가 풀리지 않고 요청이 통째로 죽는다 — 실사고: /payouts 이 300초 런타임
+     * 타임아웃(2026-08-21). 몇 개씩 끊어 돌면 총 시간은 비슷하고 큐는 막히지 않는다.
+     */
+    const WAVE = 3;
+    const details: NonNullable<Awaited<ReturnType<typeof repo.getProject>>>[] = [];
+    for (let i = 0; i < mine.length; i += WAVE) {
+      const wave = await Promise.all(
+        mine.slice(i, i + WAVE).map((p) => repo.getProject(p.id, viewerOf(session)))
+      );
+      for (const d of wave) if (d) details.push(d);
+    }
     rows = details.flatMap((d) =>
       payoutsOfDetail(d, effectiveVisibility(session.role, session.org, d.project))
     );

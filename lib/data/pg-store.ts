@@ -14,6 +14,7 @@
 import { and, desc, eq, inArray, or, sql } from 'drizzle-orm';
 import { getDb } from '@/lib/db/client';
 import { writeAudit } from '@/lib/db/audit';
+import { allSlots } from './db-slot';
 import { dayOf, stampOf, today } from '@/lib/date';
 import {
   contractLines, documents, payoutEntries, pricingRules, processDocuments, processes,
@@ -222,14 +223,15 @@ async function recordsOf(rows: ProjectRow[]): Promise<ProjectRecord[]> {
   const ids = rows.map((r) => r.id);
   const db = getDb();
 
-  const [lineRows, docRows, procRows, procDocRows, settlementRows, payoutRows] = await Promise.all([
-    db.select().from(contractLines).where(inArray(contractLines.projectId, ids)),
-    db.select().from(documents).where(inArray(documents.projectId, ids)),
-    db.select().from(processes).where(inArray(processes.projectId, ids)),
-    db.select().from(processDocuments).where(inArray(processDocuments.projectId, ids)),
-    db.select().from(settlements).where(inArray(settlements.projectId, ids)),
-    db.select().from(payoutEntries).where(inArray(payoutEntries.projectId, ids)),
-  ]);
+  // 여섯 방을 한꺼번에 던지면 풀보다 많아 큐가 막힌다 — 슬롯 안에서 돈다(db-slot)
+  const [lineRows, docRows, procRows, procDocRows, settlementRows, payoutRows] = await allSlots([
+    () => db.select().from(contractLines).where(inArray(contractLines.projectId, ids)),
+    () => db.select().from(documents).where(inArray(documents.projectId, ids)),
+    () => db.select().from(processes).where(inArray(processes.projectId, ids)),
+    () => db.select().from(processDocuments).where(inArray(processDocuments.projectId, ids)),
+    () => db.select().from(settlements).where(inArray(settlements.projectId, ids)),
+    () => db.select().from(payoutEntries).where(inArray(payoutEntries.projectId, ids)),
+  ] as const);
 
   const group = <T extends { projectId: string }>(list: T[]): Map<string, T[]> => {
     const m = new Map<string, T[]>();
@@ -414,7 +416,10 @@ export const pgRepository: ProjectRepository = {
   async listProjects(viewer: Viewer): Promise<ProjectSummary[]> {
     if (viewer.role !== 'admin' && !viewer.org) return [];
     const rows = await getDb().select().from(projects).where(accessWhere(viewer));
-    const [records, rules, settles] = await Promise.all([recordsOf(rows), ruleMap(), settleMap()]);
+    const [records, [rules, settles]] = await Promise.all([
+      recordsOf(rows),
+      allSlots([() => ruleMap(), () => settleMap()] as const),
+    ]);
     return records.map((r) => summaryOf(r, rules, settles)).sort(byStalled);
   },
 
@@ -422,7 +427,10 @@ export const pgRepository: ProjectRepository = {
     // 관리자가 아니면 금액을 읽어오지도 않는다
     if (viewer.role !== 'admin') return [];
     const rows = await getDb().select().from(projects);
-    const [records, rules, settles] = await Promise.all([recordsOf(rows), ruleMap(), settleMap()]);
+    const [records, [rules, settles]] = await Promise.all([
+      recordsOf(rows),
+      allSlots([() => ruleMap(), () => settleMap()] as const),
+    ]);
     return records
       .map((r) => settlementSummaryOf(r, rules, settles))
       .sort((a, b) => b.planTotal - a.planTotal);
@@ -454,7 +462,7 @@ export const pgRepository: ProjectRepository = {
     }));
 
     // 금액을 브라우저로 보내기 전에 지운다 — 화면에서 가리는 것만으로는 소스에 남는다
-    const [rules, settles] = await Promise.all([ruleMap(), settleMap()]);
+    const [rules, settles] = await allSlots([() => ruleMap(), () => settleMap()] as const);
     return redactForViewer(
       toDetail(record, rules, settles),
       effectiveVisibility(viewer.role, viewer.org, row)
@@ -463,7 +471,10 @@ export const pgRepository: ProjectRepository = {
 
   async listPayouts(viewer: Viewer): Promise<PayoutRow[]> {
     const rows = await getDb().select().from(projects).where(accessWhere(viewer));
-    const [records, rules, settles] = await Promise.all([recordsOf(rows), ruleMap(), settleMap()]);
+    const [records, [rules, settles]] = await Promise.all([
+      recordsOf(rows),
+      allSlots([() => ruleMap(), () => settleMap()] as const),
+    ]);
     return records.flatMap((r) => payoutRowsOf(r, viewer, rules, settles));
   },
 

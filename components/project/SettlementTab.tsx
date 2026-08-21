@@ -290,9 +290,9 @@ function Money({ show, value }: { show: boolean; value: number | null }) {
 /**
  * 지급 — 한백이 협력사에게 주는 돈. 계획은 유도되고, 실적은 원장에 적는다.
  *
- * 계획(단가 케이스 × 대수, 회차 70:30)은 사람이 손대지 않는다. 실제로 나간 돈은 계획과
+ * 계획(단가 케이스 × 대수, 회차 70:30)은 사람이 손대지 않는다. 확정한 지급은 계획과
  * 어긋난다 — 선금·차액·회수·차감이 노션 정산관리 115행 중 10행에 비고 문장으로만 있었다.
- * 그래서 나간 돈은 원장에 한 건씩 적고, 잔액 = 계획 + 조정 − 지급 으로 센다.
+ * 그래서 확정한 지급은 원장에 한 건씩 적고, 잔액 = 계획 + 조정 − 지급 으로 센다.
  */
 const CATEGORY_INFO = new Map(PAYOUT_CATEGORIES.map((c) => [c.key, c]));
 
@@ -452,14 +452,14 @@ function PaymentSection({
                     {adjust === 0 ? '—' : `${adjust > 0 ? '+' : ''}${won(adjust)}`}
                   </dd>
                 </div>
-                <div className="flex justify-between"><dt className="text-slate-500">나간 돈</dt><dd className="font-semibold text-slate-800">{won(paid)}</dd></div>
+                <div className="flex justify-between"><dt className="text-slate-500">확정 지급</dt><dd className="font-semibold text-slate-800">{won(paid)}</dd></div>
                 <div className="flex justify-between"><dt className="text-slate-500">잔액</dt>
                   <dd className={`font-black ${remaining > 0 ? 'text-amber-800' : remaining < 0 ? 'text-red-700' : 'text-slate-300'}`}>
                     {remaining === 0 ? '0원' : won(remaining)}
                   </dd>
                 </div>
               </dl>
-              {/* 회차 금액은 정해져 있다 — 사람은 지급 처리(하도급사 지급관리)에서 언제 줬는가만 정한다 */}
+              {/* 회차 금액은 정해져 있다 — 사람은 지급관리에서 송금 대상·금액·일자를 확정한다 */}
               <div className="mt-2 flex flex-col gap-0.5 border-t border-slate-100 pt-2 text-tiny tabular-nums">
                 {([1, 2] as const).map((no) => {
                   const done = no === 1 ? steps.step1Done : steps.step2Done;
@@ -471,7 +471,7 @@ function PaymentSection({
                       <span className="font-semibold text-slate-700">
                         {won(amount)}
                         <span className={`ml-1.5 font-bold ${done ? 'text-brand-800' : steps.open?.no === no ? 'text-amber-700' : 'text-slate-300'}`}>
-                          {done ? at ?? '지급됨' : steps.open?.no === no ? '미지급' : '1차 뒤'}
+                          {done ? at ?? '확정됨' : steps.open?.no === no ? '미확정' : '1차 뒤'}
                         </span>
                       </span>
                     </p>
@@ -491,7 +491,7 @@ function PaymentSection({
 }
 
 /**
- * 지급 원장 — 나간 돈(지급)과 줘야 할 금액의 변화(조정)를 한 건씩 적는다.
+ * 지급 원장 — 확정한 송금(지급)과 줘야 할 금액의 변화(조정)를 한 건씩 적는다.
  *
  * 고치기가 없다 — 지우고 다시 넣는다. 지운 값은 감사 로그에 남는다.
  * 지우기는 두 번 누른다(지우기 → 삭제 확정) — 금액 기록이라 스치는 클릭에 없어지면 안 된다.
@@ -629,7 +629,7 @@ function Ledger({
               >
                 {/*
                   * 예외만 적는다 — 회차(1차·2차)는 금액이 정해져 있어 「하도급사 지급관리」의
-                  * 지급 처리가 계산해 넣는다. 여기 열어두면 유도값과 어긋난 금액이 남는다.
+                  * 지급 확정이 계산해 넣는다. 여기 열어두면 유도값과 어긋난 금액이 남는다.
                   */}
                 <optgroup label="지급 — 돈이 움직였다">
                   {PAYOUT_CATEGORIES.filter((c) => c.manual && c.type === '지급').map((c) => (

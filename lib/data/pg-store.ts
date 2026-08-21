@@ -33,10 +33,12 @@ import {
 } from '@/lib/process';
 import type { Actor, PaymentPatch, ProcessPatch, ProjectRepository } from './repository';
 import { checkPricingRule, duplicateOf, normalizePricingRule, pricingRuleId } from '@/lib/pricing-match';
-import { checkPayoutEntry, payoutSideOf, payoutStepsOf } from '@/lib/settlement';
+import {
+  checkPayoutEntry, payoutPrerequisiteBlockersOf, payoutReleaseOf, payoutSideOf, payoutStepsOf,
+} from '@/lib/settlement';
 import {
   ALL_DOC_KEYS, byStalled, contractStateFor, isProcessDocKind, payoutRowsOf, redactForViewer,
-  settlementSummaryOf,
+  payoutMilestonesFor, settlementSummaryOf,
   summaryOf, toDetail, type ProjectRecord, type RuleMap,
 } from './assemble';
 import { SETTLEMENT_RULE_BY_ID } from './seed/settlement-rules';
@@ -815,7 +817,7 @@ export const pgRepository: ProjectRepository = {
   },
 
   async runPayoutBatch(items, at: string, actor): Promise<{ count: number; total: number }> {
-    assertAdmin(actor, '지급 처리');
+    assertAdmin(actor, '지급 확정');
     if (items.length === 0) throw new Error('지급할 항목이 없습니다.');
     if (!/^\d{4}-\d{2}-\d{2}$/.test(at)) throw new Error('지급일은 YYYY-MM-DD 형식이어야 합니다.');
 
@@ -833,6 +835,15 @@ export const pgRepository: ProjectRepository = {
         if (!r) throw new Error(`현장을 찾을 수 없습니다 — ${item.projectId}`);
         const name = r.project.name;
 
+        const org = item.kind === '영업비' ? r.project.salesOrg : r.project.gcOrg;
+        const prerequisites = payoutPrerequisiteBlockersOf({
+          kind: item.kind,
+          org,
+          unpriced: r.lines.filter((line) => !line.pricingRuleId).length,
+          feeMissing: item.kind === '영업비' ? contractStateFor(r).feeMissing : [],
+        });
+        if (prerequisites.length > 0) throw new Error(`${name} ${item.kind} — ${prerequisites[0]}`);
+
         const plan = r.lines.reduce((n, l) => {
           const rule = l.pricingRuleId ? rules.get(l.pricingRuleId) : null;
           const unit = item.kind === '영업비' ? rule?.salesUnit : rule?.consUnit;
@@ -840,7 +851,11 @@ export const pgRepository: ProjectRepository = {
         }, 0);
         const { adjust, paid } = payoutSideOf(r.payoutEntries ?? [], item.kind);
         const { open } = payoutStepsOf(plan, adjust, paid);
-        if (!open) throw new Error(`${name} ${item.kind} — 지급할 회차가 없습니다 (잔액 0 이거나 이미 나갔습니다).`);
+        if (!open) throw new Error(`${name} ${item.kind} — 확정할 회차가 없습니다 (잔액 0 이거나 이미 확정됐습니다).`);
+        const release = payoutReleaseOf(item.kind, open.no, payoutMilestonesFor(r));
+        if (!release.met) {
+          throw new Error(`${name} ${item.kind} ${open.no}차 — ${release.trigger} 후 지급할 수 있습니다.`);
+        }
 
         // 두 번 눌러도 두 번 안 나가게 — 같은 회차 줄이 이미 있으면 배치를 통째로 세운다
         const category = `${open.no}차`;
@@ -853,7 +868,7 @@ export const pgRepository: ProjectRepository = {
             eq(payoutEntries.category, category)
           ))
           .limit(1);
-        if (dup) throw new Error(`${name} ${item.kind} ${category} — 이미 지급 처리된 회차입니다.`);
+        if (dup) throw new Error(`${name} ${item.kind} ${category} — 이미 지급 확정된 회차입니다.`);
 
         await tx.insert(payoutEntries).values({
           id: crypto.randomUUID(), projectId: item.projectId,
@@ -862,7 +877,7 @@ export const pgRepository: ProjectRepository = {
         });
         await tx.update(projects).set({ lastProgressAt: today() }).where(eq(projects.id, item.projectId));
         await writeAudit(tx, {
-          projectId: item.projectId, actor, action: '지급 처리',
+          projectId: item.projectId, actor, action: '지급 확정',
           field: `${item.kind} ${category}`, oldValue: null, newValue: `${open.amount}원 · ${at}`,
         });
         total += open.amount;

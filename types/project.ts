@@ -460,7 +460,7 @@ export interface Settlement {
  *
  * ★왜 원장인가★ 계획(70/30)만 있던 때는 선금·차액·회수·차감이 전부 비고 문장으로만
  * 남았다 — 노션 정산관리 115행 중 10행이 그랬다. 문장은 합산이 안 되고, 월별 지급명세와
- * 거래명세서는 실제로 나간 돈의 합이다.
+ * 거래명세서는 송금 대상으로 확정한 지급의 합이다.
  *
  * 자재비·추가공사비는 영업·시공이 분리된 채널에서만 생긴다(턴키 업체는 영업비·시공비
  * 안에서 해결). 영업자 부담이므로 시공비에 (+), 영업비에 차감(−) 두 건으로 적는다.
@@ -468,7 +468,7 @@ export interface Settlement {
 /*
  * manual — 사람이 금액을 적을 수 있는 명목인가.
  * 1차·2차 회차 금액은 정해져 있다(총 지급금액의 70%/30%) — 시스템이 계산해 넣고,
- * 사람은 지급 처리(언제 줬는가)만 한다. 수기 입력을 열어두면 유도값과 어긋난 금액이
+ * 사람은 지급 확정(누구에게 얼마를 어느 날 보낼지)만 한다. 수기 입력을 열어두면 유도값과 어긋난 금액이
  * 남고 어느 쪽이 맞는지 알 수 없게 된다 (한백 확인 2026-08-20).
  * 선금·차액은 원장을 만들기 전의 기록용으로만 남긴다 — 새로 적을 수 없다.
  */
@@ -581,6 +581,15 @@ export interface ProjectSummary {
  * 여기에는 계획액·회수액이 들어 있다. 한 타입으로 묶으면 「이 화면은 금액을 안 쓴다」는
  * 약속을 타입이 지켜주지 못하고, 언젠가 협력사 화면으로 실려 나간다.
  */
+export interface PayoutMilestones {
+  /** 영업비 1차 — 콘솔에 계약이 접수된 날 */
+  contractReceivedAt: string;
+  /** 시공비 1차 — 설치 완료 체크일 */
+  installCompletedAt: string | null;
+  /** 영업비·시공비 2차 — 개통 완료 체크일 */
+  openedAt: string | null;
+}
+
 export interface SettlementSummary {
   id: string;
   name: string;
@@ -606,6 +615,10 @@ export interface SettlementSummary {
    */
   salesOrg: string | null;
   gcOrg: string | null;
+  /** 지급 회차를 여는 업무 완료일 */
+  payoutMilestones: PayoutMilestones;
+  /** 영업비 지급 전에 반드시 갖춰야 하는 서류 */
+  salesFeeMissing: string[];
   /** 영업비 계획 = Σ(영업비/대 × 대수) */
   salesTotal: number;
   /** 시공비 계획 = Σ(시공비/대 × 대수) */
@@ -659,7 +672,7 @@ export interface ProjectNote {
  * 영업만 맡은 회사에게 시공비 줄을 보내지 않는다(effectiveVisibility).
  */
 /**
- * 지급 내역 한 줄 — 원장의 지급 한 건이다. 나간(지급 확정된) 돈만 온다.
+ * 지급 내역 한 줄 — 원장에서 송금 대상으로 확정한 지급 한 건이다.
  * 아직 안 나간 몫은 여기 없다 — 잔액은 하도급사 지급관리(/payouts)가 센다.
  */
 export interface PayoutRow {
@@ -671,7 +684,7 @@ export interface PayoutRow {
   kind: PayoutKind;
   /** 명목 — 원장의 category */
   label: string;
-  /** 실지급액(부호 있음 — 회수는 음수) */
+  /** 확정 지급액(부호 있음 — 회수는 음수) */
   amount: number;
   /** 지급일 */
   paidAt: string;

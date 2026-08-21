@@ -21,10 +21,12 @@ import {
   asProcessStatus, assertProcessWrite, canEnter, CHECK_ADVANCES, COURT_AFTER_STATUS, statusIndex,
 } from '@/lib/process';
 import { stamp, today } from '@/lib/date';
-import { checkPayoutEntry, payoutSideOf, payoutStepsOf } from '@/lib/settlement';
+import {
+  checkPayoutEntry, payoutPrerequisiteBlockersOf, payoutReleaseOf, payoutSideOf, payoutStepsOf,
+} from '@/lib/settlement';
 import {
   ALL_DOC_KEYS, byStalled, contractStateFor, emptyProcess, emptySettlement, isProcessDocKind,
-  payoutRowsOf,
+  payoutMilestonesFor, payoutRowsOf,
   redactForViewer, settlementSummaryOf, summaryOf, toDetail,
   type ProjectRecord, type RuleMap,
 } from './assemble';
@@ -384,7 +386,7 @@ export const fileRepository: ProjectRepository = {
   },
 
   async runPayoutBatch(items, at, actor): Promise<{ count: number; total: number }> {
-    if (actor.role !== 'admin') throw new Error('지급 처리는 한백 관리자만 할 수 있습니다.');
+    if (actor.role !== 'admin') throw new Error('지급 확정은 한백 관리자만 할 수 있습니다.');
     if (items.length === 0) throw new Error('지급할 항목이 없습니다.');
     if (!/^\d{4}-\d{2}-\d{2}$/.test(at)) throw new Error('지급일은 YYYY-MM-DD 형식이어야 합니다.');
     const records = await load();
@@ -393,6 +395,16 @@ export const fileRepository: ProjectRepository = {
     for (const item of items) {
       const r = records.find((x) => x.project.id === item.projectId);
       if (!r) throw new Error(`현장을 찾을 수 없습니다 — ${item.projectId}`);
+      const org = item.kind === '영업비' ? r.project.salesOrg : r.project.gcOrg;
+      const prerequisites = payoutPrerequisiteBlockersOf({
+        kind: item.kind,
+        org,
+        unpriced: r.lines.filter((line) => !line.pricingRuleId).length,
+        feeMissing: item.kind === '영업비' ? contractStateFor(r).feeMissing : [],
+      });
+      if (prerequisites.length > 0) {
+        throw new Error(`${r.project.name} ${item.kind} — ${prerequisites[0]}`);
+      }
       const plan = r.lines.reduce((n, l) => {
         const rule = l.pricingRuleId ? rules.get(l.pricingRuleId) : null;
         const unit = item.kind === '영업비' ? rule?.salesUnit : rule?.consUnit;
@@ -401,10 +413,14 @@ export const fileRepository: ProjectRepository = {
       const entries = r.payoutEntries ?? [];
       const { adjust, paid } = payoutSideOf(entries, item.kind);
       const { open } = payoutStepsOf(plan, adjust, paid);
-      if (!open) throw new Error(`${r.project.name} ${item.kind} — 지급할 회차가 없습니다 (잔액 0 이거나 이미 나갔습니다).`);
+      if (!open) throw new Error(`${r.project.name} ${item.kind} — 확정할 회차가 없습니다 (잔액 0 이거나 이미 확정됐습니다).`);
+      const release = payoutReleaseOf(item.kind, open.no, payoutMilestonesFor(r));
+      if (!release.met) {
+        throw new Error(`${r.project.name} ${item.kind} ${open.no}차 — ${release.trigger} 후 지급할 수 있습니다.`);
+      }
       const category = `${open.no}차` as const;
       if (entries.some((e) => e.kind === item.kind && e.category === category)) {
-        throw new Error(`${r.project.name} ${item.kind} ${category} — 이미 지급 처리된 회차입니다.`);
+        throw new Error(`${r.project.name} ${item.kind} ${category} — 이미 지급 확정된 회차입니다.`);
       }
       r.payoutEntries = entries;
       r.payoutEntries.push({

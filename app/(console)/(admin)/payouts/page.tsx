@@ -1,17 +1,15 @@
 import { redirect } from 'next/navigation';
 import { getRepository, repositoryKind } from '@/lib/data';
 import { getSessionUser, viewerOf } from '@/lib/auth/session';
-import PayoutBoard from '@/components/settlement/PayoutBoard';
+import PayoutWorkBoard from '@/components/settlement/PayoutWorkBoard';
 
 export const metadata = { title: '하도급사 지급관리 — 한백 전기차충전사업' };
 
 /**
- * 하도급사 지급관리 — 하도급사에게 내려줄 돈.
- *
- * 운영사 기성(/receivables)과 나눈 이유는 그쪽 주석에 적었다.
+ * 하도급사 지급관리 — 송금 대상·금액·지급일을 확정하는 업무함.
  *
  * ★한백 전용★ 협력사는 자기 지급액도 이 화면으로 보지 않는다 —
- * 여기에는 남의 현장과 마진이 함께 있다. 자기 것은 현장 상세에서 본다.
+ * 여기에는 다른 협력사의 지급 항목이 함께 있다. 자기 것은 지급 내역에서 본다.
  */
 export default async function PayoutsPage() {
   const session = await getSessionUser();
@@ -25,21 +23,15 @@ export default async function PayoutsPage() {
       <div className="mb-6">
         <h1 className="text-h1 font-black text-slate-900">하도급사 지급관리</h1>
         <p className="mt-1.5 text-base text-slate-500">
-          {/*
-            지급 건수를 「현장 × 2」로 세지 않는다 — 받는 곳이 없는 줄은 지급이 아니다.
-            아래 표와 같은 기준으로 세야 두 숫자가 어긋나지 않는다.
-          */}
-          한백 → 하도급사 · 현장 {rows.length}건 · 지급{' '}
-          {rows.reduce((n, r) => n + (r.salesOrg ? 1 : 0) + (r.gcOrg ? 1 : 0), 0)}건
+          한백 → 하도급사 · 현장 {rows.length}건
         </p>
       </div>
 
-      <PayoutBoard rows={rows} />
+      <PayoutWorkBoard rows={rows} />
 
       {/*
-        * 지급액은 계약 라인에 붙인 단가에서 나온다 — 손으로 적지 않는다. 회차는 1차 70% ·
-        * 2차 30%. 지급일 입력은 지금 현장 상세의 정산 탭에만 있다.
-        * 이 문장들은 화면에서 걷어냈다 — 손으로 적는 칸이 없는 것이 그 말이다(화면 규칙 2번).
+        * 지급액은 계약 라인에 붙인 단가에서 나오고, 사람이 고치지 않는다. 회차는 1차 70% ·
+        * 2차 잔액. 사람은 지급 가능한 줄을 골라 송금 대상·금액·일자를 확정한다.
         */}
       <p className="mt-4 text-small text-slate-400">
         {repositoryKind() === 'file' && '지금은 예시 데이터입니다 (로컬 파일 저장소).'}

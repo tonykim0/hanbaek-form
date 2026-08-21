@@ -10,6 +10,7 @@ import type {
   ContractLine,
   ContractLineView,
   Court,
+  PayoutMilestones,
   PayoutEntry,
   ProcessInfo,
   Project,
@@ -165,6 +166,15 @@ export function contractStateFor(r: ProjectRecord) {
   return contractStateOf({ docCtx: docCtxOf(r), documents: r.documents, lines: r.lines });
 }
 
+/** 지급 화면과 저장소 검증이 같이 보는 회차 트리거 날짜. */
+export function payoutMilestonesFor(r: ProjectRecord): PayoutMilestones {
+  return {
+    contractReceivedAt: r.project.createdAt,
+    installCompletedAt: r.process.installConfirmedAt,
+    openedAt: r.process.openDoneAt,
+  };
+}
+
 export function toDetail(r: ProjectRecord, rules: RuleMap): ProjectDetail {
   // 케이스는 불변이라 참조만으로 안전하다 — 값을 복사해 둘 필요가 없다
   const lines: ContractLineView[] = r.lines.map((l) => ({
@@ -295,6 +305,8 @@ export function settlementSummaryOf(r: ProjectRecord, rules: RuleMap): Settlemen
     cpoCloseDate: d.settlement.cpoCloseDate,
     salesOrg: d.project.salesOrg,
     gcOrg: d.project.gcOrg,
+    payoutMilestones: payoutMilestonesFor(r),
+    salesFeeMissing: d.contract.feeMissing,
     salesTotal: d.lines.reduce((n, l) => n + (l.rule?.salesUnit ?? 0) * l.qty, 0),
     consTotal: d.lines.reduce((n, l) => n + (l.rule?.consUnit ?? 0) * l.qty, 0),
     marginTotal: d.lines.reduce((n, l) => n + (l.rule?.margin ?? 0) * l.qty, 0),
@@ -313,19 +325,19 @@ export function settlementSummaryOf(r: ProjectRecord, rules: RuleMap): Settlemen
   };
 }
 
-/** 회차 지급 기록의 지급일 — 지급 처리(runPayoutBatch)가 남긴 1차·2차 줄에서 읽는다 */
+/** 회차 지급 기록의 지급일 — 지급 확정(runPayoutBatch)이 남긴 1차·2차 줄에서 읽는다 */
 function stepAt(entries: PayoutEntry[], kind: PayoutEntry['kind'], category: '1차' | '2차'): string | null {
   return entries.find((e) => e.kind === kind && e.category === category)?.at ?? null;
 }
 
 /**
- * 지급 내역 줄 — 원장의 지급 한 건이 한 줄. 나간 돈만 만든다.
+ * 지급 내역 줄 — 원장에서 송금 대상으로 확정한 지급 한 건이 한 줄이다.
  * 아직 안 나간 몫은 여기서 만들지 않는다 — 잔액은 지급관리(payoutStepsOf)가 센다.
  *
  * ★보는 사람에 따라 줄이 빠진다.★ 영업만 맡은 회사에게 시공비 줄을 주지 않는다.
  * 화면에서 가리는 것이 아니라 여기서 안 만든다 — 서버가 렌더한 값은 브라우저에 통째로 남는다.
  *
- * 조정(자재비·차감…)은 줄이 되지 않는다 — 나간 돈이 아니라 줘야 할 금액의 변화다.
+ * 조정(자재비·차감…)은 줄이 되지 않는다 — 송금 확정이 아니라 줘야 할 금액의 변화다.
  * 마진·기성은 어느 줄에도 없다. 그것은 한백이 운영사에게서 받는 쪽이고 협력사가 볼 것이 아니다.
  */
 export function payoutRowsOf(r: ProjectRecord, viewer: Viewer, rules: RuleMap): PayoutRow[] {

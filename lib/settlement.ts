@@ -10,7 +10,7 @@
  *   준공마감     — 한백이 판단해 지정한다. 공정 일정에서 유도하지 않는다.
  */
 import type {
-  ContractLineView, PayoutCategory, PayoutEntry, PayoutKind, PricingRule, ProcessInfo,
+  ContractLineView, PayoutCategory, PayoutEntry, PayoutKind, PayoutMilestones, PricingRule, ProcessInfo,
   SettlementRule, SettlementStep, StepBasis, StepState, Trigger,
 } from '@/types/project';
 import { PAYOUT_CATEGORIES, PAYOUT_KINDS } from '@/types/project';
@@ -154,6 +154,51 @@ export function settlementForProject(
  */
 export const PAY_SPLIT = [0.7, 0.3] as const;
 
+/**
+ * 하도급사 지급 회차를 여는 업무 사실.
+ *
+ * 금액 진행(payoutStepsOf)과 업무 조건을 섞지 않는다. 금액상 2차 차례여도 개통이 끝나지
+ * 않았으면 지급 대상이 아니다. 화면과 두 저장소가 이 함수를 같이 봐야 API를 직접 불러도
+ * 같은 조건으로 막힌다.
+ */
+export function payoutReleaseOf(
+  kind: PayoutKind,
+  no: 1 | 2,
+  milestones: PayoutMilestones
+): { trigger: '계약접수' | '설치완료' | '개통완료'; metAt: string | null; met: boolean } {
+  if (no === 2) {
+    return { trigger: '개통완료', metAt: milestones.openedAt, met: milestones.openedAt !== null };
+  }
+  if (kind === '영업비') {
+    return {
+      trigger: '계약접수',
+      metAt: milestones.contractReceivedAt,
+      met: milestones.contractReceivedAt !== '',
+    };
+  }
+  return {
+    trigger: '설치완료',
+    metAt: milestones.installCompletedAt,
+    met: milestones.installCompletedAt !== null,
+  };
+}
+
+/** 지급 회차와 무관하게 먼저 갖춰야 하는 값. */
+export function payoutPrerequisiteBlockersOf(input: {
+  kind: PayoutKind;
+  org: string | null;
+  unpriced: number;
+  feeMissing: string[];
+}): string[] {
+  const blockers: string[] = [];
+  if (input.unpriced > 0) blockers.push(`단가 미지정 ${input.unpriced}건 — 지급 금액 확정 불가`);
+  if (!input.org) blockers.push('송금 대상 미지정');
+  if (input.kind === '영업비' && input.feeMissing.length > 0) {
+    blockers.push(`지급조건 서류 미달: ${input.feeMissing.join(' · ')}`);
+  }
+  return blockers;
+}
+
 /** 총액을 회차로 쪼갠다. 끝수는 1차에 붙인다 — 합이 총액과 어긋나면 안 된다. */
 export function payInstallments(total: number): number[] {
   const later = PAY_SPLIT.slice(1).map((r) => Math.round(total * r));
@@ -174,7 +219,7 @@ const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
  * 명목이 부호를 정한다: 회수·차감은 음수, 재정산만 양쪽 다 된다.
  *
  * manualOnly — 사람이 적는 길(조정·회수)인가. 1차·2차 회차 금액은 정해져 있어
- * 수기로 못 적는다: 지급 처리(runPayoutBatch)가 계산해 넣는다.
+ * 수기로 못 적는다: 지급 확정(runPayoutBatch)이 계산해 넣는다.
  */
 export function checkPayoutEntry(input: {
   kind: unknown; category: unknown; amount: unknown; at: unknown; note?: unknown;
@@ -183,7 +228,7 @@ export function checkPayoutEntry(input: {
   const cat = CATEGORY_BY_KEY.get(input.category as PayoutCategory);
   if (!cat) return '명목이 올바르지 않습니다.';
   if (opts.manualOnly && !cat.manual) {
-    return `${cat.key}은(는) 금액이 정해져 있어 손으로 적지 않습니다 — 지급 처리에서 기록됩니다.`;
+    return `${cat.key}은(는) 금액이 정해져 있어 손으로 적지 않습니다 — 지급 확정에서 기록됩니다.`;
   }
   if (typeof input.amount !== 'number' || !Number.isInteger(input.amount) || input.amount === 0) {
     return '금액은 0 이 아닌 원 단위 정수여야 합니다.';

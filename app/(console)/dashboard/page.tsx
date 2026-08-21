@@ -3,9 +3,8 @@ import Link from 'next/link';
 import { thisMonth as seoulMonth } from '@/lib/date';
 import { getRepository } from '@/lib/data';
 import { getSessionUser, viewerOf } from '@/lib/auth/session';
-import { phaseOfProject } from '@/lib/board';
 import { ATTRS, EMPTY, optionsOf, type AttrKey } from '@/lib/project-filter';
-import { PANEL, Tag } from '@/components/ui';
+import { PANEL } from '@/components/ui';
 import type { ProjectSummary } from '@/types/project';
 import type { ReactNode } from 'react';
 
@@ -73,31 +72,6 @@ export default async function DashboardPage({
     };
   });
 
-  const elapsed = byMonth.filter((row) => !row.future);
-  const latest = elapsed.at(-1) ?? byMonth[0];
-  const totalQty = projects.reduce((sum, p) => sum + qtyOf(p), 0);
-  const active = projects.filter((p) => !p.holdState && p.status !== '준공');
-  const activeQty = active.reduce((sum, p) => sum + qtyOf(p), 0);
-
-  /*
-   * 관리 필요는 화면에서 새 규칙을 만들지 않는다. 목록이 이미 가진 상태만 모은다.
-   * 단가 미지정은 한백 내부 판단이라 협력사에게는 표시하지 않는다.
-   */
-  const attention = projects
-    .filter(
-      (p) =>
-        Boolean(p.holdState) ||
-        p.rejectedDocs > 0 ||
-        p.stalledDays >= 14 ||
-        (isAdmin && !p.priced)
-    )
-    .sort((a, b) => attentionScore(b, isAdmin) - attentionScore(a, isAdmin));
-
-  const flow = flowRows(projects);
-  const peak = elapsed.reduce((best, row) => (row.qty > best.qty ? row : best), elapsed[0] ?? byMonth[0]);
-  const monthsWithOrders = elapsed.filter((row) => row.qty > 0).length;
-  const monthlyAverage = Math.round(totalQty / Math.max(elapsed.length, 1));
-
   const dist = (key: AttrKey) => {
     const attr = ATTRS.find((candidate) => candidate.key === key)!;
     return optionsOf(projects, key)
@@ -126,70 +100,23 @@ export default async function DashboardPage({
     <div className="flex flex-col gap-7">
       <PageHeader year={year} years={years} period={period} />
 
-      <section aria-label="핵심 지표" className={`${PANEL} overflow-hidden`}>
-        <div className="grid gap-px bg-slate-100 sm:grid-cols-2 xl:grid-cols-4">
-          <Metric
-            label="누적 수주"
-            value={totalQty}
-            unit="대"
-            detail={`${projects.length}개 현장`}
-            valueClass="text-brand-800"
-          />
-          <Metric
-            label={`${Number(latest.month.slice(5, 7))}월 수주`}
-            value={latest.qty}
-            unit="대"
-            detail={`${latest.projects}개 현장`}
-            valueClass="text-sky-800"
-          />
-          <Metric
-            label="진행 중"
-            value={active.length}
-            unit="건"
-            detail={`${activeQty}대 진행`}
-            valueClass="text-slate-900"
-          />
-          <Metric
-            label="관리 필요"
-            value={attention.length}
-            unit="건"
-            detail={attention.length > 0 ? '우선순위순' : '확인 완료'}
-            valueClass={attention.length > 0 ? 'text-amber-700' : 'text-brand-800'}
-          />
-        </div>
-      </section>
-
-      <div className="grid gap-5 lg:grid-cols-12">
+      <div className="grid gap-5 lg:grid-cols-2">
         <Panel
-          eyebrow="운영"
-          title="관리 필요 현장"
-          className="lg:col-span-7"
-          side={
-            <Link href="/projects?view=table" className="text-small font-bold text-brand-700 hover:text-brand-900">
-              전체 현장 →
-            </Link>
-          }
+          eyebrow="수주"
+          title={`${year}년 월별 수주`}
+          side={<span>그 달에 접수된 대수</span>}
         >
-          <AttentionList projects={attention.slice(0, 6)} isAdmin={isAdmin} />
+          <MonthBars rows={byMonth} kind="month" />
         </Panel>
 
-        <Panel eyebrow="진행" title="업무 흐름" className="lg:col-span-5" side={<span>{projects.length}건</span>}>
-          <Flow rows={flow} total={projects.length} />
+        <Panel
+          eyebrow="수주"
+          title={`${year}년 누적 수주`}
+          side={<span>1월부터 더한 대수</span>}
+        >
+          <MonthBars rows={byMonth} kind="acc" />
         </Panel>
       </div>
-
-      <Panel
-        eyebrow="수주"
-        title={`${year}년 월별 수주`}
-        side={<span>대수 기준</span>}
-      >
-        <MonthBars rows={byMonth} />
-        <div className="mt-5 grid gap-px overflow-hidden rounded-box bg-slate-100 sm:grid-cols-3">
-          <SmallMetric label="월 평균" value={`${monthlyAverage}대`} />
-          <SmallMetric label="최고 월" value={`${Number(peak.month.slice(5, 7))}월 · ${peak.qty}대`} />
-          <SmallMetric label="수주 발생" value={`${monthsWithOrders}개월`} />
-        </div>
-      </Panel>
 
       <section>
         <div className="mb-4 flex items-baseline justify-between gap-3">
@@ -239,31 +166,6 @@ function PageHeader({ year, years, period }: { year: string; years: string[]; pe
   );
 }
 
-function Metric({
-  label,
-  value,
-  unit,
-  detail,
-  valueClass,
-}: {
-  label: string;
-  value: number;
-  unit: string;
-  detail: string;
-  valueClass: string;
-}) {
-  return (
-    <div className="bg-white px-5 py-5 sm:px-6 sm:py-6">
-      <p className="text-small font-bold text-slate-500">{label}</p>
-      <p className={`mt-2 flex items-end gap-1 tabular-nums ${valueClass}`}>
-        <strong className="text-h1 font-black leading-none">{value.toLocaleString('ko-KR')}</strong>
-        <span className="pb-0.5 text-small font-bold">{unit}</span>
-      </p>
-      <p className="mt-2 text-tiny font-semibold text-slate-400">{detail}</p>
-    </div>
-  );
-}
-
 function Panel({
   eyebrow,
   title,
@@ -291,105 +193,9 @@ function Panel({
   );
 }
 
-function AttentionList({ projects, isAdmin }: { projects: ProjectSummary[]; isAdmin: boolean }) {
-  if (projects.length === 0) {
-    return (
-      <div className="flex min-h-[212px] items-center justify-center border-t border-slate-100">
-        <p className="text-center">
-          <strong className="block text-h2 font-black text-brand-700">0건</strong>
-          <span className="mt-1 block text-small font-semibold text-slate-400">관리 필요 현장</span>
-        </p>
-      </div>
-    );
-  }
-
-  return (
-    <ul className="border-t border-slate-100">
-      {projects.map((project) => (
-        <li key={project.id} className="border-b border-slate-100 last:border-b-0">
-          <Link
-            href={`/projects/${project.id}`}
-            className="grid gap-2 py-3.5 transition hover:bg-brand-50/40 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:px-2"
-          >
-            <div className="min-w-0">
-              <div className="flex min-w-0 items-center gap-2">
-                <span className="truncate text-base font-black text-slate-900">{project.name}</span>
-                <span className="shrink-0 text-tiny font-semibold text-slate-400">{project.cpo}</span>
-              </div>
-              <p className="mt-0.5 truncate text-small text-slate-500">
-                {project.holdState ?? project.status} · 공 차례 {project.court}
-              </p>
-            </div>
-            <div className="flex flex-wrap items-center gap-1.5 sm:justify-end">
-              {project.holdState && <Tag tone="hold">{project.holdState}</Tag>}
-              {project.rejectedDocs > 0 && <Tag tone="stop">반려 {project.rejectedDocs}</Tag>}
-              {isAdmin && !project.priced && <Tag tone="warn">단가 미지정</Tag>}
-              {project.stalledDays >= 14 && <Tag tone="warn">정체 {project.stalledDays}일</Tag>}
-            </div>
-          </Link>
-        </li>
-      ))}
-    </ul>
-  );
-}
-
-function attentionScore(project: ProjectSummary, isAdmin: boolean): number {
-  return (
-    (project.holdState ? 400 : 0) +
-    project.rejectedDocs * 100 +
-    (isAdmin && !project.priced ? 60 : 0) +
-    Math.min(project.stalledDays, 99)
-  );
-}
-
-function flowRows(projects: ProjectSummary[]) {
-  const stopped = projects.filter((p) => Boolean(p.holdState));
-  const completed = projects.filter((p) => !p.holdState && p.status === '준공');
-  const contract = projects.filter(
-    (p) => !p.holdState && p.status !== '준공' && phaseOfProject(p) === '계약'
-  );
-  const construction = projects.filter(
-    (p) => !p.holdState && p.status !== '준공' && phaseOfProject(p) === '시공'
-  );
-
-  return [
-    { label: '계약', count: contract.length, qty: contract.reduce((sum, p) => sum + qtyOf(p), 0), color: 'bg-sky-500', href: '/projects' },
-    { label: '시공', count: construction.length, qty: construction.reduce((sum, p) => sum + qtyOf(p), 0), color: 'bg-brand-500', href: '/construction' },
-    { label: '준공', count: completed.length, qty: completed.reduce((sum, p) => sum + qtyOf(p), 0), color: 'bg-brand-800', href: '/construction?view=table&col=준공' },
-    { label: '멈춤', count: stopped.length, qty: stopped.reduce((sum, p) => sum + qtyOf(p), 0), color: 'bg-slate-500', href: '/projects?view=table&col=보류,계약중단' },
-  ];
-}
-
-function Flow({
-  rows,
-  total,
-}: {
-  rows: Array<{ label: string; count: number; qty: number; color: string; href: string }>;
-  total: number;
-}) {
-  return (
-    <div className="flex flex-col gap-4 border-t border-slate-100 pt-4">
-      {rows.map((row) => (
-        <Link key={row.label} href={row.href} className="group block">
-          <div className="mb-1.5 flex items-baseline gap-2">
-            <span className="text-small font-black text-slate-800 group-hover:text-brand-800">{row.label}</span>
-            <span className="text-tiny tabular-nums text-slate-400">{row.qty}대</span>
-            <span className="ml-auto text-small font-black tabular-nums text-slate-800">{row.count}건</span>
-          </div>
-          <div className="h-2 overflow-hidden rounded-full bg-slate-100">
-            <div
-              className={`h-full rounded-full ${row.color}`}
-              style={{ width: `${total > 0 ? Math.max((row.count / total) * 100, row.count > 0 ? 3 : 0) : 0}%` }}
-            />
-          </div>
-        </Link>
-      ))}
-    </div>
-  );
-}
-
 function MonthBars({
   rows,
+  kind,
 }: {
   rows: Array<{
     month: string;
@@ -401,16 +207,23 @@ function MonthBars({
     future: boolean;
     now: boolean;
   }>;
+  kind: 'month' | 'acc';
 }) {
   const height = 196;
-  const max = Math.max(...rows.map((row) => row.qty), 1);
+  const valueOf = (row: (typeof rows)[number]) => (kind === 'month' ? row.qty : row.accQty);
+  const projectCountOf = (row: (typeof rows)[number]) =>
+    kind === 'month' ? row.projects : row.accProjects;
+  const max = Math.max(...rows.map(valueOf), 1);
+  const title = kind === 'month' ? '월별 수주' : '누적 수주';
+  const fill = kind === 'month' ? 'bg-sky-400' : 'bg-brand-400';
+  const fillNow = kind === 'month' ? 'bg-sky-700' : 'bg-brand-700';
 
   return (
     <div className="overflow-x-auto pb-1">
       <div
         role="img"
-        aria-label={`월별 수주 대수: ${rows.map((row) => `${row.label} ${row.future ? '예정' : `${row.qty}대`}`).join(', ')}`}
-        className="min-w-[680px]"
+        aria-label={`${title} 대수: ${rows.map((row) => `${row.label} ${row.future ? '예정' : `${valueOf(row)}대`}`).join(', ')}`}
+        className="min-w-[520px]"
       >
         <div className="relative" style={{ height }}>
           <div aria-hidden className="absolute inset-0 flex flex-col justify-between">
@@ -422,54 +235,52 @@ function MonthBars({
             ))}
           </div>
 
-          <div className="absolute inset-y-0 left-10 right-0 flex items-end gap-2">
-            {rows.map((row) => (
-              <div key={row.month} className="flex h-full min-w-0 flex-1 flex-col justify-end">
-                {row.qty > 0 && !row.future && (
-                  <span className={`mb-1.5 text-center text-tiny font-black tabular-nums ${row.now ? 'text-brand-800' : 'text-slate-600'}`}>
-                    {row.qty}
-                  </span>
-                )}
-                <div
-                  className={`rounded-t-[6px] transition ${
-                    row.future
-                      ? 'bg-slate-100'
-                      : row.now
-                        ? 'bg-brand-700'
-                        : row.qty > 0
-                          ? 'bg-brand-400'
-                          : 'bg-slate-200'
-                  }`}
-                  style={{ height: `${Math.max(row.future ? 0 : 3, (row.qty / max) * (height - 30))}px` }}
-                  title={`${row.month} · ${row.projects}건 ${row.qty}대 · 누적 ${row.accQty}대`}
-                />
-              </div>
-            ))}
+          <div className="absolute inset-y-0 left-10 right-0 flex items-end gap-1">
+            {rows.map((row) => {
+              const value = valueOf(row);
+              const projectCount = projectCountOf(row);
+              return (
+                <div key={row.month} className="flex h-full min-w-0 flex-1 flex-col justify-end">
+                  {value > 0 && !row.future && (
+                    <span className={`mb-1.5 text-center text-tiny font-black tabular-nums ${row.now ? 'text-brand-800' : 'text-slate-600'}`}>
+                      {value}
+                    </span>
+                  )}
+                  <div
+                    className={`rounded-t-[6px] transition ${
+                      row.future
+                        ? 'bg-slate-100'
+                        : row.now
+                          ? fillNow
+                          : value > 0
+                            ? fill
+                            : 'bg-slate-200'
+                    }`}
+                    style={{ height: `${Math.max(row.future ? 0 : 3, (value / max) * (height - 30))}px` }}
+                    title={`${row.month} · ${projectCount}건 ${value}대`}
+                  />
+                </div>
+              );
+            })}
           </div>
         </div>
 
         <div className="ml-10 mt-2 flex gap-2 border-t border-slate-200 pt-2">
-          {rows.map((row) => (
-            <div key={row.month} className="min-w-0 flex-1 text-center">
-              <p className={`text-tiny font-bold ${row.now ? 'text-brand-800' : row.future ? 'text-slate-300' : 'text-slate-500'}`}>
-                {row.label}
-              </p>
-              <p className={`mt-0.5 text-micro tabular-nums ${row.projects > 0 && !row.future ? 'text-slate-400' : 'text-slate-300'}`}>
-                {row.future ? '예정' : `${row.projects}건`}
-              </p>
-            </div>
-          ))}
+          {rows.map((row) => {
+            const projectCount = projectCountOf(row);
+            return (
+              <div key={row.month} className="min-w-0 flex-1 text-center">
+                <p className={`text-tiny font-bold ${row.now ? 'text-brand-800' : row.future ? 'text-slate-300' : 'text-slate-500'}`}>
+                  {row.label}
+                </p>
+                <p className={`mt-0.5 text-micro tabular-nums ${projectCount > 0 && !row.future ? 'text-slate-400' : 'text-slate-300'}`}>
+                  {row.future ? '예정' : `${projectCount}건`}
+                </p>
+              </div>
+            );
+          })}
         </div>
       </div>
-    </div>
-  );
-}
-
-function SmallMetric({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="bg-slate-50 px-4 py-3">
-      <span className="text-tiny font-semibold text-slate-400">{label}</span>
-      <strong className="ml-2 text-small font-black tabular-nums text-slate-800">{value}</strong>
     </div>
   );
 }

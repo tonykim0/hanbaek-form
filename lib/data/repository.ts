@@ -12,7 +12,7 @@
  *     전부 보내놓고 화면에서 가리면 안 된다.
  */
 import type {
-  Court, DocStatus, IntakeDraft, LineAxes, NewPayoutEntry, NewPricingRule, PayoutKind, PayoutRow, PreInstall, PricingRule,
+  Court, DocStatus, HoldState, IntakeDraft, LineAxes, NewPayoutEntry, NewPricingRule, PayoutKind, PayoutRow, PreInstall, PricingRule,
   ProcessInfo, ProcessStatus, ProjectDetail, ProjectSummary, Settlement, SettlementSummary,
 } from '@/types/project';
 import type { Actor, Viewer } from '@/lib/auth/types';
@@ -151,6 +151,35 @@ export interface ProjectRepository {
    * 따로 저장하지 않는다. 여기서 움직이는 것은 누가 다음에 손을 대야 하는가뿐이다.
    */
   setCourt(projectId: string, court: Court, actor: Actor): Promise<void>;
+
+  /**
+   * 현장을 멈추거나(보류·계약중단) 다시 돌린다(null). [한백 전용]
+   *
+   * 세울 때는 사유가 필수다 — 왜 멈췄는지 없으면 몇 달 뒤 아무도 모른다(반려와 같은 규칙).
+   * 지우지 않는다 — 계약이 무산돼도 현장은 보드 끝 칸에 기록으로 남는다.
+   * 재개하면 정체일을 다시 센다(lastProgressAt) — 멈춰 있던 날을 정체로 세면 억울하다.
+   */
+  setHold(
+    projectId: string,
+    hold: { state: HoldState; note: string } | null,
+    actor: Actor
+  ): Promise<void>;
+
+  /**
+   * 현장명을 고친다. [한백 전용]
+   * 접수 때 협력사가 적는 값이라 오타가 흔한데 고칠 길이 없었다(화면 규칙 7).
+   */
+  setProjectName(projectId: string, name: string, actor: Actor): Promise<void>;
+
+  /**
+   * 현장을 삭제한다. [한백 전용]
+   *
+   * 잘못 만든 현장(중복 접수·시험 입력)을 지우는 자리다 — 계약이 무산된 현장은
+   * 지우지 않고 계약중단(setHold)으로 세운다, 그건 기록이다.
+   * 서류·공정·정산·메모가 함께 지워진다(FK cascade). 감사기록은 남는다(FK 없음).
+   * 파일(Blob) 삭제는 라우트가 한다 — 지운 서류의 주소 목록을 돌려준다.
+   */
+  deleteProject(projectId: string, actor: Actor): Promise<{ blobUrls: string[] }>;
 
   /**
    * 계약 확인. [한백 전용]

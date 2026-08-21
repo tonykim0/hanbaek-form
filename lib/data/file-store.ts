@@ -57,6 +57,8 @@ function parse(raw: string): ProjectRecord[] {
     r.process.installedUnits = r.process.installedUnits ?? null;
     // 조사 반려가 생기기 전의 파일에는 이 칸이 없다
     r.project.preRejectReason = r.project.preRejectReason ?? null;
+    // 옛 이름 DROP — 계약중단으로 읽는다
+    if ((r.project.holdState as string) === 'DROP') r.project.holdState = '계약중단';
     // 완료 체크가 생기기 전의 파일에는 이 칸들이 없다
     r.process.openDate = r.process.openDate ?? null;
     r.process.notifyDate = r.process.notifyDate ?? null;
@@ -719,6 +721,45 @@ export const fileRepository: ProjectRepository = {
     r.court = court;
     r.lastProgressAt = today();
     await save(records);
+  },
+
+  async setHold(projectId, hold, actor): Promise<void> {
+    if (actor.role !== 'admin') throw new Error('현장 멈춤은 한백 관리자만 할 수 있습니다.');
+    // 세울 때는 사유가 필수다 (pg-store 와 같은 판정)
+    if (hold && !hold.note.trim()) {
+      throw new Error('사유를 입력하세요 — 왜 멈췄는지 없으면 나중에 아무도 모릅니다.');
+    }
+    const records = await load();
+    const r = records.find((x) => x.project.id === projectId);
+    if (!r) throw new Error('현장을 찾을 수 없습니다.');
+    r.project.holdState = hold?.state ?? null;
+    r.project.holdNote = hold?.note.trim() ?? null;
+    if (!hold) r.lastProgressAt = today(); // 재개하면 정체일을 다시 센다
+    await save(records);
+  },
+
+  async setProjectName(projectId, name, actor): Promise<void> {
+    if (actor.role !== 'admin') throw new Error('현장명 변경은 한백 관리자만 할 수 있습니다.');
+    const next = name.trim();
+    if (!next) throw new Error('현장명을 입력하세요.');
+    const records = await load();
+    const r = records.find((x) => x.project.id === projectId);
+    if (!r) throw new Error('현장을 찾을 수 없습니다.');
+    if (r.project.name === next) return;
+    r.project.name = next;
+    await save(records);
+  },
+
+  async deleteProject(projectId, actor): Promise<{ blobUrls: string[] }> {
+    if (actor.role !== 'admin') throw new Error('현장 삭제는 한백 관리자만 할 수 있습니다.');
+    const records = await load();
+    const r = records.find((x) => x.project.id === projectId);
+    if (!r) throw new Error('현장을 찾을 수 없습니다.');
+    const blobUrls = [...r.documents, ...r.process.docs]
+      .map((d) => d.blobUrl)
+      .filter((u): u is string => Boolean(u));
+    await save(records.filter((x) => x.project.id !== projectId));
+    return { blobUrls };
   },
 };
 

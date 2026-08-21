@@ -249,6 +249,15 @@ export const mockRepository: ProjectRepository = {
   async setCourt(): Promise<void> {
     throw new Error(READ_ONLY);
   },
+  async setHold(): Promise<void> {
+    throw new Error(READ_ONLY);
+  },
+  async setProjectName(): Promise<void> {
+    throw new Error(READ_ONLY);
+  },
+  async deleteProject(): Promise<{ blobUrls: string[] }> {
+    throw new Error(READ_ONLY);
+  },
   async setOrgs(): Promise<void> {
     throw new Error(READ_ONLY);
   },

@@ -17,6 +17,7 @@ import { useRouter } from 'next/navigation';
 import type { ProcessStatus, ProjectSummary } from '@/types/project';
 import { BOARD_COLUMNS, boardColumnOf, type BoardBand, type BoardColumn } from '@/lib/board';
 import { Tag } from '@/components/ui';
+import { StopControl } from '@/components/project/StopControl';
 
 /** 띠별 강조색 — 카드까지 색을 입히면 읽히지 않는다. 줄 머리글만 물들인다. */
 const BAND_RULE: Record<BoardBand, string> = {
@@ -277,6 +278,16 @@ function Card({
             {next.ready ? `${next.status} 준비됨` : `다음: ${next.need}`}
           </p>
         )
+      )}
+
+      {/*
+        * 멈춤·재개 — 한백만. 계약 국면 카드에서 계약중단(맨 끝 칸)으로 보낼 수 있어야 한다.
+        * 멈춘 카드에는 재개가 선다. 컨트롤이 카드 클릭(상세 이동)을 삼키지 않게 막는다.
+        */}
+      {canMove && (p.holdState || p.stage === 'intake') && (
+        <div className="mt-2" onClick={(e) => e.stopPropagation()}>
+          <StopControl projectId={p.id} held={p.holdState} />
+        </div>
       )}
     </article>
   );

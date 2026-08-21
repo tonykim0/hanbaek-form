@@ -367,7 +367,13 @@ export type ProcessStatus = (typeof PROCESS_STATUSES)[number];
  * 「보류」는 계약은 됐는데 도중에 중단된 것이라 시공 상태가 아니라 계약 쪽에 가깝다.
  * 그래서 진행 단계와 섞지 않고 따로 둔다 — 섞으면 「설치완료면서 보류」를 표현할 수 없다.
  */
-export type HoldState = '보류' | 'DROP';
+/**
+ * 멈춤 — 보류(사정이 풀리면 재개)와 계약중단(계약이 무산됨).
+ * 옛 이름 'DROP' 은 읽을 때 계약중단으로 바꾼다(저장소가 한다).
+ * 세울 때는 사유가 필수다 — 왜 멈췄는지 없으면 몇 달 뒤 아무도 모른다.
+ */
+export type HoldState = '보류' | '계약중단';
+export const HOLD_STATES = ['보류', '계약중단'] as const satisfies readonly HoldState[];
 
 /** 노션 공정관리 마스터의 실제 날짜 필드 (준공서류일·기자재발주일은 없다) */
 export interface ProcessInfo {

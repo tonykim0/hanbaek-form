@@ -18,8 +18,8 @@
 import type { HoldState, ProcessStatus, Stage } from '@/types/project';
 import { PROCESS_STATUSES } from '@/types/project';
 
-/** 공정에 들어가기 전(계약)과 흐름에서 빠진 것(보류)은 공정 상태로 표현할 수 없어 따로 둔다 */
-export type BoardColumn = '계약접수' | '계약검토' | '계약보완' | ProcessStatus | '보류';
+/** 공정에 들어가기 전(계약)과 흐름에서 빠진 것(보류·계약중단)은 공정 상태로 표현할 수 없어 따로 둔다 */
+export type BoardColumn = '계약접수' | '계약검토' | '계약보완' | ProcessStatus | '보류' | '계약중단';
 
 /** 칸을 묶는 띠 — 11칸이 한 줄로 늘어서면 눈이 구역을 못 찾는다 */
 export type BoardBand = '계약' | '시공' | '멈춤';
@@ -95,10 +95,18 @@ export const BOARD_COLUMNS: BoardColumnDef[] = [
   })),
   {
     key: '보류',
-    label: '보류 · DROP',
+    label: '보류',
     band: '멈춤',
     droppable: false,
-    why: '멈춤은 현장 상세에서 겁니다',
+    why: '보류는 카드의 「중단」이나 현장 상세에서 겁니다',
+  },
+  // 계약이 무산된 현장 — 맨 끝 칸이다. 지우지 않고 여기 세워 둔다(기록이 남아야 한다).
+  {
+    key: '계약중단',
+    label: '계약중단',
+    band: '멈춤',
+    droppable: false,
+    why: '계약중단은 카드의 「중단」이나 현장 상세에서 겁니다',
   },
 ];
 
@@ -120,7 +128,7 @@ export function boardColumnOf(p: {
   rejectedDocs: number;
   docsFilled: boolean;
 }): BoardColumn {
-  if (p.holdState) return '보류';
+  if (p.holdState) return p.holdState; // 보류·계약중단이 곧 칸 이름이다
   if (p.stage === 'intake') {
     /*
      * 계약 안에서 세 칸으로 갈린다. 순서가 곧 우선순위다.

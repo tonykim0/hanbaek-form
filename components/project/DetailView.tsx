@@ -14,17 +14,19 @@
  */
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import type { ContractState, ProjectDetail, SettlementRuleChoice } from '@/types/project';
 import { useAction } from '@/lib/use-action';
 import { today } from '@/lib/date';
 import { DatePicker } from '@/components/DatePicker';
-import { Btn, Empty, Err, Val } from '@/components/ui';
+import { Btn, Empty, Err, FIELD, Val } from '@/components/ui';
 import { buildDocContext, evaluateDocs, isPartyInferred, PROCESS_DOCS } from '@/lib/doc-rules';
 import { bandOfColumn, boardColumnOf, type BoardBand } from '@/lib/board';
 import type { ProcessEdit } from '@/lib/process';
 import type { Visibility } from '@/lib/roles';
 import type { RuleOptions } from '@/lib/pricing-match';
 import { ConstructionTab } from './ConstructionTab';
+import { StopControl } from './StopControl';
 import { Fact } from './parts';
 import { IntakeTab } from './IntakeTab';
 import { EditableFact } from './EditableFact';
@@ -259,7 +261,10 @@ function SiteHeader({
   /** 이 현장을 지금 세우고 있는 것 */
   const blockers: Array<{ label: string; tone: string }> = [];
   if (project.holdState) {
-    blockers.push({ label: `보류 — ${project.holdNote ?? project.holdState}`, tone: 'bg-slate-800 text-white' });
+    blockers.push({
+      label: `${project.holdState}${project.holdNote ? ` — ${project.holdNote}` : ''}`,
+      tone: 'bg-slate-800 text-white',
+    });
   }
   if (contract.rejected > 0) {
     blockers.push({ label: `반려 ${contract.rejected}건`, tone: 'bg-red-100 text-red-800' });
@@ -295,10 +300,12 @@ function SiteHeader({
         >
           {column}
         </span>
+        {/* 멈춤·재개는 한백만 — 여는 자리는 글자만이고 사유를 적어야 확정된다 */}
+        {canReview && <StopControl projectId={project.id} held={project.holdState} />}
+        {/* 삭제는 반대쪽 끝 — 자주 누르는 것과 붙여 두지 않는다(화면 규칙 8) */}
+        {canReview && <DeleteProject projectId={project.id} name={project.name} />}
       </div>
-      <h1 className="mt-2 text-h1 font-black text-slate-900">
-        {project.name}
-      </h1>
+      <NameTitle projectId={project.id} name={project.name} canEdit={canReview} />
       {project.addr && <p className="mt-1 text-base text-slate-500">{project.addr}</p>}
 
       {/*
@@ -516,5 +523,122 @@ function DateFact({
         </>
       )}
     </div>
+  );
+}
+
+/**
+ * 현장명 — 평소엔 제목 글자, 수정을 눌러야 입력칸(화면 규칙 4). [한백 전용 동작]
+ * 접수 때 협력사가 적는 값이라 오타가 흔한데 고칠 길이 없었다(규칙 7).
+ */
+function NameTitle({
+  projectId, name, canEdit,
+}: {
+  projectId: string;
+  name: string;
+  canEdit: boolean;
+}) {
+  const { busy, error, run } = useAction();
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(name);
+
+  if (!editing) {
+    return (
+      <div className="mt-2 flex flex-wrap items-baseline gap-2">
+        <h1 className="text-h1 font-black text-slate-900">{name}</h1>
+        {canEdit && (
+          <Btn size="sm" kind="quiet" onClick={() => { setDraft(name); setEditing(true); }}>
+            수정
+          </Btn>
+        )}
+      </div>
+    );
+  }
+
+  const save = async () => {
+    const ok = await run({
+      url: `/api/projects/${projectId}/name`,
+      body: { value: draft },
+      fail: '현장명을 바꾸지 못했습니다.',
+    });
+    if (ok) setEditing(false);
+  };
+
+  return (
+    <div className="mt-2 flex flex-wrap items-center gap-2">
+      <input
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        autoFocus
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') void save();
+          if (e.key === 'Escape') setEditing(false);
+        }}
+        className={`${FIELD} max-w-[420px] text-lead font-bold`}
+      />
+      <Btn size="sm" busy={busy} busyLabel="저장 중…" disabled={!draft.trim()} onClick={() => void save()}>
+        저장
+      </Btn>
+      <Btn size="sm" kind="quiet" disabled={busy} onClick={() => setEditing(false)}>
+        취소
+      </Btn>
+      <Err>{error}</Err>
+    </div>
+  );
+}
+
+/**
+ * 현장 삭제 — 잘못 만든 현장(중복 접수·시험 입력)을 지운다. [한백 전용 동작]
+ *
+ * 계약이 무산된 현장은 지우지 않고 계약중단으로 세운다 — 그건 기록이다.
+ * 여는 자리는 글자만이고, 확정만 빨강이다(화면 규칙 12). 지우면 목록으로 돌아간다.
+ */
+function DeleteProject({ projectId, name }: { projectId: string; name: string }) {
+  const router = useRouter();
+  const { busy, error, run } = useAction();
+  const [confirming, setConfirming] = useState(false);
+
+  const remove = async () => {
+    const ok = await run({
+      url: `/api/projects/${projectId}`,
+      method: 'DELETE',
+      fail: '삭제하지 못했습니다.',
+    });
+    if (ok) router.push('/projects');
+  };
+
+  return (
+    <span className="ml-auto">
+      <Btn size="sm" kind="undo" onClick={() => setConfirming(true)}>
+        삭제
+      </Btn>
+
+      {confirming && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4"
+          onClick={() => !busy && setConfirming(false)}
+        >
+          <div
+            className="w-full max-w-sm rounded-panel border border-slate-200 bg-white p-5"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p className="text-lead font-black text-slate-900">
+              「{name}」 현장을 삭제하시겠습니까?
+            </p>
+            <p className="mt-1.5 text-small text-slate-500">
+              서류·공정·정산·메모가 함께 지워지고 되돌릴 수 없습니다.
+            </p>
+            <div className="mt-4 flex items-center gap-2">
+              <Btn kind="stop" size="sm" busy={busy} busyLabel="삭제 중…" onClick={() => void remove()}>
+                예, 삭제합니다
+              </Btn>
+              <Btn kind="quiet" size="sm" disabled={busy} onClick={() => setConfirming(false)}>
+                취소
+              </Btn>
+              <Err>{error}</Err>
+            </div>
+          </div>
+        </div>
+      )}
+    </span>
   );
 }

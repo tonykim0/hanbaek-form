@@ -110,7 +110,8 @@ function toProject(r: ProjectRow): Project {
     createdAt: dayOf(r.createdAt),
     settlementRuleId: r.settlementRuleId,
     settlementAppliedAt: r.settlementAppliedAt,
-    holdState: r.holdState as Project['holdState'],
+    // 옛 이름 DROP — 계약중단으로 읽는다
+    holdState: (r.holdState === 'DROP' ? '계약중단' : r.holdState) as Project['holdState'],
     holdNote: r.holdNote,
   };
 }
@@ -1555,6 +1556,100 @@ export const pgRepository: ProjectRepository = {
         projectId, actor, action: '공 차례 변경',
         field: 'court', oldValue: row.court, newValue: court,
       });
+    });
+  },
+
+  async setHold(projectId, hold, actor): Promise<void> {
+    assertAdmin(actor, '현장 멈춤');
+    if (hold && !hold.note.trim()) {
+      throw new Error('사유를 입력하세요 — 왜 멈췄는지 없으면 나중에 아무도 모릅니다.');
+    }
+
+    const db = getDb();
+    await db.transaction(async (tx) => {
+      const [row] = await tx
+        .select({ holdState: projects.holdState })
+        .from(projects)
+        .where(eq(projects.id, projectId))
+        .limit(1);
+      if (!row) throw new Error('현장을 찾을 수 없습니다.');
+
+      await tx
+        .update(projects)
+        .set({
+          holdState: hold?.state ?? null,
+          holdNote: hold?.note.trim() ?? null,
+          // 재개하면 정체일을 다시 센다 — 멈춰 있던 날을 정체로 세면 억울하다
+          ...(hold ? {} : { lastProgressAt: today() }),
+        })
+        .where(eq(projects.id, projectId));
+
+      await writeAudit(tx, {
+        projectId, actor,
+        action: hold ? `현장 ${hold.state}` : '현장 재개',
+        field: 'holdState',
+        oldValue: row.holdState,
+        newValue: hold ? `${hold.state} — ${hold.note.trim()}` : null,
+      });
+    });
+  },
+
+  async setProjectName(projectId, name, actor): Promise<void> {
+    assertAdmin(actor, '현장명 변경');
+    const next = name.trim();
+    if (!next) throw new Error('현장명을 입력하세요.');
+
+    const db = getDb();
+    await db.transaction(async (tx) => {
+      const [row] = await tx
+        .select({ name: projects.name })
+        .from(projects)
+        .where(eq(projects.id, projectId))
+        .limit(1);
+      if (!row) throw new Error('현장을 찾을 수 없습니다.');
+      if (row.name === next) return;
+
+      await tx.update(projects).set({ name: next }).where(eq(projects.id, projectId));
+
+      await writeAudit(tx, {
+        projectId, actor, action: '현장명 변경',
+        field: 'name', oldValue: row.name, newValue: next,
+      });
+    });
+  },
+
+  async deleteProject(projectId, actor): Promise<{ blobUrls: string[] }> {
+    assertAdmin(actor, '현장 삭제');
+
+    const db = getDb();
+    return db.transaction(async (tx) => {
+      const [row] = await tx
+        .select({ name: projects.name })
+        .from(projects)
+        .where(eq(projects.id, projectId))
+        .limit(1);
+      if (!row) throw new Error('현장을 찾을 수 없습니다.');
+
+      // 지워질 파일 주소를 먼저 모은다 — cascade 뒤에는 물을 곳이 없다
+      const [docRows, procDocRows] = await Promise.all([
+        tx.select({ blobUrl: documents.blobUrl }).from(documents)
+          .where(eq(documents.projectId, projectId)),
+        tx.select({ blobUrl: processDocuments.blobUrl }).from(processDocuments)
+          .where(eq(processDocuments.projectId, projectId)),
+      ]);
+      const blobUrls = [...docRows, ...procDocRows]
+        .map((d) => d.blobUrl)
+        .filter((u): u is string => Boolean(u));
+
+      await tx.delete(projects).where(eq(projects.id, projectId));
+
+      // 감사기록은 FK 가 없어 남는다 — 무엇이 지워졌는지는 여기가 말한다
+      await writeAudit(tx, {
+        projectId, actor, action: '현장 삭제',
+        field: 'name', oldValue: row.name, newValue: null,
+      });
+
+      return { blobUrls };
     });
   },
 };

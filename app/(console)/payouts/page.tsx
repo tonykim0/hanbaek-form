@@ -34,6 +34,9 @@ export default async function PayoutsPage() {
     );
   }
 
+  // 지급된 내역 — 원장 조회는 저장소가 보는 사람 몫으로 걸러 준다(협력사는 자기 것만)
+  const history = await repo.listPayouts(viewerOf(session));
+
   const siteCount = new Set(rows.map((r) => r.projectId)).size;
 
   return (
@@ -45,7 +48,7 @@ export default async function PayoutsPage() {
         </p>
       </div>
 
-      <PayoutWorkBoard rows={rows} canConfirm={isAdmin} />
+      <PayoutWorkBoard rows={rows} history={history} canConfirm={isAdmin} />
     </>
   );
 }

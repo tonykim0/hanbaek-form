@@ -20,6 +20,7 @@
  * 칸은 읽기다 — 이번에 받을 금액과 지급시기를 여기서 확인한다.
  */
 import { useMemo, useState } from 'react';
+import type { PayoutRow } from '@/types/project';
 import { payoutPrerequisiteBlockersOf, payoutReleaseOf, payoutStepsOf } from '@/lib/settlement';
 import type { PayoutRowInput } from '@/lib/payout-board';
 import { today } from '@/lib/date';
@@ -94,9 +95,11 @@ type KindFilter = (typeof KIND_FILTERS)[number];
 type StepFilter = (typeof STEP_FILTERS)[number];
 
 export default function PayoutWorkBoard({
-  rows, canConfirm,
+  rows, history, canConfirm,
 }: {
   rows: PayoutRowInput[];
+  /** 지급된 내역 — 원장의 지급 한 건이 한 줄. 저장소가 보는 사람 몫으로 걸러서 준다. */
+  history: PayoutRow[];
   /** 지급일을 골라 확정할 수 있는가 — 한백만. 협력사는 같은 표를 읽기만 한다. */
   canConfirm: boolean;
 }) {
@@ -115,6 +118,13 @@ export default function PayoutWorkBoard({
     .filter((p) => org === null || p.org === org)
     .filter((p) => kindFilter === '전체' || p.kind === kindFilter)
     .filter((p) => stepFilter === '전체' || p.open?.no === (stepFilter === '1차' ? 1 : 2));
+
+  // 지급된 내역도 같은 필터를 탄다 — 지급시기는 명목(1차·2차)과 맞춘다
+  const shownHistory = history
+    .filter((r) => org === null || r.org === org)
+    .filter((r) => kindFilter === '전체' || r.kind === kindFilter)
+    .filter((r) => stepFilter === '전체' || r.label === stepFilter)
+    .sort((a, b) => b.paidAt.localeCompare(a.paidAt));
 
   return (
     <div>
@@ -202,6 +212,54 @@ export default function PayoutWorkBoard({
           </tbody>
         </Frame>
       )}
+
+      {/* 지급된 내역 — 원장에 확정된 지급이 한 줄씩. 위 표는 계획, 여기는 사실이다. */}
+      <section className="mt-7">
+        <div className="mb-2 flex items-baseline gap-2">
+          <h2 className="text-h3 font-black text-slate-900">지급된 내역</h2>
+          <span className="text-tiny font-bold tabular-nums text-slate-400">{shownHistory.length}건</span>
+        </div>
+        {shownHistory.length === 0 ? (
+          <p className="rounded-box border border-dashed border-slate-200 py-5 text-center text-base text-slate-400">
+            0건
+          </p>
+        ) : (
+          <Frame min="760px">
+            <thead className="border-b border-slate-100 bg-slate-50 text-tiny font-bold tracking-[0.06em] text-slate-500">
+              <tr>
+                <th className="px-3 py-2.5 text-left">지급일</th>
+                <th className="px-3 py-2.5 text-left">현장</th>
+                <th className="px-3 py-2.5 text-left">지급처</th>
+                <th className="px-3 py-2.5 text-left">구분</th>
+                <th className="px-3 py-2.5 text-left">명목</th>
+                <th className="px-3 py-2.5 text-right">금액</th>
+                <th className="px-3 py-2.5 text-left">메모</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {shownHistory.map((r, i) => (
+                <tr key={`${r.projectId}|${r.kind}|${r.label}|${r.paidAt}|${i}`} className="transition hover:bg-brand-50/40">
+                  <td className="whitespace-nowrap px-3 py-2 tabular-nums text-slate-600">{r.paidAt}</td>
+                  <td className="px-3 py-2">
+                    <SiteLink id={r.projectId} name={r.projectName} tab="settlement" />
+                  </td>
+                  <td className="px-3 py-2 text-slate-600">{r.org ?? <EmptyValue kind="miss" />}</td>
+                  <td className="whitespace-nowrap px-3 py-2">
+                    <Tag tone={r.kind === '영업비' ? 'stage' : 'ok'}>{r.kind}</Tag>
+                  </td>
+                  <td className="whitespace-nowrap px-3 py-2 text-slate-700">{r.label}</td>
+                  <td className={`whitespace-nowrap px-3 py-2 text-right font-bold tabular-nums ${r.amount < 0 ? 'text-amber-800' : 'text-slate-800'}`}>
+                    {won(r.amount)}
+                  </td>
+                  <td className="px-3 py-2 text-small text-slate-500">
+                    {r.note ?? <span className="text-slate-300">—</span>}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </Frame>
+        )}
+      </section>
     </div>
   );
 }

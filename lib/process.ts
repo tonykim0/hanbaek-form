@@ -10,7 +10,7 @@
  * 착공·준공마감은 상태가 아니라 날짜다. 기성 트리거가 실착공일·준공마감일에서 직접
  * 판정하므로(lib/settlement.ts) 같은 사실을 상태로 한 번 더 두지 않는다.
  */
-import type { ProcessInfo, ProjectDocument, ProcessStatus } from '@/types/project';
+import type { Court, ProcessInfo, ProjectDocument, ProcessStatus } from '@/types/project';
 import { PROCESS_STATUSES } from '@/types/project';
 import { normalizeOrg } from '@/lib/roles';
 
@@ -151,6 +151,23 @@ export function isHanbaekOnlyProcessField(field: string): boolean {
 
 /** 이 사람이 공정을 얼마나 고칠 수 있나 — 서버(page)가 세션으로 정해서 화면에 내려보낸다 */
 export type ProcessEdit = 'all' | 'partner' | 'none';
+
+/**
+ * 상태를 옮기면 차례(court)도 따라 넘어간다.
+ *
+ * 옮겼다는 것은 그 단계의 확인이 끝났고 다음 사람이 움직일 차례라는 뜻이다. 이게 없으면
+ * 설치완료 검토를 끝내고도 차례가 한백에 남아, 준공서류를 준비할 시공사가 자기 차례인 줄
+ * 모른다. 손 넘기기(setCourt)는 그대로 있다 — 전화로 결정 난 현장은 따로 넘긴다.
+ */
+export const COURT_AFTER_STATUS: Record<ProcessStatus, Court> = {
+  '계약완료': '한백',             // 다음 일: 운영사에 계약서 제출 — 한백이 한다
+  '운영사 계약서 제출': '운영사', // 시공승인 회신을 기다린다
+  '시공진행필요': '시공사',
+  '설치완료': '시공사',           // 통신 확인·준공서류 준비
+  '준공서류 접수/검토': '한백',
+  '준공보완': '시공사',
+  '준공': '한백',                 // 준공마감·정산 처리
+};
 
 /**
  * 공정 쓰기 권한 — 한백은 전부, 그 현장의 시공사는 한백 전용 칸을 뺀 전부.

@@ -40,6 +40,19 @@ export const POST = sessionWrite<{ id: string }, Record<string, unknown>>(
       if (v !== null && typeof v !== 'string') throw new BadRequest('memo 는 문자열이어야 합니다.');
       patch.memo = v === '' ? null : (v as string | null);
     }
+    // 설치 실적 — 몇 거점 · 몇 기. 빈 칸으로 지우는 것은 허용한다.
+    for (const f of ['installedSpots', 'installedUnits'] as const) {
+      if (!(f in body)) continue;
+      const v = body[f];
+      if (v === null || v === '') {
+        patch[f] = null;
+        continue;
+      }
+      if (typeof v !== 'number' || !Number.isInteger(v) || v < 0 || v > 9999) {
+        throw new BadRequest('설치 실적은 0 이상의 정수여야 합니다.');
+      }
+      patch[f] = v;
+    }
     if (Object.keys(patch).length === 0) throw new BadRequest('바꿀 값이 없습니다.');
 
     await getRepository().updateProcess(params.id, patch, actor);

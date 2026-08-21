@@ -160,6 +160,9 @@ export const processes = pgTable('processes', {
   startPlanDate: text('start_plan_date'),
   startActualDate: text('start_actual_date'),        // 착공 트리거
   installDoneDate: text('install_done_date'),
+  /** 설치 실적 — 몇 거점 · 몇 기. 시공사가 설치완료 때 적는다 */
+  installedSpots: integer('installed_spots'),
+  installedUnits: integer('installed_units'),
   commDoneDate: text('comm_done_date'),
   /** 진행현황 6단계 (types/project.ts PROCESS_STATUSES) */
   status: text('status').notNull().default('계약완료'),

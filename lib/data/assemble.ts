@@ -116,6 +116,8 @@ export const emptyProcess = (projectId: string): ProcessInfo => ({
   startPlanDate: null,
   startActualDate: null,
   installDoneDate: null,
+  installedSpots: null,
+  installedUnits: null,
   commDoneDate: null,
   docs: processDocs([]),
   status: '계약완료',

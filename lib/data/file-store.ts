@@ -17,7 +17,7 @@ import type {
 import type { Viewer } from '@/lib/auth/types';
 import type { Actor, ProjectRepository } from './repository';
 import { canAccessProject, effectiveVisibility, normalizeOrg } from '@/lib/roles';
-import { asProcessStatus, assertProcessWrite, canEnter } from '@/lib/process';
+import { asProcessStatus, assertProcessWrite, canEnter, COURT_AFTER_STATUS } from '@/lib/process';
 import { stamp, today } from '@/lib/date';
 import { checkPayoutEntry, payoutSideOf, payoutStepsOf } from '@/lib/settlement';
 import {
@@ -48,6 +48,9 @@ function parse(raw: string): ProjectRecord[] {
     r.process.status = asProcessStatus(r.process.status);
     // 원장이 생기기 전의 파일에는 이 배열이 없다 — 빈 원장으로 읽는다
     r.payoutEntries = r.payoutEntries ?? [];
+    // 설치 실적이 생기기 전의 파일에는 이 칸이 없다
+    r.process.installedSpots = r.process.installedSpots ?? null;
+    r.process.installedUnits = r.process.installedUnits ?? null;
   }
   return records;
 }
@@ -497,6 +500,8 @@ export const fileRepository: ProjectRepository = {
     if (!entry.ok) throw new Error(`${status} 로 넘기려면 ${entry.blockedBy} 이(가) 필요합니다.`);
 
     r.process.status = status;
+    // 상태를 옮기면 차례도 따라 넘어간다 — 다음 사람이 움직일 차례다 (pg-store 와 같은 판정)
+    r.court = COURT_AFTER_STATUS[status];
     r.lastProgressAt = today();
     await save(records);
   },

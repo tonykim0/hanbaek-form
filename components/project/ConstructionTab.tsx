@@ -6,6 +6,7 @@
  * 단계는 누적으로 열린다(lib/process). 앞 조건이 안 채워지면 다음 칸이 눌리지 않는다 —
  * 못 하는 이유를 문장으로 적는 대신 버튼을 잠그는 방식이다.
  */
+import { Fragment } from 'react';
 import type { ProjectDetail } from '@/types/project';
 import { PROCESS_DOCS } from '@/lib/doc-rules';
 import {
@@ -88,6 +89,8 @@ type DateField =
 
 export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit: ProcessEdit }) {
   const p = detail.process;
+  /** 설치 실적 옆에 두는 비교 기준 — 계약과 실제가 다른 것은 흔하다 */
+  const contractQty = detail.lines.reduce((s, l) => s + l.qty, 0);
   // 칸이 여덟 개라 어느 칸이 저장 중인지 알아야 한다 — 그 칸만 잠근다
   const { busyKey, error, run } = useAction();
 
@@ -108,6 +111,19 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
       fail: '저장하지 못했습니다.',
       key: field,
     });
+
+  /** 설치 실적 — 숫자는 키를 누를 때마다가 아니라 칸을 떠날 때 저장한다 */
+  const saveCount = (field: 'installedSpots' | 'installedUnits', raw: string, before: number | null) => {
+    const value = raw === '' ? null : Number(raw);
+    if (value !== null && (!Number.isInteger(value) || value < 0)) return;
+    if (value === before) return;
+    void run({
+      url: `/api/projects/${detail.project.id}/process`,
+      body: { [field]: value },
+      fail: '저장하지 못했습니다.',
+      key: field,
+    });
+  };
 
   const milestones: Array<{
     label: string;
@@ -166,7 +182,8 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
         <div className="overflow-hidden rounded-box border border-slate-200 divide-y divide-slate-100">
           {/* 여부 줄(운영사 계약서 제출)은 한백만 본다 — 협력사는 몰라도 되는 값이다 */}
           {milestones.filter((m) => !m.flag || edit === 'all').map((m) => (
-            <div key={m.field} className="flex flex-wrap items-center gap-3 px-4 py-2.5 text-base">
+            <Fragment key={m.field}>
+            <div className="flex flex-wrap items-center gap-3 px-4 py-2.5 text-base">
               <span className="w-32 shrink-0 text-slate-500">{m.label}</span>
               {m.flag ? (
                 <label className="flex w-[150px] cursor-pointer items-center gap-2">
@@ -219,6 +236,62 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
                 </span>
               )}
             </div>
+
+            {/* 설치 실적 — 몇 거점에 몇 기를 세웠나. 설치완료일 바로 아래, 시공사가 적는다. */}
+            {m.field === 'installDoneDate' && (
+              <div className="flex flex-wrap items-center gap-3 px-4 py-2.5 text-base">
+                <span className="w-32 shrink-0 text-slate-500">설치 실적</span>
+                {canEditField('installDoneDate') ? (
+                  <span className="flex items-center gap-1.5">
+                    {([
+                      { field: 'installedSpots', unit: '거점', value: p.installedSpots },
+                      { field: 'installedUnits', unit: '기', value: p.installedUnits },
+                    ] as const).map((c) => (
+                      <span key={c.field} className="flex items-center gap-1">
+                        <input
+                          type="number"
+                          min={0}
+                          inputMode="numeric"
+                          aria-label={`설치 ${c.unit} 수`}
+                          defaultValue={c.value ?? ''}
+                          disabled={busyKey === c.field}
+                          onBlur={(e) => saveCount(c.field, e.target.value, c.value)}
+                          onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                          className={`w-16 rounded-ctl border px-2 py-1 text-right font-semibold tabular-nums transition focus:outline-none focus:ring-2 focus:ring-brand-100 ${
+                            c.value !== null
+                              ? 'border-slate-200 text-slate-800'
+                              : 'border-dashed border-slate-300 text-slate-400'
+                          } ${busyKey === c.field ? 'opacity-50' : 'hover:border-brand-300'}`}
+                        />
+                        <span className="text-slate-500">{c.unit}</span>
+                      </span>
+                    ))}
+                  </span>
+                ) : (
+                  <span
+                    className={`font-semibold tabular-nums ${
+                      p.installedSpots !== null || p.installedUnits !== null ? 'text-slate-800' : 'text-slate-300'
+                    }`}
+                  >
+                    {p.installedSpots !== null || p.installedUnits !== null
+                      ? `${p.installedSpots ?? '—'}거점 · ${p.installedUnits ?? '—'}기`
+                      : '비어 있음'}
+                  </span>
+                )}
+                <span className="flex-1" />
+                {/* 계약과 다르면 그 자리에서 보인다 — 맞는지 물으러 갈 곳이 따로 없어야 한다 */}
+                <span
+                  className={`text-tiny font-semibold ${
+                    p.installedUnits !== null && p.installedUnits !== contractQty
+                      ? 'text-amber-700'
+                      : 'text-slate-400'
+                  }`}
+                >
+                  계약 {contractQty}대
+                </span>
+              </div>
+            )}
+            </Fragment>
           ))}
         </div>
       </section>

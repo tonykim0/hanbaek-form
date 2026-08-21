@@ -365,6 +365,12 @@ export interface ProcessInfo {
   /** 「착공」 트리거의 근거 */
   startActualDate: string | null;
   installDoneDate: string | null;
+  /**
+   * 설치 실적 — 몇 거점에 몇 기를 설치했나. 시공사가 설치완료 때 적는다.
+   * 계약 대수(qty)와 다를 수 있다 — 계약은 약속이고 이것은 실제로 세운 것이다.
+   */
+  installedSpots: number | null;
+  installedUnits: number | null;
   commDoneDate: string | null;
   docs: ProjectDocument[];
   status: ProcessStatus;

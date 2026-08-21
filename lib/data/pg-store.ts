@@ -28,7 +28,7 @@ import type {
 import type { Viewer } from '@/lib/auth/types';
 import { canAccessProject, effectiveVisibility, normalizeOrg } from '@/lib/roles';
 import { needsPreInstallCheck, PROCESS_DOCS } from '@/lib/doc-rules';
-import { asProcessStatus, assertProcessWrite, canEnter } from '@/lib/process';
+import { asProcessStatus, assertProcessWrite, canEnter, COURT_AFTER_STATUS } from '@/lib/process';
 import type { Actor, PaymentPatch, ProcessPatch, ProjectRepository } from './repository';
 import { checkPricingRule, duplicateOf, normalizePricingRule, pricingRuleId } from '@/lib/pricing-match';
 import { checkPayoutEntry, payoutSideOf, payoutStepsOf } from '@/lib/settlement';
@@ -160,6 +160,8 @@ function toProcess(projectId: string, r: ProcRow | undefined, docRows: ProcDocRo
     startPlanDate: r?.startPlanDate ?? null,
     startActualDate: r?.startActualDate ?? null,
     installDoneDate: r?.installDoneDate ?? null,
+    installedSpots: r?.installedSpots ?? null,
+    installedUnits: r?.installedUnits ?? null,
     commDoneDate: r?.commDoneDate ?? null,
     docs: mergeDocs(PROCESS_DOC_KEYS, docRows),
     status: asProcessStatus(r?.status),
@@ -1035,11 +1037,14 @@ export const pgRepository: ProjectRepository = {
         .where(eq(projects.id, projectId));
 
       for (const f of fields) {
+        // 설치 실적은 숫자다 — 로그는 글자로 남긴다
+        const prev = before?.[f as keyof typeof before] ?? null;
+        const next = patch[f] ?? null;
         await writeAudit(tx, {
-          projectId, actor, action: '공정 날짜 변경',
+          projectId, actor, action: '공정 입력 변경',
           field: f,
-          oldValue: (before?.[f as keyof typeof before] as string | null) ?? null,
-          newValue: patch[f] ?? null,
+          oldValue: prev === null ? null : String(prev),
+          newValue: next === null ? null : String(next),
         });
       }
     });
@@ -1078,9 +1083,10 @@ export const pgRepository: ProjectRepository = {
       } else {
         await tx.insert(processes).values({ projectId, status });
       }
+      // 상태를 옮기면 차례도 따라 넘어간다 — 다음 사람이 움직일 차례다 (lib/process.ts)
       await tx
         .update(projects)
-        .set({ lastProgressAt: today() })
+        .set({ lastProgressAt: today(), court: COURT_AFTER_STATUS[status] })
         .where(eq(projects.id, projectId));
 
       await writeAudit(tx, {

@@ -306,6 +306,7 @@ export type ProcessPatch = Partial<
     ProcessInfo,
     | 'envApprovalDate' | 'cpoSubmitDate' | 'cpoApprovalDate' | 'chargerOrderDate' | 'chargerShipDate'
     | 'chargerRecvDate' | 'startPlanDate' | 'startActualDate' | 'installDoneDate'
+    | 'installedSpots' | 'installedUnits'
     | 'commDoneDate' | 'memo'
   >
 >;

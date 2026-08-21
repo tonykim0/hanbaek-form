@@ -114,6 +114,7 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
         },
       },
     ],
+    // 시공 준비 — 충전기가 오고 착공일이 정해지면 「착공」이 열린다
     '시공진행필요': [
       {
         title: '충전기',
@@ -137,6 +138,9 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
         rows: [{ label: '착공일', field: 'startActualDate', value: p.startActualDate, trigger: '착공' }],
         docs: [],
       },
+    ],
+    // 공사 중 — 설치가 끝나고 완료 체크가 되면 「설치완료」가 열린다
+    '착공': [
       {
         title: '설치',
         rows: [{ label: '설치완료일', field: 'installDoneDate', value: p.installDoneDate }],
@@ -148,6 +152,7 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
         },
       },
     ],
+    // 개통 절차 — 통신까지 끝나고 완료 체크가 되면 「개통완료」가 열린다
     '설치완료': [
       {
         title: '개통',
@@ -159,7 +164,8 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
         },
       },
     ],
-    '준공서류 접수/검토': [
+    // 준공서류 준비 — 제출을 끝냈다고 선언하면 검토(접수/검토)로 넘어갈 수 있다
+    '개통완료': [
       {
         title: '준공',
         rows: [],

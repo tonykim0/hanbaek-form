@@ -54,14 +54,24 @@ export const STATUS_GATES: Record<ProcessStatus, StatusGate | null> = {
     need: '운영사 시공승인일 · 행위신고 완료 체크',
     met: (p) => Boolean(p.cpoApprovalDate) && Boolean(p.notifyDoneAt),
   },
+  // 공사가 실제로 시작됐다 — 충전기가 현장에 왔고(수령 완료 체크) 착공일이 적혔다
+  '착공': {
+    need: '충전기 수령 완료 체크 · 착공일',
+    met: (p) => Boolean(p.chargerDoneAt) && Boolean(p.startActualDate),
+  },
   '설치완료': {
     need: '설치완료 사진 · 설치 완료 체크',
     met: (p) => docApproved(p, 'photoDone') && Boolean(p.installConfirmedAt),
   },
-  // 시공팀이 준공서류를 접수하면 넘어간다 — 개통 절차가 끝났다는 체크도 있어야 한다
+  // 전기사용신청 → 점검 → 통신까지 끝났다. 개통 체크가 여기로 왔다(단계를 쪼개면서).
+  '개통완료': {
+    need: '통신완료일 · 개통 완료 체크',
+    met: (p) => Boolean(p.commDoneDate) && Boolean(p.openDoneAt),
+  },
+  // 시공팀이 준공서류를 접수하면 넘어간다 — 개통은 앞 단계(개통완료)가 이미 확인했다
   '준공서류 접수/검토': {
-    need: '준공서류 · 개통 완료 체크',
-    met: (p) => docApproved(p, 'completion') && Boolean(p.openDoneAt),
+    need: '준공서류',
+    met: (p) => docApproved(p, 'completion'),
   },
   // 검토 결과 보완이 필요하다는 한백·운영사 판단 — 시공팀이 제출을 끝냈다고 선언한 뒤의 일이다
   '준공보완': {
@@ -173,7 +183,9 @@ export const COURT_AFTER_STATUS: Record<ProcessStatus, Court> = {
   '계약완료': '한백',             // 다음 일: 운영사에 계약서 제출 — 한백이 한다
   '운영사 계약서 제출': '운영사', // 시공승인 회신을 기다린다
   '시공진행필요': '시공사',
-  '설치완료': '시공사',           // 통신 확인·준공서류 준비
+  '착공': '시공사',               // 공사 중
+  '설치완료': '시공사',           // 개통 절차 진행
+  '개통완료': '시공사',           // 준공서류 준비
   '준공서류 접수/검토': '한백',
   '준공보완': '시공사',
   '준공': '한백',                 // 준공마감·정산 처리

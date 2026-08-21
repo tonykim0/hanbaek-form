@@ -58,18 +58,31 @@ export function SettlementTab({
         <PayConditions projectId={detail.project.id} lines={lines} ruleOptions={ruleOptions} />
       )}
 
-      <ContractLines lines={lines} vis={vis} />
+      {/*
+        * 적용조건·지급관리 두 표가 같은 폭으로 나란히 서고, 메모가 오른쪽 기둥
+        * 전체를 쓴다(한백 확인) — 메모는 표 하나가 아니라 정산 전체에 딸린 기록이다.
+        */}
+      <div className="grid items-start gap-x-6 gap-y-7 xl:grid-cols-[minmax(0,1fr)_380px]">
+        <div className="flex min-w-0 flex-col gap-7">
+          <ContractLines lines={lines} vis={vis} />
 
-      <PaymentSection
-        projectId={detail.project.id}
-        lines={lines}
-        entries={detail.payoutEntries}
-        salesOrg={detail.project.salesOrg}
-        gcOrg={detail.project.gcOrg}
-        payNote={settlement.payNote}
-        vis={vis}
-        canReview={canReview}
-      />
+          <PaymentSection
+            projectId={detail.project.id}
+            lines={lines}
+            entries={detail.payoutEntries}
+            salesOrg={detail.project.salesOrg}
+            gcOrg={detail.project.gcOrg}
+            vis={vis}
+            canReview={canReview}
+          />
+        </div>
+
+        <PayNoteBox
+          projectId={detail.project.id}
+          payNote={settlement.payNote}
+          canReview={canReview}
+        />
+      </div>
     </div>
   );
 }
@@ -412,14 +425,13 @@ function PayConditions({
  */
 
 function PaymentSection({
-  projectId, lines, entries, salesOrg, gcOrg, payNote, vis, canReview,
+  lines, entries, salesOrg, gcOrg, vis,
 }: {
   projectId: string;
   lines: ProjectDetail['lines'];
   entries: PayoutEntry[];
   salesOrg: string | null;
   gcOrg: string | null;
-  payNote: string | null;
   vis: Visibility;
   canReview: boolean;
 }) {
@@ -463,7 +475,6 @@ function PaymentSection({
         * 대당은 라인마다 다를 수 있어 하나일 때만 숫자를 적는다 — 라인별 값은 적용조건 표가 말한다.
         * 합계는 배포가(영업+시공)다 — 턴키는 마진까지 포함한 운영사 쪽 금액이라 이 표의 합이 아니다.
         */}
-      <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_300px]">
       {(() => {
         const unitOf = (pick: (r: NonNullable<ProjectDetail['lines'][number]['rule']>) => number | null) => {
           const values = lines
@@ -498,9 +509,9 @@ function PaymentSection({
                 <th className="px-3 py-2 text-right">대당</th>
                 <th className="px-3 py-2 text-right">대수</th>
                 <th className="px-3 py-2 text-right">총 지급액</th>
-                <th className="px-3 py-2 text-right">1차 · 70%</th>
+                <th className="border-l border-slate-200 px-3 py-2 text-right">1차 · 70%</th>
                 <th className="px-3 py-2 text-left">지급시기</th>
-                <th className="px-3 py-2 text-right">2차 · 잔액</th>
+                <th className="border-l border-slate-200 px-3 py-2 text-right">2차 · 잔액</th>
                 <th className="px-3 py-2 text-left">지급시기</th>
               </tr>
             </thead>
@@ -535,7 +546,7 @@ function PaymentSection({
                     const at = r.stepAt(`${no}차`);
                     return (
                       <Fragment key={no}>
-                        <td className="whitespace-nowrap px-3 py-2.5 text-right">
+                        <td className="whitespace-nowrap border-l border-slate-100 px-3 py-2.5 text-right">
                           <span className={`font-bold ${done ? 'text-slate-900' : 'text-slate-500'}`}>
                             {won(amount)}
                           </span>
@@ -543,11 +554,16 @@ function PaymentSection({
                         {/* 지급시기 — 상태는 둘뿐이다: 지급완료(날짜) 또는 미지급 */}
                         <td className="whitespace-nowrap px-3 py-2.5">
                           {done ? (
-                            <span className="text-small font-bold text-brand-800">
-                              지급완료<span className="ml-1 font-semibold text-slate-500">{at ?? ''}</span>
+                            <span className="inline-flex items-baseline gap-1.5">
+                              <span className="rounded-tag bg-brand-50 px-1.5 py-0.5 text-tiny font-bold text-brand-800">
+                                지급완료
+                              </span>
+                              <span className="text-small font-semibold tabular-nums text-slate-600">{at ?? ''}</span>
                             </span>
                           ) : (
-                            <span className="text-small font-bold text-amber-700">미지급</span>
+                            <span className="rounded-tag bg-amber-100 px-1.5 py-0.5 text-tiny font-bold text-amber-900">
+                              미지급
+                            </span>
                           )}
                         </td>
                       </Fragment>
@@ -556,7 +572,7 @@ function PaymentSection({
                 </tr>
               ))}
               {rows.length > 1 && (
-                <tr className="bg-slate-50/60 font-black">
+                <tr className="border-t-2 border-slate-200 bg-slate-50/60 font-black">
                   <td className="px-3 py-2.5 text-slate-900">합계</td>
                   <td className="whitespace-nowrap px-3 py-2.5 text-right text-slate-700">
                     {unitCell(
@@ -580,11 +596,6 @@ function PaymentSection({
         </div>
         );
       })()}
-
-      {/* 특이사항·회수·추가지급은 우선 비고에 메모로 적는다(한백 확인) — 전용 기능은 쓰면서 정한다 */}
-      <PayNoteBox projectId={projectId} payNote={payNote} canReview={canReview} />
-      </div>
-
     </section>
   );
 }
@@ -623,9 +634,10 @@ function PayNoteBox({
   };
 
   return (
-    <div>
-      <div className="mb-1.5 flex items-baseline gap-2">
-        <h3 className="text-tiny font-bold tracking-[0.06em] text-slate-500">메모</h3>
+    /* 오른쪽 기둥 전체가 메모다 — 표들과 같은 급의 상자로 세워 자리를 잡아 준다 */
+    <div className="rounded-box border border-slate-200 bg-white p-3.5">
+      <div className="mb-2 flex items-baseline gap-2">
+        <h3 className="text-base font-black text-slate-900">메모</h3>
         <span className="text-tiny text-slate-400">{entries.length}건</span>
       </div>
 
@@ -648,7 +660,7 @@ function PayNoteBox({
       )}
       <Err className="block">{error}</Err>
 
-      <ul className="mt-2 flex flex-col gap-1.5">
+      <ul className="mt-2 flex max-h-[560px] flex-col gap-1.5 overflow-y-auto">
         {entries.map((line, i) => {
           const m = line.match(/^(\d{4}-\d{2}-\d{2})\s+(.*)$/);
           return (

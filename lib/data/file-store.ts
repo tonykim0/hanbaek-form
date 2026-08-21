@@ -52,6 +52,7 @@ function parse(raw: string): ProjectRecord[] {
     r.process.installedSpots = r.process.installedSpots ?? null;
     r.process.installedUnits = r.process.installedUnits ?? null;
     // 완료 체크가 생기기 전의 파일에는 이 칸들이 없다
+    r.process.notifyDate = r.process.notifyDate ?? null;
     r.process.notifyDoneAt = r.process.notifyDoneAt ?? null;
     r.process.chargerDoneAt = r.process.chargerDoneAt ?? null;
     r.process.installConfirmedAt = r.process.installConfirmedAt ?? null;
@@ -460,6 +461,8 @@ export const fileRepository: ProjectRepository = {
     doc.rejectReason = null;
     doc.uploadedBy = actor.name;
     doc.uploadedAt = day;
+    // 행위신고 파일을 올리면 행위신고일이 그 날로 들어간다 — 비어 있을 때만 (pg-store 와 같은 판정)
+    if (input.kind === 'notify' && !r.process.notifyDate) r.process.notifyDate = day;
     r.court = '한백';
     r.lastProgressAt = day;
     await save(records);

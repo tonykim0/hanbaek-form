@@ -398,6 +398,11 @@ export interface ProcessInfo {
    * 파일이 있다는 것과 일이 끝났다는 것은 다른 말이라, 단계 이동은 이 체크를 조건으로
    * 잠근다(lib/process.ts STATUS_GATES). 시공사가 체크하고 한백이 해제할 수 있다.
    */
+  /**
+   * 행위신고일 — 신고를 접수한 날. 파일을 올리면 그 날짜가 기본으로 들어가고(비어 있을
+   * 때만), 실제 접수일이 다르면 고친다.
+   */
+  notifyDate: string | null;
   notifyDoneAt: string | null;       // 행위신고 완료 → 「시공진행필요」 조건
   chargerDoneAt: string | null;      // 충전기 수령 완료 (잠그는 단계 없음 — 기록용)
   installConfirmedAt: string | null; // 설치 완료 → 「설치완료」 조건

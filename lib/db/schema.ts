@@ -182,6 +182,8 @@ export const processes = pgTable('processes', {
   installedSpots: integer('installed_spots'),
   installedUnits: integer('installed_units'),
   commDoneDate: text('comm_done_date'),
+  /** 행위신고일 — 파일을 올리면 그 날이 기본으로 들어간다(비어 있을 때만) */
+  notifyDate: text('notify_date'),
   /** 묶음별 완료 체크(체크한 날) — 단계 이동을 잠근다. types/project.ts ProcessInfo 주석 참조 */
   notifyDoneAt: text('notify_done_at'),
   chargerDoneAt: text('charger_done_at'),

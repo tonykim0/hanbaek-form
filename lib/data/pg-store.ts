@@ -163,6 +163,7 @@ function toProcess(projectId: string, r: ProcRow | undefined, docRows: ProcDocRo
     installedSpots: r?.installedSpots ?? null,
     installedUnits: r?.installedUnits ?? null,
     commDoneDate: r?.commDoneDate ?? null,
+    notifyDate: r?.notifyDate ?? null,
     notifyDoneAt: r?.notifyDoneAt ?? null,
     chargerDoneAt: r?.chargerDoneAt ?? null,
     installConfirmedAt: r?.installConfirmedAt ?? null,
@@ -928,6 +929,27 @@ export const pgRepository: ProjectRepository = {
             target: [processDocuments.projectId, processDocuments.kind],
             set: row,
           });
+
+        /*
+         * 행위신고 파일을 올리면 행위신고일이 그 날로 들어간다 — 비어 있을 때만.
+         * 대개 접수한 날 올리므로 기본값이 맞고, 다르면 시공 탭에서 고친다.
+         */
+        if (input.kind === 'notify') {
+          const [pr] = await tx
+            .select({ notifyDate: processes.notifyDate })
+            .from(processes)
+            .where(eq(processes.projectId, input.projectId))
+            .limit(1);
+          if (!pr) {
+            await tx.insert(processes).values({ projectId: input.projectId, notifyDate: day });
+          } else if (!pr.notifyDate) {
+            await tx
+              .update(processes)
+              .set({ notifyDate: day })
+              .where(eq(processes.projectId, input.projectId));
+          }
+        }
+
         await tx
           .update(projects)
           .set({ lastProgressAt: day })

@@ -14,6 +14,7 @@ import type { ProcessPatch } from '@/lib/data/repository';
 const DATE_FIELDS = [
   'envApprovalDate', 'cpoSubmitDate', 'cpoApprovalDate', 'chargerOrderDate', 'chargerShipDate',
   'chargerRecvDate', 'startPlanDate', 'startActualDate', 'installDoneDate', 'commDoneDate',
+  'notifyDate',
   'notifyDoneAt', 'chargerDoneAt', 'installConfirmedAt', 'openDoneAt', 'completionSubmitAt',
 ] as const;
 

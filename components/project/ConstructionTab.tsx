@@ -28,7 +28,7 @@ import { Note } from '@/components/ui';
 
 /** 고칠 수 있는 날짜 칸 — 이름은 서버(ProcessPatch)와 같아야 한다 */
 type DateField =
-  | 'chargerOrderDate' | 'chargerShipDate' | 'chargerRecvDate'
+  | 'notifyDate' | 'chargerOrderDate' | 'chargerShipDate' | 'chargerRecvDate'
   | 'startActualDate' | 'installDoneDate' | 'commDoneDate';
 
 /** 묶음별 완료 체크 칸 */
@@ -107,7 +107,10 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
   const GROUPS_BY_STATUS: Partial<Record<ProcessStatus, Group[]>> = {
     '행위신고': [
       {
-        title: '행위신고', rows: [], docs: ['notify'],
+        title: '행위신고',
+        // 신고일은 파일을 올리면 그 날로 들어간다(비어 있을 때만) — 다르면 여기서 고친다
+        rows: [{ label: '행위신고일', field: 'notifyDate', value: p.notifyDate }],
+        docs: ['notify'],
         check: {
           field: 'notifyDoneAt', label: '행위신고 완료',
           ready: uploaded('notify'), blocked: '서류 미제출 — 완료 불가',
@@ -291,9 +294,12 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
                     ) : (
                       groups.map((g) => (
                         <div key={g.title} className={state === 'future' ? 'opacity-70' : ''}>
-                          <h3 className="mb-1.5 text-tiny font-bold tracking-[0.06em] text-slate-400">
-                            {g.title}
-                          </h3>
+                          {/* 묶음 이름이 단계 이름과 같으면 안 적는다 — 바로 위 노드가 이미 그 말이다 */}
+                          {g.title !== st && (
+                            <h3 className="mb-1.5 text-tiny font-bold tracking-[0.06em] text-slate-400">
+                              {g.title}
+                            </h3>
+                          )}
                           <div className="overflow-hidden rounded-box border border-slate-200 bg-white divide-y divide-slate-100">
                             {g.rows.map((m) => (
                               <DateRow
@@ -478,22 +484,35 @@ function DocRow({
 }) {
   const done = doc?.status === 'uploaded' || doc?.status === 'approved';
   return (
+    /*
+     * 이름·상태·버튼이 붙어 앉는다 — 예전엔 버튼을 오른쪽 끝으로 밀어서(ml-auto)
+     * 넓은 화면에서 이름과 버튼이 양쪽 끝에 떨어져 있었다(한백 지적). 되돌리기 어려운
+     * 삭제만 끝으로 민다(화면 규칙 8).
+     */
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2.5 text-base">
       <span className="w-32 shrink-0 text-slate-500">{spec.name}</span>
       <span className={`text-tiny font-black ${done ? 'text-brand-700' : 'text-slate-400'}`}>
         {done ? '제출됨' : '대기'}
       </span>
       {doc?.uploadedAt && <span className="text-tiny tabular-nums text-slate-400">{doc.uploadedAt}</span>}
-      <span className="flex-1" />
+      {/* 파일 실체가 없는 기록 — 옛 데이터에 있다. 제출됨으로만 보이면 볼 수도 없는 서류를 믿게 된다 */}
+      {done && !doc?.blobUrl && (
+        <span className="text-tiny font-bold text-amber-700" title="기록만 있고 파일이 없습니다 — 다시 올려주세요">
+          파일 없음
+        </span>
+      )}
       {/* 부품(DocFiles)은 카드용 여백(mt-2)을 갖고 있다 — 줄에서는 지운다 */}
       <span className="flex flex-wrap items-center gap-1.5 [&>div]:mt-0">
         {doc && <DocFileActions doc={doc} siteName={siteName} label={spec.name} />}
         <DocUpload projectId={projectId} kind={spec.key} rejected={false} hasFile={Boolean(doc?.blobUrl)} />
-        {/* 지우기는 한백만 — 협력사는 다시 올리는 것으로 고친다(덮어쓴다) */}
-        {canDelete && doc && doc.status !== 'none' && (
-          <DocDelete projectId={projectId} kind={spec.key} label={spec.name} filename={doc.filename} />
-        )}
       </span>
+      <span className="flex-1" />
+      {/* 지우기는 한백만 — 협력사는 다시 올리는 것으로 고친다(덮어쓴다) */}
+      {canDelete && doc && doc.status !== 'none' && (
+        <span className="[&>div]:mt-0">
+          <DocDelete projectId={projectId} kind={spec.key} label={spec.name} filename={doc.filename} />
+        </span>
+      )}
     </div>
   );
 }

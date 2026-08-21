@@ -23,6 +23,7 @@ import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import type { Role } from '@/lib/roles';
 import { ROLE_LABEL } from '@/lib/roles';
+import TopBar from '@/components/TopBar';
 
 const COLLAPSE_KEY = 'hb-console-sidebar-collapsed';
 
@@ -69,19 +70,10 @@ const GROUPS: Group[] = [
       { href: '/contracts', label: '계약서 작성', short: '계약' },
     ],
   },
-  {
-    /*
-     * 조회·자료 — 포털에도 같은 화면이 있지만 여기서는 콘솔 안에서 본다.
-     * 바깥 링크로 두면 로그인해서 들어온 사람이 남의 사이트로 나가고 돌아올 길이 없다.
-     * 한백도 쓰는 도구라 협력사 전용으로 두지 않는다.
-     */
-    label: '조회·자료',
-    items: [
-      { href: '/library', label: '자료실', short: '자료' },
-      { href: '/lookup', label: '이력 조회', short: '이력' },
-      { href: '/apartments', label: '아파트 정보', short: '아파트' },
-    ],
-  },
+  /*
+   * 조회·자료(자료실·이력 조회·아파트 정보)는 상단 바(TopBar)에 있다 —
+   * 흐름(진행·접수·정산)과 참고 도구를 한 기둥에 섞으면 매일 누르는 것이 묻힌다.
+   */
   {
     /*
      * 정산은 한백만 보는 묶음이었다. 지급 내역만 협력사에게도 연다 —
@@ -250,6 +242,7 @@ export default function ConsoleShell({
 
       {/* 본문은 전체 폭을 쓴다 — 보드의 칸이 화면 밖으로 나가지 않게 */}
       <div className={`transition-[padding] duration-150 print:pl-0 ${open ? 'pl-[184px]' : 'pl-[56px]'}`}>
+        <TopBar />
         <main className="px-5 pb-16 pt-8 sm:px-7 sm:pt-9">{children}</main>
         <footer className="border-t border-slate-200 px-6 py-6 text-center text-small text-slate-400 print:hidden">
           한백 전기차충전사업 · 내부 업무용

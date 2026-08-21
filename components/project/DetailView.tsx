@@ -74,6 +74,17 @@ export default function ProjectDetailView({
       ? initialTab
       : detail.stage
   );
+  /**
+   * 탭을 주소에 남긴다 — 새로고침해도, 링크를 보내도 보던 탭이 열린다.
+   * replaceState 라 서버를 다시 부르지 않고 뒤로가기 이력도 안 쌓인다(ProjectsView 와 같은 방식).
+   */
+  const changeTab = (next: TabKey) => {
+    setTab(next);
+    const p = new URLSearchParams(window.location.search);
+    p.set('tab', next);
+    window.history.replaceState(null, '', `?${p.toString()}`);
+  };
+
   const { project, lines, documents, process, settlement } = detail;
 
   const docCtx = useMemo(
@@ -159,7 +170,7 @@ export default function ProjectDetailView({
               aria-selected={tab === t.key}
               disabled={t.locked}
               title={t.locked ? `계약 완료 후 열립니다${t.why ? ` — ${t.why}` : ''}` : undefined}
-              onClick={() => !t.locked && setTab(t.key)}
+              onClick={() => !t.locked && changeTab(t.key)}
               className={`-mb-px rounded-t-ctl border-b-2 px-4 py-2.5 text-lead font-bold transition ${
                 t.locked
                   ? 'cursor-not-allowed border-transparent text-slate-300'

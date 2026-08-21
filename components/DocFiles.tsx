@@ -8,6 +8,7 @@
  * Blob 에 저장된 이름은 중복 회피용 접미사가 붙어 있어 그대로 주면 알아보기 어렵다.
  */
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAction } from '@/lib/use-action';
 import { Err } from '@/components/ui';
 import JSZip from 'jszip';
@@ -215,6 +216,7 @@ export function DocUpload({
   /** 이 칸에 이미 파일이 있는가 — 버튼 이름이 갈린다 */
   hasFile?: boolean;
 }) {
+  const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [pct, setPct] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -263,7 +265,12 @@ export function DocUpload({
         setError(b.error ?? '저장에 실패했습니다.');
         return;
       }
-      window.location.reload();
+      /*
+       * 전체 새로고침을 하지 않는다 — 페이지가 다시 시작되며 보던 탭이 URL 의 ?tab=
+       * (또는 기본 탭)으로 되돌아갔다. 시공 탭에서 행위신고를 올렸는데 계약 탭이
+       * 열리는 증상이 이것이었다(한백 확인). refresh 는 서버 데이터만 다시 그린다.
+       */
+      router.refresh();
     } catch {
       setError('업로드 중 오류가 났습니다.');
     } finally {

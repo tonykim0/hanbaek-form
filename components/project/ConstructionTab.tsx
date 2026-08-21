@@ -59,9 +59,18 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
   /** 설치 실적 옆에 두는 비교 기준 — 계약과 실제가 다른 것은 흔하다 */
   const contractQty = detail.lines.reduce((s, l) => s + l.qty, 0);
   const { busyKey, error, run } = useAction();
+
+  /*
+   * 스테퍼는 행위신고부터 그린다 — 계약완료·운영사 계약서 제출은 계약 국면(계약 페이지의
+   * 칸)이라 시공 공정에 다시 세우지 않는다(한백 확인). 현장이 아직 그 구간이면
+   * 행위신고가 전부 미래로 보이고, 첫 구간이 선택된다.
+   */
+  const STEPS = PROCESS_STATUSES.filter((st) => statusIndex(st) >= statusIndex('행위신고'));
+  const anchor: ProcessStatus =
+    statusIndex(p.status) >= statusIndex('행위신고') ? p.status : '행위신고';
   /** 스테퍼에서 보고 있는 구간 — 단계가 바뀌면 그 구간을 따라간다 */
-  const [selected, setSelected] = useState<ProcessStatus>(p.status);
-  useEffect(() => setSelected(p.status), [p.status]);
+  const [selected, setSelected] = useState<ProcessStatus>(anchor);
+  useEffect(() => setSelected(anchor), [anchor]);
 
   const canEditField = (field: DateField) =>
     edit === 'all' || (edit === 'partner' && !isHanbaekOnlyProcessField(field));
@@ -221,8 +230,10 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
           * 단계가 바뀌면 안 된다(보드 끌기를 걷어낸 것과 같은 이유).
           */}
         <div className="flex items-center gap-1 overflow-x-auto pb-2" role="tablist" aria-label="공정 단계">
-          {PROCESS_STATUSES.map((st, i) => {
-            const state = i < now ? 'past' : i === now ? 'current' : 'future';
+          {STEPS.map((st, i) => {
+            // 자리 비교는 전역 순서(statusIndex)로 — STEPS 는 행위신고부터라 i 가 어긋난다
+            const idx = statusIndex(st);
+            const state = idx < now ? 'past' : idx === now ? 'current' : 'future';
             const entry = canEnter(st, p);
             const tone =
               state === 'current'
@@ -247,10 +258,10 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
                   {st}
                   {state === 'future' && !entry.ok && <span aria-label="잠김" className="ml-1 opacity-70">🔒</span>}
                 </button>
-                {i < PROCESS_STATUSES.length - 1 && (
+                {i < STEPS.length - 1 && (
                   <span
                     aria-hidden
-                    className={`h-[2px] w-3 shrink-0 rounded-full ${i < now ? 'bg-brand-300' : 'bg-slate-200'}`}
+                    className={`h-[2px] w-3 shrink-0 rounded-full ${idx < now ? 'bg-brand-300' : 'bg-slate-200'}`}
                   />
                 )}
               </Fragment>

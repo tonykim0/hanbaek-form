@@ -565,7 +565,16 @@ function CheckRow({
     <div className="flex flex-wrap items-center gap-3 px-3.5 py-2 text-base">
       <span className="w-32 shrink-0 font-bold text-slate-700">{check.label}</span>
       {canEdit ? (
-        <label className={`flex items-center gap-1.5 ${disabled ? '' : 'cursor-pointer'}`}>
+        /* 지금 누를 수 있는 체크는 노랗게 도드라진다 — 「채워야 하는 것」의 색(미지정)과 같은 말 */
+        <label
+          className={`flex items-center gap-2 rounded-ctl px-2 py-1 transition ${
+            !checked && check.ready
+              ? 'cursor-pointer border border-amber-300 bg-amber-50 hover:border-amber-400'
+              : disabled
+                ? ''
+                : 'cursor-pointer'
+          }`}
+        >
           <input
             type="checkbox"
             aria-label={check.label}
@@ -575,10 +584,11 @@ function CheckRow({
               setOptimistic(e.target.checked);
               onToggle(check.field, e.target.checked);
             }}
+            className="h-5 w-5 shrink-0 accent-brand-600"
           />
           <span
             className={`font-bold ${
-              checked ? 'text-brand-800' : check.ready ? 'text-slate-700' : 'text-slate-400'
+              checked ? 'text-brand-800' : check.ready ? 'text-amber-900' : 'text-slate-400'
             }`}
           >
             {checked ? `완료${value ? ` · ${value}` : ' 처리 중…'}` : check.ready ? '완료로 표시' : check.blocked}

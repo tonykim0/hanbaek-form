@@ -129,19 +129,24 @@ export default function ProjectTable({
     try { localStorage.setItem(storageKey, JSON.stringify([...next])); } catch { /* 못 남겨도 화면은 돈다 */ }
   }
 
-  function toggleColumn(key: ColKey) {
+  /** 열 여러 개를 한 번에 켜고 끈다 — 그룹 토글과 개별 토글이 같은 길을 쓴다 */
+  function setColumns(keys: readonly ColKey[], visible: boolean) {
     const next = new Set(hidden);
-    if (next.has(key)) {
-      next.delete(key);
-    } else {
-      next.add(key);
-      // 숨긴 열에 걸려 있던 필터는 푼다 — 안 보이는 필터가 몰래 표를 거르면 안 된다
-      const def = PICKABLE.find((c) => c.key === key);
-      const attr = def && 'attr' in def ? def.attr : undefined;
-      if (attr && (filters[attr]?.length ?? 0) > 0) onFilter(attr, []);
+    for (const key of keys) {
+      if (visible) {
+        next.delete(key);
+      } else if (!next.has(key)) {
+        next.add(key);
+        // 숨긴 열에 걸려 있던 필터는 푼다 — 안 보이는 필터가 몰래 표를 거르면 안 된다
+        const def = PICKABLE.find((c) => c.key === key);
+        const attr = def && 'attr' in def ? def.attr : undefined;
+        if (attr && (filters[attr]?.length ?? 0) > 0) onFilter(attr, []);
+      }
     }
     setHiddenAndSave(next);
   }
+
+  const toggleColumn = (key: ColKey) => setColumns([key], hidden.has(key));
 
   const rows = useMemo(() => {
     const dir = desc ? -1 : 1;
@@ -216,6 +221,7 @@ export default function ProjectTable({
           hidden={hidden}
           defaultHidden={DEFAULT_HIDDEN[tab]}
           onToggle={toggleColumn}
+          onSetMany={setColumns}
           onReset={() => setHiddenAndSave(new Set(DEFAULT_HIDDEN[tab]))}
         />
       </div>
@@ -373,11 +379,12 @@ export default function ProjectTable({
  * 끈 것이 있으면 개수가 단추에 붙는다 — 열이 왜 없는지 표만 보고 알 수 있어야 한다.
  */
 function ColumnPicker({
-  hidden, defaultHidden, onToggle, onReset,
+  hidden, defaultHidden, onToggle, onSetMany, onReset,
 }: {
   hidden: Set<ColKey>;
   defaultHidden: readonly ColKey[];
   onToggle: (key: ColKey) => void;
+  onSetMany: (keys: readonly ColKey[], visible: boolean) => void;
   onReset: () => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -420,11 +427,26 @@ function ColumnPicker({
       {open && (
         /* 왼쪽 기준으로 오른쪽을 향해 연다 — right 기준이면 사이드바 밑으로 들어간다 */
         <div className="absolute left-0 top-full z-30 mt-1 max-h-[70vh] w-[210px] overflow-y-auto rounded-box border border-slate-200 bg-white p-1.5 shadow-lg">
-          {PICK_GROUPS.map((group) => (
+          {PICK_GROUPS.map((group) => {
+            // 그룹 머리의 체크가 그룹 전체를 켜고 끈다 — 일부만 켜져 있으면 indeterminate
+            const keys = PICKABLE.filter((c) => c.group === group).map((c) => c.key);
+            const onCount = keys.filter((k) => !hidden.has(k)).length;
+            const allOn = onCount === keys.length;
+            return (
             <div key={group}>
-              <p className="px-2 pb-0.5 pt-2 text-micro font-bold tracking-[0.12em] text-slate-400 first:pt-1">
-                {group}
-              </p>
+              <label className="flex cursor-pointer items-center gap-2 px-2 pb-0.5 pt-2 first:pt-1">
+                <input
+                  type="checkbox"
+                  aria-label={`${group} 전체`}
+                  checked={allOn}
+                  ref={(el) => { if (el) el.indeterminate = onCount > 0 && !allOn; }}
+                  onChange={() => onSetMany(keys, !allOn)}
+                  className="h-3.5 w-3.5 accent-brand-600"
+                />
+                <span className="text-micro font-bold tracking-[0.12em] text-slate-400">
+                  {group}
+                </span>
+              </label>
               {PICKABLE.filter((c) => c.group === group).map((c) => {
                 const on = !hidden.has(c.key);
                 return (
@@ -443,7 +465,8 @@ function ColumnPicker({
                 );
               })}
             </div>
-          ))}
+            );
+          })}
           {!isDefault && (
             <button
               type="button"

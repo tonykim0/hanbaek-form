@@ -465,6 +465,39 @@ export interface Settlement {
   payNote: string | null;
 }
 
+/**
+ * 협력사도 보는 정산 값 — 자기 지급에 딸린 것만.
+ *
+ * 기성(차수·트리거·금액)과 정산 규칙은 여기 없다. 그것은 운영사에게서 한백이 받는 돈이라
+ * 협력사가 알 일이 아니고, 규칙 이름에는 금액이 그대로 적혀 있다
+ * (「환경부 승인 300,000원 → 착공 800,000원 → …」).
+ */
+export interface PartnerSettlementView {
+  projectId: string;
+  /** 정산 메모 — 한백이 적고 협력사가 읽는다 */
+  payNote: string | null;
+}
+
+/**
+ * 한백 전용 묶음 — ★협력사 응답에는 이 키가 아예 없다.★
+ *
+ * 예전에는 하나의 상세를 만든 뒤 금액만 null 로 지웠다(redactForViewer). 그러면 새 필드가
+ * 늘 때마다 지우는 것을 잊고 새어나간다 — 실제로 `settlementRule` 이 통째로 나가고 있었다
+ * (2026-08-22 실측: 규칙 이름과 steps.basis.unit 에 기성 전액이 그대로).
+ * 그래서 「지우는 것」이 아니라 「애초에 없는 것」으로 바꿨다. 옵셔널이라 화면은
+ * `detail.admin?.…` 로 접근하고, 타입이 없을 수 있음을 강제한다.
+ */
+export interface AdminOnlyDetail {
+  /** 이 현장에 적용된 정산 규칙 (참조 해소됨) — 이름·단계에 기성 금액이 들어 있다 */
+  settlementRule: SettlementRule | null;
+  /** 기성 차수 — 트리거·산정방식·금액·회수 상태 */
+  steps: SettlementStep[];
+  /** 운영사가 통보하는 준공마감일 */
+  cpoCloseDate: string | null;
+  /** 안전관리비 — 원가다 */
+  safetyFee: number | null;
+}
+
 // ── 하도급사 지급 원장 ───────────────────────────────────────────
 /**
  * 지급 명목. 두 갈래다 —
@@ -735,11 +768,15 @@ export interface ContractState {
 export interface ProjectDetail {
   project: Project;
   lines: ContractLineView[];
-  /** 이 현장에 적용된 정산 규칙 (참조 해소됨) */
-  settlementRule: SettlementRule | null;
   documents: ProjectDocument[];
   process: ProcessInfo;
-  settlement: Settlement;
+  /** 협력사도 보는 정산 값 — 기성·규칙은 admin 에 있다 */
+  settlement: PartnerSettlementView;
+  /**
+   * 한백 전용 묶음 — 협력사 응답에는 이 키가 없다(AdminOnlyDetail 주석 참조).
+   * 화면은 `detail.admin?.…` 로 읽는다.
+   */
+  admin?: AdminOnlyDetail;
   stage: Stage;
   /**
    * 계약이 어디까지 왔고 무엇에 막혀 있는가 (lib/stage.ts 의 contractStateOf).

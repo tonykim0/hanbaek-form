@@ -100,15 +100,20 @@ export function ReceivableTab({
   /** 정산 규칙 후보 — 이름에 기성 모양이 들어 있어 한백이 아니면 null */
   settlementRuleChoices: SettlementRuleChoice[] | null;
 }) {
-  const { settlement } = detail;
-  const rate = recoveryRate(settlement.steps);
+  /*
+   * 이 탭은 한백만 본다(DetailView 가 canReview 일 때만 그린다) — 그래도 admin 이
+   * 없을 수 있다는 것을 타입이 말하므로 빈 값으로 받아 둔다. 협력사 응답에는 이 키가 없다.
+   */
+  const admin = detail.admin;
+  const steps = admin?.steps ?? [];
+  const rate = recoveryRate(steps);
 
   return (
     <section>
       <div className="mb-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
         <RuleFact
           projectId={detail.project.id}
-          rule={detail.settlementRule}
+          rule={admin?.settlementRule ?? null}
           canEdit={canReview}
           choices={settlementRuleChoices}
         />
@@ -120,8 +125,8 @@ export function ReceivableTab({
           )}
           <span className="text-tiny font-bold text-slate-500">
             준공마감{' '}
-            {settlement.cpoCloseDate ? (
-              <span className="tabular-nums text-slate-800">{settlement.cpoCloseDate}</span>
+            {admin?.cpoCloseDate ? (
+              <span className="tabular-nums text-slate-800">{admin.cpoCloseDate}</span>
             ) : (
               <span className="text-amber-700">통보 없음</span>
             )}
@@ -130,7 +135,7 @@ export function ReceivableTab({
       </div>
 
       <div className="flex flex-col gap-2">
-        {settlement.steps.map((s) => (
+        {steps.map((s) => (
           <div
             key={s.no}
             className={`flex flex-wrap items-center gap-x-4 gap-y-1 rounded-box border border-slate-200 border-l-[3px] px-4 py-3 ${STEP_STYLE[s.state]}`}

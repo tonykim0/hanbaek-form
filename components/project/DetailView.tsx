@@ -119,8 +119,10 @@ export default function ProjectDetailView({
   const processDone = PROCESS_DOCS.filter((d) =>
     process.docs.find((x) => x.kind === d.key && x.status === 'approved')
   ).length;
-  const settlementOpen = settlement.steps.filter((s) => s.state !== 'na').length;
-  const settlementDone = settlement.steps.filter((s) => s.state === 'collected').length;
+  // 기성 차수는 한백 전용 묶음에 있다 — 협력사 응답에는 admin 키가 아예 없다
+  const steps = detail.admin?.steps ?? [];
+  const settlementOpen = steps.filter((s) => s.state !== 'na').length;
+  const settlementDone = steps.filter((s) => s.state === 'collected').length;
 
   /*
    * 계약이 끝나기 전에는 시공 탭을 잠근다.

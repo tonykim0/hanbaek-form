@@ -218,10 +218,17 @@ export function toDetail(r: ProjectRecord, rules: RuleMap, settles: SettleMap): 
     ),
     project: r.project,
     lines,
-    settlementRule,
     documents: r.documents,
     process: r.process,
-    settlement,
+    // 협력사도 보는 것 — 메모뿐이다
+    settlement: { projectId: settlement.projectId, payNote: settlement.payNote },
+    // 한백 전용 — 협력사에게 나갈 때 redactForViewer 가 이 키를 통째로 뺀다
+    admin: {
+      settlementRule,
+      steps,
+      cpoCloseDate: settlement.cpoCloseDate,
+      safetyFee: settlement.safetyFee,
+    },
     stage,
     // 계약 판정은 여기서 한 번만 한다 — 화면이 다시 세면 조건이 갈린다
     contract,
@@ -296,7 +303,9 @@ function nextStepOf(process: ProjectRecord['process']): ProjectSummary['nextStep
  */
 export function settlementSummaryOf(r: ProjectRecord, rules: RuleMap, settles: SettleMap): SettlementSummary {
   const d = toDetail(r, rules, settles);
-  const steps = d.settlement.steps;
+  // 이 요약은 한백 전용이다 — toDetail 이 admin 을 늘 채우므로 여기서는 있다고 본다
+  const admin = d.admin!;
+  const steps = admin.steps;
   const sum = (list: SettlementStep[]) => list.reduce((n, x) => n + (x.planAmount ?? 0), 0);
   const sales = payoutSideOf(d.payoutEntries, '영업비');
   const cons = payoutSideOf(d.payoutEntries, '시공비');
@@ -307,11 +316,11 @@ export function settlementSummaryOf(r: ProjectRecord, rules: RuleMap, settles: S
     qty: d.lines.reduce((n, l) => n + l.qty, 0),
     stage: d.stage,
     status: d.process.status,
-    ruleName: d.settlementRule?.name ?? null,
+    ruleName: admin.settlementRule?.name ?? null,
     steps,
     planTotal: sum(steps),
     collectedTotal: sum(steps.filter((x) => x.state === 'collected')),
-    cpoCloseDate: d.settlement.cpoCloseDate,
+    cpoCloseDate: admin.cpoCloseDate,
     salesOrg: d.project.salesOrg,
     gcOrg: d.project.gcOrg,
     payoutMilestones: payoutMilestonesFor(r),
@@ -389,9 +398,23 @@ export function byStalled(a: ProjectSummary, b: ProjectSummary): number {
  *
  * 기성 계획액도 함께 지운다 — 한백 전용인데 같은 경로로 실려 나간다.
  */
+/**
+ * 보는 사람 몫만 남긴다.
+ *
+ * ★한백 전용 묶음(admin)은 지우지 않고 아예 빼낸다.★ 예전에는 금액만 null 로 바꿨는데,
+ * 그때 `settlementRule` 이 통째로 새어나갔다 — 규칙 이름이 「환경부 승인 300,000원 →
+ * 착공 800,000원 → …」이고 steps.basis.unit 에 전액이 있다(2026-08-22 실측).
+ * 값을 지우는 방식은 새 필드가 늘 때마다 지우는 것을 잊는다. 키를 빼면 잊을 자리가 없다.
+ *
+ * 라인 단가는 남긴다 — 자기 쪽(영업/시공)은 협력사가 알아야 하는 값이고,
+ * 남의 쪽과 마진은 null 이 된다(그 값 자체가 안 나간다).
+ */
 export function redactForViewer(detail: ProjectDetail, vis: Visibility): ProjectDetail {
+  const { admin, ...rest } = detail;
   return {
-    ...detail,
+    ...rest,
+    // 원가·마진·기성을 보는 사람에게만 그 묶음을 준다
+    ...(vis.cost ? { admin } : {}),
     // 원장도 금액이다 — 자기 쪽(영업/시공)이 아닌 줄은 아예 보내지 않는다
     payoutEntries: detail.payoutEntries.filter(
       (e) => (e.kind === '영업비' ? vis.sales : vis.cons)
@@ -405,14 +428,5 @@ export function redactForViewer(detail: ProjectDetail, vis: Visibility): Project
         margin: vis.cost ? l.rule.margin : null,
       },
     })),
-    settlement: {
-      ...detail.settlement,
-      // 안전관리비도 원가다 — steps 의 planAmount 만 지우면 이 칸으로 샌다
-      safetyFee: vis.cost ? detail.settlement.safetyFee : null,
-      steps: detail.settlement.steps.map((s) => ({
-        ...s,
-        planAmount: vis.cost ? s.planAmount : null,
-      })),
-    },
   };
 }

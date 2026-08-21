@@ -620,7 +620,11 @@ function DeleteProject({ projectId, name }: { projectId: string; name: string })
       method: 'DELETE',
       fail: '삭제하지 못했습니다.',
     });
-    if (ok) router.push('/projects');
+    if (ok) {
+      router.push('/projects');
+      // push 만으로는 방금 본 보드가 라우터 캐시에서 그대로 나와 지운 카드가 남는다
+      router.refresh();
+    }
   };
 
   return (

@@ -167,16 +167,43 @@ export function cellsOf(r: Pick<NewPricingRule, 'replType' | 'powerType' | 'term
 }
 
 /**
- * 적용 시작을 견줄 수 있는 값으로 — 「2026년 1월 20일」「2026년 8월」「2026년」 전부 읽는다.
+ * 적용 시작을 견줄 수 있는 값으로 — 「2026년 1월 20일」「2026년 8월」「2026년」「2026-08-22」 전부 읽는다.
  * 글자 그대로 견주면 「10월」이 「2월」보다 앞선다. 못 읽으면 사업연도만 쓴다.
  */
 export function startKey(r: Pick<NewPricingRule, 'startDate' | 'bizYear'>): string {
+  const pad = (v: string | undefined) => (v ?? '0').padStart(2, '0');
   const half = /(\d{4})년\s*(상|하)반기/.exec(r.startDate);
   if (half) return `${half[1]}-${half[2] === '상' ? '01' : '07'}-00`;
+  const iso = /^(\d{4})-(\d{1,2})(?:-(\d{1,2}))?/.exec(r.startDate.trim());
+  if (iso) return `${iso[1]}-${pad(iso[2])}-${pad(iso[3])}`;
   const m = /(\d{4})년(?:\s*(\d{1,2})월)?(?:\s*(\d{1,2})일)?/.exec(r.startDate);
   if (!m) return `${r.bizYear}-00-00`;
-  const pad = (v: string | undefined) => (v ?? '0').padStart(2, '0');
   return `${m[1]}-${pad(m[2])}-${pad(m[3])}`;
+}
+
+/*
+ * ── 반기 — 매트릭스의 시간축 ──────────────────────────────────────────────
+ * 운영사 단가는 반년마다 갱신되는 것이 관행이라(원본 CSV 도 상·하반기 행이었다)
+ * 매트릭스를 반기 단위로 편다. 케이스의 반기는 적용 시작에서 유도한다 —
+ * 월을 모르는 값(「2026년」)은 연초 적용으로 보고 상반기에 둔다.
+ */
+
+/** 케이스가 속하는 반기 — 「2026-상」 꼴. 시기 탭을 가르는 키다 */
+export function halfKeyOf(r: Pick<NewPricingRule, 'startDate' | 'bizYear'>): string {
+  const [y, m] = startKey(r).split('-');
+  return `${y}-${Number(m) >= 7 ? '하' : '상'}`;
+}
+
+/** 반기의 끝 — 이 값보다 startKey 가 작거나 같으면 그 시기에 적용 중인 케이스다 */
+export function halfEndKey(halfKey: string): string {
+  const [y, h] = halfKey.split('-');
+  return `${y}-${h === '상' ? '06' : '12'}-99`;
+}
+
+/** 반기 키를 사람이 읽는 이름으로 — 「2026 상반기」 */
+export function halfLabel(halfKey: string): string {
+  const [y, h] = halfKey.split('-');
+  return `${y} ${h}반기`;
 }
 
 /**

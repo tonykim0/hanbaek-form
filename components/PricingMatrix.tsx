@@ -26,7 +26,7 @@ import {
 } from '@/types/project';
 import { won } from '@/lib/format';
 import { useAction } from '@/lib/use-action';
-import { startKey } from '@/lib/pricing-match';
+import { halfEndKey, halfKeyOf, halfLabel, startKey } from '@/lib/pricing-match';
 import { checkSettlementSteps, RECEIVE_TRIGGERS, stepUnits } from '@/lib/settlement';
 import { Badge, Blank, Btn, Choice, Err, FIELD, FIELD_CELL, PANEL, Tag } from '@/components/ui';
 
@@ -48,6 +48,11 @@ export interface Prefill {
   margin?: number;
   steps?: SettlementStepRule[];
   note?: string;
+  /**
+   * 개정일 때 원 케이스의 startKey — 새 시작이 이보다 늦어야 저장된다.
+   * 이르거나 같으면 매트릭스가 옛 케이스를 최신으로 집어 개정이 안 보이는 상태가 된다.
+   */
+  after?: string;
 }
 
 /** 케이스 → 프리필 — 수정·개정이 같은 값을 들고 폼을 연다. 옛 저장값 '시공만' 은 '시공' 으로 읽는다 */
@@ -191,6 +196,12 @@ function BlockedLines({ lines, onFill }: { lines: LineAxes[]; onFill: (p: Prefil
 /* ── 운영사별 원자 칸 그리드 ──────────────────────────────────────────────
  * 줄 = 교체유형 × 수전방식(6), 칸 = 연수 × 건축물유형(6). 케이스 한 행이 여러 칸을 덮는
  * 블록이라, 행 목록만 봐서는 어느 칸이 비었는지 알 수 없다 — 칸으로 펴서 보인다.
+ *
+ * ★시기 탭★ 단가는 반년마다 갱신되므로 매트릭스도 반기 단위로 편다. 한 칸에 최신
+ * 개정만 보이면 상반기 단가가 ×N 뒤에 숨는다 — 실제로 「왜 안 보이나」가 됐다.
+ * 고른 반기까지 시작된 케이스 중 최신이 그 시기의 값이고, 이전 반기에서 이월된
+ * 값(이 시기 개정 없음)은 연하게 보인다.
+ *
  * 빈 칸은 조용한 「—」다. 진짜 경보는 위의 막힌 라인이 맡는다 — 축 공간 대부분은
  * 그 조합의 현장이 아직 없어서 비어 있는 것뿐이다.
  * 빈 칸을 누르면 그 축이 채워진 폼이, 찬 칸을 누르면 현재 케이스의 전 값을 실은
@@ -204,26 +215,42 @@ function Grid({
   onOpen: (f: FormOpen) => void;
 }) {
   const [cpo, setCpo] = useState<CpoName>(CPO_NAMES[0]);
+  const [halfPick, setHalfPick] = useState<string | null>(null);
 
   /* 턴키 채널만 격자에 편다 — 영업·시공 채널은 드물어 목록에서 본다. 있으면 아래에 개수로 보인다 */
   const mine = rules.filter((r) => r.cpo === cpo && r.channel === '턴키');
   const sideCount = rules.filter((r) => r.cpo === cpo && r.channel !== '턴키').length;
 
-  /** 칸을 덮는 활성 케이스들 — 최신 적용 시작이 현재값이다 */
+  /* 시기 탭은 전 운영사의 케이스에서 뽑는다 — 운영사를 바꿔도 탭이 그대로라 길을 잃지 않는다 */
+  const halves = [...new Set(rules.filter((r) => r.channel === '턴키').map(halfKeyOf))].sort();
+  const half = halfPick && halves.includes(halfPick) ? halfPick : halves[halves.length - 1] ?? null;
+
+  /** 칸에서 이 시기에 적용 중인 케이스 — 그 반기까지 시작된 것 중 최신. 이전 반기 것이면 이월이다 */
   const at = (repl: ReplType, power: (typeof POWER_TYPES)[number], term: number, bldg: BuildingType) => {
+    if (!half) return { now: null, carried: false };
+    const end = halfEndKey(half);
     const hits = mine
       .filter((r) =>
         r.replType === repl && r.powerType === power &&
-        r.termYears.includes(term) && r.bldgTypes.includes(bldg)
+        r.termYears.includes(term) && r.bldgTypes.includes(bldg) &&
+        startKey(r) <= end
       )
       .sort((a, b) => startKey(b).localeCompare(startKey(a)));
-    return { now: hits[0] ?? null, versions: hits.length };
+    const now = hits[0] ?? null;
+    return { now, carried: now !== null && halfKeyOf(now) !== half };
   };
 
   return (
     <section className={`${PANEL} p-5 sm:p-6`}>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-h3 font-black text-slate-900">매트릭스</h2>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+          <h2 className="text-h3 font-black text-slate-900">매트릭스</h2>
+          <div className="flex flex-wrap gap-1">
+            {halves.map((h) => (
+              <Choice key={h} on={half === h} onClick={() => setHalfPick(h)}>{halfLabel(h)}</Choice>
+            ))}
+          </div>
+        </div>
         <div className="flex flex-wrap gap-1">
           {CPO_NAMES.map((c) => (
             <Choice key={c} on={cpo === c} onClick={() => setCpo(c)}>{c}</Choice>
@@ -260,28 +287,31 @@ function Grid({
                   </td>
                   {TERMS.flatMap((term) =>
                     BUILDING_TYPES.map((bldg) => {
-                      const { now, versions } = at(repl, power, term, bldg);
+                      const { now, carried } = at(repl, power, term, bldg);
                       return (
                         <td key={`${term}-${bldg}`} className={`px-1 py-1 text-right ${bldg === '공동주택' ? 'border-l border-slate-100' : ''}`}>
                           <button
                             type="button"
-                            title={now ? `${now.caseName} — 누르면 전 값을 실은 개정 폼이 열린다` : '누르면 이 축으로 케이스를 넣는다'}
+                            title={
+                              now
+                                ? carried
+                                  ? `${now.startDate} 단가가 계속 적용 — 이 시기 개정 없음. 누르면 개정 폼이 열린다`
+                                  : `${now.startDate}부터 적용 — 누르면 전 값을 실은 개정 폼이 열린다`
+                                : '누르면 이 축으로 케이스를 넣는다'
+                            }
                             onClick={() =>
                               onOpen({
                                 prefill: now
-                                  ? prefillOf(now, settleById.get(now.defaultSettlementRuleId) ?? null)
+                                  ? { ...prefillOf(now, settleById.get(now.defaultSettlementRuleId) ?? null), after: startKey(now) }
                                   : { cpo, replType: repl, powerType: power, terms: [term], bldgs: [bldg] },
                               })
                             }
                             className="w-full rounded-ctl px-2 py-1 text-right tabular-nums transition hover:bg-brand-50"
                           >
                             {now ? (
-                              <>
-                                <span className="font-bold text-slate-800">{won(receiveUnitOf(now))}</span>
-                                {versions > 1 && (
-                                  <span className="ml-1 text-micro font-bold text-slate-400">×{versions}</span>
-                                )}
-                              </>
+                              <span className={`font-bold ${carried ? 'text-slate-400' : 'text-slate-800'}`}>
+                                {won(receiveUnitOf(now))}
+                              </span>
                             ) : (
                               <span className="font-bold text-slate-300">—</span>
                             )}
@@ -298,7 +328,7 @@ function Grid({
       </div>
 
       <p className="mt-2 flex flex-wrap gap-x-4 text-tiny text-slate-400">
-        <span>칸 값은 현재(최신 적용 시작) 받는 단가 · ×N 은 개정 수</span>
+        <span>칸 값은 고른 시기에 적용 중인 받는 단가 · 연한 값은 이전 시기 단가의 이월</span>
         {sideCount > 0 && <span>영업·시공 채널 케이스 {sideCount}건은 아래 목록에</span>}
       </p>
     </section>
@@ -315,7 +345,10 @@ function CaseList({
   onOpen: (f: FormOpen) => void;
 }) {
   const [cpo, setCpo] = useState<CpoName | '전체'>('전체');
-  const shown = cpo === '전체' ? rules : rules.filter((r) => r.cpo === cpo);
+  // 운영사끼리 모으고 그 안에서 최신 시기가 위 — 이름순은 이름을 걷어내며 의미를 잃었다
+  const shown = (cpo === '전체' ? rules : rules.filter((r) => r.cpo === cpo))
+    .slice()
+    .sort((a, b) => a.cpo.localeCompare(b.cpo, 'ko') || startKey(b).localeCompare(startKey(a)));
 
   return (
     <section className={`${PANEL} p-5 sm:p-6`}>
@@ -398,8 +431,12 @@ function Row({
   return (
     <tr className={r.active ? '' : 'bg-slate-50/60'}>
       <td className="px-3 py-2.5">
+        {/* 이름을 따로 짓지 않는다 — 케이스의 정체는 운영사·시기·축이다. caseName 은 셀렉트용 파생 라벨로만 남는다 */}
         <p className={`break-keep font-bold ${r.active ? 'text-slate-800' : 'text-slate-400'}`}>
-          {r.caseName}
+          {r.cpo}
+          <span className={`ml-1.5 text-tiny font-semibold ${r.active ? 'text-slate-500' : 'text-slate-400'}`}>
+            {r.startDate}
+          </span>
         </p>
         {editing ? (
           <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
@@ -430,7 +467,6 @@ function Row({
         ) : (
           <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-tiny text-slate-400">
             <code className="text-micro">{r.id}</code>
-            <span>{r.bizYear}년 · {r.startDate}</span>
             {r.note && <span className="break-keep">{r.note}</span>}
             {referenced && (
               <Btn size="sm" kind="quiet" onClick={() => setEditing(true)}>시작·비고 수정</Btn>
@@ -481,7 +517,11 @@ function Row({
             * 참조된 케이스의 금액을 고치면 그 현장의 지급액이 소급해서 바뀌기 때문이다.
             */}
           {referenced ? (
-            <Btn size="sm" kind="quiet" onClick={() => onOpen({ prefill: prefillOf(r, settle) })}>
+            <Btn
+              size="sm"
+              kind="quiet"
+              onClick={() => onOpen({ prefill: { ...prefillOf(r, settle), after: startKey(r) } })}
+            >
               개정
             </Btn>
           ) : (
@@ -545,8 +585,35 @@ function CaseForm({
   const [terms, setTerms] = useState<number[]>(prefill.terms ?? [10]);
   const [bldgs, setBldgs] = useState<BuildingType[]>(prefill.bldgs ?? ['공동주택']);
   const [channel, setChannel] = useState<Channel>(prefill.channel ?? '턴키');
-  const [bizYear, setBizYear] = useState(prefill.bizYear ?? new Date().getFullYear());
-  const [startDate, setStartDate] = useState(prefill.startDate ?? '');
+
+  /*
+   * 시기는 연도·반기·시작일(선택)로 구조화해 받는다 — 자유 텍스트로 두면 「2026-08-22」처럼
+   * 정렬이 못 읽는 표기가 들어와 케이스가 매트릭스에서 사라진다. 시작일을 적으면 연도·반기가
+   * 거기서 유도된다(같은 값을 두 자리에 두지 않는다). 저장 표기는 기존 그대로:
+   * 시작일이 있으면 「2026년 8월 22일」, 없으면 「2026년 하반기」.
+   */
+  const seed = prefill.startDate
+    ? startKey({ startDate: prefill.startDate, bizYear: prefill.bizYear ?? 0 }).split('-').map(Number)
+    : null;
+  const opened = new Date();
+  const [year, setYear] = useState(prefill.bizYear ?? opened.getFullYear());
+  const [half, setHalf] = useState<'상' | '하'>(
+    seed ? (seed[1] >= 7 ? '하' : '상') : opened.getMonth() + 1 >= 7 ? '하' : '상'
+  );
+  const [startDay, setStartDay] = useState(
+    seed && seed[1] > 0 && seed[2] > 0
+      ? `${seed[0]}-${String(seed[1]).padStart(2, '0')}-${String(seed[2]).padStart(2, '0')}`
+      : ''
+  );
+  function pickStartDay(v: string) {
+    setStartDay(v);
+    if (v) {
+      const [y, m] = v.split('-').map(Number);
+      setYear(y);
+      setHalf(m >= 7 ? '하' : '상');
+    }
+  }
+
   const [receiveUnit, setReceiveUnit] = useState(
     money((prefill.salesUnit ?? 0) + (prefill.consUnit ?? 0) + (prefill.margin ?? 0))
   );
@@ -574,21 +641,17 @@ function CaseForm({
   /* 사업구분은 고르게 두지 않는다 — 교체유형이 정한다(bizTypeOfRepl). 두 값을 따로 고르면 어긋난다 */
   const bizType = bizTypeOfRepl(replType);
 
+  const startDate = startDay ? koDate(startDay) : `${year}년 ${half}반기`;
+
   /*
-   * 케이스 이름은 축에서 만든다. 손으로 적게 두면 이름과 축이 어긋나고, 그러면 화면에서
-   * 「10년」이라고 읽히는 케이스가 7년 라인에 붙는다. 사람이 손댈 자리는 비고다.
+   * caseName 은 사람이 짓지 않는다 — 시기·축에서 유도되는 표시용 라벨이고, 현장 상세의
+   * 단가 후보 셀렉트가 문자열이 필요해 쓴다. 화면에서 케이스의 정체는 운영사·시기·축 태그다.
+   * 시기를 라벨에 박는 이유: 같은 축의 개정 케이스가 반기마다 생기는데, 시기가 없으면
+   * 셀렉트에 똑같은 라벨이 나란히 떠서 금액만 다르다.
    */
-  /*
-   * 적용 시기를 이름에 박는다 — 반년마다 단가가 바뀌어 같은 축의 케이스가 또 생기는데,
-   * 시기가 없으면 두 케이스가 똑같은 이름으로 셀렉트에 나란히 떠서 금액만 다르다.
-   * 시드도 (상반기)/(하반기)로 같은 문제를 피했다.
-   */
-  const caseName = useMemo(() => {
-    const bldg = bldgs.length === 2 ? '전체' : (bldgs[0] ?? '');
-    const since = startDate.trim() || `${bizYear}년`;
-    const side = channel === '턴키' ? '' : ` | ${channel}`;
-    return `${cpo} (${since}) | ${bldg} | ${terms.join('·')}년 ${replType} | ${powerType}${side}`;
-  }, [cpo, bldgs, terms, replType, powerType, startDate, bizYear, channel]);
+  const bldgLabel = bldgs.length === 2 ? '전체' : (bldgs[0] ?? '');
+  const caseName =
+    `${cpo} (${startDate}) | ${bldgLabel} | ${terms.join('·')}년 ${replType} | ${powerType}${channel === '턴키' ? '' : ` | ${channel}`}`;
 
   const num = (v: string) => Math.max(0, Math.round(Number(v.replace(/[^0-9]/g, '')) || 0));
 
@@ -619,8 +682,11 @@ function CaseForm({
           : mg > receive ? '마진이 받는 단가보다 큼'
             : !splitOk ? '영업·시공 합이 지급 단가와 다름'
               : stepBad.length > 0 ? '기성 단계 확인 필요'
-                : bizYear < 2020 || bizYear > 2100 ? '사업연도 확인 필요'
-                  : null;
+                : year < 2020 || year > 2100 ? '연도 확인 필요'
+                  // 개정이 원 케이스보다 이르거나 같으면 매트릭스가 옛 것을 최신으로 집는다
+                  : prefill.after && startKey({ startDate, bizYear: year }) <= prefill.after
+                    ? '개정 시기가 기존 적용 시작보다 늦어야 함'
+                    : null;
 
   async function save() {
     const ok = await run({
@@ -629,7 +695,7 @@ function CaseForm({
       body: {
         ...(editId ? { id: editId } : {}),
         caseName, cpo, bizType, powerType, termYears: terms, bldgTypes: bldgs, replType, channel,
-        bizYear, startDate: startDate.trim() || `${bizYear}년`,
+        bizYear: year, startDate,
         salesUnit: sales, consUnit: cons, margin: mg,
         settlementSteps: stepRules,
         supervisionBearer: null, safetyFeeBearer: null,
@@ -661,86 +727,98 @@ function CaseForm({
         {editId && <code className="text-micro font-normal text-slate-400">{editId}</code>}
       </h2>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <Field label="운영사">
-          <select value={cpo} onChange={(e) => setCpo(e.target.value as CpoName)} className={FIELD}>
-            {CPO_NAMES.map((c) => <option key={c} value={c}>{c}</option>)}
-          </select>
-        </Field>
+      {/* ① 언제의 단가인가 — 매트릭스의 시기 탭과 같은 축이다 */}
+      <FormSection first title="시기" hint="어느 반기 매트릭스의 값인가">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <Field label="연도" hint={startDay ? '시작일이 정한다' : undefined}>
+            <input
+              value={year}
+              disabled={Boolean(startDay)}
+              onChange={(e) => setYear(Number(e.target.value.replace(/[^0-9]/g, '')) || 0)}
+              className={`${FIELD} tabular-nums disabled:bg-slate-50 disabled:text-slate-400`}
+            />
+          </Field>
+          <Field label="반기" hint={startDay ? '시작일이 정한다' : undefined}>
+            <div className={`flex flex-wrap gap-1.5 ${startDay ? 'pointer-events-none opacity-50' : ''}`}>
+              {(['상', '하'] as const).map((h) => (
+                <Choice key={h} on={half === h} onClick={() => setHalf(h)}>{h}반기</Choice>
+              ))}
+            </div>
+          </Field>
+          <Field label="시작일" hint="아는 날짜가 있으면 — 개정은 이 날짜부터다">
+            <input
+              type="date"
+              value={startDay}
+              onChange={(e) => pickStartDay(e.target.value)}
+              className={FIELD}
+            />
+          </Field>
+        </div>
+      </FormSection>
 
-        <Field label="교체유형" hint={`사업구분 ${bizType}`}>
-          <select
-            value={replType}
-            onChange={(e) => setReplType(e.target.value as ReplType)}
-            className={FIELD}
-          >
-            {REPL_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-          </select>
-        </Field>
+      {/* ② 누구의 어떤 계약인가 */}
+      <FormSection title="운영사·채널">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <Field label="운영사">
+            <select value={cpo} onChange={(e) => setCpo(e.target.value as CpoName)} className={FIELD}>
+              {CPO_NAMES.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </Field>
+          <Field label="채널" hint="한백이 맡는 범위 — 한쪽만 맡으면 그쪽 단가만 산다">
+            <select
+              value={channel}
+              onChange={(e) => setChannel(e.target.value as Channel)}
+              className={FIELD}
+            >
+              {CHANNELS.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </Field>
+          <Field label="교체유형" hint={`사업구분 ${bizType}`}>
+            <select
+              value={replType}
+              onChange={(e) => setReplType(e.target.value as ReplType)}
+              className={FIELD}
+            >
+              {REPL_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+            </select>
+          </Field>
+        </div>
+      </FormSection>
 
-        <Field label="채널" hint="한백이 맡는 범위 — 한쪽만 맡으면 그쪽 단가만 산다">
-          <select
-            value={channel}
-            onChange={(e) => setChannel(e.target.value as Channel)}
-            className={FIELD}
-          >
-            {CHANNELS.map((c) => <option key={c} value={c}>{c}</option>)}
-          </select>
-        </Field>
+      {/* ③ 어떤 현장에 맞는 단가인가 — 접수된 라인이 이 축으로 케이스를 찾는다 */}
+      <FormSection title="현장 조건" hint="접수된 라인이 이 축으로 케이스를 찾는다">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <Field label="수전방식">
+            <select
+              value={powerType}
+              onChange={(e) => setPowerType(e.target.value as (typeof POWER_TYPES)[number])}
+              className={FIELD}
+            >
+              {POWER_TYPES.map((p) => <option key={p} value={p}>{p}</option>)}
+            </select>
+          </Field>
+          <Field label="계약연수" hint="겸용 케이스는 여럿 고른다">
+            <Chips
+              options={TERMS.map((t) => [t, `${t}년`])}
+              picked={terms}
+              onToggle={(v) =>
+                // sort() 기본은 문자열 비교라 [7,10] 이 [10,7] 이 된다 — 숫자로 비교한다
+                setTerms((p) => (p.includes(v) ? p.filter((x) => x !== v) : [...p, v].sort((a, b) => a - b)))
+              }
+            />
+          </Field>
+          <Field label="건축물유형">
+            <Chips
+              options={BUILDING_TYPES.map((b) => [b, b])}
+              picked={bldgs}
+              onToggle={(v) => setBldgs((p) => (p.includes(v) ? p.filter((x) => x !== v) : [...p, v]))}
+            />
+          </Field>
+        </div>
+      </FormSection>
 
-        <Field label="수전방식">
-          <select
-            value={powerType}
-            onChange={(e) => setPowerType(e.target.value as (typeof POWER_TYPES)[number])}
-            className={FIELD}
-          >
-            {POWER_TYPES.map((p) => <option key={p} value={p}>{p}</option>)}
-          </select>
-        </Field>
-
-        <Field label="계약연수" hint="겸용 케이스는 여럿 고른다">
-          <Chips
-            options={TERMS.map((t) => [t, `${t}년`])}
-            picked={terms}
-            onToggle={(v) =>
-              // sort() 기본은 문자열 비교라 [7,10] 이 [10,7] 이 된다 — 숫자로 비교한다
-              setTerms((p) => (p.includes(v) ? p.filter((x) => x !== v) : [...p, v].sort((a, b) => a - b)))
-            }
-          />
-        </Field>
-
-        <Field label="건축물유형">
-          <Chips
-            options={BUILDING_TYPES.map((b) => [b, b])}
-            picked={bldgs}
-            onToggle={(v) => setBldgs((p) => (p.includes(v) ? p.filter((x) => x !== v) : [...p, v]))}
-          />
-        </Field>
-
-        <Field label="사업연도">
-          <input
-            value={bizYear}
-            onChange={(e) => setBizYear(Number(e.target.value.replace(/[^0-9]/g, '')) || 0)}
-            className={`${FIELD} tabular-nums`}
-          />
-        </Field>
-
-        <Field label="적용 시작" hint="비우면 사업연도만">
-          <input
-            value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
-            placeholder="2026년 1월 20일"
-            className={FIELD}
-          />
-        </Field>
-
-        <Field label="비고" hint="금액만으로 설명되지 않는 것">
-          <input value={note} onChange={(e) => setNote(e.target.value)} className={FIELD} />
-        </Field>
-      </div>
-
-      {/* 돈 — 흐름 순서: 받는 단가 → 마진 → 지급 단가 → 영업·시공 나눔. 전부 대당이다 */}
-      <div className="mt-5 border-t border-slate-100 pt-4">
+      {/* ④ 돈 — 흐름 순서: 받는 단가 → 마진 → 지급 단가 → 영업·시공 나눔. 전부 대당이다 */}
+      <FormSection title="돈" hint="대당 — 받는 단가에서 마진을 떼면 지급 단가, 그것을 영업·시공으로 나눈다">
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
           <Field label="받는 단가" hint="운영사가 대당 주는 총액">
             <Money value={receiveUnit} onChange={setReceiveUnit} />
@@ -774,15 +852,10 @@ function CaseForm({
             {' '}{won(Math.max(payout, 0))}와 {won(Math.abs(payout - sales - cons))} 차이
           </p>
         )}
-      </div>
+      </FormSection>
 
-      {/* 기성 단계 — 받는 단가를 운영사에게 받는 차수. 현장 기성 탭·운영사 기성관리에 이대로 선다 */}
-      <div className="mt-5 border-t border-slate-100 pt-4">
-        <p className="mb-3 flex items-baseline gap-2">
-          <span className="text-tiny font-bold tracking-[0.04em] text-slate-500">기성 단계</span>
-          <span className="text-micro text-slate-400">받는 단가를 어느 시점에 얼마씩 받는가 — 합이 받는 단가와 같아야 한다</span>
-        </p>
-
+      {/* ⑤ 기성 단계 — 받는 단가를 운영사에게 받는 차수. 현장 기성 탭·운영사 기성관리에 이대로 선다 */}
+      <FormSection title="기성 단계" hint="받는 단가를 어느 시점에 얼마씩 받는가 — 합이 받는 단가와 같아야 한다">
         {steps.length === 0 ? (
           <Tag tone="warn">기성 미정 — 이 케이스로 지정된 현장은 기성이 계산되지 않음</Tag>
         ) : (
@@ -835,15 +908,16 @@ function CaseForm({
             <span className="text-tiny font-semibold text-red-600">{stepBad[0]}</span>
           )}
         </div>
-      </div>
+      </FormSection>
 
       <div className="mt-5 border-t border-slate-100 pt-4">
-        <dl className="flex flex-wrap items-baseline gap-x-6 gap-y-2">
-          <div className="flex items-baseline gap-2">
-            <dt className="text-tiny font-bold text-slate-400">케이스 이름</dt>
-            <dd className="break-keep font-bold text-slate-800">{caseName}</dd>
-          </div>
-        </dl>
+        <Field label="비고" hint="금액만으로 설명되지 않는 것">
+          <input
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            className={`${FIELD} max-w-xl`}
+          />
+        </Field>
 
         <div className="mt-4 flex flex-wrap items-center gap-2">
           {/* 막는 것을 단추 이름에 적는다 — 흐린 단추만으로는 왜 안 되는지 알 수 없다 */}
@@ -862,6 +936,27 @@ function CaseForm({
         </div>
       </div>
     </section>
+  );
+}
+
+/** 날짜칸의 ISO 값을 저장 표기로 — 「2026-08-22」 → 「2026년 8월 22일」 */
+function koDate(iso: string): string {
+  const [y, m, d] = iso.split('-').map(Number);
+  return `${y}년 ${m}월 ${d}일`;
+}
+
+/** 폼의 구획 — 시기 → 운영사·채널 → 현장 조건 → 돈 → 기성 순서가 읽히게 약한 선 한 겹으로 가른다 */
+function FormSection({
+  title, hint, first, children,
+}: { title: string; hint?: string; first?: boolean; children: React.ReactNode }) {
+  return (
+    <div className={first ? undefined : 'mt-5 border-t border-slate-100 pt-4'}>
+      <p className="mb-3 flex items-baseline gap-2">
+        <span className="text-tiny font-bold tracking-[0.04em] text-slate-500">{title}</span>
+        {hint && <span className="text-micro text-slate-400">{hint}</span>}
+      </p>
+      {children}
+    </div>
   );
 }
 

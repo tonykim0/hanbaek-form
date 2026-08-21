@@ -200,7 +200,8 @@ export function DownloadAll({
  *
  * ★한 칸에 파일 하나다.★ 이미 있는 칸에 올리면 갈아치운다 — 쌓이지 않고, 이전 파일은
  * 저장소에서도 지워진다(app/api/projects/[id]/documents/[kind]/file). 그래서 파일이 이미
- * 있으면 버튼을 「바꾸기」로 부른다. 「올리기」로 두면 쌓이는 것처럼 읽힌다.
+ * 있으면 버튼을 「파일 바꾸기」로 부른다 — 「업로드」로 두면 쌓이는 것처럼 읽힌다.
+ * 「올리기」가 아니라 「파일 업로드」다(한백 확인) — 무엇을 올리는지 버튼이 말한다.
  *
  * 브라우저가 Blob 에 직접 올린다 — 서버를 거치면 스캔본이 4.5MB 를 넘을 때 막힌다.
  * 올리고 나면 반려가 자동으로 풀리고 공이 한백으로 넘어간다.
@@ -279,7 +280,7 @@ export function DocUpload({
             : 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
         } ${busy ? 'pointer-events-none opacity-60' : ''}`}
       >
-        {busy ? `올리는 중 ${pct}%` : rejected ? '다시 올리기' : hasFile ? '바꾸기' : '올리기'}
+        {busy ? `업로드 중 ${pct}%` : rejected ? '다시 업로드' : hasFile ? '파일 바꾸기' : '파일 업로드'}
         <input type="file" className="hidden" onChange={onPick} disabled={busy} />
       </label>
       <Err className="mt-1 block">{error}</Err>

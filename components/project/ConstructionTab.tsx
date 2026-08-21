@@ -300,7 +300,7 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
                               {g.title}
                             </h3>
                           )}
-                          <div className="overflow-hidden rounded-box border border-slate-200 bg-white divide-y divide-slate-100">
+                          <div className="max-w-2xl overflow-hidden rounded-box border border-slate-200 bg-white divide-y divide-slate-100">
                             {g.rows.map((m) => (
                               <DateRow
                                 key={m.field}
@@ -314,7 +314,7 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
 
                             {/* 설치 실적 — 설치완료일 바로 아래, 시공사가 적는다 */}
                             {g.title === '설치' && (
-                              <div className="flex flex-wrap items-center gap-3 px-4 py-2.5 text-base">
+                              <div className="flex flex-wrap items-center gap-3 px-3.5 py-2 text-base">
                                 <span className="w-32 shrink-0 text-slate-500">설치 실적</span>
                                 {canEditField('installDoneDate') ? (
                                   <span className="flex items-center gap-1.5">
@@ -433,7 +433,7 @@ function DateRow({
   onSave: (field: DateField, value: string) => void;
 }) {
   return (
-    <div className="flex flex-wrap items-center gap-3 px-4 py-2.5 text-base">
+    <div className="flex flex-wrap items-center gap-3 px-3.5 py-2 text-base">
       <span className="w-32 shrink-0 text-slate-500">{m.label}</span>
       {canEdit ? (
         <input
@@ -489,7 +489,7 @@ function DocRow({
      * 넓은 화면에서 이름과 버튼이 양쪽 끝에 떨어져 있었다(한백 지적). 되돌리기 어려운
      * 삭제만 끝으로 민다(화면 규칙 8).
      */
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2.5 text-base">
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3.5 py-2 text-base">
       <span className="w-32 shrink-0 text-slate-500">{spec.name}</span>
       <span className={`text-tiny font-black ${done ? 'text-brand-700' : 'text-slate-400'}`}>
         {done ? '제출됨' : '대기'}
@@ -535,7 +535,7 @@ function CheckRow({
   const checked = Boolean(value);
   const disabled = busy || (!checked && !check.ready);
   return (
-    <div className="flex flex-wrap items-center gap-3 px-4 py-2.5 text-base">
+    <div className="flex flex-wrap items-center gap-3 px-3.5 py-2 text-base">
       <span className="w-32 shrink-0 font-bold text-slate-700">{check.label}</span>
       {canEdit ? (
         <label className={`flex items-center gap-1.5 ${disabled ? '' : 'cursor-pointer'}`}>

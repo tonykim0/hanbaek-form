@@ -498,6 +498,31 @@ export interface AdminOnlyDetail {
   safetyFee: number | null;
 }
 
+/**
+ * 협력사 지급관리 화면의 한 줄 — 현장 × 구분(영업비·시공비).
+ *
+ * 계획(plan)은 단가 케이스 × 대수에서 유도되고, 조정·확정은 원장에서 온다.
+ * 저장소가 보는 사람 몫만 만들어 준다(listPayoutOverview) — 화면이 가리지 않는다.
+ */
+export interface PayoutPlanRow {
+  key: string;
+  projectId: string;
+  projectName: string;
+  cpo: string;
+  kind: PayoutKind;
+  org: string | null;
+  plan: number;
+  adjust: number;
+  confirmed: number;
+  /** 자기 쪽 단가가 안 붙은 라인 수 — 계획 금액이 그만큼 비어 있다 */
+  unpriced: number;
+  milestones: PayoutMilestones;
+  feeMissing: string[];
+  /** 회차 지급 기록의 지급일 — 원장에서 유도 */
+  step1At: string | null;
+  step2At: string | null;
+}
+
 // ── 하도급사 지급 원장 ───────────────────────────────────────────
 /**
  * 지급 명목. 두 갈래다 —

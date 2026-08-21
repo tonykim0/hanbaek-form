@@ -12,6 +12,7 @@ import type {
   Court,
   PayoutMilestones,
   PayoutEntry,
+  PayoutPlanRow,
   ProcessInfo,
   Project,
   ProjectDetail,
@@ -32,6 +33,7 @@ import { canEnter, entryOkOf } from '@/lib/process';
 import { PROCESS_STATUSES } from '@/types/project';
 import { effectiveVisibility, type Visibility } from '@/lib/roles';
 import type { Viewer } from '@/lib/auth/types';
+import { payoutsOfDetail } from '@/lib/payout-board';
 
 /**
  * 단가 케이스 표 — 저장소가 넘겨준다.
@@ -358,6 +360,28 @@ function stepAt(entries: PayoutEntry[], kind: PayoutEntry['kind'], category: '1�
  * 조정(자재비·차감…)은 줄이 되지 않는다 — 송금 확정이 아니라 줘야 할 금액의 변화다.
  * 마진·기성은 어느 줄에도 없다. 그것은 한백이 운영사에게서 받는 쪽이고 협력사가 볼 것이 아니다.
  */
+/**
+ * 지급 계획 줄 — 현장 하나에서 보는 사람 몫(영업비·시공비)만 만든다.
+ *
+ * 협력사 지급관리(/payouts)가 쓴다. 예전에는 이 줄을 두 길로 만들었다 — 한백은 전 현장
+ * 요약(listSettlements)에서, 협력사는 현장마다 상세를 다시 읽어서(N+1). 같은 것을 두
+ * 모양으로 조립하면 금액이 갈릴 자리가 생기고, 실제로 그 화면이 죽었다.
+ * 이제 저장소가 현장을 한 번 읽고 이 함수를 부른다 — 한백도 협력사도 같은 길이다.
+ *
+ * 협력사에게 남의 쪽·마진이 안 가는 것은 redactForViewer 가 이미 했다 —
+ * 여기서 vis 는 「어느 쪽 줄을 만들 것인가」만 정한다.
+ */
+export function payoutPlansOf(
+  r: ProjectRecord,
+  viewer: Viewer,
+  rules: RuleMap,
+  settles: SettleMap
+): PayoutPlanRow[] {
+  const detail = toDetail(r, rules, settles);
+  const vis = effectiveVisibility(viewer.role, viewer.org, detail.project);
+  return payoutsOfDetail(redactForViewer(detail, vis), vis);
+}
+
 export function payoutRowsOf(r: ProjectRecord, viewer: Viewer, rules: RuleMap, settles: SettleMap): PayoutRow[] {
   const d = toDetail(r, rules, settles);
   const vis = effectiveVisibility(viewer.role, viewer.org, d.project);

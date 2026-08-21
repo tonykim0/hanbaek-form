@@ -273,6 +273,10 @@ export const mockRepository: ProjectRepository = {
   async listPayouts(): Promise<PayoutRow[]> {
     return [];
   },
+
+  async listPayoutOverview(): Promise<{ plans: never[]; history: never[] }> {
+    return { plans: [], history: [] };
+  },
   async setLinePricing(): Promise<void> {
     throw new Error(READ_ONLY);
   },

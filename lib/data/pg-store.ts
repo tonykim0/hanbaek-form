@@ -40,7 +40,7 @@ import {
   settlementRuleIdOf, settlementRuleNameOf, settlementStepsKeyOf,
 } from '@/lib/settlement';
 import {
-  ALL_DOC_KEYS, byStalled, contractStateFor, isProcessDocKind, payoutRowsOf, redactForViewer,
+  ALL_DOC_KEYS, byStalled, contractStateFor, isProcessDocKind, payoutPlansOf, payoutRowsOf, redactForViewer,
   payoutMilestonesFor, settlementSummaryOf,
   summaryOf, toDetail, type ProjectRecord, type RuleMap, type SettleMap,
 } from './assemble';
@@ -476,6 +476,19 @@ export const pgRepository: ProjectRepository = {
       allSlots([() => ruleMap(), () => settleMap()] as const),
     ]);
     return records.flatMap((r) => payoutRowsOf(r, viewer, rules, settles));
+  },
+
+  async listPayoutOverview(viewer: Viewer) {
+    // 현장을 한 번만 읽어 계획과 내역을 같이 조립한다 — 두 길로 갈라 두 번 읽지 않는다
+    const rows = await getDb().select().from(projects).where(accessWhere(viewer));
+    const [records, [rules, settles]] = await Promise.all([
+      recordsOf(rows),
+      allSlots([() => ruleMap(), () => settleMap()] as const),
+    ]);
+    return {
+      plans: records.flatMap((r) => payoutPlansOf(r, viewer, rules, settles)),
+      history: records.flatMap((r) => payoutRowsOf(r, viewer, rules, settles)),
+    };
   },
 
   async createProject(draft: IntakeDraft, actor): Promise<string> {

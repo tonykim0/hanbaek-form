@@ -1,56 +1,24 @@
 /**
- * 협력사 지급관리 보드의 줄 — 두 길에서 온다.
+ * 협력사 지급관리 보드의 줄 — 현장 상세 하나에서 만든다.
  *
- * 한백은 전 현장 요약(listSettlements)에서, 협력사는 자기 현장 상세(getProject —
- * 저장소가 redactForViewer 로 지워서 준 것)에서 만든다. 협력사에게 요약을 열면
- * 마진과 남의 몫이 통째로 브라우저에 실리므로, 요약은 한백 전용으로 두고
- * 조립만 여기서 가른다. 두 길의 결과 모양(PayoutRowInput)은 하나다.
+ * 예전에는 길이 둘이었다: 한백은 전 현장 요약(listSettlements)에서, 협력사는 현장마다
+ * 상세를 다시 읽어서. 같은 것을 두 모양으로 조립하니 금액이 갈릴 자리가 있었고, 협력사
+ * 경로의 N+1 이 화면을 죽였다(300초 타임아웃, 2026-08-21). 이제 저장소가 현장을 한 번
+ * 읽고 이 함수를 부른다(listPayoutOverview → payoutPlansOf) — 한백도 협력사도 같은 길이다.
+ *
+ * 협력사에게 마진·남의 몫이 안 가는 것은 저장소가 지워서 준다(redactForViewer).
  */
 import type {
-  PayoutEntry, PayoutKind, PayoutMilestones, ProjectDetail, SettlementSummary,
+  PayoutEntry, PayoutKind, PayoutMilestones, PayoutPlanRow, ProjectDetail,
 } from '@/types/project';
 import { payoutSideOf } from '@/lib/settlement';
 import type { Visibility } from '@/lib/roles';
 
-export interface PayoutRowInput {
-  key: string;
-  projectId: string;
-  projectName: string;
-  cpo: string;
-  kind: PayoutKind;
-  org: string | null;
-  plan: number;
-  adjust: number;
-  confirmed: number;
-  unpriced: number;
-  milestones: PayoutMilestones;
-  feeMissing: string[];
-  /** 회차 지급 기록의 지급일 — 원장에서 유도 */
-  step1At: string | null;
-  step2At: string | null;
-}
-
-/** 한백의 길 — 전 현장 요약에서 영업비·시공비 두 줄씩 */
-export function payoutsOfSummaries(rows: SettlementSummary[]): PayoutRowInput[] {
-  return rows.flatMap((r) => [
-    {
-      key: `${r.id}|영업비`, projectId: r.id, projectName: r.name, cpo: r.cpo,
-      kind: '영업비' as const, org: r.salesOrg, plan: r.salesTotal,
-      adjust: r.salesAdjust, confirmed: r.salesPaid,
-      unpriced: r.unpricedLines, milestones: r.payoutMilestones,
-      feeMissing: r.salesFeeMissing,
-      step1At: r.salesStep1At, step2At: r.salesStep2At,
-    },
-    {
-      key: `${r.id}|시공비`, projectId: r.id, projectName: r.name, cpo: r.cpo,
-      kind: '시공비' as const, org: r.gcOrg, plan: r.consTotal,
-      adjust: r.consAdjust, confirmed: r.consPaid,
-      unpriced: r.unpricedLines, milestones: r.payoutMilestones,
-      feeMissing: [],
-      step1At: r.consStep1At, step2At: r.consStep2At,
-    },
-  ]);
-}
+/**
+ * 화면이 받는 지급 줄 — 도메인 타입(PayoutPlanRow)과 같다.
+ * 저장소가 이 모양으로 만들어 주므로(listPayoutOverview) 여기서 다시 정의하지 않는다.
+ */
+export type PayoutRowInput = PayoutPlanRow;
 
 /**
  * 협력사의 길 — 자기 현장 상세에서 보이는 쪽(vis)만 줄로 만든다.

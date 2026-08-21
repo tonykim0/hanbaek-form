@@ -27,7 +27,7 @@ import {
 } from '@/lib/settlement';
 import {
   ALL_DOC_KEYS, byStalled, contractStateFor, emptyProcess, emptySettlement, isProcessDocKind,
-  payoutMilestonesFor, payoutRowsOf,
+  payoutMilestonesFor, payoutPlansOf, payoutRowsOf,
   redactForViewer, settlementSummaryOf, summaryOf, toDetail,
   type ProjectRecord, type RuleMap, type SettleMap,
 } from './assemble';
@@ -224,6 +224,16 @@ export const fileRepository: ProjectRepository = {
     return records
       .filter((r) => canAccessProject(viewer.role, viewer.org, r.project))
       .flatMap((r) => payoutRowsOf(r, viewer, rules, settles));
+  },
+
+  async listPayoutOverview(viewer: Viewer) {
+    // pg-store 와 같은 조립을 쓴다 — 계획 금액이 저장소마다 갈리면 안 된다
+    const [records, rules, settles] = await Promise.all([load(), ruleMap(), settleMap()]);
+    const mine = records.filter((r) => canAccessProject(viewer.role, viewer.org, r.project));
+    return {
+      plans: mine.flatMap((r) => payoutPlansOf(r, viewer, rules, settles)),
+      history: mine.flatMap((r) => payoutRowsOf(r, viewer, rules, settles)),
+    };
   },
 
   async createProject(draft: IntakeDraft, actor): Promise<string> {

@@ -13,7 +13,7 @@
  */
 import type {
   Court, DocStatus, HoldState, IntakeDraft, LineAxes, NewPayoutEntry, NewPricingRule, PayoutKind, PayoutRow, PreInstall, PricingRule,
-  ProcessInfo, ProcessStatus, ProjectDetail, ProjectSummary, Settlement, SettlementRule, SettlementSummary,
+  PayoutPlanRow, ProcessInfo, ProcessStatus, ProjectDetail, ProjectSummary, Settlement, SettlementRule, SettlementSummary,
 } from '@/types/project';
 import type { Actor, Viewer } from '@/lib/auth/types';
 
@@ -45,6 +45,23 @@ export interface ProjectRepository {
    * 화면에서 가리는 방식은 쓰지 않는다 — 여기서 안 만든다.
    */
   listPayouts(viewer: Viewer): Promise<PayoutRow[]>;
+
+  /**
+   * 협력사 지급관리(/payouts) 화면이 받는 것 — 지급 계획과 확정 내역을 ★한 번의 읽기로★.
+   *
+   * ★왜 전용 조회인가★
+   * 예전에는 화면이 두 길로 갈려 있었다. 한백은 `listSettlements` 로 전 현장을 읽고
+   * 이어서 `listPayouts` 로 같은 현장을 또 읽었고(같은 데이터 두 번), 협력사는
+   * `listProjects` 뒤에 현장마다 `getProject` 를 불렀다(N+1). 그 화면이 실제로 죽었다 —
+   * 300초 런타임 타임아웃(2026-08-21). 현장 하나를 한 번 읽어 계획과 내역을 같이
+   * 조립하면 두 길이 하나가 되고, 협력사에게 마진·기성을 안 주는 것은 저장소가 지운다.
+   *
+   * 계획(plans)은 보는 사람 몫만 나온다 — 영업만 맡은 회사에게 시공비 줄을 주지 않는다.
+   */
+  listPayoutOverview(viewer: Viewer): Promise<{
+    plans: PayoutPlanRow[];
+    history: PayoutRow[];
+  }>;
 
   /**
    * 접수 — 협력사가 콘솔에서 현장을 만든다.

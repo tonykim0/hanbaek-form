@@ -8,11 +8,25 @@ import { matchingRules, type RuleOptions } from '@/lib/pricing-match';
 import type { SettlementRuleChoice } from '@/types/project';
 import { knownOrgs } from '@/lib/orgs';
 import { redirect } from 'next/navigation';
+import { cache } from 'react';
+import type { Role } from '@/lib/roles';
+
+/**
+ * 이 요청에서 상세를 한 번만 조립한다.
+ *
+ * generateMetadata 와 본문이 각각 getProject 를 불러 같은 현장을 두 벌 읽고 있었다 —
+ * 상세 하나가 쿼리 열 개쯤이라 요청마다 그만큼이 두 번 돌았다. react cache 는 같은
+ * 인자에 대해 요청 단위로 결과를 재사용한다. ★인자는 원시값이어야 한다★ —
+ * viewer 객체를 그대로 넘기면 매번 새 객체라 키가 달라져 캐시가 듣지 않는다.
+ */
+const loadDetail = cache((id: string, role: Role, org: string | null) =>
+  getRepository().getProject(id, { role, org })
+);
 
 export async function generateMetadata({ params }: { params: { id: string } }) {
   const session = await getSessionUser();
   if (!session) return { title: '현장 관리' };
-  const detail = await getRepository().getProject(params.id, viewerOf(session));
+  const detail = await loadDetail(params.id, session.role, session.org);
   return { title: detail ? `${detail.project.name} — 한백 EV 콘솔` : '현장 관리' };
 }
 
@@ -36,7 +50,8 @@ export default async function ProjectPage({
       : null;
 
   // 권한 밖 현장은 「없음」과 구분되지 않게 404 로 돌려준다 — 존재 여부가 새지 않게
-  const detail = await getRepository().getProject(params.id, viewerOf(session));
+  // generateMetadata 가 이미 불렀으면 그 결과를 그대로 쓴다(위 loadDetail 주석)
+  const detail = await loadDetail(params.id, session.role, session.org);
   if (!detail) notFound();
 
   const isAdmin = session.role === 'admin';

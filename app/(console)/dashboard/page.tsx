@@ -1,40 +1,28 @@
-import { thisMonth as seoulMonth } from '@/lib/date';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
+import { thisMonth as seoulMonth } from '@/lib/date';
 import { getRepository } from '@/lib/data';
 import { getSessionUser, viewerOf } from '@/lib/auth/session';
-import type { ProjectSummary } from '@/types/project';
+import { phaseOfProject } from '@/lib/board';
 import { ATTRS, EMPTY, optionsOf, type AttrKey } from '@/lib/project-filter';
+import { PANEL, Tag } from '@/components/ui';
+import type { ProjectSummary } from '@/types/project';
+import type { ReactNode } from 'react';
 
 export const metadata = { title: '대시보드 — 한백 전기차사업관리' };
 
 /**
- * 대시보드 — 노션 「전기차 사업관리 지표」와 같은 축으로 본다.
- *
- *   1. 월별 수주현황 · 누적 수주현황 (1~12월 세로 막대, 나란히)
- *   2. 영업사별·시공사별 누적 수주, 운영사·수전방식·사업유형·계약연수 (원형 비율)
- *
- * ★단위는 대수다.★ 노션의 수주 집계는 「총 계약수량」 기준이다 — 현장 3건이 3대일 수도
- * 21대일 수도 있어서 건수만 세면 사업 규모가 안 보인다. 비율도 대수로 낸다.
- *
- * ★기준일은 접수일이다.★ 협력사가 계약서를 올린 날이고, 노션의 「계약서 수령일」과 같은 자리다.
- *
- * ★사업연도별로 본다.★ 노션 지표도 연도마다 문서가 따로 있다. 12개월 축을 늘 다 그려서
- * 「아직 안 온 달」과 「0건인 달」이 같은 모양으로 보이게 한다 — 그래야 목표 대비 진행이 읽힌다.
- *
- * 자료는 listProjects 하나뿐이다. 집계용 질의를 따로 두면 표와 대시보드가 다른 숫자를 말한다.
+ * 대시보드의 숫자는 모두 계약 대수 기준이다.
+ * 현장 수만 세면 3대짜리 현장과 21대짜리 현장이 같은 무게로 보여 사업 규모를 왜곡한다.
  */
-const qtyOf = (p: ProjectSummary) => p.lines.reduce((s, l) => s + l.qty, 0);
+const qtyOf = (p: ProjectSummary) => p.lines.reduce((sum, line) => sum + line.qty, 0);
 
-/**
- * 조각 색 — 여덟 가지를 돌려 쓴다.
- * conic-gradient 는 실제 색값이 있어야 그려진다(Tailwind 클래스로는 안 된다).
- */
-const SLICE = ['#3a7f4d', '#56a76c', '#8ed7a5', '#38bdf8', '#0369a1', '#a78bfa', '#f59e0b', '#fb7185'];
-const SLICE_EMPTY = '#cbd5e1';
-const SLICE_REST = '#94a3b8';
-/** 조각을 여덟 개까지만 그린다 — 그보다 많으면 색을 구분할 수 없다 */
-const SLICE_MAX = 8;
+const BAR_COLORS = [
+  '#3a7f4d', '#56a76c', '#83c597', '#0369a1', '#38bdf8', '#a78bfa',
+];
+const EMPTY_COLOR = '#cbd5e1';
+const REST_COLOR = '#94a3b8';
+const BREAKDOWN_MAX = 5;
 
 export default async function DashboardPage({
   searchParams,
@@ -43,311 +31,526 @@ export default async function DashboardPage({
 }) {
   const session = await getSessionUser();
   if (!session) redirect('/login?next=/dashboard');
+
   const all = await getRepository().listProjects(viewerOf(session));
   const isAdmin = session.role === 'admin';
-
-  const years = [...new Set(all.map((p) => p.createdAt.slice(0, 4)))].sort().reverse();
-  const year = searchParams.year && years.includes(searchParams.year) ? searchParams.year : years[0];
-  const projects = year ? all.filter((p) => p.createdAt.startsWith(year)) : [];
-
-  // ── 1~12월 ──────────────────────────────────────────────────
   const thisMonth = seoulMonth();
-  let acc = 0;
+  const thisYear = thisMonth.slice(0, 4);
+  const years = [...new Set(all.map((p) => p.createdAt.slice(0, 4)))].sort().reverse();
+  const fallbackYear = years[0] ?? thisYear;
+  const year = searchParams.year && years.includes(searchParams.year) ? searchParams.year : fallbackYear;
+  const projects = all.filter((p) => p.createdAt.startsWith(year));
+
+  if (all.length === 0) {
+    return (
+      <div>
+        <PageHeader year={year} years={years} period={`${Number(thisMonth.slice(5, 7))}월 기준`} />
+        <p className="mt-6 rounded-panel border border-dashed border-slate-200 py-16 text-center text-base text-slate-400">
+          현장 0건
+        </p>
+      </div>
+    );
+  }
+
+  // 1~12월은 자리를 고정한다. 아직 오지 않은 달은 0이 아니라 future로 따로 표시한다.
+  let accProjects = 0;
   let accQty = 0;
-  const byMonth = Array.from({ length: 12 }, (_, i) => {
-    const month = `${year}-${String(i + 1).padStart(2, '0')}`;
+  const byMonth = Array.from({ length: 12 }, (_, index) => {
+    const month = `${year}-${String(index + 1).padStart(2, '0')}`;
     const list = projects.filter((p) => p.createdAt.startsWith(month));
-    const qty = list.reduce((s, p) => s + qtyOf(p), 0);
-    acc += list.length;
+    const qty = list.reduce((sum, p) => sum + qtyOf(p), 0);
+    accProjects += list.length;
     accQty += qty;
     return {
       month,
-      label: `${i + 1}월`,
-      n: list.length,
+      label: `${index + 1}월`,
+      projects: list.length,
       qty,
-      acc,
+      accProjects,
       accQty,
-      // 아직 안 온 달은 누적선을 긋지 않는다 — 0 으로 떨어뜨리면 실적이 꺾인 것처럼 보인다
       future: month > thisMonth,
       now: month === thisMonth,
     };
   });
 
+  const elapsed = byMonth.filter((row) => !row.future);
+  const latest = elapsed.at(-1) ?? byMonth[0];
+  const totalQty = projects.reduce((sum, p) => sum + qtyOf(p), 0);
+  const active = projects.filter((p) => !p.holdState && p.status !== '준공');
+  const activeQty = active.reduce((sum, p) => sum + qtyOf(p), 0);
+
   /*
-   * 축별 비율.
-   *
-   * ★대수를 두 번 세지 않는다.★ 계약연수는 한 현장이 여러 값을 가질 수 있다
-   * (7년 3대 + 10년 4대). 그 현장의 대수 7대를 양쪽에 통째로 더하면 합이 전체보다 커지고,
-   * 원형 차트의 비율이 부풀어 거짓말이 된다. 그 축은 라인의 대수를 나눠 센다.
-   *
-   * 건수는 나눌 수 없다 — 그 현장은 7년에도 10년에도 한 건이다. 그래서 비율은 늘 대수로 낸다.
+   * 관리 필요는 화면에서 새 규칙을 만들지 않는다. 목록이 이미 가진 상태만 모은다.
+   * 단가 미지정은 한백 내부 판단이라 협력사에게는 표시하지 않는다.
    */
+  const attention = projects
+    .filter(
+      (p) =>
+        Boolean(p.holdState) ||
+        p.rejectedDocs > 0 ||
+        p.stalledDays >= 14 ||
+        (isAdmin && !p.priced)
+    )
+    .sort((a, b) => attentionScore(b, isAdmin) - attentionScore(a, isAdmin));
+
+  const flow = flowRows(projects);
+  const peak = elapsed.reduce((best, row) => (row.qty > best.qty ? row : best), elapsed[0] ?? byMonth[0]);
+  const monthsWithOrders = elapsed.filter((row) => row.qty > 0).length;
+  const monthlyAverage = Math.round(totalQty / Math.max(elapsed.length, 1));
+
   const dist = (key: AttrKey) => {
-    const attr = ATTRS.find((a) => a.key === key)!;
+    const attr = ATTRS.find((candidate) => candidate.key === key)!;
     return optionsOf(projects, key)
-      .map((v) => {
-        const list = projects.filter((p) => attr.valuesOf(p).includes(v));
+      .map((value) => {
+        const list = projects.filter((p) => attr.valuesOf(p).includes(value));
         const qty =
           key === 'term'
             ? list.reduce(
-                (s, p) => s + p.lines.filter((l) => `${l.termYears}년` === v).reduce((t, l) => t + l.qty, 0),
+                (sum, p) =>
+                  sum +
+                  p.lines
+                    .filter((line) => `${line.termYears}년` === value)
+                    .reduce((lineSum, line) => lineSum + line.qty, 0),
                 0
               )
-            : list.reduce((s, p) => s + qtyOf(p), 0);
-        return { value: v, n: list.length, qty };
+            : list.reduce((sum, p) => sum + qtyOf(p), 0);
+        return { value, projects: list.length, qty };
       })
-      .filter((r) => r.qty > 0)
+      .filter((row) => row.qty > 0)
       .sort((a, b) => b.qty - a.qty);
   };
 
-  if (all.length === 0) {
-    return (
+  const period = year === thisYear ? `${Number(thisMonth.slice(5, 7))}월 기준` : '연간';
+
+  return (
+    <div className="flex flex-col gap-7">
+      <PageHeader year={year} years={years} period={period} />
+
+      <section aria-label="핵심 지표" className={`${PANEL} overflow-hidden`}>
+        <div className="grid gap-px bg-slate-100 sm:grid-cols-2 xl:grid-cols-4">
+          <Metric
+            label="누적 수주"
+            value={totalQty}
+            unit="대"
+            detail={`${projects.length}개 현장`}
+            valueClass="text-brand-800"
+          />
+          <Metric
+            label={`${Number(latest.month.slice(5, 7))}월 수주`}
+            value={latest.qty}
+            unit="대"
+            detail={`${latest.projects}개 현장`}
+            valueClass="text-sky-800"
+          />
+          <Metric
+            label="진행 중"
+            value={active.length}
+            unit="건"
+            detail={`${activeQty}대 진행`}
+            valueClass="text-slate-900"
+          />
+          <Metric
+            label="관리 필요"
+            value={attention.length}
+            unit="건"
+            detail={attention.length > 0 ? '우선순위순' : '확인 완료'}
+            valueClass={attention.length > 0 ? 'text-amber-700' : 'text-brand-800'}
+          />
+        </div>
+      </section>
+
+      <div className="grid gap-5 lg:grid-cols-12">
+        <Panel
+          eyebrow="운영"
+          title="관리 필요 현장"
+          className="lg:col-span-7"
+          side={
+            <Link href="/projects?view=table" className="text-small font-bold text-brand-700 hover:text-brand-900">
+              전체 현장 →
+            </Link>
+          }
+        >
+          <AttentionList projects={attention.slice(0, 6)} isAdmin={isAdmin} />
+        </Panel>
+
+        <Panel eyebrow="진행" title="업무 흐름" className="lg:col-span-5" side={<span>{projects.length}건</span>}>
+          <Flow rows={flow} total={projects.length} />
+        </Panel>
+      </div>
+
+      <Panel
+        eyebrow="수주"
+        title={`${year}년 월별 수주`}
+        side={<span>대수 기준</span>}
+      >
+        <MonthBars rows={byMonth} />
+        <div className="mt-5 grid gap-px overflow-hidden rounded-box bg-slate-100 sm:grid-cols-3">
+          <SmallMetric label="월 평균" value={`${monthlyAverage}대`} />
+          <SmallMetric label="최고 월" value={`${Number(peak.month.slice(5, 7))}월 · ${peak.qty}대`} />
+          <SmallMetric label="수주 발생" value={`${monthsWithOrders}개월`} />
+        </div>
+      </Panel>
+
+      <section>
+        <div className="mb-4 flex items-baseline justify-between gap-3">
+          <h2 className="text-h2 font-black text-slate-900">수주 구성</h2>
+          <span className="text-tiny font-semibold text-slate-400">대수 기준</span>
+        </div>
+        <div className="grid gap-5 lg:grid-cols-2 xl:grid-cols-3">
+          {isAdmin && <Breakdown title="영업사" rows={dist('sales')} attr="sales" />}
+          {isAdmin && <Breakdown title="시공사" rows={dist('gc')} attr="gc" />}
+          <Breakdown title="운영사" rows={dist('cpo')} attr="cpo" />
+          <Breakdown title="수전방식" rows={dist('power')} attr="power" />
+          <Breakdown title="사업유형" rows={dist('biz')} attr="biz" />
+          <Breakdown title="계약연수" rows={dist('term')} attr="term" />
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function PageHeader({ year, years, period }: { year: string; years: string[]; period: string }) {
+  return (
+    <header className="flex flex-wrap items-end justify-between gap-4">
       <div>
+        <p className="mb-1 text-small font-bold text-brand-700">{year}년 · {period}</p>
         <h1 className="text-h1 font-black text-slate-900">대시보드</h1>
-        <p className="mt-6 rounded-panel border border-dashed border-slate-200 py-16 text-center text-base text-slate-400">
-          아직 현장이 없습니다
+      </div>
+
+      {years.length > 1 ? (
+        <nav aria-label="사업연도" className="flex rounded-ctl border border-slate-200 bg-white p-0.5">
+          {years.map((candidate) => (
+            <Link
+              key={candidate}
+              href={`/dashboard?year=${candidate}`}
+              aria-current={candidate === year ? 'page' : undefined}
+              className={`rounded-[6px] px-3.5 py-1.5 text-small font-bold transition ${
+                candidate === year
+                  ? 'bg-brand-700 text-white'
+                  : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'
+              }`}
+            >
+              {candidate}년
+            </Link>
+          ))}
+        </nav>
+      ) : null}
+    </header>
+  );
+}
+
+function Metric({
+  label,
+  value,
+  unit,
+  detail,
+  valueClass,
+}: {
+  label: string;
+  value: number;
+  unit: string;
+  detail: string;
+  valueClass: string;
+}) {
+  return (
+    <div className="bg-white px-5 py-5 sm:px-6 sm:py-6">
+      <p className="text-small font-bold text-slate-500">{label}</p>
+      <p className={`mt-2 flex items-end gap-1 tabular-nums ${valueClass}`}>
+        <strong className="text-h1 font-black leading-none">{value.toLocaleString('ko-KR')}</strong>
+        <span className="pb-0.5 text-small font-bold">{unit}</span>
+      </p>
+      <p className="mt-2 text-tiny font-semibold text-slate-400">{detail}</p>
+    </div>
+  );
+}
+
+function Panel({
+  eyebrow,
+  title,
+  side,
+  className = '',
+  children,
+}: {
+  eyebrow: string;
+  title: string;
+  side?: ReactNode;
+  className?: string;
+  children: ReactNode;
+}) {
+  return (
+    <section className={`${PANEL} p-5 sm:p-6 ${className}`}>
+      <div className="mb-5 flex items-start justify-between gap-4">
+        <div>
+          <p className="mb-1 text-micro font-black tracking-[0.14em] text-brand-700">{eyebrow}</p>
+          <h2 className="text-h3 font-black text-slate-900">{title}</h2>
+        </div>
+        {side && <div className="pt-1 text-tiny font-semibold text-slate-400">{side}</div>}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function AttentionList({ projects, isAdmin }: { projects: ProjectSummary[]; isAdmin: boolean }) {
+  if (projects.length === 0) {
+    return (
+      <div className="flex min-h-[212px] items-center justify-center border-t border-slate-100">
+        <p className="text-center">
+          <strong className="block text-h2 font-black text-brand-700">0건</strong>
+          <span className="mt-1 block text-small font-semibold text-slate-400">관리 필요 현장</span>
         </p>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      <header className="flex flex-wrap items-end justify-between gap-4">
-        <h1 className="text-h1 font-black text-slate-900">대시보드</h1>
-        {/* 연도 — 노션 지표도 사업연도마다 문서가 따로 있다 */}
-        {years.length > 1 && (
-          <nav aria-label="사업연도" className="flex rounded-ctl border border-slate-200 bg-white p-0.5">
-            {years.map((y) => (
-              <Link
-                key={y}
-                href={`/dashboard?year=${y}`}
-                aria-current={y === year}
-                className={`rounded-[6px] px-3 py-1.5 text-small font-bold transition ${
-                  y === year ? 'bg-brand-600 text-white' : 'text-slate-500 hover:text-slate-800'
-                }`}
-              >
-                {y}년
-              </Link>
-            ))}
-          </nav>
-        )}
-      </header>
+    <ul className="border-t border-slate-100">
+      {projects.map((project) => (
+        <li key={project.id} className="border-b border-slate-100 last:border-b-0">
+          <Link
+            href={`/projects/${project.id}`}
+            className="grid gap-2 py-3.5 transition hover:bg-brand-50/40 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:px-2"
+          >
+            <div className="min-w-0">
+              <div className="flex min-w-0 items-center gap-2">
+                <span className="truncate text-base font-black text-slate-900">{project.name}</span>
+                <span className="shrink-0 text-tiny font-semibold text-slate-400">{project.cpo}</span>
+              </div>
+              <p className="mt-0.5 truncate text-small text-slate-500">
+                {project.holdState ?? project.status} · 공 차례 {project.court}
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-1.5 sm:justify-end">
+              {project.holdState && <Tag tone="hold">{project.holdState}</Tag>}
+              {project.rejectedDocs > 0 && <Tag tone="stop">반려 {project.rejectedDocs}</Tag>}
+              {isAdmin && !project.priced && <Tag tone="warn">단가 미지정</Tag>}
+              {project.stalledDays >= 14 && <Tag tone="warn">정체 {project.stalledDays}일</Tag>}
+            </div>
+          </Link>
+        </li>
+      ))}
+    </ul>
+  );
+}
 
-      {/*
-        * 월별과 누적을 따로 그린다.
-        *
-        * 한 그림에 얹었더니 두 값의 자릿수가 달라 축을 둘 써야 했고, 그러면 같은 높이가
-        * 다른 뜻이 된다 — 읽는 사람이 어느 축인지 매번 확인해야 한다. 나란히 두면 그 문제가 없다.
-        */}
-      <div className="grid gap-5 lg:grid-cols-2">
-        <Panel title={`${year}년 월별 수주현황`} note="그 달에 접수된 대수">
-          <MonthBars rows={byMonth} pick="month" />
-        </Panel>
-        <Panel title={`${year}년 누적 수주현황`} note="1월부터 그 달까지 더한 대수">
-          <MonthBars rows={byMonth} pick="acc" />
-        </Panel>
-      </div>
+function attentionScore(project: ProjectSummary, isAdmin: boolean): number {
+  return (
+    (project.holdState ? 400 : 0) +
+    project.rejectedDocs * 100 +
+    (isAdmin && !project.priced ? 60 : 0) +
+    Math.min(project.stalledDays, 99)
+  );
+}
 
-      <div className="grid gap-5 lg:grid-cols-2">
-        {/*
-          * 영업사·시공사 분포는 한백만 본다.
-          *
-          * 협력사에게는 자기 현장만 나가므로 그 원은 거의 「자기 100%」다 — 알려주는 것이 없다.
-          * 게다가 한백이 대신 접수한 현장은 영업사와 시공사가 다른 회사일 수 있어서,
-          * 그 자리가 남의 회사 이름을 보여주는 창이 된다.
-          */}
-        {isAdmin && <Donut title="영업사별 누적 수주" rows={dist('sales')} attr="sales" />}
-        {isAdmin && <Donut title="시공사별 누적 수주" rows={dist('gc')} attr="gc" />}
-        <Donut title="운영사" rows={dist('cpo')} attr="cpo" />
-        <Donut title="수전방식" rows={dist('power')} attr="power" />
-        <Donut title="사업유형" rows={dist('biz')} attr="biz" />
-        <Donut title="계약연수" rows={dist('term')} attr="term" note="라인이 갈린 현장은 대수를 나눠 셉니다" />
-      </div>
+function flowRows(projects: ProjectSummary[]) {
+  const stopped = projects.filter((p) => Boolean(p.holdState));
+  const completed = projects.filter((p) => !p.holdState && p.status === '준공');
+  const contract = projects.filter(
+    (p) => !p.holdState && p.status !== '준공' && phaseOfProject(p) === '계약'
+  );
+  const construction = projects.filter(
+    (p) => !p.holdState && p.status !== '준공' && phaseOfProject(p) === '시공'
+  );
+
+  return [
+    { label: '계약', count: contract.length, qty: contract.reduce((sum, p) => sum + qtyOf(p), 0), color: 'bg-sky-500', href: '/projects' },
+    { label: '시공', count: construction.length, qty: construction.reduce((sum, p) => sum + qtyOf(p), 0), color: 'bg-brand-500', href: '/construction' },
+    { label: '준공', count: completed.length, qty: completed.reduce((sum, p) => sum + qtyOf(p), 0), color: 'bg-brand-800', href: '/construction?view=table&col=준공' },
+    { label: '멈춤', count: stopped.length, qty: stopped.reduce((sum, p) => sum + qtyOf(p), 0), color: 'bg-slate-500', href: '/projects?view=table&col=보류,계약중단' },
+  ];
+}
+
+function Flow({
+  rows,
+  total,
+}: {
+  rows: Array<{ label: string; count: number; qty: number; color: string; href: string }>;
+  total: number;
+}) {
+  return (
+    <div className="flex flex-col gap-4 border-t border-slate-100 pt-4">
+      {rows.map((row) => (
+        <Link key={row.label} href={row.href} className="group block">
+          <div className="mb-1.5 flex items-baseline gap-2">
+            <span className="text-small font-black text-slate-800 group-hover:text-brand-800">{row.label}</span>
+            <span className="text-tiny tabular-nums text-slate-400">{row.qty}대</span>
+            <span className="ml-auto text-small font-black tabular-nums text-slate-800">{row.count}건</span>
+          </div>
+          <div className="h-2 overflow-hidden rounded-full bg-slate-100">
+            <div
+              className={`h-full rounded-full ${row.color}`}
+              style={{ width: `${total > 0 ? Math.max((row.count / total) * 100, row.count > 0 ? 3 : 0) : 0}%` }}
+            />
+          </div>
+        </Link>
+      ))}
     </div>
   );
 }
 
-/**
- * 1~12월 세로 막대.
- *
- * 월별과 누적이 같은 부품을 쓴다(pick 으로 고른다) — 두 벌로 두면 한쪽만 고쳐지는 일이 생긴다.
- *
- * 열두 달을 늘 다 그린다. 아직 안 온 달은 자리만 비워 둔다 —
- * 「0건인 달」과 「아직 안 온 달」이 같은 모양이면 목표 대비 진행을 읽을 수 없다.
- *
- * 차트 라이브러리를 쓰지 않는다. 막대는 div 하나다.
- */
 function MonthBars({
-  rows, pick,
+  rows,
 }: {
   rows: Array<{
-    month: string; label: string; n: number; qty: number; acc: number; accQty: number;
-    future: boolean; now: boolean;
+    month: string;
+    label: string;
+    projects: number;
+    qty: number;
+    accProjects: number;
+    accQty: number;
+    future: boolean;
+    now: boolean;
   }>;
-  /** 월별인가 누적인가 */
-  pick: 'month' | 'acc';
 }) {
-  const H = 152;
-  const qtyOfRow = (r: (typeof rows)[number]) => (pick === 'month' ? r.qty : r.accQty);
-  const nOfRow = (r: (typeof rows)[number]) => (pick === 'month' ? r.n : r.acc);
-  const max = Math.max(...rows.map(qtyOfRow), 1);
-  const fill = pick === 'month' ? 'bg-sky-400' : 'bg-brand-400';
-  const fillNow = pick === 'month' ? 'bg-sky-600' : 'bg-brand-600';
+  const height = 196;
+  const max = Math.max(...rows.map((row) => row.qty), 1);
 
   return (
-    <div>
-      <p className="mb-1.5 text-micro font-bold text-slate-400">
-        최대 <b className="text-slate-600">{max}대</b>
-      </p>
+    <div className="overflow-x-auto pb-1">
+      <div
+        role="img"
+        aria-label={`월별 수주 대수: ${rows.map((row) => `${row.label} ${row.future ? '예정' : `${row.qty}대`}`).join(', ')}`}
+        className="min-w-[680px]"
+      >
+        <div className="relative" style={{ height }}>
+          <div aria-hidden className="absolute inset-0 flex flex-col justify-between">
+            {[max, Math.round(max * 0.66), Math.round(max * 0.33), 0].map((tick, index) => (
+              <div key={index} className="flex items-center gap-3">
+                <span className="w-7 text-right text-micro font-semibold tabular-nums text-slate-300">{tick}</span>
+                <div className="flex-1 border-t border-slate-100" />
+              </div>
+            ))}
+          </div>
 
-      <div className="relative" style={{ height: H }}>
-        {/* 눈금선 넷 — 값을 어림잡는 데는 이 정도면 된다 */}
-        <div aria-hidden className="absolute inset-0 flex flex-col justify-between">
-          {[0, 1, 2, 3].map((i) => (
-            <div key={i} className="border-t border-slate-100" />
-          ))}
-        </div>
-
-        <div className="absolute inset-0 flex items-end gap-1">
-          {rows.map((r) => {
-            const v = qtyOfRow(r);
-            return (
-              <div key={r.month} className="flex h-full min-w-0 flex-1 flex-col justify-end">
-                {v > 0 && !r.future && (
-                  <span className="mb-1 text-center text-micro font-black tabular-nums text-slate-600">
-                    {v}
+          <div className="absolute inset-y-0 left-10 right-0 flex items-end gap-2">
+            {rows.map((row) => (
+              <div key={row.month} className="flex h-full min-w-0 flex-1 flex-col justify-end">
+                {row.qty > 0 && !row.future && (
+                  <span className={`mb-1.5 text-center text-tiny font-black tabular-nums ${row.now ? 'text-brand-800' : 'text-slate-600'}`}>
+                    {row.qty}
                   </span>
                 )}
                 <div
-                  className={`rounded-t transition ${
-                    r.future ? 'bg-slate-100' : r.now ? fillNow : fill
+                  className={`rounded-t-[6px] transition ${
+                    row.future
+                      ? 'bg-slate-100'
+                      : row.now
+                        ? 'bg-brand-700'
+                        : row.qty > 0
+                          ? 'bg-brand-400'
+                          : 'bg-slate-200'
                   }`}
-                  style={{ height: `${Math.max(r.future ? 0 : 2, (v / max) * (H - 24))}px` }}
-                  title={`${r.month} · ${nOfRow(r)}건 ${v}대`}
+                  style={{ height: `${Math.max(row.future ? 0 : 3, (row.qty / max) * (height - 30))}px` }}
+                  title={`${row.month} · ${row.projects}건 ${row.qty}대 · 누적 ${row.accQty}대`}
                 />
               </div>
-            );
-          })}
-        </div>
-      </div>
-
-      <div className="mt-1.5 flex gap-1 border-t border-slate-200 pt-1.5">
-        {rows.map((r) => (
-          <div key={r.month} className="min-w-0 flex-1 text-center">
-            <p className={`text-micro font-bold ${r.now ? 'text-brand-700' : r.future ? 'text-slate-300' : 'text-slate-500'}`}>
-              {r.label}
-            </p>
-            <p className={`text-micro tabular-nums ${nOfRow(r) > 0 && !r.future ? 'text-slate-400' : 'text-slate-300'}`}>
-              {r.future ? '' : `${nOfRow(r) || '–'}${nOfRow(r) ? '건' : ''}`}
-            </p>
+            ))}
           </div>
-        ))}
+        </div>
+
+        <div className="ml-10 mt-2 flex gap-2 border-t border-slate-200 pt-2">
+          {rows.map((row) => (
+            <div key={row.month} className="min-w-0 flex-1 text-center">
+              <p className={`text-tiny font-bold ${row.now ? 'text-brand-800' : row.future ? 'text-slate-300' : 'text-slate-500'}`}>
+                {row.label}
+              </p>
+              <p className={`mt-0.5 text-micro tabular-nums ${row.projects > 0 && !row.future ? 'text-slate-400' : 'text-slate-300'}`}>
+                {row.future ? '예정' : `${row.projects}건`}
+              </p>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
 }
 
-/**
- * 원형 비율.
- *
- * 비율은 대수로 낸다(건수가 아니라) — 노션 집계 기준과 같아야 두 화면이 같은 말을 한다.
- * 가운데에 총 대수를 적는다. 조각이 여덟 개를 넘으면 나머지를 「그 밖」으로 묶는다 —
- * 색이 스무 개면 어느 조각이 누구인지 알 수 없다.
- */
-function Donut({
-  title, rows, attr, note,
-}: {
-  title: string;
-  rows: Array<{ value: string; n: number; qty: number }>;
-  attr: AttrKey;
-  note?: string;
-}) {
-  if (rows.length === 0) return null;
-  const total = rows.reduce((s, r) => s + r.qty, 0);
-
-  const head = rows.slice(0, SLICE_MAX);
-  const tail = rows.slice(SLICE_MAX);
-  const shown: Array<{ value: string; n: number; qty: number; rest?: boolean }> = tail.length
-    ? [...head, {
-        value: `그 밖 ${tail.length}곳`,
-        n: tail.reduce((s, r) => s + r.n, 0),
-        qty: tail.reduce((s, r) => s + r.qty, 0),
-        rest: true,
-      }]
-    : head;
-
-  let at = 0;
-  const slices = shown.map((r, i) => {
-    const from = (at / total) * 100;
-    at += r.qty;
-    return {
-      ...r,
-      color: r.rest ? SLICE_REST : r.value === EMPTY ? SLICE_EMPTY : SLICE[i % SLICE.length],
-      pct: Math.round((r.qty / total) * 100),
-      from,
-      to: (at / total) * 100,
-    };
-  });
-
+function SmallMetric({ label, value }: { label: string; value: string }) {
   return (
-    <Panel title={title} note={note ? `${total}대 · ${note}` : `${total}대`}>
-      <div className="flex flex-wrap items-center gap-x-5 gap-y-4">
-        <div
-          className="relative h-[112px] w-[112px] shrink-0 rounded-full"
-          style={{ background: `conic-gradient(${slices.map((s) => `${s.color} ${s.from}% ${s.to}%`).join(', ')})` }}
-        >
-          <div className="absolute inset-[24px] flex flex-col items-center justify-center rounded-full bg-white">
-            <span className="text-h3 font-black tabular-nums leading-none text-slate-900">{total}</span>
-            <span className="text-micro font-bold text-slate-400">대</span>
-          </div>
-        </div>
-
-        <ul className="min-w-[186px] flex-1">
-          {slices.map((s) => {
-            const row = (
-              <>
-                <span
-                  aria-hidden
-                  className="mt-[3px] h-2.5 w-2.5 shrink-0 rounded-tag"
-                  style={{ background: s.color }}
-                />
-                <span className="min-w-0 flex-1 truncate text-small font-bold text-slate-700">{s.value}</span>
-                <span className="shrink-0 text-small font-black tabular-nums text-slate-900">{s.pct}%</span>
-                <span className="w-[68px] shrink-0 text-right text-tiny tabular-nums text-slate-400">
-                  {s.qty}대 · {s.n}건
-                </span>
-              </>
-            );
-            return (
-              <li key={s.value} className="border-b border-slate-100 last:border-b-0">
-                {s.rest ? (
-                  <div className="flex items-baseline gap-2 py-1.5">{row}</div>
-                ) : (
-                  <Link
-                    href={`/projects?view=table&${attr}=${encodeURIComponent(s.value)}`}
-                    className="flex items-baseline gap-2 py-1.5 transition hover:bg-brand-50/40"
-                  >
-                    {row}
-                  </Link>
-                )}
-              </li>
-            );
-          })}
-        </ul>
-      </div>
-    </Panel>
+    <div className="bg-slate-50 px-4 py-3">
+      <span className="text-tiny font-semibold text-slate-400">{label}</span>
+      <strong className="ml-2 text-small font-black tabular-nums text-slate-800">{value}</strong>
+    </div>
   );
 }
 
-function Panel({ title, note, children }: { title: string; note?: string; children: React.ReactNode }) {
+function Breakdown({
+  title,
+  rows,
+  attr,
+}: {
+  title: string;
+  rows: Array<{ value: string; projects: number; qty: number }>;
+  attr: AttrKey;
+}) {
+  if (rows.length === 0) return null;
+
+  const total = rows.reduce((sum, row) => sum + row.qty, 0);
+  const head = rows.slice(0, BREAKDOWN_MAX);
+  const tail = rows.slice(BREAKDOWN_MAX);
+  const shown: Array<{ value: string; projects: number; qty: number; rest?: boolean }> = tail.length
+    ? [
+        ...head,
+        {
+          value: `그 밖 ${tail.length}곳`,
+          projects: tail.reduce((sum, row) => sum + row.projects, 0),
+          qty: tail.reduce((sum, row) => sum + row.qty, 0),
+          rest: true,
+        },
+      ]
+    : head;
+
   return (
-    <section className="rounded-panel border border-slate-200 bg-white p-5">
-      <div className="mb-3 flex flex-wrap items-baseline gap-x-2">
-        <h2 className="text-h3 font-black text-slate-900">{title}</h2>
-        {note && <span className="text-tiny text-slate-400">{note}</span>}
+    <section className={`${PANEL} p-5`}>
+      <div className="mb-4 flex items-baseline justify-between gap-3">
+        <h3 className="text-h3 font-black text-slate-900">{title}</h3>
+        <span className="text-tiny font-semibold tabular-nums text-slate-400">{total}대</span>
       </div>
-      {children}
+
+      <ul className="flex flex-col gap-3.5 border-t border-slate-100 pt-4">
+        {shown.map((row, index) => {
+          const percent = Math.round((row.qty / total) * 100);
+          const content = (
+            <>
+              <div className="mb-1.5 flex items-baseline gap-2">
+                <span className="min-w-0 flex-1 truncate text-small font-bold text-slate-700">{row.value}</span>
+                <span className="text-small font-black tabular-nums text-slate-900">{percent}%</span>
+                <span className="w-[64px] text-right text-tiny tabular-nums text-slate-400">
+                  {row.qty}대 · {row.projects}건
+                </span>
+              </div>
+              <div className="h-1.5 overflow-hidden rounded-full bg-slate-100">
+                <div
+                  className="h-full rounded-full"
+                  style={{
+                    width: `${Math.max(percent, 2)}%`,
+                    background: row.rest
+                      ? REST_COLOR
+                      : row.value === EMPTY
+                        ? EMPTY_COLOR
+                        : BAR_COLORS[index % BAR_COLORS.length],
+                  }}
+                />
+              </div>
+            </>
+          );
+
+          return (
+            <li key={row.value}>
+              {row.rest ? (
+                <div>{content}</div>
+              ) : (
+                <Link
+                  href={`/projects?view=table&${attr}=${encodeURIComponent(row.value)}`}
+                  className="block transition hover:opacity-75"
+                >
+                  {content}
+                </Link>
+              )}
+            </li>
+          );
+        })}
+      </ul>
     </section>
   );
 }

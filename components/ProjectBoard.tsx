@@ -76,9 +76,19 @@ export default function ProjectBoard({
    * 칸 안쪽은 따로 스크롤한다. 한 칸에 60건이 쌓여도 그 칸만 길어지고 아래 줄은
    * 제자리에 있어야 한다 — 안 그러면 계약 칸이 부풀어 시공 줄을 화면 밖으로 밀어낸다.
    */
-  const bands: BoardBand[] = [band, '멈춤'];
   // 들어온 페이지가 상세의 첫 탭을 정한다 — 계약 페이지에서 왔으면 계약 탭, 시공이면 시공 탭
   const tab = band === '계약' ? 'intake' : 'construction';
+
+  /*
+   * 멈춤 칸(보류·계약중단)은 따로 줄을 만들지 않고 같은 줄 맨 오른쪽에 붙는다(한백 확인) —
+   * 몇 건 안 되는 멈춤이 별도 줄로 계약·시공과 같은 자리를 차지했다.
+   * 보류는 있을 때만 나타나고, 계약중단은 늘 맨 끝이다 — 카드가 갈 곳이 보여야 보낼 수 있다.
+   */
+  const cols = [
+    ...visible.filter((c) => c.band === band),
+    ...visible.filter((c) => c.band === '멈춤'),
+  ];
+  const total = cols.reduce((n, c) => n + (columns.get(c.key)?.length ?? 0), 0);
 
   /*
    * 계약과 시공이 남은 높이를 반씩 쓴다.
@@ -94,17 +104,10 @@ export default function ProjectBoard({
    * 보류 몇 건이 계약·시공과 같은 자리를 차지한다.
    */
   return (
-    <div className="flex h-[calc(100vh-13rem)] min-h-[30rem] flex-col gap-6">
-      {bands.map((band) => {
-        const cols = visible.filter((c) => c.band === band);
-        if (cols.length === 0) return null;
-        const total = cols.reduce((n, c) => n + (columns.get(c.key)?.length ?? 0), 0);
-
-        return (
+    <div className="flex h-[calc(100vh-13rem)] min-h-[30rem] flex-col">
           <section
-            key={band}
             aria-label={`${band} 구역`}
-            className={`flex min-h-0 flex-col ${band === '멈춤' ? 'shrink-0' : 'flex-1'}`}
+            className="flex min-h-0 flex-1 flex-col"
           >
             <header className="mb-2 flex items-center gap-2.5">
               <span aria-hidden className={`h-[3px] w-6 rounded-full ${BAND_RULE[band]}`} />
@@ -145,7 +148,12 @@ export default function ProjectBoard({
                     <section
                       key={col.key}
                       aria-label={col.label}
-                      className="flex min-h-0 min-w-0 flex-col rounded-panel border border-slate-200 bg-slate-50/60 p-2.5"
+                      /* 멈춤 칸은 같은 줄 끝에 서므로 색으로만 가른다 — 흐름 칸과 다른 것임이 보여야 한다 */
+                      className={`flex min-h-0 min-w-0 flex-col rounded-panel border p-2.5 ${
+                        col.band === '멈춤'
+                          ? 'border-slate-300 bg-slate-100/80'
+                          : 'border-slate-200 bg-slate-50/60'
+                      }`}
                     >
                       <header className="flex items-baseline justify-between gap-2 px-1.5 pb-2">
                         <h3 className="text-base font-black tracking-[-0.01em] text-slate-800">
@@ -183,8 +191,6 @@ export default function ProjectBoard({
               </div>
             </div>
           </section>
-        );
-      })}
     </div>
   );
 }

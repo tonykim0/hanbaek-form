@@ -114,6 +114,8 @@ export const projects = pgTable('projects', {
   bizType: text('biz_type'),
   /** 환경부 보조금 신청 대기번호 — 받은 형태 그대로 (「2026-595」 또는 「595」) */
   envQueueNo: text('env_queue_no'),
+  /** 환경부 사업연도 — 단가 케이스·대기번호의 연도와 같은 축. 접수 연도가 기본값 */
+  bizYear: integer('biz_year'),
   /** 접수할 때 협력사가 적은 말. 영업비 차감·프로모션 적용 같은 조건이 여기 온다. */
   note: text('note'),
   /**

@@ -272,6 +272,12 @@ export interface ProjectRepository {
   setEnvQueueNo(projectId: string, value: string | null, actor: Actor): Promise<void>;
 
   /**
+   * 환경부 사업연도. [한백 전용]
+   * 접수 연도가 기본값으로 들어가고, 이월 현장(작년 사업이 올해 접수)만 고친다.
+   */
+  setBizYear(projectId: string, year: number | null, actor: Actor): Promise<void>;
+
+  /**
    * 공정 마일스톤 날짜·메모. [한백 · 그 현장의 시공사] 넘긴 필드만 바뀐다.
    *
    * 날짜는 조건이지 전이가 아니다 — 운영사 시공승인일을 넣으면 「시공진행필요」로 넘길 수

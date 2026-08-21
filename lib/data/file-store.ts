@@ -189,7 +189,10 @@ export const fileRepository: ProjectRepository = {
       mgr: draft.mgr, tel: draft.tel, mail: draft.mail,
       preInstall: draft.preInstall, preNote: draft.preNote, preChecked: false,
       powerType: draft.powerType, replType: draft.replType,
-      bizType: draft.bizType, envQueueNo: null, note: draft.note,
+      bizType: draft.bizType,
+      // 사업연도는 접수 연도로 시작한다 — 이월 현장만 한백이 고친다 (pg-store 와 같은 판정)
+      bizYear: Number(day.slice(0, 4)),
+      envQueueNo: null, note: draft.note,
       // 한백이 확인해야 계약이 넘어간다 — 접수 시점에는 확인 전이다
       contractConfirmedAt: null, createdAt: day,
       // 정산 규칙은 한백이 검수 단계에서 현장별로 적용한다
@@ -482,6 +485,16 @@ export const fileRepository: ProjectRepository = {
     if (r.project.envQueueNo === value) return;
     r.project.envQueueNo = value;
     r.lastProgressAt = today();
+    await save(records);
+  },
+
+  async setBizYear(projectId, year, actor): Promise<void> {
+    if (actor.role !== 'admin') throw new Error('사업연도 입력은 한백 관리자만 할 수 있습니다.');
+    const records = await load();
+    const r = records.find((x) => x.project.id === projectId);
+    if (!r) throw new Error('현장을 찾을 수 없습니다.');
+    if (r.project.bizYear === year) return;
+    r.project.bizYear = year;
     await save(records);
   },
 

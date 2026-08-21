@@ -115,6 +115,8 @@ export interface Project {
    */
   replType: ReplType | null;
   bizType: BizType | null;
+  /** 환경부 사업연도 — 단가 케이스·대기번호의 연도와 같은 축. 접수 연도가 기본값 */
+  bizYear: number | null;
   /**
    * 환경부 보조금 신청 대기번호.
    *

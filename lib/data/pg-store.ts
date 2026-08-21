@@ -98,6 +98,7 @@ function toProject(r: ProjectRow): Project {
     powerType: r.powerType as PowerType | null,
     replType: r.replType as ReplType | null,
     bizType: r.bizType as BizType | null,
+    bizYear: r.bizYear,
     envQueueNo: r.envQueueNo,
     note: r.note,
     contractConfirmedAt: r.contractConfirmedAt,
@@ -416,6 +417,8 @@ export const pgRepository: ProjectRepository = {
         powerType: draft.powerType,
         replType: draft.replType,
         bizType: draft.bizType,
+        // 사업연도는 접수 연도로 시작한다 — 이월 현장만 한백이 고친다
+        bizYear: Number(day.slice(0, 4)),
         // 환경부 대기번호는 접수 뒤에 나온다 — 한백이 콘솔에서 채운다
         envQueueNo: null,
         note: draft.note,
@@ -1028,6 +1031,30 @@ export const pgRepository: ProjectRepository = {
       await writeAudit(tx, {
         projectId, actor, action: '환경부 대기번호 변경',
         field: 'envQueueNo', oldValue: row.envQueueNo, newValue: value,
+      });
+    });
+  },
+
+  async setBizYear(projectId, year, actor): Promise<void> {
+    assertAdmin(actor, '사업연도 입력');
+
+    const db = getDb();
+    await db.transaction(async (tx) => {
+      const [row] = await tx
+        .select({ bizYear: projects.bizYear })
+        .from(projects)
+        .where(eq(projects.id, projectId))
+        .limit(1);
+      if (!row) throw new Error('현장을 찾을 수 없습니다.');
+      if (row.bizYear === year) return;
+
+      await tx.update(projects).set({ bizYear: year }).where(eq(projects.id, projectId));
+
+      await writeAudit(tx, {
+        projectId, actor, action: '사업연도 변경',
+        field: 'bizYear',
+        oldValue: row.bizYear === null ? null : String(row.bizYear),
+        newValue: year === null ? null : String(year),
       });
     });
   },

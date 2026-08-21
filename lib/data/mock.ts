@@ -49,7 +49,7 @@ export const SEED_RECORDS: MockRecord[] = [
       addr: '강원 속초시 조양동 1451', bldgType: '공동주택', contractParty: '입주자대표회의',
       parkTotal: 214, mgr: '김성호', tel: '033-635-2201', mail: null,
       preInstall: '없음', preChecked: true, preNote: null, powerType: '모자분리', replType: '환경부 신규',
-      bizType: '환경부', createdAt: '2026-03-04', envQueueNo: '2026-318', note: null, contractConfirmedAt: null,
+      bizType: '환경부', createdAt: '2026-03-04', bizYear: 2026, envQueueNo: '2026-318', note: null, contractConfirmedAt: null,
       settlementRuleId: 'pl-2step', settlementAppliedAt: '2026-03-06', holdState: null, holdNote: null,
     },
     lines: [
@@ -81,7 +81,7 @@ export const SEED_RECORDS: MockRecord[] = [
       addr: '경기 화성시 능동 1043', bldgType: '공동주택', contractParty: '입주자대표회의',
       parkTotal: 120, mgr: '홍길동', tel: '031-123-4567', mail: 'hong@example.com',
       preInstall: '없음', preChecked: true, preNote: null, powerType: '모자분리', replType: '환경부 신규',
-      bizType: '환경부', createdAt: '2026-01-22', envQueueNo: '2025-1204', note: null, contractConfirmedAt: '2026-04-20',
+      bizType: '환경부', createdAt: '2026-01-22', bizYear: 2025, envQueueNo: '2025-1204', note: null, contractConfirmedAt: '2026-04-20',
       settlementRuleId: 'pl-2step', settlementAppliedAt: '2026-01-24', holdState: null, holdNote: null,
     },
     lines: [
@@ -122,7 +122,7 @@ export const SEED_RECORDS: MockRecord[] = [
       addr: '경기 화성시 오산동 967', bldgType: '공동주택', contractParty: '건설사',
       parkTotal: 388, mgr: '이재훈', tel: '031-370-8800', mail: null,
       preInstall: '없음', preChecked: false, preNote: '지하 2층 일부 미확인 — 재방문 필요', powerType: '한전불입',
-      replType: '환경부 신규', bizType: '환경부', createdAt: '2026-08-11', envQueueNo: null, note: null, contractConfirmedAt: null,
+      replType: '환경부 신규', bizType: '환경부', createdAt: '2026-08-11', bizYear: 2026, envQueueNo: null, note: null, contractConfirmedAt: null,
       settlementRuleId: null, settlementAppliedAt: null, holdState: null, holdNote: null,
     },
     lines: [
@@ -145,7 +145,7 @@ export const SEED_RECORDS: MockRecord[] = [
       addr: '울산 중구 태화동 452', bldgType: '공동주택', contractParty: '입주자대표회의',
       parkTotal: 176, mgr: '박선우', tel: '052-244-1120', mail: null,
       preInstall: '있음', preChecked: true, preNote: '지상 주차장 완속 2기 (타사)', powerType: '모자분리',
-      replType: '환경부 신규', bizType: '환경부', createdAt: '2026-08-08', envQueueNo: null, note: null, contractConfirmedAt: null,
+      replType: '환경부 신규', bizType: '환경부', createdAt: '2026-08-08', bizYear: 2026, envQueueNo: null, note: null, contractConfirmedAt: null,
       settlementRuleId: null, settlementAppliedAt: null, holdState: null, holdNote: null,
     },
     lines: [
@@ -168,7 +168,7 @@ export const SEED_RECORDS: MockRecord[] = [
       addr: '충북 청주시 흥덕구 복대동 2298', bldgType: '공동주택', contractParty: '입주자대표회의',
       parkTotal: 302, mgr: '정민아', tel: '043-232-7700', mail: null,
       preInstall: '없음', preChecked: true, preNote: null, powerType: '모자분리', replType: '환경부 신규',
-      bizType: '환경부', createdAt: '2026-02-14', envQueueNo: '2026-77', note: null, contractConfirmedAt: '2026-06-02',
+      bizType: '환경부', createdAt: '2026-02-14', bizYear: 2026, envQueueNo: '2026-77', note: null, contractConfirmedAt: '2026-06-02',
       settlementRuleId: 'nice-2step', settlementAppliedAt: '2026-02-17', holdState: null, holdNote: null,
     },
     lines: [
@@ -284,6 +284,9 @@ export const mockRepository: ProjectRepository = {
     throw new Error(READ_ONLY);
   },
   async setEnvQueueNo(): Promise<void> {
+    throw new Error(READ_ONLY);
+  },
+  async setBizYear(): Promise<void> {
     throw new Error(READ_ONLY);
   },
   async uploadDocument(): Promise<void> {

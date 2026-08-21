@@ -346,6 +346,17 @@ function SiteHeader({
 
       {/* 선 없이 줄만 바꾼다 — 여백이 이미 줄을 가르고 있어 선까지 있으면 과하다(한백 확인) */}
       <dl className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-1.5 text-base">
+        {/* 접수 연도가 기본값 — 이월 현장(작년 사업이 올해 접수)만 고친다 */}
+        <EditableFact
+          label="사업연도"
+          value={project.bizYear === null ? null : String(project.bizYear)}
+          canEdit={canReview}
+          url={`/api/projects/${project.id}/biz-year`}
+          field="value"
+          method="POST"
+          empty="미지정"
+          placeholder="2026"
+        />
         <EditableFact
           label="영업사"
           value={project.salesOrg}

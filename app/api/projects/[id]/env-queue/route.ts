@@ -18,7 +18,10 @@ export const POST = adminWrite<{ id: string }, { value?: unknown }>(
     }
     // 빈 문자열은 「지운다」는 뜻이다 — 잘못 적은 번호를 되돌릴 길이 있어야 한다
     const value = raw === null || raw.trim() === '' ? null : raw.trim();
-    if (value !== null && value.length > 40) throw new BadRequest('대기번호가 너무 깁니다.');
+    // 대기번호는 숫자 최대 5자리다. 연도가 붙어 오는 형태(2026-595)는 그대로 받는다.
+    if (value !== null && !/^(\d{4}-)?\d{1,5}$/.test(value)) {
+      throw new BadRequest('대기번호는 숫자 최대 5자리입니다 — 「595」 또는 「2026-595」 형태.');
+    }
     await getRepository().setEnvQueueNo(params.id, value, actor);
   }
 );

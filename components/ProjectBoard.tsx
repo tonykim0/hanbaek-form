@@ -13,10 +13,9 @@
  * 계약 칸은 서류·단가에서 유도되는 값이라 옮길 대상이 아니고, 공정 칸도 조건이 있다.
  * 놓을 수 없는 칸은 끌기 시작할 때 미리 흐려진다. 놓고 나서 거절당하는 것보다 낫다.
  */
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import type { ProcessStatus, ProjectSummary } from '@/types/project';
-import { PROCESS_STATUSES } from '@/types/project';
+import type { ProjectSummary } from '@/types/project';
 import { BOARD_COLUMNS, boardColumnOf, type BoardBand, type BoardColumn } from '@/lib/board';
 import { Tag } from '@/components/ui';
 
@@ -32,21 +31,13 @@ const BAND_TEXT: Record<BoardBand, string> = {
   멈춤: 'text-slate-500',
 };
 
-const isProcess = (key: BoardColumn): key is ProcessStatus =>
-  (PROCESS_STATUSES as readonly string[]).includes(key);
-
 export default function ProjectBoard({
-  projects, canMove, onMove, busyId,
+  projects, busyId,
 }: {
   /** 이미 걸러진 목록. 임시 위치도 반영돼 있다. */
   projects: ProjectSummary[];
-  /** 카드를 옮길 수 있는가 (한백만) */
-  canMove: boolean;
-  onMove: (p: ProjectSummary, status: ProcessStatus) => void;
   busyId: string | null;
 }) {
-  const [dragging, setDragging] = useState<ProjectSummary | null>(null);
-
   const columns = useMemo(() => {
     const byKey = new Map<BoardColumn, ProjectSummary[]>();
     for (const p of projects) {
@@ -60,26 +51,10 @@ export default function ProjectBoard({
     return byKey;
   }, [projects]);
 
-  /** 이 칸에 지금 끌고 있는 카드를 놓을 수 있는가 */
-  function canDrop(key: BoardColumn): boolean {
-    if (!canMove || !dragging) return false;
-    const def = BOARD_COLUMNS.find((c) => c.key === key);
-    if (!def?.droppable) return false;
-    if (!isProcess(key)) return false;
-    if (dragging.stage === 'intake' || dragging.holdState) return false;
-    if (dragging.status === key) return false;
-    return dragging.entryOk.includes(key);
-  }
-
-  function drop(key: BoardColumn) {
-    // 판정을 먼저 한다 — setDragging 뒤에 canDrop 을 부르면 렌더 클로저에 의존하게 된다
-    const card = dragging;
-    const ok = canDrop(key);
-    setDragging(null);
-    if (!card || !isProcess(key) || !ok) return;
-    onMove(card, key);
-  }
-
+  /*
+   * 카드를 끌어 옮기지 않는다 — 스치는 끌기에 단계가 바뀐다(한백 확인).
+   * 옮기는 자리는 표의 단계 셀렉트다. 보드는 보고, 눌러 들어가는 곳.
+   */
   const visible = BOARD_COLUMNS.filter(
     // 보류는 멈춘 현장이 있을 때만 나타난다. 늘 비어 있는 칸은 자리만 먹는다.
     (c) => c.key !== '보류' || (columns.get('보류')?.length ?? 0) > 0
@@ -158,26 +133,11 @@ export default function ProjectBoard({
               >
                 {cols.map((col) => {
                   const list = columns.get(col.key) ?? [];
-                  const droppable = canDrop(col.key);
-                  const rejecting = dragging !== null && !droppable;
                   return (
                     <section
                       key={col.key}
                       aria-label={col.label}
-                      onDragOver={(e) => {
-                        if (droppable) e.preventDefault();
-                      }}
-                      onDrop={(e) => {
-                        e.preventDefault();
-                        drop(col.key);
-                      }}
-                      className={`flex min-h-0 min-w-0 flex-col rounded-panel border p-2.5 transition ${
-                        droppable
-                          ? 'border-brand-400 bg-brand-50/70 ring-2 ring-brand-200'
-                          : rejecting
-                            ? 'border-slate-200 bg-slate-50/60 opacity-40'
-                            : 'border-slate-200 bg-slate-50/60'
-                      }`}
+                      className="flex min-h-0 min-w-0 flex-col rounded-panel border border-slate-200 bg-slate-50/60 p-2.5"
                     >
                       <header className="flex items-baseline justify-between gap-2 px-1.5 pb-2">
                         <h3 className="text-base font-black tracking-[-0.01em] text-slate-800">
@@ -194,14 +154,7 @@ export default function ProjectBoard({
 
                       <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto">
                         {list.map((p) => (
-                          <Card
-                            key={p.id}
-                            p={p}
-                            busy={busyId === p.id}
-                            draggable={canMove && p.stage !== 'intake' && !p.holdState}
-                            onDragStart={() => setDragging(p)}
-                            onDragEnd={() => setDragging(null)}
-                          />
+                          <Card key={p.id} p={p} busy={busyId === p.id} />
                         ))}
                         {list.length === 0 && (
                           <p className="flex h-full items-center justify-center rounded-box border border-dashed border-slate-200 text-tiny text-slate-300">
@@ -226,20 +179,9 @@ export default function ProjectBoard({
  *
  * ★카드 아무 데나 눌러도 현장으로 들어간다.★ 예전에는 현장명 글자만 링크였다 —
  * 카드가 눌리는 물건처럼 생겼는데 정작 글자를 맞춰 눌러야 했다.
- *
- * 링크(<a>)로 감싸지 않고 누름을 직접 받는다. 브라우저는 링크를 끌면 「주소 끌기」로
- * 처리해서, 카드를 단계 사이로 끌어 옮기는 동작과 부딪힌다.
- * 대신 키보드로도 들어갈 수 있게 role·tabIndex·Enter 를 둔다.
+ * 키보드로도 들어갈 수 있게 role·tabIndex·Enter 를 둔다.
  */
-function Card({
-  p, busy, draggable, onDragStart, onDragEnd,
-}: {
-  p: ProjectSummary;
-  busy: boolean;
-  draggable: boolean;
-  onDragStart: () => void;
-  onDragEnd: () => void;
-}) {
+function Card({ p, busy }: { p: ProjectSummary; busy: boolean }) {
   const router = useRouter();
   const qty = p.lines.reduce((sum, l) => sum + l.qty, 0);
   const org = p.salesOrg ?? p.gcOrg;
@@ -248,14 +190,6 @@ function Card({
 
   return (
     <article
-      draggable={draggable}
-      onDragStart={(e) => {
-        // 파이어폭스는 데이터가 실려야 끌기를 시작한다
-        e.dataTransfer.setData('text/plain', p.id);
-        e.dataTransfer.effectAllowed = 'move';
-        onDragStart();
-      }}
-      onDragEnd={onDragEnd}
       role="link"
       tabIndex={0}
       aria-label={`${p.name} 상세`}
@@ -266,9 +200,7 @@ function Card({
           router.push(`/projects/${p.id}`);
         }
       }}
-      className={`rounded-box border border-slate-200 bg-white p-2.5 text-left transition hover:border-brand-300 hover:bg-brand-50/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-300 ${
-        draggable ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'
-      } ${busy ? 'opacity-50' : ''}`}
+      className={`cursor-pointer rounded-box border border-slate-200 bg-white p-2.5 text-left transition hover:border-brand-300 hover:bg-brand-50/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-300 ${busy ? 'opacity-50' : ''}`}
     >
       <p className="break-keep text-lead font-bold leading-snug text-slate-900">{p.name}</p>
       <p className="mt-1 text-tiny leading-snug text-slate-500">

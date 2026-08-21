@@ -7,7 +7,7 @@
  * 못 하는 이유를 문장으로 적는 대신 버튼을 잠그는 방식이다.
  */
 import { Fragment } from 'react';
-import type { ProjectDetail } from '@/types/project';
+import type { ProcessStatus, ProjectDetail } from '@/types/project';
 import { PROCESS_DOCS } from '@/lib/doc-rules';
 import {
   canEnter, isHanbaekOnlyProcessField, statusIndex, STATUS_GATES, type ProcessEdit,
@@ -24,8 +24,19 @@ import { Note } from '@/components/ui';
  *
  * 지나온 단계·현재·앞으로를 한 줄로 보여주고, 다음 단계로 넘어가는 데 필요한 것을 함께 적는다.
  * 조건을 화면에 적어두지 않으면 「왜 안 넘어가지」를 매번 사람에게 물어야 한다.
+ *
+ * ★옮기는 자리가 여기다★ — 날짜·서류가 보이는 자리에서 판단하고 옮긴다(한백만).
+ * 조건이 찬 단계만 눌리고, 지난 단계를 누르면 되돌아간다(조건은 누적이라 뒤로는 늘 열려
+ * 있다). 보드에서 끌어 옮기던 것은 걷어냈다 — 스치는 끌기에 단계가 바뀐다.
  */
-function StatusFlow({ process }: { process: ProjectDetail['process'] }) {
+function StatusFlow({
+  process, onMove, busy,
+}: {
+  process: ProjectDetail['process'];
+  /** 있으면 단계를 눌러 옮긴다 (한백) */
+  onMove?: (s: ProcessStatus) => void;
+  busy: boolean;
+}) {
   const now = statusIndex(process.status);
 
   return (
@@ -37,23 +48,35 @@ function StatusFlow({ process }: { process: ProjectDetail['process'] }) {
           const entry = canEnter(st, process);
           const past = i < now;
           const current = i === now;
+          const clickable = Boolean(onMove) && !current && entry.ok;
+          const tone = current
+            ? 'bg-brand-700 text-white'
+            : past
+              ? 'bg-brand-50 text-brand-800'
+              : 'bg-slate-100 text-slate-400';
           return (
             <li key={st} className="flex items-center gap-1.5">
-              <div
-                className={`rounded-ctl px-2.5 py-1.5 text-tiny font-bold ${
-                  current
-                    ? 'bg-brand-700 text-white'
-                    : past
-                      ? 'bg-brand-50 text-brand-800'
-                      : 'bg-slate-100 text-slate-400'
-                }`}
-                title={gate ? `조건: ${gate.need}` : undefined}
-              >
-                {st}
-                {gate && !entry.ok && !past && !current && (
-                  <span className="ml-1 text-slate-400">🔒</span>
-                )}
-              </div>
+              {clickable ? (
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => onMove!(st)}
+                  title={past ? '이 단계로 되돌립니다' : '이 단계로 옮깁니다'}
+                  className={`rounded-ctl px-2.5 py-1.5 text-tiny font-bold transition hover:ring-2 hover:ring-brand-300 ${tone} ${busy ? 'opacity-50' : ''}`}
+                >
+                  {st}
+                </button>
+              ) : (
+                <div
+                  className={`rounded-ctl px-2.5 py-1.5 text-tiny font-bold ${tone}`}
+                  title={gate ? `조건: ${gate.need}` : undefined}
+                >
+                  {st}
+                  {gate && !entry.ok && !past && !current && (
+                    <span className="ml-1 text-slate-400">🔒</span>
+                  )}
+                </div>
+              )}
               {i < PROCESS_STATUSES.length - 1 && (
                 <span aria-hidden className="text-slate-300">›</span>
               )}
@@ -110,6 +133,15 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
       body: { [field]: value === '' ? null : value },
       fail: '저장하지 못했습니다.',
       key: field,
+    });
+
+  /** 단계 옮기기 — 진행현황의 단계를 눌러 옮긴다. 판정은 저장소가 다시 한다. */
+  const moveStatus = (status: string) =>
+    void run({
+      url: `/api/projects/${detail.project.id}/status`,
+      body: { status },
+      fail: '단계를 옮기지 못했습니다.',
+      key: 'status',
     });
 
   /** 설치 실적 — 숫자는 키를 누를 때마다가 아니라 칸을 떠날 때 저장한다 */
@@ -179,7 +211,11 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
 
   return (
     <div className="flex flex-col gap-7">
-      <StatusFlow process={p} />
+      <StatusFlow
+        process={p}
+        onMove={edit === 'all' ? moveStatus : undefined}
+        busy={busyKey === 'status'}
+      />
 
       {error && (
         <p

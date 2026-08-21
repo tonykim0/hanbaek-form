@@ -261,7 +261,7 @@ export default function ProjectsView({
       {error && <Note tone="stop" className="mb-4">{error}</Note>}
 
       {view === 'board' ? (
-        <ProjectBoard projects={filtered} canMove={canMove} onMove={move} busyId={busyKey} />
+        <ProjectBoard projects={filtered} busyId={busyKey} />
       ) : (
         <ProjectTable
           projects={filtered}

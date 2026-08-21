@@ -1,10 +1,8 @@
 import { redirect } from 'next/navigation';
 import { getSessionUser, viewerOf } from '@/lib/auth/session';
 import { userStore } from '@/lib/auth/users';
-import { listPartnerDetails } from '@/lib/auth/partner-details';
 import { getRepository, repositoryKind } from '@/lib/data';
 import AccountAdmin from '@/components/AccountAdmin';
-import PartnerDetailsSection from '@/components/PartnerDetailsSection';
 
 export const metadata = {
   title: '설정 — 한백 전기차사업관리',
@@ -24,10 +22,9 @@ export default async function AccountsPage() {
   if (!session) redirect('/login?next=/admin/accounts');
   if (session.role !== 'admin') redirect('/projects');
 
-  const [accounts, projects, partnerDetails] = await Promise.all([
+  const [accounts, projects] = await Promise.all([
     userStore.list(),
     getRepository().listProjects(viewerOf(session)),
-    listPartnerDetails(),
   ]);
 
   const knownOrgs = [
@@ -43,21 +40,13 @@ export default async function AccountsPage() {
         </p>
       </div>
 
-      <div className="flex flex-col gap-7">
-        <AccountAdmin
-          accounts={accounts}
-          knownOrgs={knownOrgs}
-          meId={session.id}
-          dbReady={repositoryKind() === 'postgres'}
-        />
-
-        {/* 지급(하도급 정산)에 쓰는 값 — 협력사가 /settings 에서 적고, 여기서는 한백이 고친다 */}
-        <PartnerDetailsSection
-          accounts={accounts.filter((a) => a.role !== 'admin')}
-          details={partnerDetails}
-          dbReady={repositoryKind() === 'postgres'}
-        />
-      </div>
+      {/* 협력사 정보(사업자등록증·계좌)는 /admin/partners 로 뗐다 — 드나드는 결이 다르다 */}
+      <AccountAdmin
+        accounts={accounts}
+        knownOrgs={knownOrgs}
+        meId={session.id}
+        dbReady={repositoryKind() === 'postgres'}
+      />
     </>
   );
 }

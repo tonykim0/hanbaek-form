@@ -103,6 +103,8 @@ const GROUPS: Group[] = [
     adminOnly: true,
     items: [
       { href: '/admin/materials', label: '자료실 관리', short: '관리' },
+      // 설정(/admin/accounts)에서 뗐다(한백 확인) — 지급 전마다 보는 값이라 계정 등록과 결이 다르다
+      { href: '/admin/partners', label: '협력사 정보', short: '협력' },
       { href: '/admin/accounts', label: '설정', short: '설정' },
       /*
        * 디자인 기준(/design)은 메뉴에 없다 — 화면을 만드는 사람의 도구라서

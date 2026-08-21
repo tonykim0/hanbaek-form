@@ -15,7 +15,9 @@
     "auth:bootstrap": "tsx scripts/bootstrap-admin.ts",
     "db:backfill-confirm": "tsx scripts/backfill-contract-confirm.ts",
     "db:studio": "drizzle-kit studio",
-    "check:leak": "tsx scripts/check-partner-leak.ts"
+    "check:leak": "tsx scripts/check-partner-leak.ts",
+    "perf": "tsx scripts/perf.ts",
+    "check": "npm run check:leak && npm run perf"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.52.0",

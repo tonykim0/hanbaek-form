@@ -21,15 +21,38 @@ const LIMIT = 4;
 let active = 0;
 const waiting: Array<() => void> = [];
 
+/**
+ * 느린 쿼리·대기를 로그에 남기는 기준.
+ *
+ * 다음 고착을 사용자 제보 전에 알기 위한 것이다 — 2026-08-21 에는 화면이 300초 만에
+ * 죽을 때까지 로그에 아무 신호가 없었다. 여기 걸리는 줄이 보이면 그때가 신호다.
+ */
+const SLOW_QUERY_MS = 700;
+const SLOW_WAIT_MS = 300;
+
 /** 쿼리 한 방을 슬롯 안에서 돈다 */
 export async function dbSlot<T>(run: () => Promise<T>): Promise<T> {
+  const queuedAt = Date.now();
   if (active >= LIMIT) {
     await new Promise<void>((resolve) => waiting.push(resolve));
   }
+  const waited = Date.now() - queuedAt;
+  /*
+   * 슬롯을 오래 기다렸다는 것은 한 요청이 던지는 쿼리가 풀보다 많다는 뜻이다 —
+   * 고착의 앞 신호다. 대기 줄 길이를 같이 남긴다.
+   */
+  if (waited >= SLOW_WAIT_MS) {
+    console.warn(`[db] 슬롯 대기 ${waited}ms (대기 ${waiting.length}건) — 한 요청의 동시 쿼리가 많습니다`);
+  }
   active++;
+  const startedAt = Date.now();
   try {
     return await run();
   } finally {
+    const took = Date.now() - startedAt;
+    if (took >= SLOW_QUERY_MS) {
+      console.warn(`[db] 느린 쿼리 ${took}ms`);
+    }
     active--;
     waiting.shift()?.();
   }

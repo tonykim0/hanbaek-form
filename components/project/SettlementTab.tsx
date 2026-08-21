@@ -10,7 +10,7 @@
  * 협력사에게는 자기 몫만 보인다. 가리는 것이 아니라 저장소에서 지워서 온다
  * (redactForViewer) — 서버가 렌더한 데이터는 브라우저에 통째로 실린다.
  */
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import Link from 'next/link';
 import type {
   PayoutEntry, PayoutKind, ProjectDetail, SettlementRule, SettlementRuleChoice,
@@ -23,6 +23,7 @@ import type { Visibility } from '@/lib/roles';
 import type { RuleOptions } from '@/lib/pricing-match';
 import { useAction } from '@/lib/use-action';
 import { won } from '@/lib/format';
+import { today } from '@/lib/date';
 import { Btn, Choice, Empty, Err, FIELD, FIELD_CELL, Note, Saved, Tag } from '@/components/ui';
 
 // ── 정산 탭 ─────────────────────────────────────────────────────
@@ -495,9 +496,12 @@ function PaymentSection({
               <tr>
                 <th className="px-3 py-2 text-left">구분</th>
                 <th className="px-3 py-2 text-right">대당</th>
+                <th className="px-3 py-2 text-right">대수</th>
                 <th className="px-3 py-2 text-right">총 지급액</th>
                 <th className="px-3 py-2 text-right">1차 · 70%</th>
+                <th className="px-3 py-2 text-left">지급시기</th>
                 <th className="px-3 py-2 text-right">2차 · 잔액</th>
+                <th className="px-3 py-2 text-left">지급시기</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 tabular-nums">
@@ -514,6 +518,9 @@ function PaymentSection({
                   <td className="whitespace-nowrap px-3 py-2.5 text-right font-semibold text-slate-700">
                     {unitCell(r.unit)}
                   </td>
+                  <td className="whitespace-nowrap px-3 py-2.5 text-right font-semibold text-slate-700">
+                    {totalQty}대
+                  </td>
                   <td className="whitespace-nowrap px-3 py-2.5 text-right font-black text-slate-900">
                     {won(r.steps.due)}
                     {r.adjust !== 0 && (
@@ -527,17 +534,23 @@ function PaymentSection({
                     const amount = r.steps.open?.no === no ? r.steps.open.amount : r.steps.parts[no - 1];
                     const at = r.stepAt(`${no}차`);
                     return (
-                      <td key={no} className="whitespace-nowrap px-3 py-2.5 text-right">
-                        <span className={`font-bold ${done ? 'text-slate-900' : 'text-slate-500'}`}>
-                          {won(amount)}
-                        </span>
-                        {/* 지급 상태는 둘뿐이다 — 지급완료(날짜와 함께) 또는 미지급 */}
-                        <span
-                          className={`block text-tiny font-bold ${done ? 'text-brand-800' : 'text-amber-700'}`}
-                        >
-                          {done ? `지급완료${at ? ` · ${at}` : ''}` : '미지급'}
-                        </span>
-                      </td>
+                      <Fragment key={no}>
+                        <td className="whitespace-nowrap px-3 py-2.5 text-right">
+                          <span className={`font-bold ${done ? 'text-slate-900' : 'text-slate-500'}`}>
+                            {won(amount)}
+                          </span>
+                        </td>
+                        {/* 지급시기 — 상태는 둘뿐이다: 지급완료(날짜) 또는 미지급 */}
+                        <td className="whitespace-nowrap px-3 py-2.5">
+                          {done ? (
+                            <span className="text-small font-bold text-brand-800">
+                              지급완료<span className="ml-1 font-semibold text-slate-500">{at ?? ''}</span>
+                            </span>
+                          ) : (
+                            <span className="text-small font-bold text-amber-700">미지급</span>
+                          )}
+                        </td>
+                      </Fragment>
                     );
                   })}
                 </tr>
@@ -552,9 +565,12 @@ function PaymentSection({
                         : rows.some((r) => r.unit === 'mixed') ? 'mixed' : null
                     )}
                   </td>
+                  <td className="whitespace-nowrap px-3 py-2.5 text-right text-slate-700">{totalQty}대</td>
                   <td className="whitespace-nowrap px-3 py-2.5 text-right text-slate-900">
                     {won(rows.reduce((sum, r) => sum + r.steps.due, 0))}
                   </td>
+                  <td className="px-3 py-2.5" />
+                  <td className="px-3 py-2.5" />
                   <td className="px-3 py-2.5" />
                   <td className="px-3 py-2.5" />
                 </tr>
@@ -573,7 +589,13 @@ function PaymentSection({
   );
 }
 
-/** 지급 비고 — 금액만으로 설명되지 않는 사정. 원장 메모보다 현장 전체 이야기가 온다. */
+/**
+ * 정산 메모 — 그때그때 한 줄씩 남긴다(한백 확인). 특이사항·회수·추가지급이 여기 온다.
+ *
+ * 별도 테이블 없이 비고(payNote)에 날짜 스탬프 줄로 쌓는다 — 한 줄이 한 건이고,
+ * 지우기는 그 줄만 걷어낸다. 전용 기능(원장)은 쓰면서 다시 정하기로 했다.
+ * 협력사는 읽기만 한다.
+ */
 function PayNoteBox({
   projectId, payNote, canReview,
 }: {
@@ -582,48 +604,78 @@ function PayNoteBox({
   canReview: boolean;
 }) {
   const { busy, error, run } = useAction();
-  const [saved, setSaved] = useState(false);
-  const [note, setNote] = useState(payNote ?? '');
-  const dirty = note !== (payNote ?? '');
+  const [draft, setDraft] = useState('');
+  const entries = (payNote ?? '').split('\n').map((t) => t.trim()).filter(Boolean);
 
-  async function save() {
-    setSaved(false);
-    const ok = await run({
+  const saveAll = (next: string[]) =>
+    run({
       url: `/api/projects/${projectId}/payment`,
       method: 'PATCH',
-      body: { payNote: note },
+      body: { payNote: next.join('\n') },
       fail: '저장에 실패했습니다.',
     });
-    if (ok) setSaved(true);
-  }
+
+  const add = async () => {
+    const text = draft.trim();
+    if (!text) return;
+    const ok = await saveAll([`${today()} ${text}`, ...entries]);
+    if (ok) setDraft('');
+  };
 
   return (
     <div>
-      <label htmlFor="payNote" className="text-tiny font-bold text-slate-500">비고</label>
-      {canReview ? (
-        <>
-          <textarea
-            id="payNote"
-            value={note}
-            rows={2}
+      <div className="mb-1.5 flex items-baseline gap-2">
+        <h3 className="text-tiny font-bold tracking-[0.06em] text-slate-500">메모</h3>
+        <span className="text-tiny text-slate-400">{entries.length}건</span>
+      </div>
+
+      {canReview && (
+        <div className="flex items-center gap-1.5">
+          <input
+            value={draft}
             disabled={busy}
-            onChange={(e) => setNote(e.target.value)}
-            placeholder="감액·보류 사유 등 금액만으로 설명되지 않는 것"
-            className={`${FIELD} mt-1 leading-relaxed`}
+            onChange={(e) => setDraft(e.target.value)}
+            placeholder="회수·추가지급·특이사항"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') void add();
+            }}
+            className={FIELD}
           />
-          <div className="mt-2 flex flex-wrap items-center gap-2">
-            <Btn disabled={!dirty} busy={busy} busyLabel="저장 중…" onClick={save}>
-              {dirty ? '비고 저장' : '변경 없음'}
-            </Btn>
-            {saved && !dirty && <Saved />}
-            <Err>{error}</Err>
-          </div>
-        </>
-      ) : (
-        <p className="mt-1 text-base text-slate-600">
-          {payNote || <span className="text-slate-300">없음</span>}
-        </p>
+          <Btn size="sm" busy={busy} busyLabel="저장 중…" disabled={!draft.trim()} onClick={() => void add()}>
+            남기기
+          </Btn>
+        </div>
       )}
+      <Err className="block">{error}</Err>
+
+      <ul className="mt-2 flex flex-col gap-1.5">
+        {entries.map((line, i) => {
+          const m = line.match(/^(\d{4}-\d{2}-\d{2})\s+(.*)$/);
+          return (
+            <li key={`${i}-${line}`} className="flex items-baseline gap-2 rounded-box bg-slate-50 px-2.5 py-1.5">
+              {m ? (
+                <>
+                  <span className="shrink-0 text-tiny tabular-nums text-slate-400">{m[1]}</span>
+                  <span className="min-w-0 whitespace-pre-wrap text-small text-slate-700">{m[2]}</span>
+                </>
+              ) : (
+                <span className="min-w-0 whitespace-pre-wrap text-small text-slate-700">{line}</span>
+              )}
+              {canReview && (
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void saveAll(entries.filter((_, j) => j !== i))}
+                  className="ml-auto shrink-0 text-micro font-bold text-slate-300 transition hover:text-red-700 disabled:opacity-40"
+                >
+                  지우기
+                </button>
+              )}
+            </li>
+          );
+        })}
+        {entries.length === 0 && <li className="text-tiny text-slate-400">0건</li>}
+      </ul>
     </div>
   );
 }

@@ -30,7 +30,7 @@ import { Note } from '@/components/ui';
 /** 고칠 수 있는 날짜 칸 — 이름은 서버(ProcessPatch)와 같아야 한다 */
 type DateField =
   | 'notifyDate' | 'chargerOrderDate' | 'chargerShipDate' | 'chargerRecvDate'
-  | 'startActualDate' | 'installDoneDate' | 'commDoneDate';
+  | 'startActualDate' | 'installDoneDate' | 'commDoneDate' | 'openDate';
 
 /** 묶음별 완료 체크 칸 */
 type CheckField =
@@ -174,22 +174,30 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
         },
       },
     ],
-    // 개통 절차 — 통신까지 끝나고 완료 체크가 되면 「개통완료」가 열린다
+    // 개통 절차 — 통신·개통까지 끝나고 완료 체크가 되면 「개통완료」가 열린다
     '설치완료': [
       {
         title: '개통',
-        rows: [{ label: '통신완료일', field: 'commDoneDate', value: p.commDoneDate }],
+        rows: [
+          { label: '통신완료일', field: 'commDoneDate', value: p.commDoneDate },
+          { label: '개통완료일', field: 'openDate', value: p.openDate },
+        ],
         docs: ['elecapply', 'kepcofee', 'safety', 'comm'],
         check: {
           field: 'openDoneAt', label: '개통 완료',
-          ready: Boolean(p.commDoneDate), blocked: '통신완료일 미입력 — 완료 불가',
+          ready: Boolean(p.commDoneDate) && Boolean(p.openDate),
+          blocked: '통신완료일·개통완료일 미입력 — 완료 불가',
         },
       },
     ],
-    // 준공서류 준비 — 제출을 끝냈다고 선언하면 검토(접수/검토)로 넘어갈 수 있다
-    '개통완료': [
+    /*
+     * 준공서류는 「준공서류 접수/검토」 구간의 일이다 — 개통완료 구간에 있었는데
+     * 구간 이름과 내용이 어긋나 옮겼다(한백 확인 2026-08-21). 제출을 끝냈다고
+     * 선언하면 준공보완·준공으로 넘어갈 수 있다.
+     */
+    '준공서류 접수/검토': [
       {
-        title: '준공',
+        title: '준공서류 접수/검토',
         rows: [],
         docs: ['completion'],
         check: {

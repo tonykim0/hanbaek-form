@@ -354,7 +354,7 @@ export default function ProjectTable({
                     <MilestoneCell date={p.milestones.installDoneDate} done={p.milestones.installConfirmed} />
                   )}
                   {show('comm') && (
-                    <MilestoneCell date={p.milestones.commDoneDate} done={p.milestones.openDone} />
+                    <MilestoneCell date={p.milestones.openDate} done={p.milestones.openDone} />
                   )}
                   {show('completion') && <MilestoneCell date={p.milestones.completionSubmitAt} />}
                   {show('created') && (

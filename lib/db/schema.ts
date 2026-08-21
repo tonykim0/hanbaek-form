@@ -190,6 +190,8 @@ export const processes = pgTable('processes', {
   installedSpots: integer('installed_spots'),
   installedUnits: integer('installed_units'),
   commDoneDate: text('comm_done_date'),
+  /** 개통완료일 — 통신까지 끝나고 실제 개통된 날. 시공사가 적는다 */
+  openDate: text('open_date'),
   /** 행위신고일 — 파일을 올리면 그 날이 기본으로 들어간다(비어 있을 때만) */
   notifyDate: text('notify_date'),
   /** 수령한 수량 — 충전기 몇 대, 모뎀 몇 개. 시공사가 수령 때 센다 */

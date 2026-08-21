@@ -56,6 +56,7 @@ function parse(raw: string): ProjectRecord[] {
     // 조사 반려가 생기기 전의 파일에는 이 칸이 없다
     r.project.preRejectReason = r.project.preRejectReason ?? null;
     // 완료 체크가 생기기 전의 파일에는 이 칸들이 없다
+    r.process.openDate = r.process.openDate ?? null;
     r.process.notifyDate = r.process.notifyDate ?? null;
     r.process.chargerQty = r.process.chargerQty ?? null;
     r.process.modemQty = r.process.modemQty ?? null;

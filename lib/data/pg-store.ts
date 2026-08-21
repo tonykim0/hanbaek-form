@@ -167,6 +167,7 @@ function toProcess(projectId: string, r: ProcRow | undefined, docRows: ProcDocRo
     installedSpots: r?.installedSpots ?? null,
     installedUnits: r?.installedUnits ?? null,
     commDoneDate: r?.commDoneDate ?? null,
+    openDate: r?.openDate ?? null,
     notifyDate: r?.notifyDate ?? null,
     chargerQty: r?.chargerQty ?? null,
     modemQty: r?.modemQty ?? null,

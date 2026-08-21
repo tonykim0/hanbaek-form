@@ -400,6 +400,8 @@ export interface ProcessInfo {
   installedSpots: number | null;
   installedUnits: number | null;
   commDoneDate: string | null;
+  /** 개통완료일 — 통신까지 끝나고 실제 개통된 날. 시공사가 적는다 */
+  openDate: string | null;
   /**
    * 묶음별 완료 체크 — 파일을 다 올리고 작업이 끝났는지 사람이 선언한다(체크한 날 저장).
    * 파일이 있다는 것과 일이 끝났다는 것은 다른 말이라, 단계 이동은 이 체크를 조건으로
@@ -565,7 +567,8 @@ export interface ProjectSummary {
     startDate: string | null;
     installDoneDate: string | null;
     installConfirmed: boolean;
-    commDoneDate: string | null;
+    /** 개통완료일 — 통신완료일(commDoneDate)이 아니라 실제 개통된 날을 표에 그린다 */
+    openDate: string | null;
     openDone: boolean;
     completionSubmitAt: string | null;
   };

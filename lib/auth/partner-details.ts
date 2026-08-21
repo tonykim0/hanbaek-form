@@ -11,9 +11,17 @@
  */
 import { eq } from 'drizzle-orm';
 import type { Actor } from './types';
+import { userStore } from './users';
 import { getDb, hasDatabase } from '@/lib/db/client';
-import { partnerDetails, users } from '@/lib/db/schema';
+import { partnerDetails } from '@/lib/db/schema';
 import { writeAudit } from '@/lib/db/audit';
+import {
+  ACCOUNT_DIGITS_MAX,
+  ACCOUNT_DIGITS_MIN,
+  isValidAccountNo,
+  isValidBizRegNo,
+  normalizeAccountNo,
+} from '@/lib/bank-account';
 
 export interface PartnerDetailsView {
   bizRegNo: string | null;
@@ -47,19 +55,16 @@ function assertSelfOrAdmin(actor: Actor, targetId: string, what: string): void {
   throw new Error(`${what}는 본인 계정 것만 할 수 있습니다.`);
 }
 
-/** 협력사 계정인지 확인하고 정규화된 id 를 돌려준다. 관리자 계정에는 협력사 정보가 없다. */
+/**
+ * 협력사 계정인지 확인하고 정규화된 id 를 돌려준다. 관리자 계정에는 협력사 정보가 없다.
+ * userStore 로 본다 — DB 계정만이 아니라 배포 설정(AUTH_USERS)·개발 시드 계정도
+ * 자기 계좌를 적을 수 있어야 한다.
+ */
 async function requirePartnerAccount(loginId: string): Promise<string> {
   const id = loginId.trim().toLowerCase();
-  const db = getDb();
-  const [row] = await db
-    .select({ id: users.id, role: users.role })
-    .from(users)
-    .where(eq(users.id, id))
-    .limit(1);
-  if (!row) {
-    throw new Error('DB 에 없는 계정입니다 — 배포 설정(AUTH_USERS)에 있는 계정에는 협력사 정보를 붙일 수 없습니다.');
-  }
-  if (row.role === 'admin') throw new Error('관리자 계정에는 협력사 정보를 두지 않습니다.');
+  const account = await userStore.find(id);
+  if (!account) throw new Error('없는 계정입니다.');
+  if (account.role === 'admin') throw new Error('관리자 계정에는 협력사 정보를 두지 않습니다.');
   return id;
 }
 
@@ -125,7 +130,16 @@ export async function savePartnerFields(
     const value = raw.trim() || null;
     if (field === 'bizRegNo' && value) {
       const digits = value.replace(/\D/g, '');
-      if (digits.length !== 10) throw new Error('사업자등록번호는 숫자 10자리여야 합니다.');
+      // 국세청 검증 숫자까지 본다 — 자리 바뀜·한 자리 오타를 접수 시점에 잡는다
+      if (!isValidBizRegNo(digits)) {
+        throw new Error('사업자등록번호가 올바르지 않습니다 — 숫자 10자리, 검증 숫자 불일치.');
+      }
+      next[field] = digits;
+    } else if (field === 'bankAccountNo' && value) {
+      const digits = normalizeAccountNo(value);
+      if (!isValidAccountNo(digits)) {
+        throw new Error(`계좌번호는 숫자 ${ACCOUNT_DIGITS_MIN}~${ACCOUNT_DIGITS_MAX}자리입니다.`);
+      }
       next[field] = digits;
     } else {
       next[field] = value;

@@ -11,7 +11,7 @@
  * 로그인은 되는데 현장이 하나도 안 보인다. 그래서 쓰이고 있는 소속을 눌러 넣게 한다.
  *
  * 비밀번호는 만들 때 한 번만 화면에 있다. 저장하는 것은 해시뿐이라 다시 볼 수 없다 —
- * 잊으면 새로 발급해야 한다.
+ * 잊으면 계정 줄의 「비밀번호 재설정」으로 새로 정한다.
  */
 import { useState } from 'react';
 import { useAction } from '@/lib/use-action';
@@ -235,10 +235,28 @@ function AccountRow({
   knownOrgs: string[];
 }) {
   const { busy, error, run } = useAction();
+  // 재설정은 따로 돈다 — 구분·소속 저장의 실패 문구와 섞이면 무엇이 틀렸는지 알 수 없다
+  const pwAction = useAction();
+  const [pwOpen, setPwOpen] = useState(false);
+  const [pw, setPw] = useState('');
+  const [pwDone, setPwDone] = useState(false);
   const fixed = a.source === '파일' || a.role === 'admin';
 
   const patch = (body: Record<string, unknown>) =>
     void run({ url: '/api/admin/accounts', method: 'PATCH', body: { id: a.id, ...body } });
+
+  async function submitPw(e: React.FormEvent) {
+    e.preventDefault();
+    const ok = await pwAction.run({
+      url: '/api/admin/accounts',
+      method: 'PATCH',
+      body: { id: a.id, password: pw },
+      fail: '비밀번호를 바꾸지 못했습니다.',
+    });
+    if (!ok) return;
+    setPw('');
+    setPwDone(true);
+  }
 
   return (
     <>
@@ -328,21 +346,82 @@ function AccountRow({
               고정
             </span>
           ) : (
-            <button
-              type="button"
-              disabled={busy || a.id === meId}
-              onClick={() => patch({ active: !a.active })}
-              className={`rounded-ctl border px-2.5 py-1 text-tiny font-bold transition disabled:opacity-40 ${
-                a.active
-                  ? 'border-slate-200 text-slate-600 hover:border-red-300 hover:text-red-700'
-                  : 'border-brand-300 bg-brand-50 text-brand-800'
-              }`}
-            >
-              {a.active ? '사용 중 · 중지' : '중지됨 · 재개'}
-            </button>
+            <span className="inline-flex items-center gap-1.5">
+              {/* 잊은 비밀번호는 되찾을 수 없다(해시만 저장) — 새로 정하는 자리가 이것뿐이다 */}
+              {a.role !== 'admin' && (
+                <Btn
+                  kind="quiet"
+                  size="sm"
+                  aria-expanded={pwOpen}
+                  onClick={() => {
+                    setPwOpen((v) => !v);
+                    setPwDone(false);
+                  }}
+                >
+                  비밀번호 재설정
+                </Btn>
+              )}
+              <button
+                type="button"
+                disabled={busy || a.id === meId}
+                onClick={() => patch({ active: !a.active })}
+                className={`rounded-ctl border px-2.5 py-1 text-tiny font-bold transition disabled:opacity-40 ${
+                  a.active
+                    ? 'border-slate-200 text-slate-600 hover:border-red-300 hover:text-red-700'
+                    : 'border-brand-300 bg-brand-50 text-brand-800'
+                }`}
+              >
+                {a.active ? '사용 중 · 중지' : '중지됨 · 재개'}
+              </button>
+            </span>
           )}
         </td>
       </tr>
+      {pwOpen && (
+        <tr>
+          <td colSpan={6} className="px-3 pb-3">
+            {pwDone ? (
+              <span className="flex items-center gap-2.5">
+                <Saved>
+                  {a.id} 비밀번호를 바꿨습니다 — 새 비밀번호를 협력사에 직접 전해 주세요.
+                </Saved>
+                <Btn kind="quiet" size="sm" onClick={() => setPwOpen(false)}>
+                  닫기
+                </Btn>
+              </span>
+            ) : (
+              <form onSubmit={submitPw} className="flex flex-wrap items-center gap-2">
+                {/*
+                  * 보이게 적는다 — 잊어서 온 자리인데 가린 채 오타를 내면 같은 일이
+                  * 반복된다. 어차피 협력사에게 전달해야 하는 값이다.
+                  */}
+                <input
+                  aria-label={`${a.id} 새 비밀번호`}
+                  value={pw}
+                  onChange={(e) => setPw(e.target.value)}
+                  autoComplete="off"
+                  placeholder="새 비밀번호 — 8자 이상"
+                  className={`${FIELD_CELL} w-60`}
+                />
+                <Btn type="submit" size="sm" busy={pwAction.busy} busyLabel="바꾸는 중…">
+                  재설정
+                </Btn>
+                <Btn
+                  kind="quiet"
+                  size="sm"
+                  onClick={() => {
+                    setPwOpen(false);
+                    setPw('');
+                  }}
+                >
+                  취소
+                </Btn>
+                <Err>{pwAction.error}</Err>
+              </form>
+            )}
+          </td>
+        </tr>
+      )}
       {error && (
         <tr>
           <td colSpan={6} className="px-3 pb-2.5">

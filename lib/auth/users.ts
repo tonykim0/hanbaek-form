@@ -47,6 +47,14 @@ export interface UserStore {
     patch: { role?: Role; org?: string | null; name?: string },
     actor: Actor
   ): Promise<void>;
+  /**
+   * 비밀번호 재설정. [한백 전용]
+   *
+   * 저장하는 것은 해시뿐이라 잊은 비밀번호는 되찾을 수 없다 — 새로 정하는 길만 있다.
+   * 이 자리가 없으면 협력사가 잊을 때마다 DB 를 직접 만져야 한다(화면 규칙 7).
+   * 관리자 계정은 여기서 못 바꾼다 — 그 길은 scripts/bootstrap-admin.ts 다.
+   */
+  resetPassword(loginId: string, password: string, actor: Actor): Promise<void>;
 }
 
 /**
@@ -279,6 +287,39 @@ export const userStore: UserStore = {
         });
       }
     }
+  },
+
+  async resetPassword(loginId, password, actor) {
+    assertAdmin(actor, '비밀번호 재설정');
+    if (!hasDatabase()) throw new Error('계정 저장소(DB)가 연결되지 않았습니다.');
+    // 만들 때와 같은 규칙 — 두 자리의 규칙이 갈리면 재설정으로 못 만드는 비밀번호가 생긴다
+    if (password.length < 8) throw new Error('비밀번호는 8자 이상이어야 합니다.');
+    const id = loginId.trim().toLowerCase();
+
+    const db = getDb();
+    const [row] = await db.select().from(users).where(eq(users.id, id)).limit(1);
+    if (!row) {
+      throw new Error('DB 에 없는 계정입니다 — 배포 설정(AUTH_USERS)에 있는 계정은 여기서 못 바꿉니다.');
+    }
+    // 관리자 계정을 화면에서 바꿀 수 있으면 다른 관리자를 잠그고 들어가는 길이 된다
+    if (row.role === 'admin') {
+      throw new Error('관리자 계정 비밀번호는 이 화면에서 바꿀 수 없습니다.');
+    }
+
+    await db
+      .update(users)
+      .set({ passwordHash: await hashPassword(password) })
+      .where(eq(users.id, id));
+
+    // 누가 언제 바꿨는지만 남긴다 — 값은 해시 밖으로 꺼내지 않는다
+    await writeAudit(db, {
+      projectId: null,
+      actor,
+      action: `계정 ${id}`,
+      field: 'password',
+      oldValue: null,
+      newValue: '재설정',
+    });
   },
 
   async setActive(loginId, active, actor) {

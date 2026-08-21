@@ -3,6 +3,7 @@
  *
  *   POST                          새 계정
  *   PATCH  { active }             사용 중지·재개
+ *   PATCH  { password }           비밀번호 재설정 — 해시만 저장해서 되찾는 길은 없다
  *   PATCH  { role|org|name }      구분·소속·이름 고치기
  *
  * 관리자 계정은 여기서 만들 수 없고, 여기로 올릴 수도 없다. 화면에서 만들 수 있게 두면
@@ -42,12 +43,19 @@ export const POST = adminWrite<
 
 export const PATCH = adminWrite<
   Record<string, never>,
-  { id?: string; active?: unknown; role?: unknown; org?: unknown; name?: unknown }
+  { id?: string; active?: unknown; role?: unknown; org?: unknown; name?: unknown; password?: unknown }
 >('한백 관리자만 바꿀 수 있습니다.', async ({ body, actor }) => {
   if (!body?.id) throw new BadRequest('id 가 필요합니다.');
 
   if (typeof body.active === 'boolean') {
     await userStore.setActive(body.id, body.active, actor);
+    return;
+  }
+
+  if (body.password !== undefined) {
+    if (typeof body.password !== 'string') throw new BadRequest('비밀번호가 올바르지 않습니다.');
+    // 길이 규칙은 저장소가 본다 — 만들기와 같은 규칙을 한 곳에 둔다
+    await userStore.resetPassword(body.id, body.password, actor);
     return;
   }
 

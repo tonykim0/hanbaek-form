@@ -7,7 +7,7 @@
  *     프롬프트로 "JSON만 출력"을 부탁하는 것보다 파싱 실패가 없습니다.
  */
 import Anthropic from '@anthropic-ai/sdk';
-import { PDFDocument } from 'pdf-lib';
+import { PDFDocument, degrees } from 'pdf-lib';
 import { YEAR_OPTIONS } from './contract-form';
 import { buildFormImportPrompt } from './prompts-import';
 import type {
@@ -21,6 +21,8 @@ const anthropic = new Anthropic({
 });
 
 const MODEL = 'claude-opus-5';
+/** 회전 감지는 방향만 보면 되므로 빠르고 싼 모델을 씁니다 */
+const ORIENTATION_MODEL = 'claude-haiku-4-5-20251001';
 
 /** Claude PDF 입력 한도(요청 32MB·600페이지)와 판독 시간을 함께 고려한 상한 */
 const MAX_PAGES = 60;
@@ -198,7 +200,11 @@ export async function extractFormFromPdf(
     );
   }
 
-  const { pdf, analyzedPages, totalPages } = await limitPages(options.pdf);
+  const limited = await limitPages(options.pdf);
+  const { analyzedPages, totalPages } = limited;
+  // 뒤집힌 스캔은 Opus 도 판독을 그르치므로(실측: 180° 페이지를 앞 서류의 연속으로
+  // 판정) 판독 전에 페이지 방향을 물리적으로 바로잡습니다.
+  const pdf = await normalizeRotation(limited.pdf);
 
   const prompt = buildFormImportPrompt({
     fileName,
@@ -318,6 +324,85 @@ function parseJson(message: Anthropic.Message): unknown {
     return JSON.parse(cleaned.slice(start, end + 1));
   } catch {
     throw new Error(`JSON 파싱 실패: ${cleaned.slice(start, start + 200)}`);
+  }
+}
+
+// ─────────────────────────────────────────────
+// 회전 정규화
+// ─────────────────────────────────────────────
+
+const ORIENTATION_TIMEOUT_MS = 60_000;
+
+/**
+ * 스캔이 돌아간 페이지를 감지해 PDF 의 /Rotate 로 바로 세웁니다.
+ *
+ * 프롬프트로 「뒤집혀 있어도 읽어라」를 지시하는 것은 비결정적이라 믿을 수 없었습니다
+ * (같은 파일이 통과했다 실패했다 함). 방향 판정은 내용 판독보다 훨씬 쉬운 일이라
+ * 빠른 모델에 맡기고, 실패하면 원본 그대로 진행합니다 — 이 단계가 판독을 막으면 안 됩니다.
+ */
+async function normalizeRotation(pdf: Buffer): Promise<Buffer> {
+  try {
+    const message = await anthropic.messages.create(
+      {
+        model: ORIENTATION_MODEL,
+        max_tokens: 1000,
+        messages: [
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'document',
+                source: {
+                  type: 'base64',
+                  media_type: 'application/pdf',
+                  data: pdf.toString('base64'),
+                },
+              },
+              {
+                type: 'text',
+                text:
+                  '각 페이지의 글자 방향만 판정하세요. 내용은 읽지 마세요.\n' +
+                  'rotation은 페이지가 똑바로 선 상태에서 시계방향으로 몇 도 돌아가 보이는지입니다 ' +
+                  '(0 = 똑바름, 90 = 시계방향 90°, 180 = 거꾸로, 270 = 반시계방향 90°).\n' +
+                  '모든 페이지를 빠짐없이 넣고, JSON 하나만 출력하세요:\n' +
+                  '{"rotations": [{"page": 1, "rotation": 0}, {"page": 2, "rotation": 180}]}',
+              },
+            ],
+          },
+        ],
+      },
+      { timeout: ORIENTATION_TIMEOUT_MS }
+    );
+
+    const parsed = parseJson(message) as {
+      rotations?: Array<{ page?: unknown; rotation?: unknown }>;
+    };
+    const rotations = (parsed.rotations ?? []).filter(
+      (r): r is { page: number; rotation: number } =>
+        typeof r.page === 'number' &&
+        typeof r.rotation === 'number' &&
+        [90, 180, 270].includes(r.rotation)
+    );
+    if (rotations.length === 0) return pdf;
+
+    const doc = await PDFDocument.load(pdf, { ignoreEncryption: true });
+    const pages = doc.getPages();
+    for (const { page, rotation } of rotations) {
+      const target = pages[page - 1];
+      if (!target) continue;
+      // 내용이 시계방향으로 rotation° 돌아가 보이면, 표시를 (360-rotation)° 더 돌려 바로 세웁니다.
+      const current = target.getRotation().angle;
+      target.setRotation(degrees((((current + (360 - rotation)) % 360) + 360) % 360));
+    }
+    const bytes = await doc.save();
+    console.info(
+      '[claude-import] 회전 정규화:',
+      rotations.map((r) => `${r.page}p=${r.rotation}°`).join(' ')
+    );
+    return Buffer.from(bytes);
+  } catch (err) {
+    console.warn('[claude-import] 회전 감지 실패 — 원본으로 진행:', err);
+    return pdf;
   }
 }
 

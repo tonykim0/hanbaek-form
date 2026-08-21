@@ -84,8 +84,8 @@ function StatusFlow({ process }: { process: ProjectDetail['process'] }) {
 
 /** 고칠 수 있는 날짜 칸 — 이름은 서버(ProcessPatch)와 같아야 한다 */
 type DateField =
-  | 'envApprovalDate' | 'cpoSubmitDate' | 'cpoApprovalDate' | 'chargerOrderDate' | 'chargerRecvDate'
-  | 'startPlanDate' | 'startActualDate' | 'installDoneDate' | 'commDoneDate';
+  | 'envApprovalDate' | 'cpoSubmitDate' | 'cpoApprovalDate' | 'chargerOrderDate' | 'chargerShipDate'
+  | 'chargerRecvDate' | 'startActualDate' | 'installDoneDate' | 'commDoneDate';
 
 export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit: ProcessEdit }) {
   const p = detail.process;
@@ -150,11 +150,31 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
       trigger: '시공진행필요', opens: '시공진행필요',
     },
     { label: '충전기 발주일', field: 'chargerOrderDate', value: p.chargerOrderDate },
+    { label: '충전기 출고일', field: 'chargerShipDate', value: p.chargerShipDate },
     { label: '충전기 수령일', field: 'chargerRecvDate', value: p.chargerRecvDate },
-    { label: '착공예정일', field: 'startPlanDate', value: p.startPlanDate },
-    { label: '실착공일', field: 'startActualDate', value: p.startActualDate, trigger: '착공' },
+    /*
+     * 착공예정일과 실착공일을 구분하지 않는다 — 시공팀이 착공일 하나만 적는다(한백 확인).
+     * startPlanDate 칸은 저장소에 남아 있지만 화면에 그리지 않는다.
+     */
+    { label: '착공일', field: 'startActualDate', value: p.startActualDate, trigger: '착공' },
     { label: '설치완료일', field: 'installDoneDate', value: p.installDoneDate },
     { label: '통신완료일', field: 'commDoneDate', value: p.commDoneDate },
+  ];
+
+  /*
+   * 공정을 실제 일 순서대로 묶는다 — 마일스톤과 서류가 단계별로 함께 선다 (한백 확인).
+   *   승인 → 행위신고(공사 발주 뒤 시공팀이 접수, 1~2주 — 행위신고 이후 착공) → 착공 →
+   *   설치 → 개통(전기사용신청 → 점검 → 개통) → 준공(준공서류 → 한백 검토 → CPO 전달).
+   * 충전기 발주·수령은 행위신고와 별개의 줄기라 따로 묶는다(한백 확인).
+   */
+  const GROUPS: Array<{ title: string; fields: DateField[]; docs: string[] }> = [
+    { title: '승인', fields: ['envApprovalDate', 'cpoSubmitDate', 'cpoApprovalDate'], docs: [] },
+    { title: '행위신고', fields: [], docs: ['notify'] },
+    { title: '충전기', fields: ['chargerOrderDate', 'chargerShipDate', 'chargerRecvDate'], docs: [] },
+    { title: '착공', fields: ['startActualDate'], docs: [] },
+    { title: '설치', fields: ['installDoneDate'], docs: ['photoDone'] },
+    { title: '개통', fields: ['commDoneDate'], docs: ['elecapply', 'kepcofee', 'safety', 'comm'] },
+    { title: '준공', fields: [], docs: ['completion'] },
   ];
 
   return (
@@ -172,16 +192,40 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
 
       <section>
         <div className="mb-3 flex flex-wrap items-baseline justify-between gap-3">
-          <h2 className="text-h3 font-black text-slate-900">마일스톤</h2>
-          {canEdit && (
-            <p className="text-tiny text-slate-400">
-              날짜를 넣으면 조건이 열립니다. 단계는 보드나 표에서 옮깁니다.
-            </p>
-          )}
+          <h2 className="text-h3 font-black text-slate-900">공정</h2>
+          <div className="flex flex-wrap items-baseline gap-3">
+            {canEdit && (
+              <p className="text-tiny text-slate-400">
+                날짜를 넣으면 조건이 열립니다. 단계는 보드나 표에서 옮깁니다.
+              </p>
+            )}
+            <DownloadAll
+              docs={p.docs}
+              siteName={detail.project.name}
+              labelOf={(kind) => PROCESS_DOCS.find((x) => x.key === kind)?.name ?? kind}
+            />
+          </div>
         </div>
-        <div className="overflow-hidden rounded-box border border-slate-200 divide-y divide-slate-100">
-          {/* 여부 줄(운영사 계약서 제출)은 한백만 본다 — 협력사는 몰라도 되는 값이다 */}
-          {milestones.filter((m) => !m.flag || edit === 'all').map((m) => (
+
+        {/*
+          * 마일스톤과 서류를 일 순서대로 한 묶음씩 — 「행위신고는 발주 다음, 개통 서류는
+          * 시공완료 다음」이 목록 구조로 보인다. 마일스톤 표와 서류 그리드로 나눠 두면
+          * 어느 서류가 어느 시점의 일인지 매번 사람이 이어 읽어야 한다.
+          */}
+        <div className="flex flex-col gap-5">
+        {GROUPS.map((g) => {
+          // 여부 줄(운영사 계약서 제출)은 한백만 본다 — 협력사는 몰라도 되는 값이다
+          const rows = milestones.filter(
+            (m) => g.fields.includes(m.field) && (!m.flag || edit === 'all')
+          );
+          const groupDocs = PROCESS_DOCS.filter((d) => (g.docs as readonly string[]).includes(d.key));
+          if (rows.length === 0 && groupDocs.length === 0) return null;
+          return (
+          <div key={g.title}>
+          <h3 className="mb-1.5 text-tiny font-bold tracking-[0.06em] text-slate-400">{g.title}</h3>
+          {rows.length > 0 && (
+          <div className="overflow-hidden rounded-box border border-slate-200 divide-y divide-slate-100">
+          {rows.map((m) => (
             <Fragment key={m.field}>
             <div className="flex flex-wrap items-center gap-3 px-4 py-2.5 text-base">
               <span className="w-32 shrink-0 text-slate-500">{m.label}</span>
@@ -293,20 +337,12 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
             )}
             </Fragment>
           ))}
-        </div>
-      </section>
+          </div>
+          )}
 
-      <section>
-        <div className="mb-3 flex flex-wrap items-baseline justify-between gap-3">
-          <h2 className="text-h3 font-black text-slate-900">공정 서류</h2>
-          <DownloadAll
-            docs={p.docs}
-            siteName={detail.project.name}
-            labelOf={(kind) => PROCESS_DOCS.find((x) => x.key === kind)?.name ?? kind}
-          />
-        </div>
-        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-          {PROCESS_DOCS.map((d) => {
+          {groupDocs.length > 0 && (
+          <div className={`grid gap-2 sm:grid-cols-2 lg:grid-cols-4 ${rows.length > 0 ? 'mt-2' : ''}`}>
+          {groupDocs.map((d) => {
             const doc = p.docs.find((x) => x.kind === d.key);
             /*
              * 「제출됨」이 통과다. 승인 도장을 기다리지 않는다 —
@@ -349,7 +385,13 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
               </div>
             );
           })}
+          </div>
+          )}
+          </div>
+          );
+        })}
         </div>
+
         {p.memo && (
           <Note tone="mute" className="mt-3">{p.memo}</Note>
         )}

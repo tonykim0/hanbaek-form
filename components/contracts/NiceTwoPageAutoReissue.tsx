@@ -336,9 +336,10 @@ async function mergePdfs(application: File, consulting: File): Promise<File> {
 }
 
 function ensureBothDocuments(result: FormImportResult): void {
+  // 공백 제거 후 검사 — 「별지 제5호」·「별지5호」 표기가 섞여 온다.
   const names = result.detectedDocs.map((doc) => doc.name.replace(/\s/g, ''));
-  const hasApplication = names.some((name) => /별지?5호|설치신청서/.test(name));
-  const hasConsulting = names.some((name) => /별지?7호|사전현장컨설팅/.test(name));
+  const hasApplication = names.some((name) => /별지제?5호|설치신청서/.test(name));
+  const hasConsulting = names.some((name) => /별지제?7호|사전현장컨설팅|컨설팅결과서/.test(name));
   if (!hasApplication || !hasConsulting) {
     throw new Error(
       `두 서류를 모두 확인하지 못했습니다. ${!hasApplication ? '설치신청서' : ''}${!hasApplication && !hasConsulting ? '와 ' : ''}${!hasConsulting ? '사전현장컨설팅 결과서' : ''} PDF를 다시 확인해주세요.`

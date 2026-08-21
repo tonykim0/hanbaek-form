@@ -278,10 +278,10 @@ export interface ProjectRepository {
    * 있게 되지만, 넘기는 것은 사람이 한다. 날짜 입력이 곧 단계 이동이면 잘못 적은 하루가
    * 현장을 다음 단계로 밀어버린다.
    *
-   * 시공사가 직접 적는다 — 실착공·설치완료는 현장이 아는 값이라, 잠겨 있으면 전화·카톡으로
+   * 시공사가 직접 적는다 — 착공·설치완료는 현장이 아는 값이라, 잠겨 있으면 전화·카톡으로
    * 받아 한백이 대신 적게 된다. 예외만 한백 전용이다(lib/process.ts
-   * HANBAEK_ONLY_PROCESS_FIELDS): 환경부 승인일(환경부가 한백에 통보)·충전기 발주일(발주는
-   * 한백이 한다)·운영사 계약서 제출(한백이 낸다). 판정은 assertProcessWrite 한 곳이다.
+   * HANBAEK_ONLY_PROCESS_FIELDS): 환경부 승인일 · 충전기 발주일·출고일 · 운영사 계약서 제출.
+   * 판정은 assertProcessWrite 한 곳이다.
    */
   updateProcess(projectId: string, patch: ProcessPatch, actor: Actor): Promise<void>;
 

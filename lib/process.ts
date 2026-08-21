@@ -130,17 +130,19 @@ export function contractNeedsFix(documents: ProjectDocument[]): string[] {
  * 값이라, 잠겨 있으면 전화·카톡으로 받아 한백이 대신 적게 된다. 이 플랫폼으로 소통하는
  * 것이 양사의 목적이므로(노션 공정관리의 방식) 예외만 잠근다:
  *   환경부 승인일 — 환경부가 한백에 통보하는 값이다.
- *   충전기 발주일 — 발주는 한백이 한다.
+ *   충전기 발주일·출고일 — 발주는 한백이 하고, 출고도 한백이 통보받는다.
  *   운영사 계약서 제출 — 한백이 내는 것이고, 협력사는 몰라도 되는 값이라 화면에도 그리지
  *     않는다(값 자체는 진행 게이트 판정에 쓰여 내려간다 — 돈이 아니라 지우지는 않는다).
+ * 수령일부터는 현장의 일이다 — 시공사가 적는다 (한백 확인, 2026-08-21).
  */
 export const HANBAEK_ONLY_PROCESS_FIELDS = [
-  'envApprovalDate', 'chargerOrderDate', 'cpoSubmitDate',
+  'envApprovalDate', 'chargerOrderDate', 'chargerShipDate', 'cpoSubmitDate',
 ] as const;
 
 const HANBAEK_ONLY_LABEL: Record<(typeof HANBAEK_ONLY_PROCESS_FIELDS)[number], string> = {
   envApprovalDate: '환경부 승인일',
   chargerOrderDate: '충전기 발주일',
+  chargerShipDate: '충전기 출고일',
   cpoSubmitDate: '운영사 계약서 제출',
 };
 

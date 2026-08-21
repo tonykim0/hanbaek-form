@@ -3,13 +3,13 @@ import { getRepository, repositoryKind } from '@/lib/data';
 import { getSessionUser, viewerOf } from '@/lib/auth/session';
 import PayoutWorkBoard from '@/components/settlement/PayoutWorkBoard';
 
-export const metadata = { title: '하도급사 지급관리 — 한백 전기차충전사업' };
+export const metadata = { title: '협력사 지급관리 — 한백 전기차충전사업' };
 
 /**
- * 하도급사 지급관리 — 송금 대상·금액·지급일을 확정하는 업무함.
+ * 협력사 지급관리 — 송금 대상·금액·지급일을 확정하는 업무함.
  *
  * ★한백 전용★ 협력사는 자기 지급액도 이 화면으로 보지 않는다 —
- * 여기에는 다른 협력사의 지급 항목이 함께 있다. 자기 것은 지급 내역에서 본다.
+ * 여기에는 다른 협력사의 지급 항목이 함께 있다. 자기 것은 지급 및 기성관리에서 본다.
  */
 export default async function PayoutsPage() {
   const session = await getSessionUser();
@@ -21,9 +21,9 @@ export default async function PayoutsPage() {
   return (
     <>
       <div className="mb-6">
-        <h1 className="text-h1 font-black text-slate-900">하도급사 지급관리</h1>
+        <h1 className="text-h1 font-black text-slate-900">협력사 지급관리</h1>
         <p className="mt-1.5 text-base text-slate-500">
-          한백 → 하도급사 · 현장 {rows.length}건
+          한백 → 협력사 · 현장 {rows.length}건
         </p>
       </div>
 

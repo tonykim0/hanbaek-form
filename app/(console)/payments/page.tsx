@@ -7,12 +7,12 @@ import { getRepository } from '@/lib/data';
 import { getSessionUser, viewerOf } from '@/lib/auth/session';
 import type { PayoutRow } from '@/types/project';
 
-export const metadata = { title: '지급 내역 — 한백 전기차사업관리' };
+export const metadata = { title: '지급 및 기성관리 — 한백 전기차사업관리' };
 
 /**
  * 지급 내역 — 어디로 어떤 명목으로 월별 얼마를 송금 대상으로 확정했나.
  *
- * ★송금 대상으로 확정한 지급만 다룬다.★ 아직 확정하지 않은 몫은 하도급사 지급관리
+ * ★송금 대상으로 확정한 지급만 다룬다.★ 아직 확정하지 않은 몫은 협력사 지급관리
  * (/payouts)의 자리다. 두 화면에 두면 미확정 잔액이 두 숫자가 된다.
  *
  * 위가 월별 그래프(영업비·시공비 추세), 아래가 누른 달의 상세다 — 업체별로 묶여
@@ -69,7 +69,7 @@ export default async function PaymentsPage({
   return (
     <div className="flex flex-col gap-6">
       <header className="flex flex-wrap items-end justify-between gap-4">
-        <h1 className="text-h1 font-black text-slate-900">지급 내역</h1>
+        <h1 className="text-h1 font-black text-slate-900">지급 및 기성관리</h1>
         <nav aria-label="달" className="flex items-center gap-1">
           <Link
             href={`/payments?month=${shift(-1)}`}

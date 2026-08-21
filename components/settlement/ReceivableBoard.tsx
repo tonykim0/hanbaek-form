@@ -7,7 +7,7 @@
  * 환경부 승인일·실착공일·준공마감일. 그래서 각 차수가 어느 트리거를 기다리는지가
  * 금액보다 먼저 보여야 한다.
  *
- * 하도급사 지급은 여기 없다. 별도 화면이다 — 두 방향을 한 표에 놓으면 상계해서 보는
+ * 협력사 지급은 여기 없다. 별도 화면이다 — 두 방향을 한 표에 놓으면 상계해서 보는
  * 사람이 생기고, 「얼마 남았나」가 어느 쪽 이야기인지 매번 따져야 한다.
  */
 import { useMemo, useState } from 'react';
@@ -133,7 +133,7 @@ export default function ReceivableBoard({ rows }: { rows: SettlementSummary[] })
 
       <CrossLink
         href="/payouts"
-        label="하도급사 지급관리"
+        label="협력사 지급관리"
         amount={money.payout}
         note="이 현장들에서 하도급사에 내려줄 지급은"
       />

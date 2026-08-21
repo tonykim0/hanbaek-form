@@ -83,9 +83,9 @@ const GROUPS: Group[] = [
      */
     label: '정산',
     items: [
-      { href: '/payments', label: '지급 내역', short: '내역' },
-      { href: '/payouts', label: '하도급사 지급', short: '지급', adminOnly: true },
-      { href: '/receivables', label: '운영사 기성', short: '기성', adminOnly: true },
+      { href: '/payments', label: '지급 및 기성관리', short: '내역' },
+      { href: '/payouts', label: '협력사 지급관리', short: '지급', adminOnly: true },
+      { href: '/receivables', label: '운영사 기성관리', short: '기성', adminOnly: true },
     ],
   },
   {

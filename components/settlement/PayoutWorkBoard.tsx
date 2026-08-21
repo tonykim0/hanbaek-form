@@ -185,12 +185,12 @@ export default function PayoutWorkBoard({
           <tbody className="divide-y divide-slate-100">
             {shown.map((p) => (
               <tr key={p.key} className="transition hover:bg-brand-50/40">
-                <td className="px-3 py-2.5">
+                <td className="px-3 py-2.5 align-top">
                   <SiteLink id={p.projectId} name={p.projectName} tab="settlement" />
                   <p className="mt-0.5 text-tiny text-slate-400">{p.cpo}</p>
                 </td>
-                <td className="px-3 py-2.5 text-slate-600">{p.org ?? <EmptyValue kind="miss" />}</td>
-                <td className="px-3 py-2.5">
+                <td className="px-3 py-2.5 align-top text-slate-600">{p.org ?? <EmptyValue kind="miss" />}</td>
+                <td className="px-3 py-2.5 align-top">
                   <Tag tone={p.kind === '영업비' ? 'stage' : 'ok'}>{p.kind}</Tag>
                   {p.adjust !== 0 && <p className="mt-0.5 text-micro font-semibold text-slate-400">조정 {p.adjust > 0 ? '+' : ''}{won(p.adjust)}</p>}
                 </td>

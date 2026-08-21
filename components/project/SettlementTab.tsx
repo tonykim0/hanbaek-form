@@ -11,6 +11,7 @@
  * (redactForViewer) — 서버가 렌더한 데이터는 브라우저에 통째로 실린다.
  */
 import { useState } from 'react';
+import Link from 'next/link';
 import type {
   PayoutCategory, PayoutEntry, PayoutKind, ProjectDetail, SettlementRule, SettlementRuleChoice,
   SettlementStep,
@@ -235,7 +236,7 @@ function RuleFact({
 function ContractLines({ lines, vis }: { lines: ProjectDetail['lines']; vis: Visibility }) {
   return (
     <section>
-      <h2 className="mb-2 text-h3 font-black text-slate-900">계약 라인 · 단가</h2>
+      <h2 className="mb-2 text-h3 font-black text-slate-900">적용조건</h2>
       <div className="overflow-x-auto rounded-box border border-slate-200">
         <table className="w-full min-w-[560px] text-base">
           <thead className="bg-slate-50 text-tiny font-bold tracking-[0.08em] text-slate-500">
@@ -244,6 +245,8 @@ function ContractLines({ lines, vis }: { lines: ProjectDetail['lines']; vis: Vis
               <th className="px-3 py-2 text-left">적용 단가 케이스</th>
               <th className="px-3 py-2 text-right">영업비/대</th>
               <th className="px-3 py-2 text-right">시공비/대</th>
+              {/* 마진을 같이 보인다 — 영업+시공+마진 = 턴키가 눈에서 검산돼야 한다(매트릭스 정의) */}
+              {vis.cost && <th className="px-3 py-2 text-right">마진/대</th>}
               {vis.cost && <th className="px-3 py-2 text-right">턴키/대</th>}
             </tr>
           </thead>
@@ -267,6 +270,7 @@ function ContractLines({ lines, vis }: { lines: ProjectDetail['lines']; vis: Vis
                 </td>
                 <Money show={vis.sales} value={l.rule?.salesUnit ?? null} />
                 <Money show={vis.cons} value={l.rule?.consUnit ?? null} />
+                {vis.cost && <Money show value={l.rule?.margin ?? null} />}
                 {vis.cost && <Money show value={l.rule ? turnkeyUnit(l.rule) : null} />}
               </tr>
             ))}
@@ -445,73 +449,136 @@ function PaymentSection({
       )}
 
       {/*
-        * 협력사 지급관리와 같은 틀(한백 확인) — 총액과 1·2차, 차수마다 지급일.
-        * 회차 금액은 유도값이다 — 사람은 지급관리에서 송금 대상·금액·일자를 확정한다.
+        * 한 표에 다 있다(한백 확인) — 영업비·시공비가 딴 상자에 갈라져 있어 총액은
+        * 머리로 더해야 했다. 행이 구분(영업비·시공비·합계), 열이 돈의 단계다:
+        * 대당 → 총 지급액 → 1·2차 → 지급됨 → 잔액. 서로 겹치지도 빠지지도 않는다.
+        * 대당은 라인마다 다를 수 있어 하나일 때만 숫자를 적는다 — 라인별 값은 적용조건 표가 말한다.
+        * 합계는 배포가(영업+시공)다 — 턴키는 마진까지 포함한 운영사 쪽 금액이라 이 표의 합이 아니다.
         */}
-      <div className={`grid gap-2 ${sides.length > 1 ? 'sm:grid-cols-2' : ''}`}>
-        {sides.map((side) => {
+      {(() => {
+        const unitOf = (pick: (r: NonNullable<ProjectDetail['lines'][number]['rule']>) => number | null) => {
+          const values = lines
+            .filter((l) => l.rule)
+            .map((l) => pick(l.rule!))
+            .filter((v): v is number => v !== null);
+          if (values.length === 0) return null;
+          const uniq = [...new Set(values)];
+          return uniq.length === 1 ? uniq[0] : ('mixed' as const);
+        };
+        const rows = sides.map((side) => {
           const { adjust, paid } = payoutSideOf(entries, side.kind);
           const steps = payoutStepsOf(side.plan, adjust, paid);
-          const remaining = steps.due - paid;
-          const stepAt = (cat: '1차' | '2차') =>
-            entries.find((e) => e.kind === side.kind && e.category === cat)?.at ?? null;
-          return (
-            <div key={side.kind} className="rounded-box border border-slate-200 px-3.5 py-3">
-              <div className="flex flex-wrap items-baseline gap-2">
-                <h3 className="text-base font-black text-slate-900">{side.kind}</h3>
-                {side.org ? (
-                  <span className="text-small text-slate-500">→ {side.org}</span>
-                ) : (
-                  <span className="text-small font-bold text-amber-700">받는 곳 미지정</span>
-                )}
-              </div>
-              <dl className="mt-2 grid grid-cols-3 gap-x-3 tabular-nums">
-                <div>
-                  <dt className="text-tiny font-bold tracking-[0.06em] text-slate-400">총 지급액</dt>
-                  <dd className="mt-0.5 text-lead font-black text-slate-900">{won(steps.due)}</dd>
-                </div>
-                {([1, 2] as const).map((no) => {
-                  const done = no === 1 ? steps.step1Done : steps.step2Done;
-                  const amount = steps.open?.no === no ? steps.open.amount : steps.parts[no - 1];
-                  const at = stepAt(`${no}차`);
-                  return (
-                    <div key={no}>
-                      <dt className="text-tiny font-bold tracking-[0.06em] text-slate-400">
-                        {no}차 · {no === 1 ? '70%' : '잔액'}
-                      </dt>
-                      <dd className={`mt-0.5 text-lead font-black ${done ? 'text-slate-900' : 'text-slate-500'}`}>
-                        {won(amount)}
-                      </dd>
-                      <dd
-                        className={`text-tiny font-bold ${
-                          done ? 'text-brand-800' : steps.open?.no === no ? 'text-amber-700' : 'text-slate-300'
-                        }`}
-                      >
-                        {done ? `지급일 ${at ?? '—'}` : steps.open?.no === no ? '미지급' : '1차 뒤'}
-                      </dd>
-                    </div>
-                  );
-                })}
-              </dl>
-              {/* 총액과 지급이 안 맞는 사정(조정·잔액)만 한 줄로 — 없으면 줄도 없다 */}
-              {(adjust !== 0 || paid > 0) && (
-                <p className="mt-2 border-t border-slate-100 pt-1.5 text-tiny tabular-nums text-slate-500">
-                  조정 {adjust === 0 ? '—' : `${adjust > 0 ? '+' : ''}${won(adjust)}`}
-                  {' · '}확정 지급 {won(paid)}
-                  {' · '}잔액{' '}
-                  <span
-                    className={
-                      remaining > 0 ? 'font-bold text-amber-800' : remaining < 0 ? 'font-bold text-red-700' : ''
-                    }
-                  >
-                    {remaining === 0 ? '0원' : won(remaining)}
-                  </span>
-                </p>
+          return {
+            ...side,
+            unit: unitOf((r) => (side.kind === '영업비' ? r.salesUnit : r.consUnit)),
+            adjust, paid, steps,
+            remaining: steps.due - paid,
+            stepAt: (cat: '1차' | '2차') =>
+              entries.find((e) => e.kind === side.kind && e.category === cat)?.at ?? null,
+          };
+        });
+        const sum = (f: (r: (typeof rows)[number]) => number) => rows.reduce((s, r) => s + f(r), 0);
+        const unitCell = (unit: number | 'mixed' | null) =>
+          unit === null ? <span className="text-slate-300">—</span>
+          : unit === 'mixed' ? <span className="text-tiny font-semibold text-slate-400">라인별</span>
+          : won(unit);
+        return (
+        <div className="overflow-x-auto rounded-box border border-slate-200">
+          <table className="w-full min-w-[760px] text-base">
+            <thead className="bg-slate-50 text-tiny font-bold tracking-[0.08em] text-slate-500">
+              <tr>
+                <th className="px-3 py-2 text-left">구분</th>
+                <th className="px-3 py-2 text-right">대당</th>
+                <th className="px-3 py-2 text-right">총 지급액</th>
+                <th className="px-3 py-2 text-right">1차 · 70%</th>
+                <th className="px-3 py-2 text-right">2차 · 잔액</th>
+                <th className="px-3 py-2 text-right">지급됨</th>
+                <th className="px-3 py-2 text-right">잔액</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 tabular-nums">
+              {rows.map((r) => (
+                <tr key={r.kind}>
+                  <td className="whitespace-nowrap px-3 py-2.5">
+                    <span className="font-black text-slate-900">{r.kind}</span>
+                    {r.org ? (
+                      <span className="ml-1.5 text-tiny text-slate-500">→ {r.org}</span>
+                    ) : (
+                      <span className="ml-1.5 text-tiny font-bold text-amber-700">받는 곳 미지정</span>
+                    )}
+                  </td>
+                  <td className="whitespace-nowrap px-3 py-2.5 text-right font-semibold text-slate-700">
+                    {unitCell(r.unit)}
+                  </td>
+                  <td className="whitespace-nowrap px-3 py-2.5 text-right font-black text-slate-900">
+                    {won(r.steps.due)}
+                    {r.adjust !== 0 && (
+                      <span className="block text-tiny font-semibold text-slate-400">
+                        조정 {r.adjust > 0 ? '+' : ''}{won(r.adjust)} 포함
+                      </span>
+                    )}
+                  </td>
+                  {([1, 2] as const).map((no) => {
+                    const done = no === 1 ? r.steps.step1Done : r.steps.step2Done;
+                    const amount = r.steps.open?.no === no ? r.steps.open.amount : r.steps.parts[no - 1];
+                    const at = r.stepAt(`${no}차`);
+                    return (
+                      <td key={no} className="whitespace-nowrap px-3 py-2.5 text-right">
+                        <span className={`font-bold ${done ? 'text-slate-900' : 'text-slate-500'}`}>
+                          {won(amount)}
+                        </span>
+                        <span
+                          className={`block text-tiny font-bold ${
+                            done ? 'text-brand-800' : r.steps.open?.no === no ? 'text-amber-700' : 'text-slate-300'
+                          }`}
+                        >
+                          {done ? `지급 ${at ?? '—'}` : r.steps.open?.no === no ? '미지급' : '1차 뒤'}
+                        </span>
+                      </td>
+                    );
+                  })}
+                  <td className="whitespace-nowrap px-3 py-2.5 text-right font-semibold text-slate-700">
+                    {r.paid === 0 ? <span className="text-slate-300">0원</span> : won(r.paid)}
+                  </td>
+                  <td className="whitespace-nowrap px-3 py-2.5 text-right">
+                    <span
+                      className={`font-bold ${
+                        r.remaining > 0 ? 'text-amber-800' : r.remaining < 0 ? 'text-red-700' : 'text-slate-400'
+                      }`}
+                    >
+                      {r.remaining === 0 ? '0원' : won(r.remaining)}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+              {rows.length > 1 && (
+                <tr className="bg-slate-50/60 font-black">
+                  <td className="px-3 py-2.5 text-slate-900">합계</td>
+                  <td className="whitespace-nowrap px-3 py-2.5 text-right text-slate-700">
+                    {unitCell(
+                      rows.every((r) => typeof r.unit === 'number')
+                        ? rows.reduce((s, r) => s + (r.unit as number), 0)
+                        : rows.some((r) => r.unit === 'mixed') ? 'mixed' : null
+                    )}
+                  </td>
+                  <td className="whitespace-nowrap px-3 py-2.5 text-right text-slate-900">
+                    {won(sum((r) => r.steps.due))}
+                  </td>
+                  <td className="px-3 py-2.5" />
+                  <td className="px-3 py-2.5" />
+                  <td className="whitespace-nowrap px-3 py-2.5 text-right text-slate-700">
+                    {won(sum((r) => r.paid))}
+                  </td>
+                  <td className="whitespace-nowrap px-3 py-2.5 text-right text-slate-900">
+                    {won(sum((r) => r.remaining))}
+                  </td>
+                </tr>
               )}
-            </div>
-          );
-        })}
-      </div>
+            </tbody>
+          </table>
+        </div>
+        );
+      })()}
 
       <Ledger projectId={projectId} entries={entries} canReview={canReview} />
 
@@ -574,9 +641,19 @@ function Ledger({
 
   return (
     <div className="mt-4">
-      <div className="mb-2 flex items-baseline gap-2">
-        <h3 className="text-base font-black text-slate-900">원장</h3>
+      {/*
+       * 이 기록이 정본이고, 지급 내역(/payments)과 거래명세서는 여기서 유도된다 —
+       * 따로 적는 두 장부가 아니라 같은 것의 다른 면이다. 그 길을 링크로 보인다.
+       */}
+      <div className="mb-2 flex flex-wrap items-baseline gap-2">
+        <h3 className="text-base font-black text-slate-900">지급·조정 기록</h3>
         <span className="text-tiny text-slate-400">{entries.length}건</span>
+        <Link
+          href="/payments"
+          className="ml-auto text-tiny font-bold text-brand-700 hover:underline"
+        >
+          지급 내역 · 거래명세서에서 보기 →
+        </Link>
       </div>
 
       {entries.length > 0 && (

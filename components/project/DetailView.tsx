@@ -148,7 +148,7 @@ export default function ProjectDetailView({
     },
     {
       key: 'settlement',
-      label: '협력사 지급',
+      label: '협력사 정산관리',
       count: '',
       locked: false,
     },
@@ -156,7 +156,7 @@ export default function ProjectDetailView({
     ...(canReview
       ? [{
           key: 'receivable' as TabKey,
-          label: '기성',
+          label: '운영사 기성관리',
           count: `${settlementDone}/${settlementOpen}`,
           locked: false,
         }]

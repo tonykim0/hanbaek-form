@@ -13,11 +13,18 @@
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import type { Role } from '@/lib/roles';
 
 const TOOLS = [
   { href: '/library', label: '충전사업자 자료실' },
   { href: '/lookup', label: '기설치 이력조회' },
   { href: '/apartments', label: 'K-APT 정보' },
+];
+
+/** 접수는 협력사에게 사이드바(주 업무)지만 한백에게는 가끔 있는 일이라 여기다 */
+const ADMIN_INTAKE = [
+  { href: '/projects/new', label: '서류 접수' },
+  { href: '/contracts', label: '계약서 작성' },
 ];
 
 interface Todo {
@@ -29,7 +36,7 @@ interface Todo {
 
 const SHOW_MAX = 8;
 
-export default function TopBar() {
+export default function TopBar({ role }: { role: Role }) {
   const pathname = usePathname();
   const [todos, setTodos] = useState<Todo[] | null>(null); // null = 아직 못 받음
   const [open, setOpen] = useState(false);
@@ -76,22 +83,17 @@ export default function TopBar() {
      */
     <header className="sticky top-0 z-30 flex h-12 items-center justify-between bg-brand-700 px-5 sm:px-7 print:hidden">
       <nav aria-label="조회 도구" className="flex items-center gap-1">
-        {TOOLS.map((t) => {
-          const active = pathname.startsWith(t.href);
-          return (
-            <Link
-              key={t.href}
-              href={t.href}
-              className={`rounded-ctl px-2.5 py-1.5 text-small font-bold transition ${
-                active
-                  ? 'bg-white/15 text-white'
-                  : 'text-white/75 hover:bg-white/10 hover:text-white'
-              }`}
-            >
-              {t.label}
-            </Link>
-          );
-        })}
+        {role === 'admin' && (
+          <>
+            {ADMIN_INTAKE.map((t) => (
+              <BarLink key={t.href} href={t.href} label={t.label} active={pathname.startsWith(t.href)} />
+            ))}
+            <div className="mx-1 h-5 w-px bg-white/25" />
+          </>
+        )}
+        {TOOLS.map((t) => (
+          <BarLink key={t.href} href={t.href} label={t.label} active={pathname.startsWith(t.href)} />
+        ))}
       </nav>
 
       <div ref={boxRef} className="relative">
@@ -167,5 +169,18 @@ export default function TopBar() {
         )}
       </div>
     </header>
+  );
+}
+
+function BarLink({ href, label, active }: { href: string; label: string; active: boolean }) {
+  return (
+    <Link
+      href={href}
+      className={`rounded-ctl px-2.5 py-1.5 text-small font-bold transition ${
+        active ? 'bg-white/15 text-white' : 'text-white/75 hover:bg-white/10 hover:text-white'
+      }`}
+    >
+      {label}
+    </Link>
   );
 }

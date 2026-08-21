@@ -58,13 +58,14 @@ const GROUPS: Group[] = [
   },
   {
     /*
-     * 접수는 협력사가 하지만 한백도 쓴다 — 계정 없는 업체의 건을 간혹 대신 받는다.
-     * 그때는 업체 이름만 적고 현장을 만든다(components/IntakeForm 의 「접수 업체」).
+     * 접수는 협력사의 주 업무라 사이드바에 둔다. 한백도 쓰지만(계정 없는 업체의 건을
+     * 간혹 대신 받는다) 가끔 있는 일이라 한백에게는 상단 바(TopBar)에 있다.
      *
      * 예전에는 여기가 포털로 나가는 바깥 링크였다. 로그인한 협력사를 남의 사이트로 보내면
      * 소속을 다시 적어야 하고, 낸 것이 어디로 갔는지도 알 수 없다. 그래서 안으로 들였다.
      */
     label: '접수',
+    partnerOnly: true,
     items: [
       { href: '/projects/new', label: '서류 접수', short: '접수', note: '접수하면 계약접수 칸으로' },
       { href: '/contracts', label: '계약서 작성', short: '계약' },
@@ -242,7 +243,7 @@ export default function ConsoleShell({
 
       {/* 본문은 전체 폭을 쓴다 — 보드의 칸이 화면 밖으로 나가지 않게 */}
       <div className={`transition-[padding] duration-150 print:pl-0 ${open ? 'pl-[184px]' : 'pl-[56px]'}`}>
-        <TopBar />
+        <TopBar role={role} />
         <main className="px-5 pb-16 pt-8 sm:px-7 sm:pt-9">{children}</main>
         <footer className="border-t border-slate-200 px-6 py-6 text-center text-small text-slate-400 print:hidden">
           한백 전기차충전사업 · 내부 업무용

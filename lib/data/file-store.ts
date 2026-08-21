@@ -17,7 +17,9 @@ import type {
 import type { Viewer } from '@/lib/auth/types';
 import type { Actor, ProjectRepository } from './repository';
 import { canAccessProject, effectiveVisibility, normalizeOrg } from '@/lib/roles';
-import { asProcessStatus, assertProcessWrite, canEnter, COURT_AFTER_STATUS } from '@/lib/process';
+import {
+  asProcessStatus, assertProcessWrite, canEnter, CHECK_ADVANCES, COURT_AFTER_STATUS, statusIndex,
+} from '@/lib/process';
 import { stamp, today } from '@/lib/date';
 import { checkPayoutEntry, payoutSideOf, payoutStepsOf } from '@/lib/settlement';
 import {
@@ -510,6 +512,25 @@ export const fileRepository: ProjectRepository = {
     assertProcessWrite(actor, r.project.gcOrg, Object.keys(patch));
     Object.assign(r.process, patch);
     r.lastProgressAt = today();
+
+    /*
+     * 완료 체크는 선언이자 전이다 — 조건이 차 있으면 다음 한 걸음만 저절로 간다
+     * (pg-store advanceAfterCheck 와 같은 판정).
+     */
+    const checked = Object.keys(patch).find(
+      (f) => f in CHECK_ADVANCES && (patch as Record<string, unknown>)[f] != null
+    );
+    if (checked) {
+      const target = CHECK_ADVANCES[checked as keyof typeof CHECK_ADVANCES];
+      if (
+        statusIndex(target) === statusIndex(r.process.status) + 1
+        && canEnter(target, r.process).ok
+        && toDetail(r, await ruleMap()).stage !== 'intake'
+      ) {
+        r.process.status = target;
+        r.court = COURT_AFTER_STATUS[target];
+      }
+    }
     await save(records);
   },
 

@@ -180,6 +180,23 @@ export function isHanbaekOnlyProcessField(field: string): boolean {
 export type ProcessEdit = 'all' | 'partner' | 'none';
 
 /**
+ * 완료 체크가 여는 단계 — 체크하는 순간 그 단계의 조건이 차 있으면 저절로 넘어간다
+ * (한백 확인). 체크는 「이 구간 끝났다」는 선언이라 전이까지가 그 뜻이다.
+ *
+ * ★날짜 입력은 전이가 아니다★ — 잘못 적은 하루가 현장을 밀면 안 된다. 자동은
+ * 체크 다섯 개뿐이고, 지금 단계의 바로 다음 한 걸음만 간다 — 뛰어넘기와 판단
+ * 단계(준공보완·준공) 자동 진입은 없다. 조건이 아직 안 찼으면(예: 행위신고 체크는
+ * 됐는데 시공승인일이 없음) 체크만 남고, 조건이 차면 보드 카드의 넘기기가 민다.
+ */
+export const CHECK_ADVANCES = {
+  notifyDoneAt: '시공진행필요',
+  chargerDoneAt: '충전기 수령',
+  installConfirmedAt: '설치완료',
+  openDoneAt: '개통완료',
+  completionSubmitAt: '준공서류 접수/검토',
+} as const satisfies Record<string, ProcessStatus>;
+
+/**
  * 상태를 옮기면 차례(court)도 따라 넘어간다.
  *
  * 옮겼다는 것은 그 단계의 확인이 끝났고 다음 사람이 움직일 차례라는 뜻이다. 이게 없으면

@@ -28,7 +28,9 @@ import type {
 import type { Viewer } from '@/lib/auth/types';
 import { canAccessProject, effectiveVisibility, normalizeOrg } from '@/lib/roles';
 import { needsPreInstallCheck, PROCESS_DOCS } from '@/lib/doc-rules';
-import { asProcessStatus, assertProcessWrite, canEnter, COURT_AFTER_STATUS } from '@/lib/process';
+import {
+  asProcessStatus, assertProcessWrite, canEnter, CHECK_ADVANCES, COURT_AFTER_STATUS, statusIndex,
+} from '@/lib/process';
 import type { Actor, PaymentPatch, ProcessPatch, ProjectRepository } from './repository';
 import { checkPricingRule, duplicateOf, normalizePricingRule, pricingRuleId } from '@/lib/pricing-match';
 import { checkPayoutEntry, payoutSideOf, payoutStepsOf } from '@/lib/settlement';
@@ -312,6 +314,43 @@ async function maxSeqIn(tx: TxLike): Promise<number> {
 async function ruleMap(): Promise<RuleMap> {
   const rows = await getDb().select().from(pricingRules);
   return new Map(rows.map((r) => [r.id, rowToRule(r)]));
+}
+
+/**
+ * 완료 체크 뒤의 자동 전이 — 체크가 여는 단계(CHECK_ADVANCES)의 조건이 차 있으면
+ * 다음 한 걸음만 저절로 간다. 시공사의 체크로도 넘어간다 — 사람이 옮기는 것이
+ * 아니라 선언이 옮기는 것이라 setProcessStatus 의 한백 전용 판정을 타지 않는다.
+ * 조건(canEnter)·계약 전 잠금은 똑같이 확인한다.
+ */
+async function advanceAfterCheck(projectId: string, patch: ProcessPatch, actor: Actor): Promise<void> {
+  const field = (Object.keys(patch) as Array<keyof ProcessPatch>).find(
+    (f) => f in CHECK_ADVANCES && patch[f] != null
+  );
+  if (!field) return;
+  const target = CHECK_ADVANCES[field as keyof typeof CHECK_ADVANCES];
+
+  const db = getDb();
+  const rows = await db.select().from(projects).where(eq(projects.id, projectId)).limit(1);
+  if (!rows[0]) return;
+  const [record] = await recordsOf(rows);
+  if (!record) return;
+
+  const cur = record.process.status;
+  if (statusIndex(target) !== statusIndex(cur) + 1) return;      // 바로 다음 한 걸음만
+  if (!canEnter(target, record.process).ok) return;              // 조건이 아직 안 찼다
+  if (toDetail(record, await ruleMap()).stage === 'intake') return;
+
+  await db.transaction(async (tx) => {
+    await tx.update(processes).set({ status: target }).where(eq(processes.projectId, projectId));
+    await tx
+      .update(projects)
+      .set({ lastProgressAt: today(), court: COURT_AFTER_STATUS[target] })
+      .where(eq(projects.id, projectId));
+    await writeAudit(tx, {
+      projectId, actor, action: '진행 단계 변경 (완료 체크)',
+      field: 'process.status', oldValue: cur, newValue: target,
+    });
+  });
 }
 
 export const pgRepository: ProjectRepository = {
@@ -1110,6 +1149,9 @@ export const pgRepository: ProjectRepository = {
         });
       }
     });
+
+    // 완료 체크는 선언이자 전이다(한백 확인) — 조건이 차 있으면 다음 단계로 저절로 넘어간다
+    await advanceAfterCheck(projectId, patch, actor);
   },
 
   async setProcessStatus(projectId, status, actor): Promise<void> {

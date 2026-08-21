@@ -240,6 +240,21 @@ export function summaryOf(r: ProjectRecord, rules: RuleMap): ProjectSummary {
     docsFilled: d.contract.docsFilled,
     entryOk: entryOkOf(d.process),
     nextStep: nextStepOf(d.process),
+    milestones: {
+      envApprovalDate: d.process.envApprovalDate,
+      cpoApprovalDate: d.process.cpoApprovalDate,
+      notifyDate: d.process.notifyDate,
+      notifyDone: d.process.notifyDoneAt !== null,
+      chargerOrderDate: d.process.chargerOrderDate,
+      chargerRecvDate: d.process.chargerRecvDate,
+      chargerDone: d.process.chargerDoneAt !== null,
+      startDate: d.process.startActualDate,
+      installDoneDate: d.process.installDoneDate,
+      installConfirmed: d.process.installConfirmedAt !== null,
+      commDoneDate: d.process.commDoneDate,
+      openDone: d.process.openDoneAt !== null,
+      completionSubmitAt: d.process.completionSubmitAt,
+    },
   };
 }
 

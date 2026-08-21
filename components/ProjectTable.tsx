@@ -42,9 +42,32 @@ const PICKABLE = [
   { key: 'power', label: '수전방식', attr: 'power' },
   { key: 'sales', label: '영업사', attr: 'sales' },
   { key: 'gc', label: '시공사', attr: 'gc' },
+  // 시공 마일스톤 — 날짜의 유무가 곧 그 일의 여부다. 완료 체크는 ✓ 로 얹는다.
+  { key: 'envApproval', label: '환경부 승인' },
+  { key: 'cpoApproval', label: '시공승인' },
+  { key: 'notify', label: '행위신고' },
+  { key: 'chargerOrder', label: '충전기 발주' },
+  { key: 'chargerRecv', label: '충전기 수령' },
+  { key: 'start', label: '착공' },
+  { key: 'install', label: '설치완료' },
+  { key: 'comm', label: '개통' },
+  { key: 'completion', label: '준공서류' },
   { key: 'created', label: '접수일' },
 ] as const satisfies readonly { key: string; label: string; attr?: AttrKey }[];
 type ColKey = (typeof PICKABLE)[number]['key'];
+
+/**
+ * 페이지별 기본 열 — 사용자가 「표 항목」에서 고르기 전의 시작점.
+ * 계약 페이지에는 아직 없는 시공 일정을, 시공 페이지에는 계약 속성을 접어 둔다.
+ */
+const MILESTONE_KEYS: readonly ColKey[] = [
+  'envApproval', 'cpoApproval', 'notify', 'chargerOrder', 'chargerRecv',
+  'start', 'install', 'comm', 'completion',
+];
+const DEFAULT_HIDDEN: Record<'intake' | 'construction', readonly ColKey[]> = {
+  intake: MILESTONE_KEYS,
+  construction: ['queue', 'pre', 'biz', 'bldg', 'power', 'created'],
+};
 
 const COLUMN_ORDER = new Map(BOARD_COLUMNS.map((c, i) => [c.key, i]));
 const qtyOf = (p: ProjectSummary) => p.lines.reduce((s, l) => s + l.qty, 0);
@@ -89,12 +112,12 @@ export default function ProjectTable({
    * 저장값이 없거나 깨졌으면 조용히 기본으로 돈다.
    */
   const storageKey = `hb-table-cols-${tab}`;
-  const [hidden, setHidden] = useState<Set<ColKey>>(new Set());
+  const [hidden, setHidden] = useState<Set<ColKey>>(() => new Set(DEFAULT_HIDDEN[tab]));
   useEffect(() => {
     try {
       const raw = localStorage.getItem(storageKey);
       if (raw) setHidden(new Set(JSON.parse(raw) as ColKey[]));
-    } catch { /* 기본(전부 보기)으로 */ }
+    } catch { /* 저장값이 없거나 깨졌으면 페이지 기본으로 */ }
   }, [storageKey]);
 
   const show = (k: ColKey) => !hidden.has(k);
@@ -186,11 +209,12 @@ export default function ProjectTable({
 
   return (
     <div>
-      <div className="mb-2 flex justify-end">
+      <div className="mb-2 flex justify-start">
         <ColumnPicker
           hidden={hidden}
+          defaultHidden={DEFAULT_HIDDEN[tab]}
           onToggle={toggleColumn}
-          onReset={() => setHiddenAndSave(new Set())}
+          onReset={() => setHiddenAndSave(new Set(DEFAULT_HIDDEN[tab]))}
         />
       </div>
 
@@ -199,8 +223,11 @@ export default function ProjectTable({
       ) : (
     <div className="overflow-hidden rounded-panel border border-slate-200 bg-white">
       <div className="overflow-x-auto">
-        {/* 열을 많이 숨기면 최소 폭도 푼다 — 몇 열 안 남았는데 가로 스크롤이 생기면 이상하다 */}
-        <table className={`w-full text-base ${hidden.size >= 4 ? '' : 'min-w-[1180px]'}`}>
+        {/* 최소 폭은 보이는 열 수에 따라간다 — 열이 적은데 가로 스크롤이 남으면 이상하다 */}
+        <table
+          className="w-full text-base"
+          style={{ minWidth: 260 + (PICKABLE.length - hidden.size) * 92 }}
+        >
           {/* 머리글은 붙여 둔다 — 138건을 훑으면서 어느 열인지 계속 알아야 한다 */}
           <thead className="sticky top-0 z-10 border-b border-slate-200 bg-slate-50 text-tiny tracking-[0.06em]">
             <tr>
@@ -216,6 +243,15 @@ export default function ProjectTable({
               {show('power') && head('수전방식', { attr: 'power' })}
               {show('sales') && head('영업사', { attr: 'sales' })}
               {show('gc') && head('시공사', { attr: 'gc' })}
+              {show('envApproval') && head('환경부 승인')}
+              {show('cpoApproval') && head('시공승인')}
+              {show('notify') && head('행위신고')}
+              {show('chargerOrder') && head('충전기 발주')}
+              {show('chargerRecv') && head('충전기 수령')}
+              {show('start') && head('착공')}
+              {show('install') && head('설치완료')}
+              {show('comm') && head('개통')}
+              {show('completion') && head('준공서류')}
               {show('created') && head('접수일', { sort: 'created' })}
             </tr>
           </thead>
@@ -296,6 +332,23 @@ export default function ProjectTable({
                   {show('power') && <Cell value={p.powerType} />}
                   {show('sales') && <Cell value={p.salesOrg} />}
                   {show('gc') && <Cell value={p.gcOrg} />}
+                  {show('envApproval') && <MilestoneCell date={p.milestones.envApprovalDate} />}
+                  {show('cpoApproval') && <MilestoneCell date={p.milestones.cpoApprovalDate} />}
+                  {show('notify') && (
+                    <MilestoneCell date={p.milestones.notifyDate} done={p.milestones.notifyDone} />
+                  )}
+                  {show('chargerOrder') && <MilestoneCell date={p.milestones.chargerOrderDate} />}
+                  {show('chargerRecv') && (
+                    <MilestoneCell date={p.milestones.chargerRecvDate} done={p.milestones.chargerDone} />
+                  )}
+                  {show('start') && <MilestoneCell date={p.milestones.startDate} />}
+                  {show('install') && (
+                    <MilestoneCell date={p.milestones.installDoneDate} done={p.milestones.installConfirmed} />
+                  )}
+                  {show('comm') && (
+                    <MilestoneCell date={p.milestones.commDoneDate} done={p.milestones.openDone} />
+                  )}
+                  {show('completion') && <MilestoneCell date={p.milestones.completionSubmitAt} />}
                   {show('created') && (
                     <td className="whitespace-nowrap px-3 py-2.5 tabular-nums text-slate-500">
                       {p.createdAt}
@@ -318,14 +371,17 @@ export default function ProjectTable({
  * 끈 것이 있으면 개수가 단추에 붙는다 — 열이 왜 없는지 표만 보고 알 수 있어야 한다.
  */
 function ColumnPicker({
-  hidden, onToggle, onReset,
+  hidden, defaultHidden, onToggle, onReset,
 }: {
   hidden: Set<ColKey>;
+  defaultHidden: readonly ColKey[];
   onToggle: (key: ColKey) => void;
   onReset: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const box = useRef<HTMLDivElement>(null);
+  const isDefault =
+    hidden.size === defaultHidden.length && defaultHidden.every((k) => hidden.has(k));
 
   useEffect(() => {
     if (!open) return;
@@ -348,17 +404,15 @@ function ColumnPicker({
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
         className={`flex items-center gap-1.5 rounded-ctl border px-2.5 py-1 text-tiny font-bold transition ${
-          hidden.size > 0
+          !isDefault
             ? 'border-brand-300 bg-brand-50 text-brand-800'
             : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:text-slate-700'
         }`}
       >
         표 항목
-        {hidden.size > 0 && (
-          <span className="rounded-tag bg-brand-600 px-1.5 py-0.5 text-micro font-bold text-white tabular-nums">
-            {hidden.size} 숨김
-          </span>
-        )}
+        <span className="rounded-tag bg-slate-100 px-1.5 py-0.5 text-micro font-bold text-slate-500 tabular-nums">
+          {PICKABLE.length - hidden.size + 1}
+        </span>
       </button>
 
       {open && (
@@ -380,13 +434,13 @@ function ColumnPicker({
               </label>
             );
           })}
-          {hidden.size > 0 && (
+          {!isDefault && (
             <button
               type="button"
               onClick={() => { onReset(); setOpen(false); }}
               className="mt-1 w-full rounded-ctl border-t border-slate-100 px-2 py-1.5 text-tiny font-bold text-slate-400 transition hover:text-slate-700"
             >
-              전부 보기
+              기본으로
             </button>
           )}
         </div>
@@ -490,6 +544,31 @@ function StageCell({
         ))}
       </select>
     </>
+  );
+}
+
+/**
+ * 마일스톤 칸 — 날짜가 곧 그 일의 여부다.
+ * 완료 체크가 따로 있는 단계(행위신고·충전기 수령·설치·개통)는 ✓ 를 얹는다.
+ */
+function MilestoneCell({ date, done }: { date: string | null; done?: boolean }) {
+  return (
+    <td className="whitespace-nowrap px-3 py-2.5 tabular-nums">
+      {date ? (
+        <span className="text-slate-600">
+          {date}
+          {done && (
+            <span aria-label="완료 확인됨" title="완료 확인됨" className="ml-1 font-black text-brand-600">
+              ✓
+            </span>
+          )}
+        </span>
+      ) : done ? (
+        <span aria-label="완료 확인됨" title="완료 확인됨" className="font-black text-brand-600">✓</span>
+      ) : (
+        <span className="text-slate-300">—</span>
+      )}
+    </td>
   );
 }
 

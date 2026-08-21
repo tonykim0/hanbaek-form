@@ -549,6 +549,26 @@ export interface ProjectSummary {
    * ready 면 카드에서 바로 넘길 수 있고, 아니면 need(막는 것)가 카드에 적힌다.
    */
   nextStep: { status: ProcessStatus; ready: boolean; need: string | null } | null;
+  /**
+   * 시공 마일스톤 스냅샷 — 표가 「모든 걸 한눈에」 그리는 데 쓴다.
+   * 날짜의 유무가 곧 그 일의 여부다. 완료 체크(…DoneAt)는 boolean 으로 얹는다.
+   * 일정 값이라 협력사에게도 나간다 — 금액이 아니다.
+   */
+  milestones: {
+    envApprovalDate: string | null;
+    cpoApprovalDate: string | null;
+    notifyDate: string | null;
+    notifyDone: boolean;
+    chargerOrderDate: string | null;
+    chargerRecvDate: string | null;
+    chargerDone: boolean;
+    startDate: string | null;
+    installDoneDate: string | null;
+    installConfirmed: boolean;
+    commDoneDate: string | null;
+    openDone: boolean;
+    completionSubmitAt: string | null;
+  };
 }
 
 /**

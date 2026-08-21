@@ -16,6 +16,7 @@ import type { PayoutKind, SettlementSummary } from '@/types/project';
 import { payoutStepsOf } from '@/lib/settlement';
 import { today } from '@/lib/date';
 import { useAction } from '@/lib/use-action';
+import { DatePicker } from '@/components/DatePicker';
 import { Btn, Choice, Err } from '@/components/ui';
 import { CrossLink, Empty, Frame, SiteLink, Tile, won } from './parts';
 
@@ -204,13 +205,12 @@ export default function PayoutBoard({ rows }: { rows: SettlementSummary[] }) {
 
         {/* 지급 처리 — 선택한 회차들이 이 지급일 하나로 나간다 */}
         <div className="ml-auto flex flex-wrap items-center gap-2">
-          <input
-            type="date"
-            value={at}
+          <DatePicker
+            ariaLabel="지급일"
+            value={at || null}
             disabled={busy}
-            aria-label="지급일"
-            onChange={(e) => setAt(e.target.value)}
-            className="rounded-ctl border border-slate-200 bg-white px-2 py-1.5 text-small tabular-nums"
+            onChange={(v) => setAt(v ?? '')}
+            empty="지급일 선택"
           />
           <Btn disabled={blocked !== null} busy={busy} busyLabel="지급 처리 중…" onClick={pay}>
             {blocked ?? `선택 ${selected.length}건 ${won(selectedTotal)}원 지급 처리`}

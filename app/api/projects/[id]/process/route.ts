@@ -42,8 +42,8 @@ export const POST = sessionWrite<{ id: string }, Record<string, unknown>>(
       if (v !== null && typeof v !== 'string') throw new BadRequest('memo 는 문자열이어야 합니다.');
       patch.memo = v === '' ? null : (v as string | null);
     }
-    // 설치 실적 — 몇 거점 · 몇 기. 빈 칸으로 지우는 것은 허용한다.
-    for (const f of ['installedSpots', 'installedUnits'] as const) {
+    // 수량 칸 — 설치 실적(거점·기)과 수령 수량(충전기·모뎀). 빈 칸으로 지우는 것은 허용한다.
+    for (const f of ['installedSpots', 'installedUnits', 'chargerQty', 'modemQty'] as const) {
       if (!(f in body)) continue;
       const v = body[f];
       if (v === null || v === '') {
@@ -51,7 +51,7 @@ export const POST = sessionWrite<{ id: string }, Record<string, unknown>>(
         continue;
       }
       if (typeof v !== 'number' || !Number.isInteger(v) || v < 0 || v > 9999) {
-        throw new BadRequest('설치 실적은 0 이상의 정수여야 합니다.');
+        throw new BadRequest('수량은 0 이상의 정수여야 합니다.');
       }
       patch[f] = v;
     }

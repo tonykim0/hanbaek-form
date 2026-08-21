@@ -29,10 +29,14 @@ export const users = pgTable('users', {
  *
  * 지급(하도급 정산)에 쓰는 값이라 계정이 아니라 회사의 것에 가깝지만, 지금 계정은
  * 회사당 하나라 계정에 붙인다. 파일(사업자등록증·통장사본)은 Vercel Blob 에 두고
- * 여기는 URL 만 둔다. 배포 설정(AUTH_USERS) 계정은 users 행이 없어 여기 못 붙는다.
+ * 여기는 URL 만 둔다.
+ *
+ * users 를 참조하지 않는다 — 계정은 DB 와 배포 설정(AUTH_USERS)·개발 시드 두 곳에
+ * 살아서(lib/auth/users.ts), FK 를 걸면 배포 설정 계정은 자기 계좌를 못 적는다.
+ * 계정 검증은 저장소(requirePartnerAccount)가 userStore 로 한다.
  */
 export const partnerDetails = pgTable('partner_details', {
-  userId: text('user_id').primaryKey().references(() => users.id),
+  userId: text('user_id').primaryKey(),
   bizRegNo: text('biz_reg_no'),                 // 사업자등록번호 — 숫자 10자리
   bizCertUrl: text('biz_cert_url'),             // 사업자등록증 파일
   bankName: text('bank_name'),
@@ -184,6 +188,9 @@ export const processes = pgTable('processes', {
   commDoneDate: text('comm_done_date'),
   /** 행위신고일 — 파일을 올리면 그 날이 기본으로 들어간다(비어 있을 때만) */
   notifyDate: text('notify_date'),
+  /** 수령한 수량 — 충전기 몇 대, 모뎀 몇 개. 시공사가 수령 때 센다 */
+  chargerQty: integer('charger_qty'),
+  modemQty: integer('modem_qty'),
   /** 묶음별 완료 체크(체크한 날) — 단계 이동을 잠근다. types/project.ts ProcessInfo 주석 참조 */
   notifyDoneAt: text('notify_done_at'),
   chargerDoneAt: text('charger_done_at'),

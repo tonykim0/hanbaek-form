@@ -14,7 +14,7 @@
  * 단계 이동은 한백이 노드를 눌러서 한다 — 조건이 찬 노드만 눌리고, 지난 노드를
  * 누르면 되돌아간다(조건은 누적이라 뒤로는 늘 열려 있다).
  */
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { ProcessStatus, ProjectDetail } from '@/types/project';
 import { PROCESS_STATUSES } from '@/types/project';
 import { PROCESS_DOCS } from '@/lib/doc-rules';
@@ -22,6 +22,7 @@ import {
   canEnter, isHanbaekOnlyProcessField, statusIndex, STATUS_GATES, type ProcessEdit,
 } from '@/lib/process';
 import { DocDelete, DocFileActions, DocUpload, DownloadAll } from '@/components/DocFiles';
+import { DatePicker } from '@/components/DatePicker';
 import { today } from '@/lib/date';
 import { useAction } from '@/lib/use-action';
 import { Note } from '@/components/ui';
@@ -34,6 +35,9 @@ type DateField =
 /** 묶음별 완료 체크 칸 */
 type CheckField =
   | 'notifyDoneAt' | 'chargerDoneAt' | 'installConfirmedAt' | 'openDoneAt' | 'completionSubmitAt';
+
+/** 수량 칸 — 설치 실적(거점·기)과 수령 수량(충전기·모뎀) */
+type CountField = 'installedSpots' | 'installedUnits' | 'chargerQty' | 'modemQty';
 
 interface MilestoneRow {
   label: string;
@@ -77,8 +81,8 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
   const saveCheck = (field: CheckField, checked: boolean) =>
     save(field, checked ? today() : null, field);
 
-  /** 설치 실적 — 숫자는 키를 누를 때마다가 아니라 칸을 떠날 때 저장한다 */
-  const saveCount = (field: 'installedSpots' | 'installedUnits', raw: string, before: number | null) => {
+  /** 수량 — 숫자는 키를 누를 때마다가 아니라 칸을 떠날 때 저장한다 */
+  const saveCount = (field: CountField, raw: string, before: number | null) => {
     const value = raw === '' ? null : Number(raw);
     if (value !== null && (!Number.isInteger(value) || value < 0)) return;
     if (value === before) return;
@@ -129,7 +133,9 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
         docs: [],
         check: {
           field: 'chargerDoneAt', label: '수령 완료',
-          ready: Boolean(p.chargerRecvDate), blocked: '수령일 미입력 — 완료 불가',
+          // 수령 완료 = 무엇이 몇 개 왔는지 세었다는 말이다 — 날짜만으로는 완료가 아니다
+          ready: Boolean(p.chargerRecvDate) && p.chargerQty !== null && p.modemQty !== null,
+          blocked: '수령일·수량 미입력 — 완료 불가',
         },
       },
     ],
@@ -312,61 +318,39 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
                               />
                             ))}
 
+                            {/* 수령 수량 — 무엇이 몇 개 왔는지 센다. 수령 완료 체크의 조건이다. */}
+                            {g.title === '충전기' && (
+                              <CountsRow
+                                label="수령 수량"
+                                items={[
+                                  { field: 'chargerQty', prefix: '충전기', unit: '대', value: p.chargerQty },
+                                  { field: 'modemQty', prefix: '모뎀', unit: '개', value: p.modemQty },
+                                ]}
+                                canEdit={canEditField('chargerRecvDate')}
+                                busyKey={busyKey}
+                                onSave={saveCount}
+                                compare={{
+                                  label: `계약 ${contractQty}대`,
+                                  mismatch: p.chargerQty !== null && p.chargerQty !== contractQty,
+                                }}
+                              />
+                            )}
                             {/* 설치 실적 — 설치완료일 바로 아래, 시공사가 적는다 */}
                             {g.title === '설치' && (
-                              <div className="flex flex-wrap items-center gap-3 px-3.5 py-2 text-base">
-                                <span className="w-32 shrink-0 text-slate-500">설치 실적</span>
-                                {canEditField('installDoneDate') ? (
-                                  <span className="flex items-center gap-1.5">
-                                    {([
-                                      { field: 'installedSpots', unit: '거점', value: p.installedSpots },
-                                      { field: 'installedUnits', unit: '기', value: p.installedUnits },
-                                    ] as const).map((c) => (
-                                      <span key={c.field} className="flex items-center gap-1">
-                                        <input
-                                          type="number"
-                                          min={0}
-                                          inputMode="numeric"
-                                          aria-label={`설치 ${c.unit} 수`}
-                                          defaultValue={c.value ?? ''}
-                                          disabled={busyKey === c.field}
-                                          onBlur={(e) => saveCount(c.field, e.target.value, c.value)}
-                                          onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
-                                          className={`w-16 rounded-ctl border px-2 py-1 text-right font-semibold tabular-nums transition focus:outline-none focus:ring-2 focus:ring-brand-100 ${
-                                            c.value !== null
-                                              ? 'border-slate-200 text-slate-800'
-                                              : 'border-dashed border-slate-300 text-slate-400'
-                                          } ${busyKey === c.field ? 'opacity-50' : 'hover:border-brand-300'}`}
-                                        />
-                                        <span className="text-slate-500">{c.unit}</span>
-                                      </span>
-                                    ))}
-                                  </span>
-                                ) : (
-                                  <span
-                                    className={`font-semibold tabular-nums ${
-                                      p.installedSpots !== null || p.installedUnits !== null
-                                        ? 'text-slate-800'
-                                        : 'text-slate-300'
-                                    }`}
-                                  >
-                                    {p.installedSpots !== null || p.installedUnits !== null
-                                      ? `${p.installedSpots ?? '—'}거점 · ${p.installedUnits ?? '—'}기`
-                                      : '비어 있음'}
-                                  </span>
-                                )}
-                                <span className="flex-1" />
-                                {/* 계약과 다르면 그 자리에서 보인다 */}
-                                <span
-                                  className={`text-tiny font-semibold ${
-                                    p.installedUnits !== null && p.installedUnits !== contractQty
-                                      ? 'text-amber-700'
-                                      : 'text-slate-400'
-                                  }`}
-                                >
-                                  계약 {contractQty}대
-                                </span>
-                              </div>
+                              <CountsRow
+                                label="설치 실적"
+                                items={[
+                                  { field: 'installedSpots', unit: '거점', value: p.installedSpots },
+                                  { field: 'installedUnits', unit: '기', value: p.installedUnits },
+                                ]}
+                                canEdit={canEditField('installDoneDate')}
+                                busyKey={busyKey}
+                                onSave={saveCount}
+                                compare={{
+                                  label: `계약 ${contractQty}대`,
+                                  mismatch: p.installedUnits !== null && p.installedUnits !== contractQty,
+                                }}
+                              />
                             )}
 
                             {g.docs.map((kind) => {
@@ -421,6 +405,66 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
   );
 }
 
+/**
+ * 수량 한 줄 — 수령 수량(충전기·모뎀)과 설치 실적(거점·기)이 같은 모양을 쓴다.
+ * 숫자는 칸을 떠날 때 저장한다. 오른쪽 끝의 비교 기준(계약 N대)이 다르면 노랗게 —
+ * 맞는지 물으러 갈 곳이 따로 없어야 한다.
+ */
+function CountsRow({
+  label, items, canEdit, busyKey, onSave, compare,
+}: {
+  label: string;
+  items: Array<{ field: CountField; unit: string; prefix?: string; value: number | null }>;
+  canEdit: boolean;
+  busyKey: string | null;
+  onSave: (field: CountField, raw: string, before: number | null) => void;
+  compare?: { label: string; mismatch: boolean };
+}) {
+  const any = items.some((c) => c.value !== null);
+  return (
+    <div className="flex flex-wrap items-center gap-3 px-3.5 py-2 text-base">
+      <span className="w-32 shrink-0 text-slate-500">{label}</span>
+      {canEdit ? (
+        <span className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
+          {items.map((c) => (
+            <span key={c.field} className="flex items-center gap-1">
+              {c.prefix && <span className="text-small text-slate-500">{c.prefix}</span>}
+              <input
+                type="number"
+                min={0}
+                inputMode="numeric"
+                aria-label={`${c.prefix ?? label} ${c.unit} 수`}
+                defaultValue={c.value ?? ''}
+                disabled={busyKey === c.field}
+                onBlur={(e) => onSave(c.field, e.target.value, c.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                className={`w-16 rounded-ctl border px-2 py-1 text-right font-semibold tabular-nums transition focus:outline-none focus:ring-2 focus:ring-brand-100 ${
+                  c.value !== null
+                    ? 'border-slate-200 text-slate-800'
+                    : 'border-dashed border-slate-300 text-slate-400'
+                } ${busyKey === c.field ? 'opacity-50' : 'hover:border-brand-300'}`}
+              />
+              <span className="text-slate-500">{c.unit}</span>
+            </span>
+          ))}
+        </span>
+      ) : (
+        <span className={`font-semibold tabular-nums ${any ? 'text-slate-800' : 'text-slate-300'}`}>
+          {any
+            ? items.map((c) => `${c.prefix ? `${c.prefix} ` : ''}${c.value ?? '—'}${c.unit}`).join(' · ')
+            : '비어 있음'}
+        </span>
+      )}
+      <span className="flex-1" />
+      {compare && (
+        <span className={`text-tiny font-semibold ${compare.mismatch ? 'text-amber-700' : 'text-slate-400'}`}>
+          {compare.label}
+        </span>
+      )}
+    </div>
+  );
+}
+
 /** 날짜 한 줄 — 시공사 칸은 입력칸, 한백 전용 칸은 시공사에게 글자로 굳는다 */
 function DateRow({
   m, canEdit, lockedForPartner, busy, onSave,
@@ -436,15 +480,11 @@ function DateRow({
     <div className="flex flex-wrap items-center gap-3 px-3.5 py-2 text-base">
       <span className="w-32 shrink-0 text-slate-500">{m.label}</span>
       {canEdit ? (
-        <input
-          type="date"
-          aria-label={m.label}
-          defaultValue={m.value ?? ''}
+        <DatePicker
+          ariaLabel={m.label}
+          value={m.value}
           disabled={busy}
-          onChange={(e) => onSave(m.field, e.target.value)}
-          className={`w-[150px] rounded-ctl border px-2 py-1 font-semibold tabular-nums transition focus:outline-none focus:ring-2 focus:ring-brand-100 ${
-            m.value ? 'border-slate-200 text-slate-800' : 'border-dashed border-slate-300 text-slate-400'
-          } ${busy ? 'opacity-50' : 'hover:border-brand-300'}`}
+          onChange={(v) => onSave(m.field, v ?? '')}
         />
       ) : (
         <span
@@ -532,8 +572,18 @@ function CheckRow({
   busy: boolean;
   onToggle: (field: CheckField, checked: boolean) => void;
 }) {
-  const checked = Boolean(value);
+  /*
+   * 낙관적 표시 — 누르는 즉시 표시가 바뀐다.
+   *
+   * 체크박스가 서버 값만 보면, 누르고 서버가 다시 그려줄 때까지(왕복 1초쯤) 화면이
+   * 안 움직인다. 안 눌린 줄 알고 한 번 더 누르면 해제 요청이 나가 도로 풀린다 —
+   * 한백이 실제로 겪은 「잘 안 먹히는」 증상. 서버 값이 따라오면 그것을 믿는다.
+   */
+  const [optimistic, setOptimistic] = useState<boolean | null>(null);
+  useEffect(() => setOptimistic(null), [value]);
+  const checked = optimistic ?? Boolean(value);
   const disabled = busy || (!checked && !check.ready);
+
   return (
     <div className="flex flex-wrap items-center gap-3 px-3.5 py-2 text-base">
       <span className="w-32 shrink-0 font-bold text-slate-700">{check.label}</span>
@@ -544,14 +594,17 @@ function CheckRow({
             aria-label={check.label}
             checked={checked}
             disabled={disabled}
-            onChange={(e) => onToggle(check.field, e.target.checked)}
+            onChange={(e) => {
+              setOptimistic(e.target.checked);
+              onToggle(check.field, e.target.checked);
+            }}
           />
           <span
             className={`font-bold ${
               checked ? 'text-brand-800' : check.ready ? 'text-slate-700' : 'text-slate-400'
             }`}
           >
-            {checked ? `완료 · ${value}` : check.ready ? '완료로 표시' : check.blocked}
+            {checked ? `완료${value ? ` · ${value}` : ' 처리 중…'}` : check.ready ? '완료로 표시' : check.blocked}
           </span>
         </label>
       ) : (

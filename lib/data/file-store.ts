@@ -53,6 +53,8 @@ function parse(raw: string): ProjectRecord[] {
     r.process.installedUnits = r.process.installedUnits ?? null;
     // 완료 체크가 생기기 전의 파일에는 이 칸들이 없다
     r.process.notifyDate = r.process.notifyDate ?? null;
+    r.process.chargerQty = r.process.chargerQty ?? null;
+    r.process.modemQty = r.process.modemQty ?? null;
     r.process.notifyDoneAt = r.process.notifyDoneAt ?? null;
     r.process.chargerDoneAt = r.process.chargerDoneAt ?? null;
     r.process.installConfirmedAt = r.process.installConfirmedAt ?? null;

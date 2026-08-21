@@ -17,6 +17,7 @@ import Link from 'next/link';
 import type { ContractState, Court, ProjectDetail, SettlementRuleChoice } from '@/types/project';
 import { useAction } from '@/lib/use-action';
 import { today } from '@/lib/date';
+import { DatePicker } from '@/components/DatePicker';
 import { Btn, Choice, Empty, Err, Val } from '@/components/ui';
 import { buildDocContext, evaluateDocs, isPartyInferred, PROCESS_DOCS } from '@/lib/doc-rules';
 import { bandOfColumn, boardColumnOf, phaseOfProject, type BoardBand } from '@/lib/board';
@@ -116,6 +117,15 @@ export default function ProjectDetailView({
    */
   const constructionLocked = detail.stage === 'intake';
 
+  // 고정 요약 줄이 쓰는 칸 이름 — 머리말과 같은 판정(boardColumnOf)이라 둘이 갈릴 수 없다
+  const stickyColumn = boardColumnOf({
+    stage: detail.stage,
+    status: process.status,
+    holdState: project.holdState,
+    rejectedDocs: contract.rejected,
+    docsFilled: contract.docsFilled,
+  });
+
   const tabs: Array<{ key: TabKey; label: string; count: string; locked: boolean; why?: string }> = [
     { key: 'intake', label: '계약', count: `${contract.satisfied}/${contract.requiredTotal}`, locked: false },
     {
@@ -148,6 +158,21 @@ export default function ProjectDetailView({
         knownOrgs={knownOrgs}
         processEdit={processEdit}
       />
+
+      {/*
+        * 고정 요약 줄 — 스크롤을 내려도 어느 현장의 어느 단계인지 화면 위에 붙어 있다
+        * (한백 확인). 머리말과 같은 값이 또 있는 셈이지만 이것은 길잡이다 — 긴 탭을
+        * 내리다 「지금 어느 현장이더라」로 되올라가는 걸음을 없앤다.
+        */}
+      <div className="sticky top-0 z-30 flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-slate-200/70 bg-[#f7f8f4]/95 py-2 backdrop-blur">
+        <span className={`rounded-full px-2.5 py-0.5 text-tiny font-black ${BAND_TONE[bandOfColumn(stickyColumn)]}`}>
+          {stickyColumn}
+        </span>
+        <span className="truncate text-base font-black text-slate-900">{project.name}</span>
+        <span className="text-tiny text-slate-500">
+          {project.cpo} · {lines.reduce((s, l) => s + l.qty, 0)}대
+        </span>
+      </div>
 
       <div className="overflow-hidden rounded-panel border border-slate-200 bg-white">
         <div className="flex gap-1 border-b border-slate-100 px-3 pt-3" role="tablist">
@@ -319,7 +344,8 @@ function SiteHeader({
         <Fact label="접수일" value={project.createdAt} />
       </dl>
 
-      <dl className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-1.5 border-t border-slate-100 pt-2 text-base">
+      {/* 선 없이 줄만 바꾼다 — 여백이 이미 줄을 가르고 있어 선까지 있으면 과하다(한백 확인) */}
+      <dl className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-1.5 text-base">
         <EditableFact
           label="영업사"
           value={project.salesOrg}
@@ -407,7 +433,7 @@ function ApprovalFacts({
     });
 
   return (
-    <dl className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-1.5 border-t border-slate-100 pt-2 text-base">
+    <dl className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-1.5 text-base">
       <DateFact
         label="환경부 승인일"
         value={process.envApprovalDate}
@@ -465,17 +491,14 @@ function DateFact({
       <dt className="text-tiny font-bold tracking-[0.04em] text-slate-400">{label}</dt>
       {editing && canEdit ? (
         <dd className="flex items-center gap-1.5">
-          <input
-            type="date"
-            autoFocus
-            aria-label={label}
-            defaultValue={value ?? ''}
+          <DatePicker
+            ariaLabel={label}
+            value={value}
             disabled={busy}
-            onChange={(e) => {
-              onSave(e.target.value === '' ? null : e.target.value);
+            onChange={(v) => {
+              onSave(v);
               setEditing(false);
             }}
-            className="rounded-ctl border border-slate-200 px-2 py-0.5 text-small font-semibold tabular-nums"
           />
           <Btn size="sm" kind="quiet" disabled={busy} onClick={() => setEditing(false)}>취소</Btn>
         </dd>

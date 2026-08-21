@@ -404,7 +404,10 @@ export interface ProcessInfo {
    */
   notifyDate: string | null;
   notifyDoneAt: string | null;       // 행위신고 완료 → 「시공진행필요」 조건
-  chargerDoneAt: string | null;      // 충전기 수령 완료 (잠그는 단계 없음 — 기록용)
+  /** 수령한 수량 — 충전기 몇 대, 모뎀 몇 개가 현장에 왔나. 시공사가 수령 때 센다. */
+  chargerQty: number | null;
+  modemQty: number | null;
+  chargerDoneAt: string | null;      // 충전기 수령 완료 → 「충전기 수령」 조건
   installConfirmedAt: string | null; // 설치 완료 → 「설치완료」 조건
   openDoneAt: string | null;         // 개통 완료 → 「준공서류 접수/검토」 조건
   completionSubmitAt: string | null; // 준공서류 제출 완료 → 「준공보완·준공」 조건

@@ -25,7 +25,7 @@ import { DocDelete, DocFileActions, DocUpload, DownloadAll } from '@/components/
 import { DatePicker } from '@/components/DatePicker';
 import { today } from '@/lib/date';
 import { useAction } from '@/lib/use-action';
-import { Note } from '@/components/ui';
+import { Btn, FIELD, Note } from '@/components/ui';
 
 /** 고칠 수 있는 날짜 칸 — 이름은 서버(ProcessPatch)와 같아야 한다 */
 type DateField =
@@ -107,6 +107,20 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
       fail: '단계를 옮기지 못했습니다.',
       key: 'status',
     });
+
+  /**
+   * 준공서류 보완 처리 — 사유를 진행현황에 남기고 「준공보완」으로 보낸다.
+   * 보완 전달 채널이 정해질 때까지 진행현황 메모가 그 자리다(CLAUDE.md 다음 할 일 2).
+   */
+  const sendToFix = async (reason: string) => {
+    const ok = await run({
+      url: `/api/projects/${detail.project.id}/notes`,
+      body: { body: `준공 보완 요청 — ${reason}` },
+      fail: '보완 요청을 남기지 못했습니다.',
+      key: 'completionFix',
+    });
+    if (ok) moveStatus('준공보완');
+  };
 
   const uploaded = (kind: string): boolean => {
     const d = p.docs.find((x) => x.kind === kind);
@@ -389,6 +403,18 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
                   </div>
                 </div>
               ))}
+
+              {/* 준공서류 검토 판정 — 한백이 보고, 이상 없으면 준공·아니면 보완으로 */}
+              {selected === '준공서류 접수/검토' &&
+                p.status === '준공서류 접수/검토' &&
+                edit === 'all' &&
+                Boolean(p.completionSubmitAt) && (
+                  <CompletionReview
+                    busy={busyKey === 'status' || busyKey === 'completionFix'}
+                    onApprove={() => moveStatus('준공')}
+                    onFix={(reason) => void sendToFix(reason)}
+                  />
+                )}
             </div>
           );
         })()}
@@ -617,6 +643,66 @@ function CheckRow({
         <span className={`font-bold ${checked ? 'text-brand-800' : 'text-slate-400'}`}>
           {checked ? `완료 · ${value}` : '미완'}
         </span>
+      )}
+    </div>
+  );
+}
+
+/**
+ * 준공서류 검토 판정 — 한백만, 제출 완료 선언 뒤에만 선다.
+ *
+ * 이상 없으면 준공으로 확정하고, 아니면 사유와 함께 「준공보완」으로 보낸다.
+ * 보완은 사유가 필수다 — 사유 없는 보완은 시공사가 무엇을 고칠지 모른다(반려와 같은 규칙).
+ * 사유는 진행현황 메모로 남는다 — 보완 전달 채널이 정해질 때까지의 자리.
+ */
+function CompletionReview({
+  busy, onApprove, onFix,
+}: {
+  busy: boolean;
+  onApprove: () => void;
+  onFix: (reason: string) => void;
+}) {
+  const [fixing, setFixing] = useState(false);
+  const [reason, setReason] = useState('');
+
+  return (
+    <div className="max-w-2xl rounded-box border border-brand-200 bg-brand-50/40 px-3.5 py-3">
+      <p className="text-tiny font-bold tracking-[0.06em] text-slate-500">검토 판정</p>
+      {fixing ? (
+        <div className="mt-2 flex flex-col gap-2">
+          <textarea
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            autoFocus
+            rows={2}
+            placeholder="보완할 내용 — 진행현황에 남아 시공사가 봅니다"
+            className={FIELD}
+          />
+          <div className="flex items-center gap-2">
+            <Btn
+              size="sm"
+              kind="side"
+              busy={busy}
+              busyLabel="보내는 중…"
+              disabled={!reason.trim()}
+              onClick={() => onFix(reason.trim())}
+            >
+              보완으로 보내기
+            </Btn>
+            <Btn size="sm" kind="quiet" disabled={busy} onClick={() => setFixing(false)}>
+              취소
+            </Btn>
+          </div>
+        </div>
+      ) : (
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <Btn size="sm" busy={busy} busyLabel="처리 중…" onClick={onApprove}>
+            이상 없음 — 준공으로
+          </Btn>
+          <Btn size="sm" kind="quiet" disabled={busy} onClick={() => setFixing(true)}>
+            보완 필요
+          </Btn>
+        </div>
       )}
     </div>
   );

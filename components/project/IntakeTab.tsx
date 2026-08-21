@@ -77,21 +77,19 @@ function SiteFacts({ project }: { project: ProjectDetail['project'] }) {
   );
 }
 
-/** 현장 정보 한 묶음 — 값이 없는 칸도 자리를 지킨다. 비어 있는 것이 보이는 것도 정보다. */
+/**
+ * 현장 정보 한 묶음 — 값이 없는 칸도 자리를 지킨다. 비어 있는 것이 보이는 것도 정보다.
+ * 줄마다 한 칸이던 것을 두 칸씩 접었다 — 열두 값에 상자가 화면 반을 먹었다(한백 지적).
+ */
 function FactGroup({ title, rows }: { title: string; rows: Array<[string, string | null]> }) {
   return (
-    <div className="rounded-box border border-slate-200">
-      <p className="border-b border-slate-100 bg-slate-50 px-4 py-2 text-tiny font-black tracking-[0.06em] text-slate-500">
-        {title}
-      </p>
-      <dl>
+    <div className="rounded-box border border-slate-200 px-3.5 py-2.5">
+      <p className="mb-1.5 text-tiny font-black tracking-[0.06em] text-slate-500">{title}</p>
+      <dl className="grid grid-cols-1 gap-x-5 gap-y-1 sm:grid-cols-2">
         {rows.map(([label, value]) => (
-          <div
-            key={label}
-            className="flex items-baseline gap-3 border-b border-slate-100 px-4 py-2 last:border-b-0"
-          >
-            <dt className="w-24 shrink-0 text-small font-bold text-slate-400">{label}</dt>
-            <dd className={`min-w-0 break-keep text-base font-semibold ${value ? 'text-slate-800' : 'text-slate-300'}`}>
+          <div key={label} className="flex items-baseline gap-2">
+            <dt className="w-20 shrink-0 text-tiny font-bold text-slate-400">{label}</dt>
+            <dd className={`min-w-0 break-keep text-small font-semibold ${value ? 'text-slate-800' : 'text-slate-300'}`}>
               {value ?? '—'}
             </dd>
           </div>
@@ -197,7 +195,8 @@ export function IntakeTab({
                   {g.note && <span className="text-tiny text-slate-400">{g.note}</span>}
                 </div>
 
-                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                {/* 칸을 넷으로 — 서류 하나가 손바닥만 하던 것을 줄인다(한백 지적) */}
+                <div className="grid gap-1.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                   {list.map((d) => {
                     const doc = byKind.get(d.key);
                     const st = docState(doc, d.req);
@@ -205,7 +204,7 @@ export function IntakeTab({
                     return (
                       <div
                         key={d.key}
-                        className={`flex flex-col rounded-box border border-l-[3px] p-3 ${
+                        className={`flex flex-col rounded-box border border-l-[3px] p-2.5 ${
                           rejected
                             ? 'border-slate-200 border-l-red-500 bg-red-50/40'
                             : doc?.blobUrl || doc?.status === 'uploaded' || doc?.status === 'approved'
@@ -216,14 +215,14 @@ export function IntakeTab({
                         }`}
                       >
                         <div className="flex items-start justify-between gap-2">
-                          <p className="break-keep text-lead font-bold leading-snug text-slate-800">
+                          <p className="break-keep text-small font-bold leading-snug text-slate-800">
                             {d.label}
                             {/* 확장자는 남긴다 — 무슨 형식으로 내야 하는지는 협력사가 알아야 한다 */}
                             {d.ext && (
                               <span className="ml-1.5 text-micro font-bold text-slate-400">{d.ext}</span>
                             )}
                           </p>
-                          <span className={`shrink-0 text-tiny font-black ${st.tone}`}>
+                          <span className={`shrink-0 text-micro font-black ${st.tone}`}>
                             {st.label}
                           </span>
                         </div>
@@ -264,7 +263,13 @@ export function IntakeTab({
                                 hasFile={Boolean(doc?.blobUrl)}
                               />
                             )}
-                            {/* 삭제는 한백만. 협력사는 다시 올려서 덮는 길이 있다. */}
+                            {canReview && doc && doc.status !== 'none' && (
+                              <DocReview projectId={projectId} kind={d.key} status={doc.status} />
+                            )}
+                            {/*
+                              * 삭제는 한백만 — 협력사는 다시 올려서 덮는 길이 있다.
+                              * 반려(빨간 글자) 뒤 맨 끝에 회색 글자로 — 색과 자리로 가른다(한백 지적).
+                              */}
                             {canReview && doc && doc.status !== 'none' && (
                               <DocDelete
                                 projectId={projectId}
@@ -272,9 +277,6 @@ export function IntakeTab({
                                 label={d.label}
                                 filename={doc.filename}
                               />
-                            )}
-                            {canReview && doc && doc.status !== 'none' && (
-                              <DocReview projectId={projectId} kind={d.key} status={doc.status} />
                             )}
                           </div>
                         </div>

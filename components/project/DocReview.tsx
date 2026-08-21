@@ -97,9 +97,18 @@ export function DocReview({
             </Btn>
           </>
         ) : (
-          <Btn size="sm" kind="undo" disabled={busy} onClick={() => setRejecting(true)}>
+          /*
+           * 반려와 삭제가 같은 회색 글자라 구분이 안 됐다(한백 지적).
+           * 반려는 빨간 글자 — 여는 단추라 배경은 칠하지 않는다(규칙 12, 확정만 빨강 배경).
+           */
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => setRejecting(true)}
+            className="text-tiny font-bold text-red-700 underline decoration-red-300 transition hover:text-red-900 disabled:text-slate-300"
+          >
             반려
-          </Btn>
+          </button>
         )}
       </div>
       <Err>{error}</Err>

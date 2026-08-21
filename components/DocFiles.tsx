@@ -124,7 +124,7 @@ export function DocDelete({
         type="button"
         disabled={busy}
         onClick={remove}
-        className="mt-2 text-tiny font-bold text-slate-400 underline decoration-slate-300 transition hover:text-red-700 disabled:text-slate-300"
+        className="text-tiny font-bold text-slate-400 underline decoration-slate-300 transition hover:text-slate-700 disabled:text-slate-300"
       >
         {busy ? '지우는 중…' : '삭제'}
       </button>

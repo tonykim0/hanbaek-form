@@ -991,9 +991,14 @@ export const pgRepository: ProjectRepository = {
         .onConflictDoUpdate({ target: [documents.projectId, documents.kind], set: row });
 
       // 서류가 올라오면 공이 한백으로 넘어간다 (검수 차례)
+      // 설치이력 파일이 곧 기설치 조사다(한백 확인) — 조사 여부를 따로 묻지 않는다
       await tx
         .update(projects)
-        .set({ court: '한백', lastProgressAt: day })
+        .set({
+          court: '한백',
+          lastProgressAt: day,
+          ...(input.kind === 'legacylog' ? { preChecked: true } : {}),
+        })
         .where(eq(projects.id, input.projectId));
 
       await writeAudit(tx, {

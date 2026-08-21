@@ -470,6 +470,8 @@ export const fileRepository: ProjectRepository = {
     doc.uploadedAt = day;
     // 행위신고 파일을 올리면 행위신고일이 그 날로 들어간다 — 비어 있을 때만 (pg-store 와 같은 판정)
     if (input.kind === 'notify' && !r.process.notifyDate) r.process.notifyDate = day;
+    // 설치이력 파일이 곧 기설치 조사다 (pg-store 와 같은 판정)
+    if (input.kind === 'legacylog') r.project.preChecked = true;
     r.court = '한백';
     r.lastProgressAt = day;
     await save(records);

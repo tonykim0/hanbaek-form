@@ -117,15 +117,6 @@ export default function ProjectDetailView({
    */
   const constructionLocked = detail.stage === 'intake';
 
-  // 고정 요약 줄이 쓰는 칸 이름 — 머리말과 같은 판정(boardColumnOf)이라 둘이 갈릴 수 없다
-  const stickyColumn = boardColumnOf({
-    stage: detail.stage,
-    status: process.status,
-    holdState: project.holdState,
-    rejectedDocs: contract.rejected,
-    docsFilled: contract.docsFilled,
-  });
-
   const tabs: Array<{ key: TabKey; label: string; count: string; locked: boolean; why?: string }> = [
     { key: 'intake', label: '계약', count: `${contract.satisfied}/${contract.requiredTotal}`, locked: false },
     {
@@ -158,21 +149,6 @@ export default function ProjectDetailView({
         knownOrgs={knownOrgs}
         processEdit={processEdit}
       />
-
-      {/*
-        * 고정 요약 줄 — 스크롤을 내려도 어느 현장의 어느 단계인지 화면 위에 붙어 있다
-        * (한백 확인). 머리말과 같은 값이 또 있는 셈이지만 이것은 길잡이다 — 긴 탭을
-        * 내리다 「지금 어느 현장이더라」로 되올라가는 걸음을 없앤다.
-        */}
-      <div className="sticky top-0 z-30 flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-slate-200/70 bg-[#f7f8f4]/95 py-2 backdrop-blur">
-        <span className={`rounded-full px-2.5 py-0.5 text-tiny font-black ${BAND_TONE[bandOfColumn(stickyColumn)]}`}>
-          {stickyColumn}
-        </span>
-        <span className="truncate text-base font-black text-slate-900">{project.name}</span>
-        <span className="text-tiny text-slate-500">
-          {project.cpo} · {lines.reduce((s, l) => s + l.qty, 0)}대
-        </span>
-      </div>
 
       <div className="overflow-hidden rounded-panel border border-slate-200 bg-white">
         <div className="flex gap-1 border-b border-slate-100 px-3 pt-3" role="tablist">

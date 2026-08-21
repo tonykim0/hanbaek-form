@@ -244,10 +244,8 @@ export default function ConsoleShell({
       {/* 본문은 전체 폭을 쓴다 — 보드의 칸이 화면 밖으로 나가지 않게 */}
       <div className={`transition-[padding] duration-150 print:pl-0 ${open ? 'pl-[184px]' : 'pl-[56px]'}`}>
         <TopBar role={role} />
+        {/* 바닥글은 걷어냈다(한백 확인) — 내부 도구에 매 페이지 같은 문장과 선은 자리만 먹는다 */}
         <main className="px-5 pb-16 pt-8 sm:px-7 sm:pt-9">{children}</main>
-        <footer className="border-t border-slate-200 px-6 py-6 text-center text-small text-slate-400 print:hidden">
-          한백 전기차충전사업 · 내부 업무용
-        </footer>
       </div>
     </div>
   );

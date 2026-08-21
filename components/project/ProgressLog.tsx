@@ -55,7 +55,8 @@ export function ProgressLog({
    * 목록도 줄 사이 선으로만 가른다 — 왼쪽 색 띠가 누가 썼는지를 이미 말해준다.
    */
   return (
-    <section className="mt-5 border-t border-slate-100 pt-4">
+    // 자리(위 선·여백)는 부모가 정한다 — 머리말 오른쪽 열에 설 때와 아래에 쌓일 때가 다르다
+    <section>
       <div className="mb-2 flex flex-wrap items-baseline gap-x-2 gap-y-1">
         <h2 className="text-lead font-black text-slate-900">진행현황 및 메모</h2>
         <span className="text-tiny font-bold tabular-nums text-slate-400">{notes.length}건</span>
@@ -88,8 +89,9 @@ export function ProgressLog({
       </div>
 
       {/* 「아직 없습니다」를 적지 않는다 — 위의 0건이 이미 그 말이다 */}
+      {/* 목록이 길어도 박스는 안 길어진다 — 안에서 스크롤한다(한백 지적: 박스가 너무 길다) */}
       {notes.length > 0 && (
-        <ol className="mt-3 divide-y divide-slate-100">
+        <ol className="mt-3 max-h-[340px] divide-y divide-slate-100 overflow-y-auto">
           {notes.map((n) => (
             <NoteItem key={n.id} projectId={projectId} note={n} author={author} />
           ))}

@@ -14,13 +14,13 @@
  */
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
-import type { ContractState, Court, ProjectDetail, SettlementRuleChoice } from '@/types/project';
+import type { ContractState, ProjectDetail, SettlementRuleChoice } from '@/types/project';
 import { useAction } from '@/lib/use-action';
 import { today } from '@/lib/date';
 import { DatePicker } from '@/components/DatePicker';
-import { Btn, Choice, Empty, Err, Val } from '@/components/ui';
+import { Btn, Empty, Err, Val } from '@/components/ui';
 import { buildDocContext, evaluateDocs, isPartyInferred, PROCESS_DOCS } from '@/lib/doc-rules';
-import { bandOfColumn, boardColumnOf, phaseOfProject, type BoardBand } from '@/lib/board';
+import { bandOfColumn, boardColumnOf, type BoardBand } from '@/lib/board';
 import type { ProcessEdit } from '@/lib/process';
 import type { Visibility } from '@/lib/roles';
 import type { RuleOptions } from '@/lib/pricing-match';
@@ -256,10 +256,7 @@ function SiteHeader({
   if (stage === 'intake' && !contract.docsFilled) {
     blockers.push({ label: '필수 서류 미충족', tone: 'bg-amber-100 text-amber-900' });
   }
-  // 단가 지정은 한백이 하는 일이다 — 협력사에게 보이면 무엇을 하라는 말인지 알 수 없다
-  if (canReview && stage === 'intake' && !contract.allPriced) {
-    blockers.push({ label: '단가 미지정', tone: 'bg-amber-100 text-amber-900' });
-  }
+  // 단가 미지정은 머리말에 안 띄운다(한백 확인) — 정산 탭의 지정 자리가 그 말을 한다
   if (stalledDays >= 14) {
     blockers.push({
       label: `${stalledDays}일째 그대로`,
@@ -269,32 +266,24 @@ function SiteHeader({
 
   return (
     <div className="rounded-panel border border-slate-200 bg-white p-5 sm:p-6">
-      {/* 온 곳으로 돌아간다 — 이 현장이 서 있는 국면의 목록으로 */}
-      <Link
-        href={phaseOfProject({ stage, status: process.status }) === '계약' ? '/projects' : '/construction'}
-        className="text-small font-semibold text-slate-400 hover:text-brand-700"
-      >
-        ← {phaseOfProject({ stage, status: process.status }) === '계약' ? '계약 목록' : '시공 목록'}
-      </Link>
-
+      {/*
+        * 왼쪽은 현장의 사실, 오른쪽은 진행현황 및 메모(한백 확인). 세로로 쌓으면 머리말이
+        * 길어지고 넓은 화면의 오른쪽이 놀았다. 좁은 화면에서는 다시 아래로 접힌다.
+        * 뒤로가기·차례 칩은 걷어냈다 — 목록은 사이드바로 가고, 차례는 보드 카드가 민다.
+        */}
+      <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_360px] lg:gap-x-8">
+      <div className="min-w-0">
       {/*
         * 단계를 이름 위에 둔다. 오른쪽 끝에 있으면 이름을 읽고 눈을 옮겨야 보이는데,
         * 이 화면에서 가장 먼저 알아야 하는 것이 「지금 어느 칸에 있나」다.
         */}
-      <div className="mt-2 flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <span
           className={`inline-flex rounded-full px-3 py-1 text-base font-black ${BAND_TONE[band]}`}
           title="보드에서 이 현장이 서는 칸"
         >
           {column}
         </span>
-        <TurnChip
-          projectId={project.id}
-          court={detail.court}
-          stage={stage}
-          rejected={contract.rejected}
-          canEdit={canReview}
-        />
       </div>
       <h1 className="mt-2 text-h1 font-black text-slate-900">
         {project.name}
@@ -372,9 +361,12 @@ function SiteHeader({
           ))}
         </div>
       )}
+      </div>
 
-      <ProgressLog projectId={project.id} notes={detail.notes} author={noteAuthor} />
-
+      <div className="mt-5 min-w-0 border-t border-slate-100 pt-4 lg:mt-0 lg:border-l lg:border-t-0 lg:pl-6 lg:pt-0">
+        <ProgressLog projectId={project.id} notes={detail.notes} author={noteAuthor} />
+      </div>
+      </div>
     </div>
   );
 }
@@ -513,77 +505,5 @@ function DateFact({
         </>
       )}
     </div>
-  );
-}
-
-const COURTS: Court[] = ['한백', '영업사', '시공사', '운영사'];
-
-/**
- * 지금 누가 무엇을 할 차례인가 — 상태 문구로 유도한다.
- *
- * 저장값(court)은 「누가」뿐이다. 「무엇을」은 상황에서 유도한다 — 따로 저장하면 갈린다.
- * 「공 차례」라는 말은 설계 문서의 은유라 화면에 쓰지 않는다.
- */
-function turnPhrase(court: Court, stage: ProjectDetail['stage'], rejected: number): string {
-  switch (court) {
-    case '영업사': return rejected > 0 ? '영업사 보완 대기' : '영업사 진행 차례';
-    case '한백': return stage === 'intake' ? '한백 검수 대기' : '한백 진행 차례';
-    case '시공사': return '시공사 진행 차례';
-    case '운영사': return '운영사 회신 대기';
-  }
-}
-
-/**
- * 차례 표시 — 단계 배지 옆에 늘 보인다.
- *
- * 값은 쓰기 동작이 스스로 넘긴다: 접수·서류 올리기 → 한백, 반려 → 영업사,
- * 계약 확인 → 시공사. 그래도 손으로 넘길 수 있어야 한다 — 전화로 결정이 난 현장은
- * 차례가 시스템 밖에서 움직인다. 넘기는 것은 한백만이고, 협력사에게는 이 문구가
- * 보이는 것 자체가 「네 차례다」라는 신호다. (저장·라우트는 진작 있었는데 그리는 곳이 없었다)
- */
-function TurnChip({
-  projectId, court, stage, rejected, canEdit,
-}: {
-  projectId: string;
-  court: Court;
-  stage: ProjectDetail['stage'];
-  rejected: number;
-  canEdit: boolean;
-}) {
-  const { busy, error, setError, run } = useAction();
-  const [editing, setEditing] = useState(false);
-
-  const pass = (next: Court) => {
-    if (busy) return;
-    void run({
-      url: `/api/projects/${projectId}/court`,
-      body: { court: next },
-      fail: '차례를 넘기지 못했습니다.',
-    }).then((ok) => { if (ok) setEditing(false); });
-  };
-
-  if (editing) {
-    return (
-      <span className="flex flex-wrap items-center gap-1.5">
-        {COURTS.map((c) => (
-          <Choice key={c} on={court === c} onClick={() => pass(c)}>{c}</Choice>
-        ))}
-        <Btn size="sm" kind="quiet" disabled={busy} onClick={() => { setEditing(false); setError(null); }}>
-          취소
-        </Btn>
-        <Err>{error}</Err>
-      </span>
-    );
-  }
-
-  return (
-    <span className="flex items-center gap-1">
-      <span className="rounded-full bg-amber-100 px-2.5 py-1 text-tiny font-bold text-amber-900">
-        {turnPhrase(court, stage, rejected)}
-      </span>
-      {canEdit && (
-        <Btn size="sm" kind="quiet" onClick={() => setEditing(true)}>넘기기</Btn>
-      )}
-    </span>
   );
 }

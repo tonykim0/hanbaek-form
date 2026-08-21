@@ -231,7 +231,7 @@ export const PRICING_RULES: PricingRule[] = [
     cpo: "플러그링크", bizType: "환경부", powerType: "모자분리",
     termYears: [7], bldgTypes: ["공동주택"], replType: "환경부 신규",
     bizYear: 2026, startDate: "2026년 1월 20일",
-    channel: "시공만",
+    channel: "시공",
     salesUnit: 0, consUnit: 900000, margin: 0,
     defaultSettlementRuleId: "lump-100",
     supervisionBearer: "영업비 차감", safetyFeeBearer: "한백 부담",

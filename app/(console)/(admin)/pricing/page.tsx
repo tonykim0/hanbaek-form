@@ -15,7 +15,6 @@ import { getRepository } from '@/lib/data';
 import { actorOf, getSessionUser } from '@/lib/auth/session';
 import { redirect } from 'next/navigation';
 import PricingMatrix from '@/components/PricingMatrix';
-import { SETTLEMENT_RULES } from '@/lib/data/seed/settlement-rules';
 import { matchingRules } from '@/lib/pricing-match';
 
 export const metadata = { title: '단가 케이스 — 한백 전기차사업관리' };
@@ -25,9 +24,11 @@ export default async function PricingPage() {
   if (!session) redirect('/login?next=/pricing');
 
   const actor = actorOf(session);
-  const [rules, axes] = await Promise.all([
+  const [rules, axes, settlementRules] = await Promise.all([
     getRepository().listPricingRules(actor),
     getRepository().listLineAxes(actor),
+    // 케이스마다 기성 단계를 그리는 데 쓴다 — 규칙의 정본은 저장소다(케이스와 같은 이유)
+    getRepository().listSettlementRules(actor),
   ]);
 
   /*
@@ -46,12 +47,18 @@ export default async function PricingPage() {
     return m.exact.length === 0;
   });
   /*
-   * 정산 규칙 후보는 서버에서 이름만 추려 넘긴다 — 규칙의 단계 금액을 클라이언트 번들에
-   * 싣지 않기 위해서다(코드 청크는 로그인 없이도 받아진다).
+   * 라인이 참조하는 케이스 — 화면이 「수정」과 「개정」을 가르는 데 쓴다.
+   * 참조된 케이스를 고치면 소급 변경이라, 그 행은 전 값을 프리필한 개정으로만 연다.
+   * 판정의 정본은 저장소다(updatePricingRule 이 다시 본다) — 여기 값은 버튼을 가를 뿐이다.
    */
-  const settlementRules = SETTLEMENT_RULES.filter((r) => r.active).map((r) => ({
-    id: r.id,
-    name: r.name,
-  }));
-  return <PricingMatrix rules={rules} settlementRules={settlementRules} blockedLines={blockedLines} />;
+  const referencedIds = [...new Set(axes.map((l) => l.pricingRuleId).filter((x): x is string => Boolean(x)))];
+
+  return (
+    <PricingMatrix
+      rules={rules}
+      settlementRules={settlementRules}
+      blockedLines={blockedLines}
+      referencedIds={referencedIds}
+    />
+  );
 }

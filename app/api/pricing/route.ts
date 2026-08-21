@@ -1,11 +1,13 @@
 /**
  * POST  /api/pricing — 단가 케이스 추가 [한백 전용]
+ * PUT   /api/pricing — 케이스 통째 수정 [한백 전용] — 참조하는 라인이 없을 때만
  * PATCH /api/pricing — 사용/중지 또는 적용 시작·비고 수정 [한백 전용]
  *
- * 고치는 길(PUT)은 없다. 케이스는 불변이다 — 계약 라인이 금액을 복사하지 않고 참조하므로
- * 금액을 고치면 이미 지정된 현장의 지급액이 소급해서 바뀐다. 조건이 달라지면 새 케이스다.
+ * 참조된 케이스는 불변이다 — 계약 라인이 금액을 복사하지 않고 참조하므로 금액을 고치면
+ * 이미 지정된 현장의 지급액이 소급해서 바뀐다. 그때는 개정(새 케이스 + 옛 것 중지)이고,
+ * PUT 은 저장소가 참조 유무를 보고 거절한다. 잘못 넣은 값을 붙이기 전에 바로잡는 길이다.
  *
- * 지우는 길도 없다. 참조하는 라인이 있으면 지급액을 계산할 수 없게 된다.
+ * 지우는 길은 없다. 참조하는 라인이 있으면 지급액을 계산할 수 없게 된다.
  *
  * 값 검사는 저장소가 한다(checkPricingRule) — 화면과 여기가 같은 규칙을 봐야 한다.
  */
@@ -20,6 +22,15 @@ export const POST = adminWrite<Params, NewPricingRule>(
   async ({ body, actor }) => {
     if (!body) throw new BadRequest('넣을 값이 없습니다.');
     return { id: await getRepository().addPricingRule(body, actor) };
+  }
+);
+
+export const PUT = adminWrite<Params, NewPricingRule & { id?: string }>(
+  '한백 관리자만 단가 케이스를 고칠 수 있습니다.',
+  async ({ body, actor }) => {
+    if (!body?.id) throw new BadRequest('어느 케이스인지 알 수 없습니다.');
+    const { id, ...input } = body;
+    await getRepository().updatePricingRule(id, input, actor);
   }
 );
 

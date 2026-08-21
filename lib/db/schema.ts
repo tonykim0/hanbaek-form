@@ -66,7 +66,7 @@ export const pricingRules = pgTable('pricing_rules', {
   termYears: jsonb('term_years').notNull(),         // [7] 또는 [7,10]
   bldgTypes: jsonb('bldg_types').notNull(),
   replType: text('repl_type').notNull(),
-  /** 턴키 | 시공만 — 영업 없이 시공만 하는 현장의 단가는 구성이 다르다 */
+  /** 턴키 | 영업 | 시공 — 한쪽만 맡는 현장의 단가는 구성이 다르다 (옛 값 '시공만' 은 '시공' 으로 이관) */
   channel: text('channel').notNull().default('턴키'),
   bizYear: integer('biz_year').notNull(),
   startDate: text('start_date').notNull(),

@@ -5,7 +5,6 @@ import { actorOf, getSessionUser, viewerOf } from '@/lib/auth/session';
 import { effectiveVisibility, normalizeOrg } from '@/lib/roles';
 import type { ProcessEdit } from '@/lib/process';
 import { matchingRules, type RuleOptions } from '@/lib/pricing-match';
-import { SETTLEMENT_RULES } from '@/lib/data/seed/settlement-rules';
 import type { SettlementRuleChoice } from '@/types/project';
 import { knownOrgs } from '@/lib/orgs';
 import { redirect } from 'next/navigation';
@@ -59,12 +58,14 @@ export default async function ProjectPage({
     : null;
 
   /*
-   * 정산 규칙 후보 — 규칙의 정본은 코드다(assemble 이 SETTLEMENT_RULE_BY_ID 로 읽는다).
-   * 이름에 기성 모양이 들어 있어 한백일 때만 만든다. 클라이언트에서 시드 파일을 직접
-   * import 하면 번들에 실려 협력사에게도 간다 — 그래서 서버에서 걸러 넘긴다.
+   * 정산 규칙 후보 — 규칙의 정본은 저장소다(단가 케이스가 기성 단계로 정의해 쌓는다).
+   * 이름에 기성 모양이 들어 있어 한백일 때만 만든다. 협력사에게는 조회 자체를 안 한다 —
+   * 서버가 렌더한 값은 브라우저에 통째로 실린다.
    */
   const settlementRuleChoices: SettlementRuleChoice[] | null = isAdmin
-    ? SETTLEMENT_RULES.filter((r) => r.active).map(({ id, name }) => ({ id, name }))
+    ? (await getRepository().listSettlementRules(actorOf(session)))
+        .filter((r) => r.active)
+        .map(({ id, name }) => ({ id, name }))
     : null;
 
   /*

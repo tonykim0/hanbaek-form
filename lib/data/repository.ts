@@ -13,7 +13,7 @@
  */
 import type {
   Court, DocStatus, HoldState, IntakeDraft, LineAxes, NewPayoutEntry, NewPricingRule, PayoutKind, PayoutRow, PreInstall, PricingRule,
-  ProcessInfo, ProcessStatus, ProjectDetail, ProjectSummary, Settlement, SettlementSummary,
+  ProcessInfo, ProcessStatus, ProjectDetail, ProjectSummary, Settlement, SettlementRule, SettlementSummary,
 } from '@/types/project';
 import type { Actor, Viewer } from '@/lib/auth/types';
 
@@ -222,8 +222,30 @@ export interface ProjectRepository {
    * ★고치는 길은 두지 않는다.★ 케이스는 불변이다 — 계약 라인이 값을 복사하지 않고 이것을
    * 참조하므로, 금액을 고치면 이미 지정된 현장의 지급액이 소급해서 바뀐다. 조건이나 금액이
    * 달라지면 새 케이스를 만들고 옛 것을 중지한다.
+   *
+   * 기성은 규칙 id 가 아니라 단계(settlementSteps)로 받는다 — 같은 모양의 규칙이 이미
+   * 있으면 그것을 붙이고, 없으면 만든다. 그래서 규칙도 케이스처럼 불변으로 쌓인다.
    */
   addPricingRule(input: NewPricingRule, actor: Actor): Promise<string>;
+
+  /**
+   * 케이스를 통째로 고친다 — ★아직 어느 계약 라인도 참조하지 않을 때만★. [한백 전용]
+   *
+   * 참조된 케이스의 금액을 고치면 이미 지정된 현장의 지급액·기성이 소급해서 바뀐다 —
+   * 그건 수정이 아니라 사고다. 그래서 참조가 하나라도 있으면 거절하고, 그때는 화면이
+   * 전 값을 프리필한 개정(새 케이스 + 옛 것 중지)으로 이끈다. 잘못 넣은 값을 라인에
+   * 붙이기 전에 바로잡는 것이 이 길이다. id 는 그대로 둔다.
+   */
+  updatePricingRule(id: string, input: NewPricingRule, actor: Actor): Promise<void>;
+
+  /**
+   * 정산 규칙 전부. [한백 전용]
+   *
+   * 단가 케이스가 단계로 정의한 기성 모양이 여기 쌓인다 — 케이스 화면이 차수·금액을
+   * 그리고, 현장 상세의 규칙 고르기가 이름을 쓴다. 단계에서 기성 금액이 유도되므로
+   * 협력사에게 넘기지 않는다(단가 케이스와 같은 이유).
+   */
+  listSettlementRules(actor: Actor): Promise<SettlementRule[]>;
 
   /**
    * 케이스의 적용 시작·비고를 고친다. [한백 전용]

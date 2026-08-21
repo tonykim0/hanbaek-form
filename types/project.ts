@@ -48,13 +48,14 @@ export const REPL_TYPES = [
 /**
  * 케이스의 채널 — 한백이 그 현장에서 맡는 범위.
  *
- * 턴키가 기본이고, 영업 없이 시공만 하는 현장은 단가 구성이 다르다(영업단가 0).
- * 예전에는 이것이 축에 없어서 「시공만」이 케이스 이름에만 적혀 있었다 — 그래서
- * 영업사가 있는 현장의 후보 목록에 영업 0원짜리가 「조건이 맞는 케이스」로 섞였다.
+ * 턴키가 기본이고, 한쪽만 맡는 현장은 단가 구성이 다르다 — 시공 채널은 영업단가 0,
+ * 영업 채널은 시공단가 0. 예전에는 이것이 축에 없어서 「시공만」이 케이스 이름에만 적혀
+ * 있었다 — 그래서 영업사가 있는 현장의 후보 목록에 영업 0원짜리가 「조건이 맞는 케이스」로 섞였다.
  * 현장 데이터로 유도하지 않는다 — 영업사 null 은 「없음」이 아니라 「아직 미지정」일 수 있다.
+ * (옛 저장값 '시공만' 은 '시공' 으로 옮겼다 — 2026-08-21)
  */
-export type Channel = '턴키' | '시공만';
-export const CHANNELS = ['턴키', '시공만'] as const satisfies readonly Channel[];
+export type Channel = '턴키' | '영업' | '시공';
+export const CHANNELS = ['턴키', '영업', '시공'] as const satisfies readonly Channel[];
 export type BizType = '환경부' | '자체투자';
 
 /** 교체유형이 사업구분을 정한다 — 따로 고르게 두면 두 값이 어긋난다 */
@@ -226,8 +227,14 @@ export interface PricingRule {
  *
  * id 는 저장소가 축에서 만든다 — 사람이 적게 두면 「pl-y10」 같은 이름이 겹치고, 겹치면
  * 이미 다른 현장이 참조하는 케이스를 덮어쓴다. active 도 없다 — 만들면 쓰는 것이다.
+ *
+ * 정산 규칙은 id 로 고르지 않고 단계로 적는다 — 받는 단가(턴키)를 운영사에게 몇 차로
+ * 어떻게 받는지. 저장소가 같은 모양의 규칙을 찾아 붙이고, 없으면 만든다(불변·재사용).
+ * 빈 배열은 「기성 미정」이다 — 규칙이 아직 안 정해진 운영사가 실제로 있다.
  */
-export type NewPricingRule = Omit<PricingRule, 'id' | 'active'>;
+export type NewPricingRule = Omit<PricingRule, 'id' | 'active' | 'defaultSettlementRuleId'> & {
+  settlementSteps: SettlementStepRule[];
+};
 
 /**
  * 단가 판정에 쓰이는 라인 한 줄의 축 — 막힌 라인을 세는 데 쓴다. [한백 전용 조회]

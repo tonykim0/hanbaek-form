@@ -5,31 +5,35 @@
  *
  * 세 구역이다.
  *   1) 빈 자리 — 운영사 × 교체유형 중 케이스가 0건인 칸. 이게 이 화면의 이유다.
- *   2) 케이스 — 등록된 것 전부. 중지·되살리기가 여기 있다.
- *   3) 새 케이스 — 넣는 자리.
+ *   2) 케이스 — 등록된 것 전부. 수정·개정·중지가 여기 있다.
+ *   3) 폼 — 새 케이스·수정·개정이 같은 폼이다. 돈은 흐름 순서로 들어온다:
+ *      받는 단가(운영사) → 마진 → 지급 단가 → 영업비·시공비 나눔 → 기성 단계.
  *
- * ★고치는 자리를 만들지 않는다.★
- * 케이스는 불변이다 — 계약 라인이 금액을 복사하지 않고 이 케이스를 참조하므로, 금액을 고치면
- * 이미 지정된 현장의 지급액이 소급해서 바뀐다. 반년마다 단가가 바뀌는 것은 「고침」이 아니라
- * 「새 케이스」다. 그래서 옛 것을 중지하고 새로 넣는다.
+ * ★고치는 길은 참조 전까지만이다.★
+ * 계약 라인은 금액을 복사하지 않고 케이스를 참조한다 — 참조된 케이스를 고치면 그 현장의
+ * 지급액·기성이 소급해서 바뀐다. 그래서 참조 없는 케이스만 「수정」이고, 참조된 케이스는
+ * 전 값이 채워진 「개정」(새 케이스)으로 연다. 반년마다 단가가 바뀌는 것은 고침이 아니라
+ * 새 케이스다 — 옛 것은 중지한다.
  *
- * 지우는 자리도 없다. 이미 참조하는 라인이 있으면 지급액을 계산할 수 없게 된다 —
+ * 지우는 자리는 없다. 이미 참조하는 라인이 있으면 지급액을 계산할 수 없게 된다 —
  * 중지하면 새로 붙일 수는 없고, 이미 붙은 것은 그대로 계산된다.
  */
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   BUILDING_TYPES, bizTypeOfRepl, CHANNELS, CPO_NAMES, REPL_TYPES,
   type BuildingType, type Channel, type CpoName, type LineAxes, type PricingRule, type ReplType,
+  type SettlementRule, type SettlementStepRule, type Trigger,
 } from '@/types/project';
 import { won } from '@/lib/format';
 import { useAction } from '@/lib/use-action';
 import { startKey } from '@/lib/pricing-match';
+import { checkSettlementSteps, RECEIVE_TRIGGERS, stepUnits } from '@/lib/settlement';
 import { Badge, Blank, Btn, Choice, Err, FIELD, FIELD_CELL, PANEL, Tag } from '@/components/ui';
 
 const POWER_TYPES = ['한전불입', '모자분리'] as const;
 const TERMS = [5, 7, 10] as const;
 
-/** 그리드 칸이나 막힌 라인에서 폼으로 넘기는 축 — 채워진 것만 프리필된다 */
+/** 폼으로 넘기는 값 — 채워진 것만 프리필된다. 그리드 칸·막힌 라인은 축만, 수정·개정은 전부 싣는다 */
 export interface Prefill {
   cpo?: CpoName;
   replType?: ReplType;
@@ -37,24 +41,60 @@ export interface Prefill {
   terms?: number[];
   bldgs?: BuildingType[];
   channel?: Channel;
+  bizYear?: number;
+  startDate?: string;
+  salesUnit?: number;
+  consUnit?: number;
+  margin?: number;
+  steps?: SettlementStepRule[];
+  note?: string;
 }
 
-const turnkey = (r: PricingRule) => r.salesUnit + r.consUnit + r.margin;
+/** 케이스 → 프리필 — 수정·개정이 같은 값을 들고 폼을 연다. 옛 저장값 '시공만' 은 '시공' 으로 읽는다 */
+function prefillOf(r: PricingRule, settle: SettlementRule | null): Prefill {
+  return {
+    cpo: r.cpo, replType: r.replType, powerType: r.powerType,
+    terms: r.termYears, bldgs: r.bldgTypes,
+    channel: (r.channel as string) === '시공만' ? '시공' : r.channel,
+    bizYear: r.bizYear,
+    salesUnit: r.salesUnit, consUnit: r.consUnit, margin: r.margin,
+    steps: settle?.steps, note: r.note ?? undefined,
+  };
+}
+
+/** 받는 단가 — 운영사가 대당 주는 총액(기성으로 받는다) = 영업비 + 시공비 + 마진 */
+const receiveUnitOf = (r: PricingRule) => r.salesUnit + r.consUnit + r.margin;
+/** 지급 단가 — 마진을 뗀 뒤 협력사에 내려주는 총액 = 영업비 + 시공비 */
+const payoutUnitOf = (r: PricingRule) => r.salesUnit + r.consUnit;
+
+/** 폼이 열리는 방식 — editId 가 있으면 그 케이스를 자리에서 고치고, 없으면 새 케이스(개정 포함)다 */
+interface FormOpen {
+  prefill: Prefill;
+  editId?: string;
+}
 
 export default function PricingMatrix({
-  rules, settlementRules, blockedLines,
+  rules, settlementRules, blockedLines, referencedIds,
 }: {
   rules: PricingRule[];
-  /** 정산 규칙 후보 — 서버(page)가 넘긴다. 케이스의 제안값으로 붙어 단가 지정 때 현장에 옮겨진다 */
-  settlementRules: Array<{ id: string; name: string }>;
+  /** 정산 규칙 표 — 케이스의 기성 단계를 그리는 데 쓴다. 케이스가 단계를 정의하면 저장소에 쌓인다 */
+  settlementRules: SettlementRule[];
   /** 활성 케이스가 하나도 안 맞는 실제 라인 — 서버(page)가 판정해서 넘긴다 */
   blockedLines: LineAxes[];
+  /** 계약 라인이 참조하는 케이스 id — 「수정」(자리 고침)과 「개정」(새 케이스)을 가른다 */
+  referencedIds: string[];
 }) {
   /*
-   * 폼은 「어느 축으로 여는가」와 함께 열린다 — 그리드의 빈 칸이나 막힌 라인을 누르면
-   * 그 축이 채워진 채 열린다. null 이면 닫힘. key 로 다시 마운트해 프리필을 확실히 싣는다.
+   * 폼은 「무엇을 들고 여는가」와 함께 열린다 — 그리드의 빈 칸·막힌 라인은 축만,
+   * 수정·개정은 케이스 전부를 싣는다. null 이면 닫힘. key 로 다시 마운트해 프리필을 확실히 싣는다.
    */
-  const [adding, setAdding] = useState<Prefill | null>(null);
+  const [form, setForm] = useState<FormOpen | null>(null);
+
+  const settleById = useMemo(
+    () => new Map(settlementRules.map((s) => [s.id, s])),
+    [settlementRules]
+  );
+  const referenced = useMemo(() => new Set(referencedIds), [referencedIds]);
 
   const live = rules.filter((r) => r.active);
   const stopped = rules.length - live.length;
@@ -76,21 +116,26 @@ export default function PricingMatrix({
         </div>
         {/* 폼이 열리면 감춘다 — 채운 초록이 둘이면 「케이스 넣기」와 헷갈리고,
             이걸 누르면 입력이 통째로 사라진다. 닫는 길은 폼 안의 취소 하나다. */}
-        {!adding && <Btn onClick={() => setAdding({})}>새 케이스</Btn>}
+        {!form && <Btn onClick={() => setForm({ prefill: {} })}>새 케이스</Btn>}
       </header>
 
-      {adding && (
-        <AddCase
-          key={JSON.stringify(adding)}
-          prefill={adding}
-          settlementRules={settlementRules}
-          onDone={() => setAdding(null)}
+      {form && (
+        <CaseForm
+          key={JSON.stringify(form)}
+          prefill={form.prefill}
+          editId={form.editId}
+          onDone={() => setForm(null)}
         />
       )}
 
-      <BlockedLines lines={blockedLines} onFill={setAdding} />
-      <Grid rules={live} onPick={setAdding} />
-      <CaseList rules={rules} />
+      <BlockedLines lines={blockedLines} onFill={(prefill) => setForm({ prefill })} />
+      <Grid rules={live} settleById={settleById} onOpen={setForm} />
+      <CaseList
+        rules={rules}
+        settleById={settleById}
+        referenced={referenced}
+        onOpen={setForm}
+      />
     </div>
   );
 }
@@ -148,14 +193,21 @@ function BlockedLines({ lines, onFill }: { lines: LineAxes[]; onFill: (p: Prefil
  * 블록이라, 행 목록만 봐서는 어느 칸이 비었는지 알 수 없다 — 칸으로 펴서 보인다.
  * 빈 칸은 조용한 「—」다. 진짜 경보는 위의 막힌 라인이 맡는다 — 축 공간 대부분은
  * 그 조합의 현장이 아직 없어서 비어 있는 것뿐이다.
- * 칸을 누르면 그 축이 채워진 폼이 열린다. 이미 찬 칸을 누르면 개정(새 적용 시작)이 된다.
+ * 빈 칸을 누르면 그 축이 채워진 폼이, 찬 칸을 누르면 현재 케이스의 전 값을 실은
+ * 개정 폼이 열린다 — 적용 시작만 비워서, 새 시작을 적어야 저장되게.
  */
-function Grid({ rules, onPick }: { rules: PricingRule[]; onPick: (p: Prefill) => void }) {
+function Grid({
+  rules, settleById, onOpen,
+}: {
+  rules: PricingRule[];
+  settleById: Map<string, SettlementRule>;
+  onOpen: (f: FormOpen) => void;
+}) {
   const [cpo, setCpo] = useState<CpoName>(CPO_NAMES[0]);
 
-  /* 턴키 채널만 격자에 편다 — 시공만은 드물어 목록에서 본다. 있으면 아래에 개수로 보인다 */
+  /* 턴키 채널만 격자에 편다 — 영업·시공 채널은 드물어 목록에서 본다. 있으면 아래에 개수로 보인다 */
   const mine = rules.filter((r) => r.cpo === cpo && r.channel === '턴키');
-  const gcCount = rules.filter((r) => r.cpo === cpo && r.channel === '시공만').length;
+  const sideCount = rules.filter((r) => r.cpo === cpo && r.channel !== '턴키').length;
 
   /** 칸을 덮는 활성 케이스들 — 최신 적용 시작이 현재값이다 */
   const at = (repl: ReplType, power: (typeof POWER_TYPES)[number], term: number, bldg: BuildingType) => {
@@ -213,15 +265,19 @@ function Grid({ rules, onPick }: { rules: PricingRule[]; onPick: (p: Prefill) =>
                         <td key={`${term}-${bldg}`} className={`px-1 py-1 text-right ${bldg === '공동주택' ? 'border-l border-slate-100' : ''}`}>
                           <button
                             type="button"
-                            title={now ? `${now.caseName} — 누르면 개정 케이스를 넣는다` : '누르면 이 축으로 케이스를 넣는다'}
+                            title={now ? `${now.caseName} — 누르면 전 값을 실은 개정 폼이 열린다` : '누르면 이 축으로 케이스를 넣는다'}
                             onClick={() =>
-                              onPick({ cpo, replType: repl, powerType: power, terms: [term], bldgs: [bldg] })
+                              onOpen({
+                                prefill: now
+                                  ? prefillOf(now, settleById.get(now.defaultSettlementRuleId) ?? null)
+                                  : { cpo, replType: repl, powerType: power, terms: [term], bldgs: [bldg] },
+                              })
                             }
                             className="w-full rounded-ctl px-2 py-1 text-right tabular-nums transition hover:bg-brand-50"
                           >
                             {now ? (
                               <>
-                                <span className="font-bold text-slate-800">{won(turnkey(now))}</span>
+                                <span className="font-bold text-slate-800">{won(receiveUnitOf(now))}</span>
                                 {versions > 1 && (
                                   <span className="ml-1 text-micro font-bold text-slate-400">×{versions}</span>
                                 )}
@@ -242,15 +298,22 @@ function Grid({ rules, onPick }: { rules: PricingRule[]; onPick: (p: Prefill) =>
       </div>
 
       <p className="mt-2 flex flex-wrap gap-x-4 text-tiny text-slate-400">
-        <span>칸 값은 현재(최신 적용 시작) 턴키 단가 · ×N 은 개정 수</span>
-        {gcCount > 0 && <span>시공만 케이스 {gcCount}건은 아래 목록에</span>}
+        <span>칸 값은 현재(최신 적용 시작) 받는 단가 · ×N 은 개정 수</span>
+        {sideCount > 0 && <span>영업·시공 채널 케이스 {sideCount}건은 아래 목록에</span>}
       </p>
     </section>
   );
 }
 
 /* ── 케이스 목록 ──────────────────────────────────────────────────────── */
-function CaseList({ rules }: { rules: PricingRule[] }) {
+function CaseList({
+  rules, settleById, referenced, onOpen,
+}: {
+  rules: PricingRule[];
+  settleById: Map<string, SettlementRule>;
+  referenced: Set<string>;
+  onOpen: (f: FormOpen) => void;
+}) {
   const [cpo, setCpo] = useState<CpoName | '전체'>('전체');
   const shown = cpo === '전체' ? rules : rules.filter((r) => r.cpo === cpo);
 
@@ -271,21 +334,28 @@ function CaseList({ rules }: { rules: PricingRule[] }) {
         <Blank>{cpo === '전체' ? '케이스 0건' : `${cpo} 케이스 0건`}</Blank>
       ) : (
         <div className="-mx-5 overflow-x-auto px-5 sm:-mx-6 sm:px-6">
-          <table className="w-full min-w-[1040px] text-base">
+          {/* 돈의 흐름 순서로 읽힌다 — 받는 단가에서 마진을 떼면 지급 단가, 그것을 영업·시공으로 나눈다 */}
+          <table className="w-full min-w-[1160px] text-base">
             <thead className="border-b border-slate-200 bg-slate-50 text-tiny font-bold tracking-[0.06em] text-slate-500">
               <tr>
                 <th className="px-3 py-2.5 text-left">케이스</th>
                 <th className="px-3 py-2.5 text-left">축</th>
-                <th className="px-3 py-2.5 text-right">영업</th>
-                <th className="px-3 py-2.5 text-right">시공</th>
+                <th className="px-3 py-2.5 text-right">받는 단가</th>
                 <th className="px-3 py-2.5 text-right">마진</th>
-                <th className="px-3 py-2.5 text-right">턴키</th>
+                <th className="px-3 py-2.5 text-right">지급 단가</th>
+                <th className="px-3 py-2.5 text-left">기성 단계</th>
                 <th className="px-3 py-2.5 text-right">상태</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {shown.map((r) => (
-                <Row key={r.id} r={r} />
+                <Row
+                  key={r.id}
+                  r={r}
+                  settle={settleById.get(r.defaultSettlementRuleId) ?? null}
+                  referenced={referenced.has(r.id)}
+                  onOpen={onOpen}
+                />
               ))}
             </tbody>
           </table>
@@ -295,16 +365,25 @@ function CaseList({ rules }: { rules: PricingRule[] }) {
   );
 }
 
-function Row({ r }: { r: PricingRule }) {
+function Row({
+  r, settle, referenced, onOpen,
+}: {
+  r: PricingRule;
+  settle: SettlementRule | null;
+  referenced: boolean;
+  onOpen: (f: FormOpen) => void;
+}) {
   const { busy, error, run } = useAction();
   const [editing, setEditing] = useState(false);
   const [startDraft, setStartDraft] = useState(r.startDate);
   const [noteDraft, setNoteDraft] = useState(r.note ?? '');
+  // 기성 차수별 대당 금액 — 이 케이스의 받는 단가에 규칙을 적용한 값
+  const stepAmount = settle ? stepUnits(settle.steps, receiveUnitOf(r)) : [];
 
   /*
-   * 고칠 수 있는 것은 적용 시작과 비고뿐이다 — 지급액 계산에 안 쓰인다.
-   * 시드가 「2026년 하반기」처럼 대략만 아는 값을 넣는 일이 실제로 있어서(하반기 6행)
-   * 정확한 날짜는 여기서 고친다. 금액·축은 불변 — 고치면 소급 변경이다.
+   * 참조 없는 케이스는 「수정」으로 폼을 통째로 연다 — 이 빠른 칸은 참조된 케이스용이다.
+   * 참조되면 금액·축이 소급이라 못 고치고, 적용 시작·비고만 여기서 고친다
+   * (지급액 계산에 안 쓰인다. 시드가 「2026년 하반기」처럼 대략만 아는 값을 넣는 일이 실제로 있다).
    */
   async function saveMeta() {
     const ok = await run({
@@ -353,7 +432,9 @@ function Row({ r }: { r: PricingRule }) {
             <code className="text-micro">{r.id}</code>
             <span>{r.bizYear}년 · {r.startDate}</span>
             {r.note && <span className="break-keep">{r.note}</span>}
-            <Btn size="sm" kind="quiet" onClick={() => setEditing(true)}>수정</Btn>
+            {referenced && (
+              <Btn size="sm" kind="quiet" onClick={() => setEditing(true)}>시작·비고 수정</Btn>
+            )}
           </p>
         )}
       </td>
@@ -363,17 +444,57 @@ function Row({ r }: { r: PricingRule }) {
           <Tag>{r.powerType}</Tag>
           <Tag>{r.termYears.join('·')}년</Tag>
           <Tag>{r.bldgTypes.length === 2 ? '전체' : r.bldgTypes[0]}</Tag>
+          {r.channel !== '턴키' && <Tag>{r.channel}</Tag>}
         </div>
       </td>
-      <td className="px-3 py-2.5 text-right tabular-nums text-slate-700">{won(r.salesUnit)}</td>
-      <td className="px-3 py-2.5 text-right tabular-nums text-slate-700">{won(r.consUnit)}</td>
-      <td className="px-3 py-2.5 text-right tabular-nums text-slate-700">{won(r.margin)}</td>
       <td className="px-3 py-2.5 text-right font-black tabular-nums text-slate-900">
-        {won(turnkey(r))}
+        {won(receiveUnitOf(r))}
+      </td>
+      <td className="px-3 py-2.5 text-right tabular-nums text-slate-700">{won(r.margin)}</td>
+      <td className="px-3 py-2.5 text-right">
+        <p className="font-bold tabular-nums text-slate-800">{won(payoutUnitOf(r))}</p>
+        <p className="whitespace-nowrap text-tiny tabular-nums text-slate-400">
+          영업 {won(r.salesUnit)} · 시공 {won(r.consUnit)}
+        </p>
+      </td>
+      <td className="px-3 py-2.5">
+        {settle ? (
+          <div className="flex flex-col gap-0.5 text-tiny text-slate-600">
+            {settle.steps.map((s, i) => (
+              <p key={i} className="whitespace-nowrap">
+                <span className="font-bold text-slate-400">{i + 1}차</span>{' '}
+                {s.trigger}{' '}
+                <span className="tabular-nums font-semibold text-slate-700">{won(stepAmount[i])}</span>
+              </p>
+            ))}
+          </div>
+        ) : (
+          // 미정과 해당없음을 가르지 않는다 — 규칙이 없으면 이 케이스의 현장은 기성이 계산되지 않는다
+          <Tag tone="warn">기성 미정</Tag>
+        )}
       </td>
       <td className="px-3 py-2.5 text-right">
         <div className="flex items-center justify-end gap-2">
           {r.active ? <Badge tone="ok">사용</Badge> : <Badge tone="hold">중지</Badge>}
+          {/*
+            * 참조 전에는 자리에서 고치고(수정), 참조 뒤에는 전 값을 실은 새 케이스로 연다(개정) —
+            * 참조된 케이스의 금액을 고치면 그 현장의 지급액이 소급해서 바뀌기 때문이다.
+            */}
+          {referenced ? (
+            <Btn size="sm" kind="quiet" onClick={() => onOpen({ prefill: prefillOf(r, settle) })}>
+              개정
+            </Btn>
+          ) : (
+            <Btn
+              size="sm"
+              kind="quiet"
+              onClick={() =>
+                onOpen({ prefill: { ...prefillOf(r, settle), startDate: r.startDate }, editId: r.id })
+              }
+            >
+              수정
+            </Btn>
+          )}
           {/* 중지는 되돌릴 수 있다 — 넣는 자리를 만들면 되돌리는 자리도 만든다 */}
           <Btn
             size="sm"
@@ -398,29 +519,57 @@ function Row({ r }: { r: PricingRule }) {
   );
 }
 
-/* ── 새 케이스 ─────────────────────────────────────────────────────────── */
-function AddCase({
-  prefill, settlementRules, onDone,
+/* ── 케이스 폼 — 새 케이스·수정·개정이 같은 폼이다 ───────────────────────── */
+
+/** 기성 단계 한 줄의 입력 상태 — 값 칸은 고정이면 원, 비율이면 % 다 */
+interface StepDraft {
+  trigger: Trigger;
+  kind: '고정' | '비율' | '잔액';
+  value: string;
+}
+
+function CaseForm({
+  prefill, editId, onDone,
 }: {
   prefill: Prefill;
-  settlementRules: Array<{ id: string; name: string }>;
+  /** 있으면 이 케이스를 자리에서 고친다(PUT) — 참조 없는 케이스만. 없으면 새 케이스(POST)다 */
+  editId?: string;
   onDone: () => void;
 }) {
   const { busy, error, run } = useAction();
 
+  const money = (n?: number) => (n ? String(n) : '');
   const [cpo, setCpo] = useState<CpoName>(prefill.cpo ?? '플러그링크');
   const [replType, setReplType] = useState<ReplType>(prefill.replType ?? '환경부 신규');
   const [powerType, setPowerType] = useState<(typeof POWER_TYPES)[number]>(prefill.powerType ?? '한전불입');
   const [terms, setTerms] = useState<number[]>(prefill.terms ?? [10]);
   const [bldgs, setBldgs] = useState<BuildingType[]>(prefill.bldgs ?? ['공동주택']);
   const [channel, setChannel] = useState<Channel>(prefill.channel ?? '턴키');
-  const [bizYear, setBizYear] = useState(new Date().getFullYear());
-  const [startDate, setStartDate] = useState('');
-  const [salesUnit, setSalesUnit] = useState('');
-  const [consUnit, setConsUnit] = useState('');
-  const [margin, setMargin] = useState('');
-  const [note, setNote] = useState('');
-  const [settleId, setSettleId] = useState('');
+  const [bizYear, setBizYear] = useState(prefill.bizYear ?? new Date().getFullYear());
+  const [startDate, setStartDate] = useState(prefill.startDate ?? '');
+  const [receiveUnit, setReceiveUnit] = useState(
+    money((prefill.salesUnit ?? 0) + (prefill.consUnit ?? 0) + (prefill.margin ?? 0))
+  );
+  const [margin, setMargin] = useState(money(prefill.margin));
+  const [salesUnit, setSalesUnit] = useState(money(prefill.salesUnit));
+  const [consUnit, setConsUnit] = useState(money(prefill.consUnit));
+  const [steps, setSteps] = useState<StepDraft[]>(
+    (prefill.steps ?? []).map((s) =>
+      s.basis.kind === '고정' ? { trigger: s.trigger, kind: '고정', value: String(s.basis.unit) }
+        : s.basis.kind === '비율' ? { trigger: s.trigger, kind: '비율', value: String(Math.round(s.basis.ratio * 100)) }
+          : { trigger: s.trigger, kind: '잔액', value: '' }
+    )
+  );
+  const [note, setNote] = useState(prefill.note ?? '');
+
+  /*
+   * 목록의 수정·개정, 그리드 칸에서 열리면 폼이 화면 밖(맨 위)에 있다 — 눌렀는데 아무 일도
+   * 안 생긴 것처럼 보인다. 열릴 때마다 폼으로 스크롤한다(프리필이 바뀌면 key 로 다시 마운트된다).
+   */
+  const boxRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    boxRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, []);
 
   /* 사업구분은 고르게 두지 않는다 — 교체유형이 정한다(bizTypeOfRepl). 두 값을 따로 고르면 어긋난다 */
   const bizType = bizTypeOfRepl(replType);
@@ -437,40 +586,80 @@ function AddCase({
   const caseName = useMemo(() => {
     const bldg = bldgs.length === 2 ? '전체' : (bldgs[0] ?? '');
     const since = startDate.trim() || `${bizYear}년`;
-    const gc = channel === '시공만' ? ' | 시공만' : '';
-    return `${cpo} (${since}) | ${bldg} | ${terms.join('·')}년 ${replType} | ${powerType}${gc}`;
+    const side = channel === '턴키' ? '' : ` | ${channel}`;
+    return `${cpo} (${since}) | ${bldg} | ${terms.join('·')}년 ${replType} | ${powerType}${side}`;
   }, [cpo, bldgs, terms, replType, powerType, startDate, bizYear, channel]);
 
   const num = (v: string) => Math.max(0, Math.round(Number(v.replace(/[^0-9]/g, '')) || 0));
-  const total = num(salesUnit) + num(consUnit) + num(margin);
-  const gcSales = channel === '시공만' && num(salesUnit) > 0;
+
+  /*
+   * 돈은 흐름 순서로 들어온다 — 받는 단가에서 마진을 떼면 지급 단가이고, 그것을
+   * 영업비·시공비로 나눈다. 한쪽만 맡는 채널은 나눌 것이 없어 그쪽이 전액이다.
+   * 저장 구조는 그대로 영업비·시공비·마진 세 값이다(받는 단가 = 셋의 합).
+   */
+  const receive = num(receiveUnit);
+  const mg = num(margin);
+  const payout = receive - mg;
+  const sales = channel === '영업' ? Math.max(payout, 0) : channel === '시공' ? 0 : num(salesUnit);
+  const cons = channel === '시공' ? Math.max(payout, 0) : channel === '영업' ? 0 : num(consUnit);
+  const splitOk = channel !== '턴키' || sales + cons === payout;
+
+  const stepRules: SettlementStepRule[] = steps.map((s) =>
+    s.kind === '고정' ? { trigger: s.trigger, basis: { kind: '고정', unit: num(s.value) } }
+      : s.kind === '비율' ? { trigger: s.trigger, basis: { kind: '비율', ratio: num(s.value) / 100 } }
+        : { trigger: s.trigger, basis: { kind: '잔액' } }
+  );
+  const stepBad = checkSettlementSteps(stepRules, receive);
+  const stepAmount = receive > 0 ? stepUnits(stepRules, receive) : [];
 
   const blocked =
     terms.length === 0 ? '계약연수 미선택'
       : bldgs.length === 0 ? '건축물유형 미선택'
-        : total === 0 ? '단가 미입력'
-          : gcSales ? '시공만은 영업단가 0'
-            : bizYear < 2020 || bizYear > 2100 ? '사업연도 확인 필요'
-              : null;
+        : receive === 0 ? '받는 단가 미입력'
+          : mg > receive ? '마진이 받는 단가보다 큼'
+            : !splitOk ? '영업·시공 합이 지급 단가와 다름'
+              : stepBad.length > 0 ? '기성 단계 확인 필요'
+                : bizYear < 2020 || bizYear > 2100 ? '사업연도 확인 필요'
+                  : null;
 
   async function save() {
     const ok = await run({
       url: '/api/pricing',
+      method: editId ? 'PUT' : 'POST',
       body: {
+        ...(editId ? { id: editId } : {}),
         caseName, cpo, bizType, powerType, termYears: terms, bldgTypes: bldgs, replType, channel,
         bizYear, startDate: startDate.trim() || `${bizYear}년`,
-        salesUnit: num(salesUnit), consUnit: num(consUnit), margin: num(margin),
-        defaultSettlementRuleId: settleId, supervisionBearer: null, safetyFeeBearer: null,
+        salesUnit: sales, consUnit: cons, margin: mg,
+        settlementSteps: stepRules,
+        supervisionBearer: null, safetyFeeBearer: null,
         note: note.trim() || null,
       },
-      fail: '넣지 못했습니다.',
+      fail: editId ? '고치지 못했습니다.' : '넣지 못했습니다.',
     });
     if (ok) onDone();
   }
 
+  function setStep(i: number, patch: Partial<StepDraft>) {
+    setSteps((p) => p.map((s, x) => (x === i ? { ...s, ...patch } : s)));
+  }
+
+  function addStep() {
+    setSteps((p) => {
+      // 첫 차수는 준공마감·잔액 — 혼자서도 합이 맞는다. 다음부터는 그 앞에 선다(잔액은 늘 마지막).
+      if (p.length === 0) return [{ trigger: '준공마감', kind: '잔액', value: '' }];
+      const draft: StepDraft = { trigger: '환경부 승인', kind: '고정', value: '' };
+      const last = p[p.length - 1];
+      return last.kind === '잔액' ? [...p.slice(0, -1), draft, last] : [...p, draft];
+    });
+  }
+
   return (
-    <section className={`${PANEL} p-5 sm:p-6`}>
-      <h2 className="mb-4 text-h3 font-black text-slate-900">새 케이스</h2>
+    <section ref={boxRef} className={`${PANEL} scroll-mt-4 p-5 sm:p-6`}>
+      <h2 className="mb-4 flex items-baseline gap-2 text-h3 font-black text-slate-900">
+        {editId ? '케이스 수정' : '새 케이스'}
+        {editId && <code className="text-micro font-normal text-slate-400">{editId}</code>}
+      </h2>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <Field label="운영사">
@@ -489,7 +678,7 @@ function AddCase({
           </select>
         </Field>
 
-        <Field label="채널" hint="영업 없이 시공만 하는 현장은 단가 구성이 다르다">
+        <Field label="채널" hint="한백이 맡는 범위 — 한쪽만 맡으면 그쪽 단가만 산다">
           <select
             value={channel}
             onChange={(e) => setChannel(e.target.value as Channel)}
@@ -536,29 +725,6 @@ function AddCase({
           />
         </Field>
 
-        <Field label="영업단가">
-          <Money value={salesUnit} onChange={setSalesUnit} />
-        </Field>
-        <Field label="시공단가">
-          <Money value={consUnit} onChange={setConsUnit} />
-        </Field>
-        <Field label="마진">
-          <Money value={margin} onChange={setMargin} />
-        </Field>
-
-        <Field label="정산 규칙" hint="이 케이스를 붙이면 현장에 이 규칙이 적용된다">
-          {/*
-            * 비워 두면 이 케이스로 지정된 현장의 기성이 계산되지 않는다(정산 규칙 미적용).
-            * 그래도 「없음」을 남긴다 — 기성 규칙이 아직 안 정해진 운영사가 실제로 있다.
-            */}
-          <select value={settleId} onChange={(e) => setSettleId(e.target.value)} className={FIELD}>
-            <option value="">없음 — 기성이 계산되지 않음</option>
-            {settlementRules.map((r) => (
-              <option key={r.id} value={r.id}>{r.name}</option>
-            ))}
-          </select>
-        </Field>
-
         <Field label="적용 시작" hint="비우면 사업연도만">
           <input
             value={startDate}
@@ -573,22 +739,123 @@ function AddCase({
         </Field>
       </div>
 
+      {/* 돈 — 흐름 순서: 받는 단가 → 마진 → 지급 단가 → 영업·시공 나눔. 전부 대당이다 */}
+      <div className="mt-5 border-t border-slate-100 pt-4">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+          <Field label="받는 단가" hint="운영사가 대당 주는 총액">
+            <Money value={receiveUnit} onChange={setReceiveUnit} />
+          </Field>
+          <Field label="마진" hint="한백 몫">
+            <Money value={margin} onChange={setMargin} />
+          </Field>
+          <Field label="지급 단가" hint="받는 단가 − 마진">
+            <p className={`py-2 font-black tabular-nums ${mg > receive ? 'text-red-600' : 'text-slate-900'}`}>
+              {mg > receive ? `−${won(mg - receive)}` : won(payout)}원
+            </p>
+          </Field>
+          {channel === '턴키' ? (
+            <>
+              <Field label="영업비">
+                <Money value={salesUnit} onChange={setSalesUnit} />
+              </Field>
+              <Field label="시공비">
+                <Money value={consUnit} onChange={setConsUnit} />
+              </Field>
+            </>
+          ) : (
+            <Field label={channel === '영업' ? '영업비' : '시공비'} hint="지급 단가 전액">
+              <p className="py-2 font-bold tabular-nums text-slate-800">{won(Math.max(payout, 0))}원</p>
+            </Field>
+          )}
+        </div>
+        {channel === '턴키' && receive > 0 && !splitOk && (
+          <p className="mt-2 text-tiny font-semibold text-red-600">
+            영업 {won(sales)} + 시공 {won(cons)} = {won(sales + cons)} — 지급 단가
+            {' '}{won(Math.max(payout, 0))}와 {won(Math.abs(payout - sales - cons))} 차이
+          </p>
+        )}
+      </div>
+
+      {/* 기성 단계 — 받는 단가를 운영사에게 받는 차수. 현장 기성 탭·운영사 기성관리에 이대로 선다 */}
+      <div className="mt-5 border-t border-slate-100 pt-4">
+        <p className="mb-3 flex items-baseline gap-2">
+          <span className="text-tiny font-bold tracking-[0.04em] text-slate-500">기성 단계</span>
+          <span className="text-micro text-slate-400">받는 단가를 어느 시점에 얼마씩 받는가 — 합이 받는 단가와 같아야 한다</span>
+        </p>
+
+        {steps.length === 0 ? (
+          <Tag tone="warn">기성 미정 — 이 케이스로 지정된 현장은 기성이 계산되지 않음</Tag>
+        ) : (
+          <div className="flex max-w-2xl flex-col gap-2">
+            {steps.map((s, i) => (
+              <div key={i} className="flex flex-wrap items-center gap-2">
+                <span className="w-8 shrink-0 text-tiny font-bold text-slate-400">{i + 1}차</span>
+                <select
+                  value={s.trigger}
+                  onChange={(e) => setStep(i, { trigger: e.target.value as Trigger })}
+                  className={FIELD_CELL}
+                >
+                  {RECEIVE_TRIGGERS.map((t) => <option key={t} value={t}>{t}</option>)}
+                </select>
+                <select
+                  value={s.kind}
+                  onChange={(e) => setStep(i, { kind: e.target.value as StepDraft['kind'] })}
+                  className={FIELD_CELL}
+                >
+                  <option value="고정">고정액</option>
+                  <option value="비율">비율</option>
+                  <option value="잔액">잔액</option>
+                </select>
+                {s.kind !== '잔액' && (
+                  <span className="flex items-baseline gap-1">
+                    <input
+                      value={s.value}
+                      onChange={(e) => setStep(i, { value: e.target.value })}
+                      inputMode="numeric"
+                      placeholder="0"
+                      className={`${FIELD_CELL} w-28 text-right tabular-nums`}
+                    />
+                    <span className="shrink-0 text-micro text-slate-400">{s.kind === '고정' ? '원' : '%'}</span>
+                  </span>
+                )}
+                <span className="ml-auto text-tiny tabular-nums text-slate-500">
+                  {receive > 0 ? `대당 ${won(stepAmount[i] ?? 0)}원` : '—'}
+                </span>
+                <Btn size="sm" kind="quiet" onClick={() => setSteps((p) => p.filter((_, x) => x !== i))}>
+                  빼기
+                </Btn>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="mt-3 flex flex-wrap items-center gap-3">
+          {steps.length < 3 && <Btn size="sm" kind="side" onClick={addStep}>차수 추가</Btn>}
+          {steps.length > 0 && receive > 0 && stepBad.length > 0 && (
+            <span className="text-tiny font-semibold text-red-600">{stepBad[0]}</span>
+          )}
+        </div>
+      </div>
+
       <div className="mt-5 border-t border-slate-100 pt-4">
         <dl className="flex flex-wrap items-baseline gap-x-6 gap-y-2">
           <div className="flex items-baseline gap-2">
             <dt className="text-tiny font-bold text-slate-400">케이스 이름</dt>
             <dd className="break-keep font-bold text-slate-800">{caseName}</dd>
           </div>
-          <div className="flex items-baseline gap-2">
-            <dt className="text-tiny font-bold text-slate-400">턴키</dt>
-            <dd className="font-black tabular-nums text-slate-900">{won(total)}</dd>
-          </div>
         </dl>
 
         <div className="mt-4 flex flex-wrap items-center gap-2">
           {/* 막는 것을 단추 이름에 적는다 — 흐린 단추만으로는 왜 안 되는지 알 수 없다 */}
-          <Btn disabled={Boolean(blocked)} busy={busy} busyLabel="넣는 중…" onClick={() => void save()}>
-            {blocked ? `${blocked} — 넣을 수 없음` : '케이스 넣기'}
+          <Btn
+            disabled={Boolean(blocked)}
+            busy={busy}
+            busyLabel={editId ? '고치는 중…' : '넣는 중…'}
+            onClick={() => void save()}
+          >
+            {blocked
+              ? `${blocked} — ${editId ? '고칠' : '넣을'} 수 없음`
+              : editId ? '케이스 고치기' : '케이스 넣기'}
           </Btn>
           <Btn kind="quiet" disabled={busy} onClick={onDone}>취소</Btn>
           <Err>{error}</Err>

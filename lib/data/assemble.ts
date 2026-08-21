@@ -21,6 +21,7 @@ import type {
   PricingRule,
   ProjectSummary,
   Settlement,
+  SettlementRule,
   SettlementStep,
   SettlementSummary,
 } from '@/types/project';
@@ -31,7 +32,6 @@ import { canEnter, entryOkOf } from '@/lib/process';
 import { PROCESS_STATUSES } from '@/types/project';
 import { effectiveVisibility, type Visibility } from '@/lib/roles';
 import type { Viewer } from '@/lib/auth/types';
-import { SETTLEMENT_RULE_BY_ID } from './seed/settlement-rules';
 
 /**
  * 단가 케이스 표 — 저장소가 넘겨준다.
@@ -45,6 +45,15 @@ import { SETTLEMENT_RULE_BY_ID } from './seed/settlement-rules';
  * 게다가 시드는 파일이라 화면에서 케이스를 추가할 수 없다. 정본을 저장소로 옮긴다.
  */
 export type RuleMap = Map<string, PricingRule>;
+
+/**
+ * 정산 규칙 표 — 단가 케이스와 같은 이유로 저장소가 넘긴다.
+ *
+ * 예전에는 여기서 시드(seed/settlement-rules.ts)를 직접 읽었다. 그런데 단가 케이스가
+ * 기성 단계를 직접 정의하면서 규칙이 화면에서도 생기게 됐다 — 코드에 없는 규칙을 현장에
+ * 붙이면 기성이 영구히 「정산 규칙 미적용」이 되는, 케이스 때와 똑같은 갈림이다.
+ */
+export type SettleMap = Map<string, SettlementRule>;
 
 /**
  * 접수 서류 16종 (INTAKE_SPEC §3 + 설치승인서). 번호가 아니라 종류로 다룬다.
@@ -175,14 +184,14 @@ export function payoutMilestonesFor(r: ProjectRecord): PayoutMilestones {
   };
 }
 
-export function toDetail(r: ProjectRecord, rules: RuleMap): ProjectDetail {
+export function toDetail(r: ProjectRecord, rules: RuleMap, settles: SettleMap): ProjectDetail {
   // 케이스는 불변이라 참조만으로 안전하다 — 값을 복사해 둘 필요가 없다
   const lines: ContractLineView[] = r.lines.map((l) => ({
     ...l,
     rule: l.pricingRuleId ? rules.get(l.pricingRuleId) ?? null : null,
   }));
   const settlementRule = r.project.settlementRuleId
-    ? SETTLEMENT_RULE_BY_ID.get(r.project.settlementRuleId) ?? null
+    ? settles.get(r.project.settlementRuleId) ?? null
     : null;
 
   const docCtx = docCtxOf(r);
@@ -222,8 +231,8 @@ export function toDetail(r: ProjectRecord, rules: RuleMap): ProjectDetail {
 }
 
 /** 목록 카드가 받는 요약. 상세를 조립한 뒤 필요한 것만 추린다. */
-export function summaryOf(r: ProjectRecord, rules: RuleMap): ProjectSummary {
-  const d = toDetail(r, rules);
+export function summaryOf(r: ProjectRecord, rules: RuleMap, settles: SettleMap): ProjectSummary {
+  const d = toDetail(r, rules, settles);
   return {
     id: d.project.id,
     mgmtNo: d.project.mgmtNo,
@@ -285,8 +294,8 @@ function nextStepOf(process: ProjectRecord['process']): ProjectSummary['nextStep
  * 정산관리 목록이 받는 요약. [한백 전용]
  * 금액이 들어 있으므로 부르는 쪽이 관리자인지 반드시 확인해야 한다.
  */
-export function settlementSummaryOf(r: ProjectRecord, rules: RuleMap): SettlementSummary {
-  const d = toDetail(r, rules);
+export function settlementSummaryOf(r: ProjectRecord, rules: RuleMap, settles: SettleMap): SettlementSummary {
+  const d = toDetail(r, rules, settles);
   const steps = d.settlement.steps;
   const sum = (list: SettlementStep[]) => list.reduce((n, x) => n + (x.planAmount ?? 0), 0);
   const sales = payoutSideOf(d.payoutEntries, '영업비');
@@ -340,8 +349,8 @@ function stepAt(entries: PayoutEntry[], kind: PayoutEntry['kind'], category: '1�
  * 조정(자재비·차감…)은 줄이 되지 않는다 — 송금 확정이 아니라 줘야 할 금액의 변화다.
  * 마진·기성은 어느 줄에도 없다. 그것은 한백이 운영사에게서 받는 쪽이고 협력사가 볼 것이 아니다.
  */
-export function payoutRowsOf(r: ProjectRecord, viewer: Viewer, rules: RuleMap): PayoutRow[] {
-  const d = toDetail(r, rules);
+export function payoutRowsOf(r: ProjectRecord, viewer: Viewer, rules: RuleMap, settles: SettleMap): PayoutRow[] {
+  const d = toDetail(r, rules, settles);
   const vis = effectiveVisibility(viewer.role, viewer.org, d.project);
 
   const base = {

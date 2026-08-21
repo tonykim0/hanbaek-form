@@ -12,7 +12,7 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import type {
   ContractLine, IntakeDraft, LineAxes, PayoutRow, PricingRule, ProcessStatus, Project, ProjectDetail,
-  ProjectDocument, ProjectSummary, SettlementSummary,
+  ProjectDocument, ProjectSummary, SettlementRule, SettlementStepRule, SettlementSummary,
 } from '@/types/project';
 import type { Viewer } from '@/lib/auth/types';
 import type { Actor, ProjectRepository } from './repository';
@@ -23,17 +23,18 @@ import {
 import { stamp, today } from '@/lib/date';
 import {
   checkPayoutEntry, payoutPrerequisiteBlockersOf, payoutReleaseOf, payoutSideOf, payoutStepsOf,
+  settlementRuleIdOf, settlementRuleNameOf, settlementStepsKeyOf,
 } from '@/lib/settlement';
 import {
   ALL_DOC_KEYS, byStalled, contractStateFor, emptyProcess, emptySettlement, isProcessDocKind,
   payoutMilestonesFor, payoutRowsOf,
   redactForViewer, settlementSummaryOf, summaryOf, toDetail,
-  type ProjectRecord, type RuleMap,
+  type ProjectRecord, type RuleMap, type SettleMap,
 } from './assemble';
 import { SEED_RECORDS } from './mock';
 import { needsPreInstallCheck } from '@/lib/doc-rules';
 import { PRICING_RULES } from './seed/pricing-rules';
-import { SETTLEMENT_RULE_BY_ID } from './seed/settlement-rules';
+import { SETTLEMENT_RULES } from './seed/settlement-rules';
 import { checkPricingRule, duplicateOf, normalizePricingRule, pricingRuleId } from '@/lib/pricing-match';
 
 const DATA_DIR = path.join(process.cwd(), '.data');
@@ -111,9 +112,51 @@ async function saveRules(list: PricingRule[]): Promise<void> {
   }
 }
 
+/*
+ * 정산 규칙도 케이스처럼 파일이 정본이다 — 케이스가 기성 단계를 직접 정의하면서
+ * 규칙이 화면에서 생기므로, 코드 시드만 읽으면 새 규칙이 붙은 현장의 기성이 안 나온다.
+ */
+const SETTLE_FILE = path.join(DATA_DIR, 'settlement-rules.json');
+
+async function loadSettles(): Promise<SettlementRule[]> {
+  try {
+    return JSON.parse(await fs.readFile(SETTLE_FILE, 'utf8')) as SettlementRule[];
+  } catch {
+    await saveSettles(SETTLEMENT_RULES).catch(() => {});
+    return SETTLEMENT_RULES;
+  }
+}
+
+async function saveSettles(list: SettlementRule[]): Promise<void> {
+  await fs.mkdir(DATA_DIR, { recursive: true });
+  const tmp = `${SETTLE_FILE}.${process.pid}.${writeSeq++}.tmp`;
+  try {
+    await fs.writeFile(tmp, JSON.stringify(list, null, 2), 'utf8');
+    await fs.rename(tmp, SETTLE_FILE);
+  } finally {
+    await fs.rm(tmp, { force: true });
+  }
+}
+
 /** 조립 함수에 넘길 표 */
 const ruleMap = async (): Promise<RuleMap> =>
   new Map((await loadRules()).map((r) => [r.id, r]));
+
+const settleMap = async (): Promise<SettleMap> =>
+  new Map((await loadSettles()).map((r) => [r.id, r]));
+
+/** 기성 단계 → 정산 규칙 id — 같은 단계면 재사용, 없으면 만든다. 빈 단계는 기성 미정('') (pg-store 와 같은 판정) */
+async function resolveSettlementRule(steps: SettlementStepRule[]): Promise<string> {
+  if (steps.length === 0) return '';
+  const key = settlementStepsKeyOf(steps);
+  const settles = await loadSettles();
+  const same = settles.find((s) => settlementStepsKeyOf(s.steps) === key);
+  if (same) return same.id;
+  const id = settlementRuleIdOf(steps);
+  settles.push({ id, name: settlementRuleNameOf(steps), steps, note: null, active: true });
+  await saveSettles(settles);
+  return id;
+}
 
 let writeSeq = 0;
 
@@ -150,37 +193,37 @@ function nextId(records: ProjectRecord[]): string {
 
 export const fileRepository: ProjectRepository = {
   async listProjects(viewer: Viewer): Promise<ProjectSummary[]> {
-    const [records, rules] = await Promise.all([load(), ruleMap()]);
+    const [records, rules, settles] = await Promise.all([load(), ruleMap(), settleMap()]);
     return records
       .filter((r) => canAccessProject(viewer.role, viewer.org, r.project))
-      .map((r) => summaryOf(r, rules))
+      .map((r) => summaryOf(r, rules, settles))
       .sort(byStalled);
   },
 
   async listSettlements(viewer: Viewer): Promise<SettlementSummary[]> {
     // 관리자가 아니면 금액을 조립조차 하지 않는다
     if (viewer.role !== 'admin') return [];
-    const [records, rules] = await Promise.all([load(), ruleMap()]);
+    const [records, rules, settles] = await Promise.all([load(), ruleMap(), settleMap()]);
     return records
-      .map((r) => settlementSummaryOf(r, rules))
+      .map((r) => settlementSummaryOf(r, rules, settles))
       .sort((a, b) => b.planTotal - a.planTotal);
   },
 
   async getProject(id: string, viewer: Viewer): Promise<ProjectDetail | null> {
-    const [records, rules] = await Promise.all([load(), ruleMap()]);
+    const [records, rules, settles] = await Promise.all([load(), ruleMap(), settleMap()]);
     const r = records.find((x) => x.project.id === id);
     if (!r || !canAccessProject(viewer.role, viewer.org, r.project)) return null;
     return redactForViewer(
-      toDetail(r, rules),
+      toDetail(r, rules, settles),
       effectiveVisibility(viewer.role, viewer.org, r.project)
     );
   },
 
   async listPayouts(viewer: Viewer): Promise<PayoutRow[]> {
-    const [records, rules] = await Promise.all([load(), ruleMap()]);
+    const [records, rules, settles] = await Promise.all([load(), ruleMap(), settleMap()]);
     return records
       .filter((r) => canAccessProject(viewer.role, viewer.org, r.project))
-      .flatMap((r) => payoutRowsOf(r, viewer, rules));
+      .flatMap((r) => payoutRowsOf(r, viewer, rules, settles));
   },
 
   async createProject(draft: IntakeDraft, actor): Promise<string> {
@@ -371,9 +414,9 @@ export const fileRepository: ProjectRepository = {
 
   async setSettlementRule(projectId, ruleId, actor): Promise<void> {
     if (actor.role !== 'admin') throw new Error('정산 규칙 적용은 한백 관리자만 할 수 있습니다.');
-    // 규칙의 정본은 코드다 — 없는 규칙을 넣으면 화면에서 미적용으로 보인다 (pg-store 와 같은 판정)
+    // 조립이 읽는 곳(규칙 파일)과 같은 표에서 확인한다 — 없는 규칙을 넣으면 화면에서 미적용으로 보인다
     if (ruleId !== null) {
-      const rule = SETTLEMENT_RULE_BY_ID.get(ruleId);
+      const rule = (await loadSettles()).find((x) => x.id === ruleId);
       if (!rule) throw new Error('없는 정산 규칙입니다.');
       if (!rule.active) throw new Error('중지된 정산 규칙은 적용할 수 없습니다.');
     }
@@ -544,7 +587,7 @@ export const fileRepository: ProjectRepository = {
       if (
         statusIndex(target) === statusIndex(r.process.status) + 1
         && canEnter(target, r.process).ok
-        && toDetail(r, await ruleMap()).stage !== 'intake'
+        && toDetail(r, await ruleMap(), await settleMap()).stage !== 'intake'
       ) {
         r.process.status = target;
         r.court = COURT_AFTER_STATUS[target];
@@ -561,7 +604,7 @@ export const fileRepository: ProjectRepository = {
     if (r.process.status === status) return;
 
     // 계약이 끝나지 않은 현장은 공정에 없다 — 상세의 시공 탭이 잠기는 것과 같은 규칙이다
-    if (toDetail(r, await ruleMap()).stage === 'intake') {
+    if (toDetail(r, await ruleMap(), await settleMap()).stage === 'intake') {
       throw new Error('계약이 끝나기 전에는 진행 단계를 옮길 수 없습니다.');
     }
     const entry = canEnter(status as ProcessStatus, r.process);
@@ -671,10 +714,48 @@ export const fileRepository: ProjectRepository = {
     if (dup) {
       throw new Error(`같은 조건을 덮는 케이스가 이미 있습니다 — ${dup.caseName}. 개정이라면 적용 시작을 다르게 적어주세요.`);
     }
+
+    const { settlementSteps, ...rest } = rule;
+    const settleId = await resolveSettlementRule(settlementSteps);
     const id = pricingRuleId(rule, new Set(list.map((r) => r.id)));
-    list.push({ ...rule, id, active: true });
+    list.push({ ...rest, defaultSettlementRuleId: settleId, id, active: true });
     await saveRules(list);
     return id;
+  },
+
+  async updatePricingRule(id, input, actor): Promise<void> {
+    if (actor.role !== 'admin') throw new Error('단가 케이스 수정은 한백 관리자만 할 수 있습니다.');
+    const bad = checkPricingRule(input);
+    if (bad.length > 0) throw new Error(bad[0]);
+    const rule = normalizePricingRule(input);
+
+    const list = await loadRules();
+    const at = list.findIndex((r) => r.id === id);
+    if (at < 0) throw new Error('없는 단가 케이스입니다.');
+
+    // 참조가 하나라도 있으면 수정은 소급 변경이다 — 개정(새 케이스)으로 돌려보낸다
+    const records = await load();
+    if (records.some((rec) => rec.lines.some((l) => l.pricingRuleId === id))) {
+      throw new Error('이미 계약 라인이 참조하는 케이스입니다 — 고치면 그 현장의 금액이 소급해서 바뀝니다. 개정으로 새 케이스를 만들고 이것을 중지하세요.');
+    }
+
+    if (list[at].active) {
+      const dup = duplicateOf(rule, list.filter((r) => r.id !== id));
+      if (dup) {
+        throw new Error(`같은 조건을 덮는 케이스가 이미 있습니다 — ${dup.caseName}. 개정이라면 적용 시작을 다르게 적어주세요.`);
+      }
+    }
+
+    const { settlementSteps, ...rest } = rule;
+    const settleId = await resolveSettlementRule(settlementSteps);
+    // id 는 그대로 둔다 — 축이 바뀌어 슬러그가 낡아도, 화면이 읽는 이름은 caseName 이다
+    list[at] = { ...rest, defaultSettlementRuleId: settleId, id, active: list[at].active };
+    await saveRules(list);
+  },
+
+  async listSettlementRules(actor): Promise<SettlementRule[]> {
+    if (actor.role !== 'admin') throw new Error('정산 규칙 조회는 한백 관리자만 할 수 있습니다.');
+    return (await loadSettles()).sort((a, b) => a.name.localeCompare(b.name, 'ko'));
   },
 
   async setPricingRuleMeta(id, patch, actor): Promise<void> {

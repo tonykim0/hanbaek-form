@@ -11,7 +11,7 @@
  */
 import type {
   ContractLineView, PayoutCategory, PayoutEntry, PayoutKind, PayoutMilestones, PricingRule, ProcessInfo,
-  SettlementRule, SettlementStep, StepBasis, StepState, Trigger,
+  SettlementRule, SettlementStep, SettlementStepRule, StepBasis, StepState, Trigger,
 } from '@/types/project';
 import { PAYOUT_CATEGORIES, PAYOUT_KINDS } from '@/types/project';
 
@@ -73,22 +73,115 @@ export function basisLabel(basis: StepBasis): string {
   return '잔액';
 }
 
+/** 기성 단계에 쓸 수 있는 트리거 — '해당없음' 은 빈 차수 표시용이라 정의에는 못 쓴다 */
+export const RECEIVE_TRIGGERS: readonly Trigger[] = ['환경부 승인', '착공', '준공마감'];
+
 /**
- * 규칙을 턴키에 적용해 단계별 총액을 낸다.
- *   고정 = 대당금액 × 대수
- *   비율 = 턴키 × 비율 × 대수
- *   잔액 = (턴키 − 앞단계 대당합) × 대수
+ * 단계 정의를 턴키(받는 단가)에 적용한 대당 금액.
+ *   고정 = 대당금액 그대로 · 비율 = 턴키 × 비율 · 잔액 = 턴키 − 앞단계 합
  */
-export function stepAmounts(rule: SettlementRule, turnkey: number, qty: number): number[] {
+export function stepUnits(steps: SettlementStepRule[], turnkey: number): number[] {
   let used = 0;
-  return rule.steps.map((step) => {
+  return steps.map((step) => {
     let unit: number;
     if (step.basis.kind === '고정') unit = step.basis.unit;
     else if (step.basis.kind === '비율') unit = Math.round(turnkey * step.basis.ratio);
     else unit = Math.max(0, turnkey - used);
     used += unit;
-    return unit * qty;
+    return unit;
   });
+}
+
+/**
+ * 규칙을 턴키에 적용해 단계별 총액을 낸다 — 대당 금액(stepUnits) × 대수.
+ */
+export function stepAmounts(rule: SettlementRule, turnkey: number, qty: number): number[] {
+  return stepUnits(rule.steps, turnkey).map((unit) => unit * qty);
+}
+
+/**
+ * 규칙 이름은 단계에서 만든다 — 「환경부 승인 40% → 준공마감 잔액」.
+ *
+ * 손으로 적게 두면 운영사 이름·줄임말이 박혀서 같은 모양의 규칙이 이름만 다르게 쌓인다.
+ * 이름은 표시용이고, 같은 규칙인지는 settlementStepsKeyOf 로 본다.
+ */
+export function settlementRuleNameOf(steps: SettlementStepRule[]): string {
+  return steps
+    .map((s) => {
+      const b = s.basis;
+      const amount =
+        b.kind === '고정' ? `${b.unit.toLocaleString('ko-KR')}원`
+          : b.kind === '비율' ? `${Math.round(b.ratio * 1000) / 10}%`
+            : '잔액';
+      return `${s.trigger} ${amount}`;
+    })
+    .join(' → ');
+}
+
+/** 단계가 같은 규칙인가를 견주는 값 — 트리거·방식·금액이 전부 같아야 같은 규칙이다 */
+export function settlementStepsKeyOf(steps: SettlementStepRule[]): string {
+  return steps
+    .map((s) =>
+      s.basis.kind === '고정' ? `${s.trigger}|고정|${s.basis.unit}`
+        : s.basis.kind === '비율' ? `${s.trigger}|비율|${s.basis.ratio}`
+          : `${s.trigger}|잔액`
+    )
+    .join('→');
+}
+
+/** 단계에서 규칙 id 를 만든다 — 같은 단계면 같은 id 라 동시 생성도 한 행으로 모인다 */
+export function settlementRuleIdOf(steps: SettlementStepRule[]): string {
+  const key = settlementStepsKeyOf(steps);
+  let h = 0x811c9dc5; // FNV-1a
+  for (let i = 0; i < key.length; i += 1) {
+    h ^= key.charCodeAt(i);
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return `st-${h.toString(36)}`;
+}
+
+/**
+ * 기성 단계 정의가 앞뒤 맞는가 — 케이스 저장 전에 본다. 화면과 저장소가 같이 쓴다.
+ *
+ * 빈 배열은 통과다(기성 미정 — 규칙이 아직 안 정해진 운영사가 실제로 있다).
+ * 단계가 있으면 합이 받는 단가(턴키)와 정확히 맞아야 한다 — 기성은 턴키를 나눠 받는
+ * 것이지 더 받거나 덜 받는 것이 아니다. 마지막 차수를 잔액으로 두면 항상 맞아떨어진다.
+ */
+export function checkSettlementSteps(steps: SettlementStepRule[], turnkey: number): string[] {
+  if (!Array.isArray(steps)) return ['기성 단계가 올바르지 않습니다.'];
+  if (steps.length === 0) return [];
+  const bad: string[] = [];
+  if (steps.length > 3) bad.push('기성은 3차까지입니다.');
+  steps.forEach((s, i) => {
+    const no = `${i + 1}차`;
+    if (!s || !RECEIVE_TRIGGERS.includes(s.trigger)) {
+      bad.push(`${no} 트리거는 환경부 승인 · 착공 · 준공마감 중 하나여야 합니다.`);
+      return;
+    }
+    const b = s.basis;
+    if (!b || !['고정', '비율', '잔액'].includes(b.kind)) {
+      bad.push(`${no} 방식이 올바르지 않습니다.`);
+      return;
+    }
+    if (b.kind === '고정' && (!Number.isInteger(b.unit) || b.unit <= 0)) {
+      bad.push(`${no} 고정 금액은 0 보다 큰 원 단위 정수여야 합니다.`);
+    }
+    if (b.kind === '비율' && !(typeof b.ratio === 'number' && b.ratio > 0 && b.ratio <= 1)) {
+      bad.push(`${no} 비율은 0 초과 100% 이하여야 합니다.`);
+    }
+    if (b.kind === '잔액' && i !== steps.length - 1) {
+      bad.push('잔액은 마지막 차수에만 둘 수 있습니다.');
+    }
+  });
+  if (bad.length === 0 && Number.isInteger(turnkey) && turnkey > 0) {
+    const total = stepUnits(steps, turnkey).reduce((a, b) => a + b, 0);
+    if (total !== turnkey) {
+      bad.push(
+        `기성 단계 합(${total.toLocaleString('ko-KR')}원)이 받는 단가(${turnkey.toLocaleString('ko-KR')}원)와 다릅니다 — 마지막 차수를 잔액으로 두면 맞아떨어집니다.`
+      );
+    }
+  }
+  return bad;
 }
 
 const EMPTY_STEP = (no: 1 | 2 | 3): SettlementStep => ({

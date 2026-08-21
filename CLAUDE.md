@@ -73,8 +73,8 @@
 | 실현장 (실무) | 노션 | 병행기 동안. 이관하면 콘솔 DB 로 |
 | 콘솔의 현장 | Postgres — 프로덕션·로컬 공용 | 당분간 전부 시험 데이터 |
 | 계정 | Postgres `users` | 실계정. `/admin/accounts` |
-| 단가 케이스 | Postgres — `/pricing` 에서 관리 | 불변 — 추가·중지만, 수정 없음 |
-| 정산 규칙 | 코드 `lib/data/seed/settlement-rules.ts` | DB 테이블은 FK 용 — DB 에만 넣으면 화면에 안 뜬다 |
+| 단가 케이스 | Postgres — `/pricing` 에서 관리 | 라인이 참조하기 전에는 수정 가능 · 참조 뒤에는 불변(개정·중지만) |
+| 정산 규칙 | Postgres `settlement_rules` | 단가 케이스가 기성 단계로 정의하면 같은 모양을 찾아 재사용, 없으면 자동 생성. 이름도 단계에서 자동. 코드 시드는 초기값일 뿐 |
 | 서류 종류·필수 규칙 | 코드 `lib/doc-rules.ts` | |
 
 ## 화면 지도

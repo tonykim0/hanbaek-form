@@ -11,6 +11,7 @@ import { BUILDING_TYPES, bizTypeOfRepl, CHANNELS, CPO_NAMES, REPL_TYPES } from '
 import type {
   ContractLine, CpoName, NewPricingRule, PricingRule, Project, ReplType,
 } from '@/types/project';
+import { checkSettlementSteps } from '@/lib/settlement';
 
 export interface RuleMatch {
   /** 모든 축이 맞는 것 */
@@ -71,7 +72,7 @@ export function pricingRuleId(r: NewPricingRule, taken: Set<string>): string {
     r.powerType === '모자분리' ? 'mother' : 'kepco',
     REPL_SLUG[r.replType] ?? 'x',
     r.bldgTypes.length === 2 ? 'both' : r.bldgTypes[0] === '상업시설' ? 'biz' : 'apt',
-    ...(r.channel === '시공만' ? ['gc'] : []),
+    ...(r.channel === '시공' ? ['gc'] : r.channel === '영업' ? ['sales'] : []),
     String(r.bizYear),
   ].join('-');
   if (!taken.has(part)) return part;
@@ -116,9 +117,10 @@ export function checkPricingRule(r: NewPricingRule): string[] {
   if (!CPO_NAMES.includes(r.cpo)) bad.push('운영사가 목록에 없습니다.');
   if (!POWER_CASES.includes(r.powerType)) bad.push('수전방식은 한전불입 · 모자분리 중 하나여야 합니다.');
   if (!REPL_TYPES.includes(r.replType)) bad.push('교체유형이 목록에 없습니다.');
-  if (!CHANNELS.includes(r.channel)) bad.push('채널은 턴키 · 시공만 중 하나여야 합니다.');
-  // 시공만은 영업이 없는 계약이다 — 영업단가가 붙어 있으면 어느 쪽인지 알 수 없는 케이스가 된다
-  if (r.channel === '시공만' && r.salesUnit > 0) bad.push('시공만 케이스는 영업단가가 0 이어야 합니다.');
+  if (!CHANNELS.includes(r.channel)) bad.push('채널은 턴키 · 영업 · 시공 중 하나여야 합니다.');
+  // 한쪽만 맡는 채널에 반대쪽 단가가 붙어 있으면 어느 쪽인지 알 수 없는 케이스가 된다
+  if (r.channel === '시공' && r.salesUnit > 0) bad.push('시공 케이스는 영업단가가 0 이어야 합니다.');
+  if (r.channel === '영업' && r.consUnit > 0) bad.push('영업 케이스는 시공단가가 0 이어야 합니다.');
 
   if (!Array.isArray(r.termYears) || r.termYears.length === 0) {
     bad.push('계약연수를 하나 이상 고르세요.');
@@ -138,7 +140,9 @@ export function checkPricingRule(r: NewPricingRule): string[] {
 
   const money = [r.salesUnit, r.consUnit, r.margin];
   if (money.some((n) => !Number.isInteger(n) || n < 0)) bad.push('단가는 0 이상의 정수여야 합니다.');
-  else if (r.salesUnit + r.consUnit + r.margin === 0) bad.push('턴키가 0 원인 케이스는 만들 수 없습니다.');
+  else if (r.salesUnit + r.consUnit + r.margin === 0) bad.push('받는 단가가 0 원인 케이스는 만들 수 없습니다.');
+  // 기성 단계는 받는 단가(턴키)를 나눠 받는 정의라 금액이 맞을 때만 검사할 수 있다
+  else bad.push(...checkSettlementSteps(r.settlementSteps, r.salesUnit + r.consUnit + r.margin));
   if (!Number.isInteger(r.bizYear) || r.bizYear < 2020 || r.bizYear > 2100) {
     bad.push('사업연도를 확인해주세요.');
   }
@@ -180,7 +184,8 @@ export function startKey(r: Pick<NewPricingRule, 'startDate' | 'bizYear'>): stri
  * 같은 운영사 · 칸 교집합 · 같은 적용 시작. 시작이 다르면 개정이라 겹쳐도 된다.
  */
 export function duplicateOf(
-  input: NewPricingRule,
+  // 새 케이스와 기존 케이스(적용 시작을 고칠 때) 둘 다 들어온다 — 겹침 판정에 쓰는 축만 받는다
+  input: Pick<PricingRule, 'cpo' | 'replType' | 'powerType' | 'termYears' | 'bldgTypes' | 'channel' | 'startDate' | 'bizYear'>,
   existing: PricingRule[]
 ): PricingRule | null {
   const mine = new Set(cellsOf(input));

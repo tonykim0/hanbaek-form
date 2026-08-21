@@ -275,6 +275,7 @@ export default function ProjectsView({
           filters={attrs}
           options={options}
           onFilter={setAttr}
+          tab={band === '계약' ? 'intake' : 'construction'}
         />
       )}
     </div>

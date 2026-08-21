@@ -45,6 +45,8 @@ export const STATUS_GATES: Record<ProcessStatus, StatusGate | null> = {
     need: '제출 체크',
     met: (p) => Boolean(p.cpoSubmitDate),
   },
+  // 계약서를 냈으면 시작할 수 있다 — 행위신고 접수를 언제 넣을지는 시공팀 판단이라 조건이 없다
+  '행위신고': null,
   /*
    * 운영사 시공승인(환경부 승인 뒤 따로 통보)과 행위신고 완료 체크 — 둘 다 있어야 한다.
    * 행위신고는 승인을 기다리는 동안 미리 해놓는 일이고(1~2주), 끝나지 않았으면
@@ -187,6 +189,7 @@ export type ProcessEdit = 'all' | 'partner' | 'none';
 export const COURT_AFTER_STATUS: Record<ProcessStatus, Court> = {
   '계약완료': '한백',             // 다음 일: 운영사에 계약서 제출 — 한백이 한다
   '운영사 계약서 제출': '운영사', // 시공승인 회신을 기다린다
+  '행위신고': '시공사',           // 시공팀이 접수한다 (1~2주)
   '시공진행필요': '시공사',
   '충전기 수령': '시공사',        // 다음 일: 착공일 입력
   '착공': '시공사',               // 공사 중

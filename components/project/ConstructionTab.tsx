@@ -105,7 +105,7 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
    * 행위신고는 계약완료 직후 — 승인을 기다리는 동안 미리 해놓는다(1~2주, 한백 확인).
    */
   const GROUPS_BY_STATUS: Partial<Record<ProcessStatus, Group[]>> = {
-    '계약완료': [
+    '행위신고': [
       {
         title: '행위신고', rows: [], docs: ['notify'],
         check: {

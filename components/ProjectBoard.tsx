@@ -76,6 +76,8 @@ export default function ProjectBoard({
    * 제자리에 있어야 한다 — 안 그러면 계약 칸이 부풀어 시공 줄을 화면 밖으로 밀어낸다.
    */
   const bands: BoardBand[] = [band, '멈춤'];
+  // 들어온 페이지가 상세의 첫 탭을 정한다 — 계약 페이지에서 왔으면 계약 탭, 시공이면 시공 탭
+  const tab = band === '계약' ? 'intake' : 'construction';
 
   /*
    * 계약과 시공이 남은 높이를 반씩 쓴다.
@@ -165,6 +167,7 @@ export default function ProjectBoard({
                             busy={busyId === p.id}
                             canMove={canMove}
                             onMove={onMove}
+                            tab={tab}
                           />
                         ))}
                         {list.length === 0 && (
@@ -193,12 +196,14 @@ export default function ProjectBoard({
  * 키보드로도 들어갈 수 있게 role·tabIndex·Enter 를 둔다.
  */
 function Card({
-  p, busy, canMove, onMove,
+  p, busy, canMove, onMove, tab,
 }: {
   p: ProjectSummary;
   busy: boolean;
   canMove: boolean;
   onMove: (p: ProjectSummary, status: ProcessStatus) => void;
+  /** 상세를 열 때 먼저 보일 탭 — 이 보드의 국면을 따라간다 */
+  tab: 'intake' | 'construction';
 }) {
   const router = useRouter();
   const qty = p.lines.reduce((sum, l) => sum + l.qty, 0);
@@ -217,11 +222,11 @@ function Card({
       role="link"
       tabIndex={0}
       aria-label={`${p.name} 상세`}
-      onClick={() => router.push(`/projects/${p.id}`)}
+      onClick={() => router.push(`/projects/${p.id}?tab=${tab}`)}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
-          router.push(`/projects/${p.id}`);
+          router.push(`/projects/${p.id}?tab=${tab}`);
         }
       }}
       className={`cursor-pointer rounded-box border border-slate-200 bg-white p-2.5 text-left transition hover:border-brand-300 hover:bg-brand-50/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-300 ${busy ? 'opacity-50' : ''}`}

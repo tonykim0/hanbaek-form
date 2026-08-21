@@ -48,10 +48,12 @@ const BAND_TONE: Record<BoardBand, Tone> = {
 };
 
 export default function ProjectTable({
-  projects, canMove, onMove, busyId, filters, options, onFilter,
+  projects, canMove, onMove, busyId, filters, options, onFilter, tab,
 }: {
   projects: ProjectSummary[];
   canMove: boolean;
+  /** 상세를 열 때 먼저 보일 탭 — 이 페이지의 국면(계약·시공)을 따라간다 */
+  tab: 'intake' | 'construction';
   onMove: (p: ProjectSummary, status: ProcessStatus) => void;
   busyId: string | null;
   /** 지금 걸린 필터 — 껍데기가 쥐고 있다 */
@@ -164,7 +166,7 @@ export default function ProjectTable({
                 <tr key={p.id} className={`transition hover:bg-brand-50/40 ${busy ? 'opacity-50' : ''}`}>
                   <td className="px-3 py-2.5">
                     <Link
-                      href={`/projects/${p.id}`}
+                      href={`/projects/${p.id}?tab=${tab}`}
                       className="font-bold text-slate-900 hover:text-brand-800 hover:underline"
                     >
                       {p.name}

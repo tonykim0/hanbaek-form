@@ -44,6 +44,7 @@ export interface BoardColumnDef {
 const BAND_OF_STATUS: Record<ProcessStatus, BoardBand> = {
   '계약완료': '계약',
   '운영사 계약서 제출': '계약',
+  '행위신고': '시공',   // 시공팀의 첫 일 — 시공 보드의 첫 칸이다
   '시공진행필요': '시공',
   '충전기 수령': '시공',
   '착공': '시공',

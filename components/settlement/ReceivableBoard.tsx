@@ -61,7 +61,7 @@ export default function ReceivableBoard({ rows }: { rows: SettlementSummary[] })
       {money.noRule > 0 && (
         <p className="mb-4 rounded-xl border-l-[3px] border-amber-500 bg-amber-50/70 px-4 py-3 text-xs leading-relaxed text-amber-900">
           정산 규칙이 없는 현장 <b>{money.noRule}건</b> — 기성 차수와 금액이 계산되지 않습니다.
-          현장 상세의 정산 탭에서 규칙을 지정해야 합니다.
+          현장 상세의 기성 탭에서 규칙을 지정해야 합니다.
         </p>
       )}
 
@@ -87,7 +87,7 @@ export default function ReceivableBoard({ rows }: { rows: SettlementSummary[] })
             {shown.map((r) => (
               <tr key={r.id} className="transition hover:bg-brand-50/40">
                 <td className="px-3 py-2.5">
-                  <SiteLink id={r.id} name={r.name} tab="settlement" />
+                  <SiteLink id={r.id} name={r.name} tab="receivable" />
                   <p className="mt-0.5 text-tiny text-slate-400">
                     {r.cpo} · {r.qty}대 · {r.status}
                   </p>

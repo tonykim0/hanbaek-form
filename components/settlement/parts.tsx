@@ -12,10 +12,17 @@ import { won } from '@/lib/format';
 export { won };
 
 /**
- * 기성·지급 화면에서 현장으로 가는 길은 정산 탭으로 바로 간다 — 이 화면들이 「정산 탭에서
+ * 기성·지급 화면에서 현장으로 가는 길은 제 탭으로 바로 간다 — 이 화면들이 「그 탭에서
  * 지정해야 합니다」라고 말해 놓고, 눌러 가면 계약 탭이 열리는 것이 길을 두 번 걷게 했다.
+ * settlement = 협력사 지급 탭 · receivable = 기성 탭.
  */
-export function SiteLink({ id, name, tab }: { id: string; name: string; tab?: 'settlement' }) {
+export function SiteLink({
+  id, name, tab,
+}: {
+  id: string;
+  name: string;
+  tab?: 'settlement' | 'receivable';
+}) {
   return (
     <Link
       href={`/projects/${id}${tab ? `?tab=${tab}` : ''}`}

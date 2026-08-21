@@ -209,7 +209,7 @@ function Block({
                       key={`${r.projectId}-${r.kind}-${r.label}-${r.paidAt}-${i}`}
                       className="flex flex-wrap items-baseline gap-x-3 gap-y-1 border-b border-slate-100 py-2 last:border-b-0"
                     >
-                      {/* 이 줄은 원장의 지급 한 건이다 — 원장이 있는 정산 탭으로 바로 간다 */}
+                      {/* 이 줄은 원장의 지급 한 건이다 — 원장이 있는 협력사 지급 탭으로 바로 간다 */}
                       <Link
                         href={`/projects/${r.projectId}?tab=settlement`}
                         className="min-w-[180px] flex-1 truncate text-base font-bold text-slate-900 hover:text-brand-800 hover:underline"

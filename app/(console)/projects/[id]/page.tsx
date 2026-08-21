@@ -27,9 +27,12 @@ export default async function ProjectPage({
   const session = await getSessionUser();
   if (!session) redirect(`/login?next=/projects/${params.id}`);
 
-  // 기성·지급 화면에서 오는 길이 정산 탭을 바로 연다. 모르는 값은 단계가 정하는 대로.
+  // 기성·지급 화면에서 오는 길이 그 탭을 바로 연다. 모르는 값은 단계가 정하는 대로.
   const initialTab: TabKey | null =
-    searchParams.tab === 'intake' || searchParams.tab === 'construction' || searchParams.tab === 'settlement'
+    searchParams.tab === 'intake'
+    || searchParams.tab === 'construction'
+    || searchParams.tab === 'settlement'
+    || searchParams.tab === 'receivable'
       ? searchParams.tab
       : null;
 

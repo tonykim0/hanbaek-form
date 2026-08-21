@@ -1,7 +1,11 @@
 'use client';
 
 /**
- * 정산 탭 — 계약 라인 · 지급 · 기성.
+ * 협력사 지급 탭 — 지급조건 · 계약 라인 · 지급. 기성은 딴 탭이다(ReceivableTab).
+ *
+ * 「정산」 한 탭에 지급과 기성이 같이 있었는데 갈랐다(한백 확인) — 지급은 협력사와
+ * 같이 보는 화면이고 기성은 한백만 보는 화면이라, 섞여 있으면 어디까지 보여도 되는지
+ * 매번 따져야 한다.
  *
  * 협력사에게는 자기 몫만 보인다. 가리는 것이 아니라 저장소에서 지워서 온다
  * (redactForViewer) — 서버가 렌더한 데이터는 브라우저에 통째로 실린다.
@@ -38,21 +42,22 @@ const STEP_LABEL: Record<SettlementStep['state'], string> = {
 };
 
 export function SettlementTab({
-  detail, vis, canReview, ruleOptions, settlementRuleChoices,
+  detail, vis, canReview, ruleOptions,
 }: {
   detail: ProjectDetail;
   vis: Visibility;
   canReview: boolean;
   ruleOptions: RuleOptions | null;
-  /** 정산 규칙 후보 — 이름에 기성 모양이 들어 있어 한백이 아니면 null */
-  settlementRuleChoices: SettlementRuleChoice[] | null;
 }) {
   const { settlement, lines } = detail;
-  const rate = recoveryRate(settlement.steps);
 
   return (
     <div className="flex flex-col gap-7">
-      {/* 금액의 뿌리가 여기다 — 지급·기성보다 먼저 본다 */}
+      {/* 조건이 맨 위다(한백 확인) — 여기서 고른 케이스가 아래 모든 금액을 정한다 */}
+      {canReview && ruleOptions && (
+        <PayConditions projectId={detail.project.id} lines={lines} ruleOptions={ruleOptions} />
+      )}
+
       <ContractLines lines={lines} vis={vis} />
 
       <PaymentSection
@@ -64,78 +69,86 @@ export function SettlementTab({
         payNote={settlement.payNote}
         vis={vis}
         canReview={canReview}
-        ruleOptions={ruleOptions}
       />
-
-      {/*
-        * 기성은 한백만 본다 — 운영사에게서 받는 돈이라 협력사가 볼 자리가 아니다.
-        * 예전에는 구역을 그려놓고 「한백 관리자만 볼 수 있습니다」로 막았는데,
-        * 볼 수 없는 것을 자리까지 만들어 보여줄 이유가 없다.
-        */}
-      {vis.cost && (
-        <section>
-          <div className="mb-3 flex flex-wrap items-baseline justify-between gap-3">
-            <h2 className="text-h3 font-black text-slate-900">기성</h2>
-            <div className="flex flex-wrap items-baseline gap-3">
-              {rate !== null && (
-                <span className="text-tiny font-bold text-slate-500">
-                  회수율 <span className="tabular-nums text-slate-800">{rate}%</span>
-                </span>
-              )}
-              <span className="text-tiny font-bold text-slate-500">
-                준공마감{' '}
-                {settlement.cpoCloseDate ? (
-                  <span className="tabular-nums text-slate-800">{settlement.cpoCloseDate}</span>
-                ) : (
-                  <span className="text-amber-700">통보 없음</span>
-                )}
-              </span>
-            </div>
-          </div>
-
-          <RuleFact
-            projectId={detail.project.id}
-            rule={detail.settlementRule}
-            canEdit={canReview}
-            choices={settlementRuleChoices}
-          />
-
-          <div className="flex flex-col gap-2">
-            {settlement.steps.map((s) => (
-              <div
-                key={s.no}
-                className={`flex flex-wrap items-center gap-x-4 gap-y-1 rounded-box border border-slate-200 border-l-[3px] px-4 py-3 ${STEP_STYLE[s.state]}`}
-              >
-                <span className="w-10 shrink-0 text-tiny font-bold text-slate-400">{s.no}차</span>
-                <div className="min-w-0 flex-1">
-                  <p className="text-lead font-bold text-slate-800">
-                    {s.trigger === '해당없음' ? '해당없음' : `${s.trigger} · ${s.basisLabel}`}
-                  </p>
-                  <p className="text-tiny text-slate-500">
-                    {s.state === 'na' ? '해당 차수 없음' : triggerSource(s.trigger)}
-                  </p>
-                </div>
-                <span
-                  className={`rounded-full px-2.5 py-0.5 text-tiny font-bold ${
-                    s.state === 'open'
-                      ? 'bg-amber-200 text-amber-900'
-                      : s.state === 'collected'
-                        ? 'bg-brand-200 text-brand-900'
-                        : 'bg-slate-100 text-slate-500'
-                  }`}
-                >
-                  {STEP_LABEL[s.state]}
-                </span>
-                <span className="w-28 shrink-0 text-right text-lead font-black tabular-nums text-slate-800">
-                  {s.planAmount === null ? <span className="text-slate-300">—</span> : won(s.planAmount)}
-                </span>
-              </div>
-            ))}
-          </div>
-
-        </section>
-      )}
     </div>
+  );
+}
+
+/**
+ * 기성 탭 — 한백만. 운영사에게서 받는 돈이라 협력사에게는 탭 자체가 없다.
+ * 예전에는 정산 탭 안의 구역이었는데, 볼 수 없는 사람에게 자리를 보여줄 이유가 없어
+ * 탭으로 갈랐다(한백 확인).
+ */
+export function ReceivableTab({
+  detail, canReview, settlementRuleChoices,
+}: {
+  detail: ProjectDetail;
+  canReview: boolean;
+  /** 정산 규칙 후보 — 이름에 기성 모양이 들어 있어 한백이 아니면 null */
+  settlementRuleChoices: SettlementRuleChoice[] | null;
+}) {
+  const { settlement } = detail;
+  const rate = recoveryRate(settlement.steps);
+
+  return (
+    <section>
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+        <RuleFact
+          projectId={detail.project.id}
+          rule={detail.settlementRule}
+          canEdit={canReview}
+          choices={settlementRuleChoices}
+        />
+        <div className="flex flex-wrap items-baseline gap-3">
+          {rate !== null && (
+            <span className="text-tiny font-bold text-slate-500">
+              회수율 <span className="tabular-nums text-slate-800">{rate}%</span>
+            </span>
+          )}
+          <span className="text-tiny font-bold text-slate-500">
+            준공마감{' '}
+            {settlement.cpoCloseDate ? (
+              <span className="tabular-nums text-slate-800">{settlement.cpoCloseDate}</span>
+            ) : (
+              <span className="text-amber-700">통보 없음</span>
+            )}
+          </span>
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-2">
+        {settlement.steps.map((s) => (
+          <div
+            key={s.no}
+            className={`flex flex-wrap items-center gap-x-4 gap-y-1 rounded-box border border-slate-200 border-l-[3px] px-4 py-3 ${STEP_STYLE[s.state]}`}
+          >
+            <span className="w-10 shrink-0 text-tiny font-bold text-slate-400">{s.no}차</span>
+            <div className="min-w-0 flex-1">
+              <p className="text-lead font-bold text-slate-800">
+                {s.trigger === '해당없음' ? '해당없음' : `${s.trigger} · ${s.basisLabel}`}
+              </p>
+              <p className="text-tiny text-slate-500">
+                {s.state === 'na' ? '해당 차수 없음' : triggerSource(s.trigger)}
+              </p>
+            </div>
+            <span
+              className={`rounded-full px-2.5 py-0.5 text-tiny font-bold ${
+                s.state === 'open'
+                  ? 'bg-amber-200 text-amber-900'
+                  : s.state === 'collected'
+                    ? 'bg-brand-200 text-brand-900'
+                    : 'bg-slate-100 text-slate-500'
+              }`}
+            >
+              {STEP_LABEL[s.state]}
+            </span>
+            <span className="w-28 shrink-0 text-right text-lead font-black tabular-nums text-slate-800">
+              {s.planAmount === null ? <span className="text-slate-300">—</span> : won(s.planAmount)}
+            </span>
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -168,7 +181,7 @@ function RuleFact({
     }).then((ok) => { if (ok) setEditing(false); });
 
   return (
-    <div className="mb-3 flex flex-wrap items-center gap-2">
+    <div className="flex flex-wrap items-center gap-2">
       <span className="text-tiny font-bold tracking-[0.04em] text-slate-400">정산 규칙</span>
       {editing && choices ? (
         <>
@@ -213,33 +226,31 @@ function RuleFact({
 }
 
 /**
- * 계약 라인 · 단가 — 정산 탭 맨 위.
+ * 계약 라인 · 단가 — 지급조건 바로 아래.
  *
- * 계약 탭에 있었는데 정산으로 옮겼다. 여기 적힌 금액이 아래 지급·기성의 뿌리이므로,
- * 그 금액을 보는 자리에서 가장 먼저 보여야 한다.
- *
- * 읽는 자리다. 케이스를 고르는 것은 아래 「지급」에서 한다 — 고르는 자리를 두 곳에 두면
- * 어느 쪽이 정본인지 알 수 없게 된다.
+ * 읽는 자리다. 케이스를 고르는 것은 위 「지급조건」에서 한다 — 고르는 자리를 두 곳에 두면
+ * 어느 쪽이 정본인지 알 수 없게 된다. 확정일은 안 적는다(한백 확인) — 언제 골랐는지는
+ * 감사 기록의 일이고, 이 표는 무엇이 적용 중인지만 말한다.
  */
 function ContractLines({ lines, vis }: { lines: ProjectDetail['lines']; vis: Visibility }) {
   return (
     <section>
-      <h2 className="mb-3 text-h3 font-black text-slate-900">계약 라인 · 단가</h2>
+      <h2 className="mb-2 text-h3 font-black text-slate-900">계약 라인 · 단가</h2>
       <div className="overflow-x-auto rounded-box border border-slate-200">
-        <table className="w-full min-w-[640px] text-base">
+        <table className="w-full min-w-[560px] text-base">
           <thead className="bg-slate-50 text-tiny font-bold tracking-[0.08em] text-slate-500">
             <tr>
-              <th className="px-4 py-2.5 text-left">라인</th>
-              <th className="px-4 py-2.5 text-left">적용 단가 케이스</th>
-              <th className="px-4 py-2.5 text-right">영업비/대</th>
-              <th className="px-4 py-2.5 text-right">시공비/대</th>
-              {vis.cost && <th className="px-4 py-2.5 text-right">턴키/대</th>}
+              <th className="px-3 py-2 text-left">라인</th>
+              <th className="px-3 py-2 text-left">적용 단가 케이스</th>
+              <th className="px-3 py-2 text-right">영업비/대</th>
+              <th className="px-3 py-2 text-right">시공비/대</th>
+              {vis.cost && <th className="px-3 py-2 text-right">턴키/대</th>}
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {lines.map((l) => (
               <tr key={l.id}>
-                <td className="whitespace-nowrap px-4 py-3 font-bold text-slate-800">
+                <td className="whitespace-nowrap px-3 py-2 font-bold text-slate-800">
                   {l.termYears}년 × {l.qty}대
                   {l.powerType && (
                     <span className="ml-1.5 text-tiny font-semibold text-slate-400">
@@ -247,16 +258,11 @@ function ContractLines({ lines, vis }: { lines: ProjectDetail['lines']; vis: Vis
                     </span>
                   )}
                 </td>
-                <td className="px-4 py-3 text-slate-600">
+                <td className="px-3 py-2 text-slate-600">
                   {l.rule ? (
-                    <>
-                      {l.rule.caseName}
-                      <span className="ml-1.5 text-tiny text-slate-400">
-                        {l.pricedAt} 확정
-                      </span>
-                    </>
+                    l.rule.caseName
                   ) : (
-                    <span className="text-slate-400">미지정 — 아래 「지급」에서 고릅니다</span>
+                    <span className="text-slate-400">미지정 — 위 「지급조건」에서 고릅니다</span>
                   )}
                 </td>
                 <Money show={vis.sales} value={l.rule?.salesUnit ?? null} />
@@ -274,56 +280,34 @@ function ContractLines({ lines, vis }: { lines: ProjectDetail['lines']; vis: Vis
 function Money({ show, value }: { show: boolean; value: number | null }) {
   if (!show) {
     return (
-      <td className="px-4 py-3 text-right">
+      <td className="px-3 py-2 text-right">
         <Tag>권한 없음</Tag>
       </td>
     );
   }
   return (
-    <td className="whitespace-nowrap px-4 py-3 text-right font-semibold tabular-nums text-slate-800">
+    <td className="whitespace-nowrap px-3 py-2 text-right font-semibold tabular-nums text-slate-800">
       {value === null ? <span className="text-slate-300">—</span> : won(value)}
     </td>
   );
 }
 
-// ── 지급 ────────────────────────────────────────────────────────
+// ── 지급조건 ────────────────────────────────────────────────────
 /**
- * 지급 — 한백이 협력사에게 주는 돈. 계획은 유도되고, 실적은 원장에 적는다.
+ * 지급조건 — 라인마다 단가 케이스를 고른다. 탭 맨 위다(한백 확인).
  *
- * 계획(단가 케이스 × 대수, 회차 70:30)은 사람이 손대지 않는다. 확정한 지급은 계획과
- * 어긋난다 — 선금·차액·회수·차감이 노션 정산관리 115행 중 10행에 비고 문장으로만 있었다.
- * 그래서 확정한 지급은 원장에 한 건씩 적고, 잔액 = 계획 + 조정 − 지급 으로 센다.
+ * 「지급」 구역 안에 있었는데 이름을 바꿔 앞으로 뺐다 — 여기서 고른 케이스가
+ * 계약 라인 표와 지급 카드의 모든 금액을 정하므로, 뿌리가 열매보다 먼저 보여야 한다.
+ * 라인 이름과 셀렉트를 한 줄에 둔다 — 박스가 세로로 길면 조건 두 개에 화면 반이 나간다.
  */
-const CATEGORY_INFO = new Map(PAYOUT_CATEGORIES.map((c) => [c.key, c]));
-
-function PaymentSection({
-  projectId, lines, entries, salesOrg, gcOrg, payNote, vis, canReview, ruleOptions,
+function PayConditions({
+  projectId, lines, ruleOptions,
 }: {
   projectId: string;
   lines: ProjectDetail['lines'];
-  entries: PayoutEntry[];
-  salesOrg: string | null;
-  gcOrg: string | null;
-  payNote: string | null;
-  vis: Visibility;
-  canReview: boolean;
-  ruleOptions: RuleOptions | null;
+  ruleOptions: RuleOptions;
 }) {
   const { busy, error, run } = useAction();
-
-  const totalQty = lines.reduce((s, l) => s + l.qty, 0);
-  const unpriced = lines.filter((l) => !l.rule).length;
-
-  const sides = ([
-    {
-      kind: '영업비' as PayoutKind, org: salesOrg, show: vis.sales,
-      plan: lines.reduce((s, l) => s + (l.rule?.salesUnit ?? 0) * l.qty, 0),
-    },
-    {
-      kind: '시공비' as PayoutKind, org: gcOrg, show: vis.cons,
-      plan: lines.reduce((s, l) => s + (l.rule?.consUnit ?? 0) * l.qty, 0),
-    },
-  ]).filter((side) => side.show);
 
   const pickRule = (lineId: string, ruleId: string) =>
     void run({
@@ -335,38 +319,24 @@ function PaymentSection({
 
   return (
     <section>
-      <div className="mb-3 flex flex-wrap items-baseline justify-between gap-3">
-        <h2 className="text-h3 font-black text-slate-900">지급</h2>
-        <span className="text-tiny text-slate-400">계약 {totalQty}대 기준</span>
-      </div>
-
-      {/* 적용 단가 — 여기서 고른 케이스가 아래 금액을 정한다 */}
-      {canReview && ruleOptions && (
-        <div className="mb-4 flex flex-col gap-2">
-          {lines.map((l) => {
-            const opts = ruleOptions[l.id];
-            const list = opts ? [...opts.exact, ...opts.others] : [];
-            return (
-              <div key={l.id} className="rounded-box border border-slate-200 p-3">
-                <div className="flex flex-wrap items-baseline gap-2">
-                  <span className="text-lead font-bold text-slate-800">
-                    {l.termYears}년 × {l.qty}대
-                  </span>
-                  {l.powerType && (
-                    <Tag>{l.powerType}</Tag>
-                  )}
-                  {opts && (
-                    <span className="text-tiny text-slate-400">
-                      {opts.usedAxes.join(' · ')}(으)로 후보 {opts.exact.length}건
-                    </span>
-                  )}
-                </div>
-
+      <h2 className="mb-2 text-h3 font-black text-slate-900">지급조건</h2>
+      <div className="flex flex-col gap-1.5">
+        {lines.map((l) => {
+          const opts = ruleOptions[l.id];
+          const list = opts ? [...opts.exact, ...opts.others] : [];
+          const turnkey = l.rule ? turnkeyUnit(l.rule) : null;
+          return (
+            <div key={l.id} className="rounded-box border border-slate-200 px-3 py-2.5">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                <span className="whitespace-nowrap text-base font-bold text-slate-800">
+                  {l.termYears}년 × {l.qty}대
+                </span>
+                {l.powerType && <Tag>{l.powerType}</Tag>}
                 <select
                   value={l.pricingRuleId ?? ''}
                   disabled={busy}
                   onChange={(e) => pickRule(l.id, e.target.value)}
-                  className={`${FIELD} mt-2`}
+                  className={`${FIELD_CELL} min-w-[240px] flex-1`}
                 >
                   <option value="">단가 케이스 선택 —</option>
                   {/*
@@ -400,26 +370,73 @@ function PaymentSection({
                     </optgroup>
                   )}
                 </select>
-
-                {(() => {
-                  const turnkey = l.rule ? turnkeyUnit(l.rule) : null;
-                  if (turnkey === null) return null;
-                  return (
-                    <p className="mt-1.5 text-small tabular-nums text-slate-500">
-                      턴키 {won(turnkey)}/대 · 이 라인 {won(turnkey * l.qty)}
-                    </p>
-                  );
-                })()}
-                {list.length === 0 && (
-                  <p className="mt-1.5 text-small text-amber-700">
-                    이 운영사의 단가 케이스가 없습니다 — 매트릭스를 확인해주세요.
-                  </p>
-                )}
               </div>
-            );
-          })}
-        </div>
-      )}
+              {(opts || turnkey !== null) && (
+                <p className="mt-1 text-tiny tabular-nums text-slate-400">
+                  {opts && `${opts.usedAxes.join(' · ')} 후보 ${opts.exact.length}건`}
+                  {turnkey !== null && (
+                    <span className="ml-2 text-slate-500">
+                      턴키 {won(turnkey)}/대 · 이 라인 {won(turnkey * l.qty)}
+                    </span>
+                  )}
+                </p>
+              )}
+              {list.length === 0 && (
+                <p className="mt-1 text-small text-amber-700">
+                  이 운영사의 단가 케이스가 없습니다 — 매트릭스를 확인해주세요.
+                </p>
+              )}
+            </div>
+          );
+        })}
+      </div>
+      <Err className="mt-1.5">{error}</Err>
+    </section>
+  );
+}
+
+// ── 지급 ────────────────────────────────────────────────────────
+/**
+ * 지급 — 한백이 협력사에게 주는 돈. 계획은 유도되고, 실적은 원장에 적는다.
+ *
+ * 계획(단가 케이스 × 대수, 회차 70:30)은 사람이 손대지 않는다. 확정한 지급은 계획과
+ * 어긋난다 — 선금·차액·회수·차감이 노션 정산관리 115행 중 10행에 비고 문장으로만 있었다.
+ * 그래서 확정한 지급은 원장에 한 건씩 적고, 잔액 = 계획 + 조정 − 지급 으로 센다.
+ */
+const CATEGORY_INFO = new Map(PAYOUT_CATEGORIES.map((c) => [c.key, c]));
+
+function PaymentSection({
+  projectId, lines, entries, salesOrg, gcOrg, payNote, vis, canReview,
+}: {
+  projectId: string;
+  lines: ProjectDetail['lines'];
+  entries: PayoutEntry[];
+  salesOrg: string | null;
+  gcOrg: string | null;
+  payNote: string | null;
+  vis: Visibility;
+  canReview: boolean;
+}) {
+  const totalQty = lines.reduce((s, l) => s + l.qty, 0);
+  const unpriced = lines.filter((l) => !l.rule).length;
+
+  const sides = ([
+    {
+      kind: '영업비' as PayoutKind, org: salesOrg, show: vis.sales,
+      plan: lines.reduce((s, l) => s + (l.rule?.salesUnit ?? 0) * l.qty, 0),
+    },
+    {
+      kind: '시공비' as PayoutKind, org: gcOrg, show: vis.cons,
+      plan: lines.reduce((s, l) => s + (l.rule?.consUnit ?? 0) * l.qty, 0),
+    },
+  ]).filter((side) => side.show);
+
+  return (
+    <section>
+      <div className="mb-2 flex flex-wrap items-baseline justify-between gap-3">
+        <h2 className="text-h3 font-black text-slate-900">지급</h2>
+        <span className="text-tiny text-slate-400">계약 {totalQty}대 기준</span>
+      </div>
 
       {unpriced > 0 && (
         <Note tone="warn" className="mb-3 font-semibold">
@@ -427,7 +444,10 @@ function PaymentSection({
         </Note>
       )}
 
-      {/* 잔액의 뿌리 — 계획(유도) + 조정 − 지급. 원장이 아래에 있다. */}
+      {/*
+        * 하도급사 지급관리와 같은 틀(한백 확인) — 총액과 1·2차, 차수마다 지급일.
+        * 회차 금액은 유도값이다 — 사람은 지급관리에서 송금 대상·금액·일자를 확정한다.
+        */}
       <div className={`grid gap-2 ${sides.length > 1 ? 'sm:grid-cols-2' : ''}`}>
         {sides.map((side) => {
           const { adjust, paid } = payoutSideOf(entries, side.kind);
@@ -436,7 +456,7 @@ function PaymentSection({
           const stepAt = (cat: '1차' | '2차') =>
             entries.find((e) => e.kind === side.kind && e.category === cat)?.at ?? null;
           return (
-            <div key={side.kind} className="rounded-box border border-slate-200 p-4">
+            <div key={side.kind} className="rounded-box border border-slate-200 px-3.5 py-3">
               <div className="flex flex-wrap items-baseline gap-2">
                 <h3 className="text-base font-black text-slate-900">{side.kind}</h3>
                 {side.org ? (
@@ -445,39 +465,49 @@ function PaymentSection({
                   <span className="text-small font-bold text-amber-700">받는 곳 미지정</span>
                 )}
               </div>
-              <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-base tabular-nums">
-                <div className="flex justify-between"><dt className="text-slate-500">계획</dt><dd className="font-semibold text-slate-800">{won(side.plan)}</dd></div>
-                <div className="flex justify-between"><dt className="text-slate-500">조정</dt>
-                  <dd className={`font-semibold ${adjust === 0 ? 'text-slate-300' : adjust > 0 ? 'text-slate-800' : 'text-amber-800'}`}>
-                    {adjust === 0 ? '—' : `${adjust > 0 ? '+' : ''}${won(adjust)}`}
-                  </dd>
+              <dl className="mt-2 grid grid-cols-3 gap-x-3 tabular-nums">
+                <div>
+                  <dt className="text-tiny font-bold tracking-[0.06em] text-slate-400">총 지급액</dt>
+                  <dd className="mt-0.5 text-lead font-black text-slate-900">{won(steps.due)}</dd>
                 </div>
-                <div className="flex justify-between"><dt className="text-slate-500">확정 지급</dt><dd className="font-semibold text-slate-800">{won(paid)}</dd></div>
-                <div className="flex justify-between"><dt className="text-slate-500">잔액</dt>
-                  <dd className={`font-black ${remaining > 0 ? 'text-amber-800' : remaining < 0 ? 'text-red-700' : 'text-slate-300'}`}>
-                    {remaining === 0 ? '0원' : won(remaining)}
-                  </dd>
-                </div>
-              </dl>
-              {/* 회차 금액은 정해져 있다 — 사람은 지급관리에서 송금 대상·금액·일자를 확정한다 */}
-              <div className="mt-2 flex flex-col gap-0.5 border-t border-slate-100 pt-2 text-tiny tabular-nums">
                 {([1, 2] as const).map((no) => {
                   const done = no === 1 ? steps.step1Done : steps.step2Done;
                   const amount = steps.open?.no === no ? steps.open.amount : steps.parts[no - 1];
                   const at = stepAt(`${no}차`);
                   return (
-                    <p key={no} className="flex justify-between text-slate-500">
-                      <span>{no}차 {no === 1 ? '70%' : '잔액'}</span>
-                      <span className="font-semibold text-slate-700">
+                    <div key={no}>
+                      <dt className="text-tiny font-bold tracking-[0.06em] text-slate-400">
+                        {no}차 · {no === 1 ? '70%' : '잔액'}
+                      </dt>
+                      <dd className={`mt-0.5 text-lead font-black ${done ? 'text-slate-900' : 'text-slate-500'}`}>
                         {won(amount)}
-                        <span className={`ml-1.5 font-bold ${done ? 'text-brand-800' : steps.open?.no === no ? 'text-amber-700' : 'text-slate-300'}`}>
-                          {done ? at ?? '확정됨' : steps.open?.no === no ? '미확정' : '1차 뒤'}
-                        </span>
-                      </span>
-                    </p>
+                      </dd>
+                      <dd
+                        className={`text-tiny font-bold ${
+                          done ? 'text-brand-800' : steps.open?.no === no ? 'text-amber-700' : 'text-slate-300'
+                        }`}
+                      >
+                        {done ? `지급일 ${at ?? '—'}` : steps.open?.no === no ? '미지급' : '1차 뒤'}
+                      </dd>
+                    </div>
                   );
                 })}
-              </div>
+              </dl>
+              {/* 총액과 지급이 안 맞는 사정(조정·잔액)만 한 줄로 — 없으면 줄도 없다 */}
+              {(adjust !== 0 || paid > 0) && (
+                <p className="mt-2 border-t border-slate-100 pt-1.5 text-tiny tabular-nums text-slate-500">
+                  조정 {adjust === 0 ? '—' : `${adjust > 0 ? '+' : ''}${won(adjust)}`}
+                  {' · '}확정 지급 {won(paid)}
+                  {' · '}잔액{' '}
+                  <span
+                    className={
+                      remaining > 0 ? 'font-bold text-amber-800' : remaining < 0 ? 'font-bold text-red-700' : ''
+                    }
+                  >
+                    {remaining === 0 ? '0원' : won(remaining)}
+                  </span>
+                </p>
+              )}
             </div>
           );
         })}

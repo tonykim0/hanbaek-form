@@ -31,9 +31,10 @@ import { Fact } from './parts';
 import { IntakeTab } from './IntakeTab';
 import { EditableFact } from './EditableFact';
 import { ProgressLog } from './ProgressLog';
-import { SettlementTab } from './SettlementTab';
+import { ReceivableTab, SettlementTab } from './SettlementTab';
 
-export type TabKey = 'intake' | 'construction' | 'settlement';
+/** settlement = 협력사 지급(주소가 이미 퍼져 있어 키는 안 바꾼다) · receivable = 기성(한백만) */
+export type TabKey = 'intake' | 'construction' | 'settlement' | 'receivable';
 
 export default function ProjectDetailView({
   detail,
@@ -70,12 +71,14 @@ export default function ProjectDetailView({
   /** 공정 입력 권한 — 한백 전부(all) · 그 현장의 시공사(partner) · 보기만(none) */
   processEdit: ProcessEdit;
 }) {
-  // 잠긴 시공 탭은 URL 로도 못 연다 — 화면에서 못 누르는 것은 주소로도 안 된다
-  const [tab, setTab] = useState<TabKey>(
-    initialTab && !(initialTab === 'construction' && detail.stage === 'intake')
-      ? initialTab
-      : detail.stage
-  );
+  // 잠긴 시공 탭은 URL 로도 못 연다 — 화면에서 못 누르는 것은 주소로도 안 된다.
+  // 기성 탭도 같다 — 한백이 아니면 탭이 없으므로 주소로도 안 열린다.
+  const [tab, setTab] = useState<TabKey>(() => {
+    if (!initialTab) return detail.stage;
+    if (initialTab === 'construction' && detail.stage === 'intake') return detail.stage;
+    if (initialTab === 'receivable' && !canReview) return detail.stage;
+    return initialTab;
+  });
   /**
    * 탭을 주소에 남긴다 — 새로고침해도, 링크를 보내도 보던 탭이 열린다.
    * replaceState 라 서버를 다시 부르지 않고 뒤로가기 이력도 안 쌓인다(ProjectsView 와 같은 방식).
@@ -145,11 +148,19 @@ export default function ProjectDetailView({
     },
     {
       key: 'settlement',
-      label: '정산',
-      // 기성 회수 진행은 한백만 본다 — 협력사에게 숫자만 보여주면 무슨 수인지 알 수 없다
-      count: canReview ? `${settlementDone}/${settlementOpen}` : '',
+      label: '협력사 지급',
+      count: '',
       locked: false,
     },
+    // 기성은 한백만 — 운영사에게서 받는 돈이라 협력사에게는 탭 자체가 없다
+    ...(canReview
+      ? [{
+          key: 'receivable' as TabKey,
+          label: '기성',
+          count: `${settlementDone}/${settlementOpen}`,
+          locked: false,
+        }]
+      : []),
   ];
 
   return (
@@ -215,6 +226,12 @@ export default function ProjectDetailView({
               vis={vis}
               canReview={canReview}
               ruleOptions={ruleOptions}
+            />
+          )}
+          {tab === 'receivable' && canReview && (
+            <ReceivableTab
+              detail={detail}
+              canReview={canReview}
               settlementRuleChoices={settlementRuleChoices}
             />
           )}

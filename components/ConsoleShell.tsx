@@ -86,8 +86,6 @@ const GROUPS: Group[] = [
       { href: '/payments', label: '지급 내역', short: '내역' },
       { href: '/payouts', label: '하도급사 지급', short: '지급', adminOnly: true },
       { href: '/receivables', label: '운영사 기성', short: '기성', adminOnly: true },
-      // 지급액의 뿌리 — 케이스가 없으면 위 두 화면의 금액도 없다
-      { href: '/pricing', label: '단가 케이스', short: '단가', adminOnly: true },
     ],
   },
   {
@@ -102,6 +100,8 @@ const GROUPS: Group[] = [
     label: '관리',
     adminOnly: true,
     items: [
+      // 정산 묶음에서 옮겼다(한백 확인) — 매일 도는 흐름이 아니라 어쩌다 만지는 기준값이다
+      { href: '/pricing', label: '단가 케이스', short: '단가' },
       { href: '/admin/materials', label: '자료실 관리', short: '관리' },
       // 설정(/admin/accounts)에서 뗐다(한백 확인) — 지급 전마다 보는 값이라 계정 등록과 결이 다르다
       { href: '/admin/partners', label: '협력사 정보', short: '협력' },

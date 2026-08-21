@@ -353,7 +353,7 @@ function Row({ r }: { r: PricingRule }) {
             <code className="text-micro">{r.id}</code>
             <span>{r.bizYear}년 · {r.startDate}</span>
             {r.note && <span className="break-keep">{r.note}</span>}
-            <Btn size="sm" kind="quiet" onClick={() => setEditing(true)}>고치기</Btn>
+            <Btn size="sm" kind="quiet" onClick={() => setEditing(true)}>수정</Btn>
           </p>
         )}
       </td>

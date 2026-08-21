@@ -149,7 +149,7 @@ function PartnerCard({
             onClick={openEdit}
             className="ml-auto rounded-ctl border border-slate-200 px-2.5 py-1 text-tiny font-bold text-slate-600 transition hover:border-brand-300 hover:text-brand-800 disabled:opacity-40"
           >
-            고치기
+            수정
           </button>
         )}
       </div>

@@ -57,7 +57,7 @@ export function EditableFact({
       url,
       method,
       body: { [field]: trimmed === '' ? null : trimmed },
-      fail: '고치지 못했습니다.',
+      fail: '수정하지 못했습니다.',
     });
     if (ok) setEditing(false);
   }
@@ -131,7 +131,7 @@ export function EditableFact({
       </dd>
       {canEdit && (
         <Btn size="sm" kind="quiet" onClick={() => { setDraft(value ?? ''); setEditing(true); }}>
-          {value ? '고치기' : '입력'}
+          {value ? '수정' : '입력'}
         </Btn>
       )}
     </div>

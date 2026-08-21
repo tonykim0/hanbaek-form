@@ -68,14 +68,19 @@ const BTN: Record<BtnKind, string> = {
   do: 'rounded-ctl bg-brand-600 font-bold text-white transition hover:bg-brand-700 disabled:bg-slate-200 disabled:text-slate-400',
   side: 'rounded-ctl border border-slate-300 bg-white font-bold text-slate-700 transition hover:bg-slate-50 disabled:border-slate-200 disabled:text-slate-300',
   stop: 'rounded-ctl bg-red-600 font-bold text-white transition hover:bg-red-700 disabled:bg-slate-200 disabled:text-slate-400',
-  quiet: 'font-bold text-slate-400 underline decoration-slate-300 transition hover:text-brand-800 disabled:text-slate-300 disabled:no-underline',
+  /*
+   * 곁다리 동작(수정·취소)의 모양 — 밑줄 글자였는데 고스트 칩으로 바꿨다(한백 확인).
+   * 밑줄은 링크로 읽히고, 「각지면 누르는 것」(화면 규칙 11)과도 어긋났다.
+   */
+  quiet:
+    'rounded-ctl border border-slate-200 bg-white font-bold text-slate-500 transition hover:border-brand-300 hover:text-brand-800 disabled:border-slate-100 disabled:text-slate-300',
   undo: 'font-bold text-slate-400 underline decoration-slate-300 transition hover:text-red-700 disabled:text-slate-300 disabled:no-underline',
 };
 
-/** 글자만인 단추(quiet·undo)는 패딩이 없다 — 안쪽 여백을 주면 눌리는 상자처럼 보인다 */
-const BTN_SIZE: Record<'md' | 'sm', Record<'box' | 'text', string>> = {
-  md: { box: 'px-3.5 py-2 text-lead', text: 'text-small' },
-  sm: { box: 'px-2.5 py-1 text-small', text: 'text-tiny' },
+/** 글자만인 단추(undo)는 패딩이 없다 — 안쪽 여백을 주면 눌리는 상자처럼 보인다 */
+const BTN_SIZE: Record<'md' | 'sm', Record<'box' | 'chip' | 'text', string>> = {
+  md: { box: 'px-3.5 py-2 text-lead', chip: 'px-2.5 py-1 text-small', text: 'text-small' },
+  sm: { box: 'px-2.5 py-1 text-small', chip: 'px-1.5 py-0.5 text-tiny', text: 'text-tiny' },
 };
 
 export function Btn({
@@ -93,7 +98,7 @@ export function Btn({
   /** 도는 중에 보일 이름. 안 주면 「처리 중…」이다 */
   busyLabel?: string;
 }) {
-  const dim = BTN_SIZE[size][kind === 'quiet' || kind === 'undo' ? 'text' : 'box'];
+  const dim = BTN_SIZE[size][kind === 'undo' ? 'text' : kind === 'quiet' ? 'chip' : 'box'];
   return (
     <button
       type="button"

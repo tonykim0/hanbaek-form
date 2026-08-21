@@ -203,7 +203,7 @@ function RuleFact({
             : <Empty kind="miss" />}
           {canEdit && choices && (
             <Btn size="sm" kind="quiet" onClick={() => setEditing(true)}>
-              {rule ? '고치기' : '지정'}
+              {rule ? '수정' : '지정'}
             </Btn>
           )}
         </>

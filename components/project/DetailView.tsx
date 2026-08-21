@@ -326,26 +326,16 @@ function SiteHeader({
       {project.addr && <p className="mt-1 text-base text-slate-500">{project.addr}</p>}
 
       {/*
-        * 두 줄로 나눈다 — 가르는 기준은 「읽는 것」과 「고치는 것」이다.
+        * 네 줄로 나눈다 (한백 확인 2026-08-21). 선 없이 여백만으로 줄을 가른다.
         *
-        * 앞줄은 계약의 뼈대다. 접수 때 정해져서 안 바뀐다.
-        * 뒷줄은 누가 하고 어디까지 왔나다. 한백이 채우고 고친다.
+        *   1줄 — 누구의 일인가: 사업연도 · 운영사 · 영업사 · 시공사
+        *   2줄 — 계약의 뼈대: 사업구분 · 계약대수 · 계약연수 · 수전방식 · 계약접수일
+        *   3·4줄 — 승인 흐름 (ApprovalFacts): 제출 · 대기번호 / 승인일 · 시공승인일
         *
-        * 아홉 칸을 한 줄에 늘어놓으면 어디까지가 무엇인지 눈이 못 찾는다 — 실제로
-        * 「운영사 … 접수일 … 영업사 … 대기번호」가 한 줄로 흘러서 읽히지 않았다.
+        * 아홉 칸을 한 줄에 늘어놓으면 어디까지가 무엇인지 눈이 못 찾는다.
         * 나머지 현장 정보는 계약 탭의 「현장 정보」에 있다.
         */}
       <dl className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-1.5 text-base">
-        <Fact label="운영사" value={project.cpo} />
-        <Fact label="대수" value={`${qty}대`} />
-        <Fact label="계약연수" value={terms.length ? `${terms.join('·')}년` : null} />
-        <Fact label="수전방식" value={project.powerType} />
-        <Fact label="사업구분" value={project.bizType} />
-        <Fact label="접수일" value={project.createdAt} />
-      </dl>
-
-      {/* 선 없이 줄만 바꾼다 — 여백이 이미 줄을 가르고 있어 선까지 있으면 과하다(한백 확인) */}
-      <dl className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-1.5 text-base">
         {/* 접수 연도가 기본값 — 이월 현장(작년 사업이 올해 접수)만 고친다 */}
         <EditableFact
           label="사업연도"
@@ -357,6 +347,7 @@ function SiteHeader({
           empty="미지정"
           placeholder="2026"
         />
+        <Fact label="운영사" value={project.cpo} />
         <EditableFact
           label="영업사"
           value={project.salesOrg}
@@ -377,18 +368,24 @@ function SiteHeader({
           placeholder="비우면 어느 업체도 아닌 현장"
           suggestions={knownOrgs}
         />
-        {/* 자체투자는 환경부 보조금을 받지 않는다 — 받을 대기번호가 없다 */}
-        <EditableFact
-          label="환경부 대기번호"
-          value={project.envQueueNo}
-          canEdit={canReview}
-          url={`/api/projects/${project.id}/env-queue`}
-          field="value"
-          method="POST"
-          placeholder="2026-595"
-          na={project.bizType === '자체투자'}
-        />
       </dl>
+
+      <dl className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-1.5 text-base">
+        <Fact label="사업구분" value={project.bizType} />
+        <Fact label="계약대수" value={`${qty}대`} />
+        <Fact label="계약연수" value={terms.length ? `${terms.join('·')}년` : null} />
+        <Fact label="수전방식" value={project.powerType} />
+        <Fact label="계약접수일" value={project.createdAt} />
+      </dl>
+
+      <ApprovalFacts
+        projectId={project.id}
+        process={process}
+        edit={processEdit}
+        envQueueNo={project.envQueueNo}
+        isSelfInvest={project.bizType === '자체투자'}
+        canReview={canReview}
+      />
 
       {blockers.length > 0 && (
         <div className="mt-3 flex flex-wrap gap-1.5">
@@ -399,13 +396,6 @@ function SiteHeader({
           ))}
         </div>
       )}
-
-      {/*
-        * 승인 — 시공 탭에 있었는데 여기로 올렸다(한백 확인). 승인 대기 구간에 자주 보고
-        * 적는 값이라 탭을 열지 않고 진행현황 및 메모 바로 위에서 읽고 적는다.
-        * 시공 탭에서는 뺐다 — 같은 값을 두 곳에 두지 않는다(화면 규칙 5).
-        */}
-      <ApprovalFacts projectId={project.id} process={process} edit={processEdit} />
 
       <ProgressLog projectId={project.id} notes={detail.notes} author={noteAuthor} />
 
@@ -421,18 +411,24 @@ const BAND_TONE: Record<BoardBand, string> = {
 };
 
 /**
- * 승인 사실 줄 — 환경부 승인일 · 운영사 계약서 제출 · 운영사 시공승인일.
+ * 승인 흐름 두 줄 — 머리말 3·4줄이다 (한백 확인 2026-08-21).
  *
- * 진행현황 및 메모 바로 위에 있다. 환경부 승인일과 제출 체크는 한백이 적고,
- * 시공승인일은 그 현장의 시공사도 적는다 — 판정은 저장소(assertProcessWrite)가 다시 한다.
- * 제출 체크는 협력사에게 줄 자체를 안 그린다(몰라도 되는 값).
+ *   3줄: 운영사 계약서 제출 · 환경부 대기번호   (제출 체크는 한백만 — 몰라도 되는 값)
+ *   4줄: 환경부 승인일 · 운영사 시공승인일
+ *
+ * 환경부 승인일과 제출 체크는 한백이 적고, 시공승인일은 그 현장의 시공사도 적는다 —
+ * 판정은 저장소(assertProcessWrite)가 다시 한다.
  */
 function ApprovalFacts({
-  projectId, process, edit,
+  projectId, process, edit, envQueueNo, isSelfInvest, canReview,
 }: {
   projectId: string;
   process: ProjectDetail['process'];
   edit: ProcessEdit;
+  envQueueNo: string | null;
+  /** 자체투자는 환경부 보조금을 받지 않는다 — 받을 대기번호가 없다 */
+  isSelfInvest: boolean;
+  canReview: boolean;
 }) {
   const { busyKey, error, run } = useAction();
   const save = (field: string, value: string | null) =>
@@ -444,15 +440,8 @@ function ApprovalFacts({
     });
 
   return (
+    <>
     <dl className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-1.5 text-base">
-      <DateFact
-        label="환경부 승인일"
-        value={process.envApprovalDate}
-        canEdit={edit === 'all'}
-        busy={busyKey === 'envApprovalDate'}
-        onSave={(v) => save('envApprovalDate', v)}
-        hint="기성 「환경부 승인」 트리거가 이 날짜로 열립니다"
-      />
       {edit === 'all' && (
         <div className="flex items-baseline gap-1.5">
           <dt className="text-tiny font-bold tracking-[0.04em] text-slate-400">운영사 계약서 제출</dt>
@@ -472,6 +461,28 @@ function ApprovalFacts({
           </dd>
         </div>
       )}
+      <EditableFact
+        label="환경부 대기번호"
+        value={envQueueNo}
+        canEdit={canReview}
+        url={`/api/projects/${projectId}/env-queue`}
+        field="value"
+        method="POST"
+        empty="미지정"
+        placeholder="2026-595"
+        na={isSelfInvest}
+      />
+    </dl>
+
+    <dl className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-1.5 text-base">
+      <DateFact
+        label="환경부 승인일"
+        value={process.envApprovalDate}
+        canEdit={edit === 'all'}
+        busy={busyKey === 'envApprovalDate'}
+        onSave={(v) => save('envApprovalDate', v)}
+        hint="기성 「환경부 승인」 트리거가 이 날짜로 열립니다"
+      />
       <DateFact
         label="운영사 시공승인일"
         value={process.cpoApprovalDate}
@@ -482,6 +493,7 @@ function ApprovalFacts({
       />
       <Err>{error}</Err>
     </dl>
+    </>
   );
 }
 
@@ -519,7 +531,7 @@ function DateFact({
           <dd>{value ? <Val value={value} /> : <Empty kind="wait" />}</dd>
           {canEdit && (
             <Btn size="sm" kind="quiet" onClick={() => setEditing(true)}>
-              {value ? '고치기' : '입력'}
+              {value ? '수정' : '입력'}
             </Btn>
           )}
         </>

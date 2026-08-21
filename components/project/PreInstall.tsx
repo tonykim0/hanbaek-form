@@ -187,7 +187,7 @@ export function PreInstall({
                 onClick={() => { setNote(project.preNote ?? ''); setEditing(true); }}
                 className="text-tiny font-bold text-slate-400 underline decoration-slate-300 transition hover:text-brand-800"
               >
-                {project.preNote ? '고치기' : '적기'}
+                {project.preNote ? '수정' : '적기'}
               </button>
             )}
           </div>

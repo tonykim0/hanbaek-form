@@ -81,23 +81,9 @@ export default function TopBar({ role }: { role: Role }) {
      * 로고 원색(brand-400)은 흰 글자가 안 읽혀서 같은 계열의 진한 톤을 쓴다.
      * 조회 도구는 왼쪽 — 본문 제목과 같은 여백에서 시작한다. 「내 차례」만 오른쪽 끝.
      */
-    <header className="sticky top-0 z-30 flex h-12 items-center justify-between bg-brand-700 px-5 sm:px-7 print:hidden">
-      <nav aria-label="조회 도구" className="flex items-center gap-1">
-        {role === 'admin' && (
-          <>
-            {ADMIN_INTAKE.map((t) => (
-              <BarLink key={t.href} href={t.href} label={t.label} active={pathname.startsWith(t.href)} />
-            ))}
-            <div className="mx-1 h-5 w-px bg-white/25" />
-          </>
-        )}
-        {TOOLS.map((t) => (
-          <BarLink key={t.href} href={t.href} label={t.label} active={pathname.startsWith(t.href)} />
-        ))}
-      </nav>
-
+    <header className="sticky top-0 z-30 flex h-12 items-center gap-1 bg-brand-700 px-5 sm:px-7 print:hidden">
+      {/* 할 일이 맨 왼쪽 — 시선이 시작하는 자리다. 있으면 흰 바탕으로 초록 바에서 가장 밝다. */}
       <div ref={boxRef} className="relative">
-        {/* 할 일이 있으면 흰 바탕으로 도드라진다 — 초록 바에서 가장 밝은 자리 */}
         <button
           type="button"
           onClick={() => {
@@ -111,7 +97,7 @@ export default function TopBar({ role }: { role: Role }) {
               : 'border border-white/30 text-white/85 hover:bg-white/10 hover:text-white'
           }`}
         >
-          내 차례
+          할 일
           {todos !== null && (
             <span
               className={`rounded-tag px-1.5 py-0.5 text-tiny font-bold tabular-nums ${
@@ -124,7 +110,7 @@ export default function TopBar({ role }: { role: Role }) {
         </button>
 
         {open && (
-          <div className="absolute right-0 top-full mt-1.5 w-80 rounded-panel border border-slate-200 bg-white py-1 shadow-lg">
+          <div className="absolute left-0 top-full mt-1.5 w-80 rounded-panel border border-slate-200 bg-white py-1 shadow-lg">
             {todos === null || todos.length === 0 ? (
               <p className="px-3 py-3 text-small text-slate-400">
                 지금 움직일 차례인 현장 <span className="font-bold">0건</span>
@@ -168,6 +154,22 @@ export default function TopBar({ role }: { role: Role }) {
           </div>
         )}
       </div>
+
+      <div className="mx-1.5 h-5 w-px bg-white/25" />
+
+      <nav aria-label="바로가기" className="flex items-center gap-1">
+        {role === 'admin' && (
+          <>
+            {ADMIN_INTAKE.map((t) => (
+              <BarLink key={t.href} href={t.href} label={t.label} active={pathname.startsWith(t.href)} />
+            ))}
+            <div className="mx-1 h-5 w-px bg-white/25" />
+          </>
+        )}
+        {TOOLS.map((t) => (
+          <BarLink key={t.href} href={t.href} label={t.label} active={pathname.startsWith(t.href)} />
+        ))}
+      </nav>
     </header>
   );
 }

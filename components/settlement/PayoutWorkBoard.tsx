@@ -8,8 +8,9 @@
  *   시공비 1차 = 설치완료 · 2차 = 개통완료
  *
  * 표 한 벌이 전부다(한백 확인) — 현장·구분마다 총 지급액, 1차·2차 각각의 금액과
- * 지급일(나갔으면)·조건(안 나갔으면), 남은 금액이 한 줄에 선다. 위에 있던 「영업비
- * 지급 계획」 합계 구역은 걷어냈다 — 줄마다 다 보이는 것을 다시 합쳐 보여줄 이유가 없다.
+ * 지급시기(트리거)·지급일(나갔으면)·조건(안 나갔으면)이 한 줄에 선다. 위에 있던
+ * 「영업비 지급 계획」 합계 구역은 걷어냈다 — 줄마다 다 보이는 것을 또 합쳐 보여줄
+ * 이유가 없다. 남은 금액 열도 걷어냈다(한백 확인) — 2차 칸이 그 말을 한다.
  *
  * 「확정」은 실제 은행 이체가 아니라 송금할 묶음을 원장에 고정하는 일이다. 바로 기록하지
  * 않고 검토 단계를 한 번 거친다 — 대상·금액·날짜 중 하나를 잘못 고른 채 묶음 전체가
@@ -119,22 +120,19 @@ function workOf(p: Payout): PayoutWork {
 }
 
 /**
- * 구분×회차 한 축 — 「영업비」와 「영업비 1차」가 나란히 있으면 겹치는 필터라
- * 어느 것을 눌러야 할지 헷갈린다. 전체 말고는 서로 겹치지 않는다(한백 확인: MECE).
- * 1차·2차는 「지금 그 회차가 차례인 줄」이다 — 다 나간 줄은 전체에서만 보인다.
+ * 필터 두 축 — 구분(영업비/시공비)과 지급시기(회차)를 따로 고른다(한백 확인).
+ * 한 드롭다운에 「영업비 1차」로 묶으면 「영업비 전체」를 볼 방법이 없다.
+ * 지급시기 1차·2차는 「지금 그 회차가 차례인 줄」이다 — 다 나간 줄은 전체에서만 보인다.
  */
-const PAYOUT_FILTERS = [
-  { label: '전체' },
-  { label: '영업비 1차', kind: '영업비' as const, no: 1 as const },
-  { label: '영업비 2차', kind: '영업비' as const, no: 2 as const },
-  { label: '시공비 1차', kind: '시공비' as const, no: 1 as const },
-  { label: '시공비 2차', kind: '시공비' as const, no: 2 as const },
-] as const;
-type PayoutFilter = (typeof PAYOUT_FILTERS)[number]['label'];
+const KIND_FILTERS = ['전체', '영업비', '시공비'] as const;
+const STEP_FILTERS = ['전체', '1차', '2차'] as const;
+type KindFilter = (typeof KIND_FILTERS)[number];
+type StepFilter = (typeof STEP_FILTERS)[number];
 
 export default function PayoutWorkBoard({ rows }: { rows: SettlementSummary[] }) {
   const [org, setOrg] = useState<string | null>(null);
-  const [payoutFilter, setPayoutFilter] = useState<PayoutFilter>('전체');
+  const [kindFilter, setKindFilter] = useState<KindFilter>('전체');
+  const [stepFilter, setStepFilter] = useState<StepFilter>('전체');
   const [sel, setSel] = useState<Set<string>>(new Set());
   const [at, setAt] = useState(today());
   const [reviewing, setReviewing] = useState(false);
@@ -150,11 +148,10 @@ export default function PayoutWorkBoard({ rows }: { rows: SettlementSummary[] })
 
   const confirmedTotal = useMemo(() => work.reduce((n, p) => n + p.confirmed, 0), [work]);
 
-  const filter = PAYOUT_FILTERS.find((item) => item.label === payoutFilter)!;
   const shown = work
     .filter((p) => org === null || p.org === org)
-    .filter((p) => !('kind' in filter) || p.kind === filter.kind)
-    .filter((p) => !('no' in filter) || p.open?.no === filter.no);
+    .filter((p) => kindFilter === '전체' || p.kind === kindFilter)
+    .filter((p) => stepFilter === '전체' || p.open?.no === (stepFilter === '1차' ? 1 : 2));
   const selectable = shown.filter((p) => p.state === '지급 가능' && p.open !== null);
   const selected = selectable.filter((p) => sel.has(p.key));
   const selectedTotal = selected.reduce((n, p) => n + (p.open?.amount ?? 0), 0);
@@ -210,15 +207,23 @@ export default function PayoutWorkBoard({ rows }: { rows: SettlementSummary[] })
       <div className="mb-3 flex flex-wrap items-center gap-2">
         {/* 필터는 펼쳐 두지 않는다(한백 확인) — 칩 일곱 개가 표보다 먼저 눈을 먹었다 */}
         <label className="flex items-center gap-1.5 text-small font-bold text-slate-500">
-          구분·회차
+          구분
           <select
-            value={payoutFilter}
-            onChange={(e) => { resetChoice(); setPayoutFilter(e.target.value as PayoutFilter); }}
-            className={`${FIELD_CELL} w-auto min-w-[120px]`}
+            value={kindFilter}
+            onChange={(e) => { resetChoice(); setKindFilter(e.target.value as KindFilter); }}
+            className={`${FIELD_CELL} w-auto min-w-[92px]`}
           >
-            {PAYOUT_FILTERS.map((item) => (
-              <option key={item.label} value={item.label}>{item.label}</option>
-            ))}
+            {KIND_FILTERS.map((label) => <option key={label} value={label}>{label}</option>)}
+          </select>
+        </label>
+        <label className="flex items-center gap-1.5 text-small font-bold text-slate-500">
+          지급시기
+          <select
+            value={stepFilter}
+            onChange={(e) => { resetChoice(); setStepFilter(e.target.value as StepFilter); }}
+            className={`${FIELD_CELL} w-auto min-w-[92px]`}
+          >
+            {STEP_FILTERS.map((label) => <option key={label} value={label}>{label}</option>)}
           </select>
         </label>
 
@@ -292,7 +297,7 @@ export default function PayoutWorkBoard({ rows }: { rows: SettlementSummary[] })
       {shown.length === 0 ? (
         <Empty />
       ) : (
-        <Frame min="1120px">
+        <Frame min="1000px">
           <thead className="border-b border-slate-100 bg-slate-50 text-tiny font-bold tracking-[0.06em] text-slate-500">
             <tr>
               <th className="w-10 px-3 py-2.5">
@@ -305,7 +310,6 @@ export default function PayoutWorkBoard({ rows }: { rows: SettlementSummary[] })
               <th className="px-3 py-2.5 text-right">총 지급액</th>
               <th className="px-3 py-2.5 text-right">1차 · 70%</th>
               <th className="px-3 py-2.5 text-right">2차 · 잔액</th>
-              <th className="px-3 py-2.5 text-right">남은 금액</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -337,9 +341,6 @@ export default function PayoutWorkBoard({ rows }: { rows: SettlementSummary[] })
                 </td>
                 <StepCell p={p} no={1} />
                 <StepCell p={p} no={2} />
-                <td className={`px-3 py-2.5 text-right align-top font-bold tabular-nums ${p.remaining > 0 ? 'text-amber-800' : p.remaining < 0 ? 'text-red-700' : 'text-slate-300'}`}>
-                  {p.remaining === 0 ? '—' : won(p.remaining)}
-                </td>
               </tr>
             ))}
           </tbody>
@@ -352,7 +353,7 @@ export default function PayoutWorkBoard({ rows }: { rows: SettlementSummary[] })
 }
 
 /**
- * 회차 한 칸 — 금액 밑에 그 회차의 사정이 붙는다.
+ * 회차 한 칸 — 금액 밑에 지급시기(트리거)와 그 회차의 사정이 붙는다.
  * 나갔으면 지급일, 지금 차례면 지급 가능 또는 막는 조건, 아직이면 「1차 뒤」.
  */
 function StepCell({ p, no }: { p: PayoutWork; no: 1 | 2 }) {
@@ -362,20 +363,26 @@ function StepCell({ p, no }: { p: PayoutWork; no: 1 | 2 }) {
   const done = no === 1 ? p.step1Done : p.step2Done;
   const at = no === 1 ? p.step1At : p.step2At;
   const amount = p.open?.no === no ? p.open.amount : no === 1 ? p.step1Amount : p.step2Amount;
+  // 회차의 지급시기 — 영업비 1차=계약완료 · 시공비 1차=설치완료 · 2차=개통완료
+  const trigger = payoutReleaseOf(p.kind, no, p.milestones).trigger;
 
   return (
     <td className="whitespace-nowrap px-3 py-2.5 text-right align-top">
       <p className={`font-black tabular-nums ${done ? 'text-slate-400' : 'text-slate-900'}`}>
         {won(amount)}
       </p>
+      <p className="text-micro text-slate-400">지급시기 {trigger}</p>
       {done ? (
         <p className="text-micro font-bold text-brand-800">지급 {at ?? '완료'}</p>
       ) : p.open?.no === no ? (
         p.state === '지급 가능' ? (
           <Tag tone="ok">지급 가능</Tag>
         ) : (
+          // 지급시기는 바로 윗줄에 있다 — 트리거 대기는 「대기」로 줄여 같은 말을 두 번 안 적는다
           p.blockers.map((reason) => (
-            <p key={reason} className="text-micro font-bold text-amber-700">{reason}</p>
+            <p key={reason} className="text-micro font-bold text-amber-700">
+              {reason === `${trigger} 대기` ? '대기' : reason}
+            </p>
           ))
         )
       ) : (

@@ -258,6 +258,17 @@ function AccountRow({
     setPwDone(true);
   }
 
+  const actAs = useAction();
+  async function startActAs() {
+    const ok = await actAs.run({
+      url: '/api/admin/act-as',
+      body: { id: a.id },
+      fail: '이 계정으로 전환하지 못했습니다.',
+    });
+    // 눈이 통째로 바뀌므로 새로 고침이 아니라 협력사의 첫 화면으로 간다
+    if (ok) window.location.assign('/projects');
+  }
+
   return (
     <>
       <tr className={a.active ? '' : 'bg-slate-50/60'}>
@@ -347,6 +358,19 @@ function AccountRow({
             </span>
           ) : (
             <span className="inline-flex items-center gap-1.5">
+              {/* 대행 — 브라우저 두 개 없이 이 계정의 눈으로 본다. 돌아오는 길은 상단 띠에 */}
+              {a.role !== 'admin' && (
+                <Btn
+                  kind="quiet"
+                  size="sm"
+                  disabled={!a.active}
+                  busy={actAs.busy}
+                  busyLabel="전환 중…"
+                  onClick={startActAs}
+                >
+                  이 계정으로 보기
+                </Btn>
+              )}
               {/* 잊은 비밀번호는 되찾을 수 없다(해시만 저장) — 새로 정하는 자리가 이것뿐이다 */}
               {a.role !== 'admin' && (
                 <Btn
@@ -426,6 +450,13 @@ function AccountRow({
         <tr>
           <td colSpan={6} className="px-3 pb-2.5">
             {error}
+          </td>
+        </tr>
+      )}
+      {actAs.error && (
+        <tr>
+          <td colSpan={6} className="px-3 pb-2.5">
+            <Err>{actAs.error}</Err>
           </td>
         </tr>
       )}

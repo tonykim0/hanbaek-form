@@ -23,6 +23,14 @@ export interface SessionPayload {
   org: string | null;
   /** 만료 시각 (epoch seconds) */
   exp: number;
+  /**
+   * 대행 — 관리자가 이 협력사 계정의 눈으로 보는 중이다.
+   * 쿠키에는 이 표시만 실리고(바탕은 그대로 관리자), 화면·권한이 쓰는 값(id·role·org)은
+   * getSessionUser 가 매 요청 그 계정의 지금 값으로 바꿔 낸다.
+   */
+  asId?: string;
+  /** 대행 중일 때만 — 진짜 사람(관리자). 쿠키에 싣지 않고 매 요청 유도한다. */
+  via?: { id: string; name: string };
 }
 
 /**

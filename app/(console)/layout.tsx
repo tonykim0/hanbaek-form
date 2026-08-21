@@ -30,7 +30,12 @@ export default async function ConsoleLayout({ children }: { children: React.Reac
   if (!session) redirect('/login');
 
   return (
-    <ConsoleShell org={session.org} role={session.role}>
+    // 대행 중이면 그 계정 이름을 내려보낸다 — 껍데기가 「~ 계정으로 보는 중」 띠를 띄운다
+    <ConsoleShell
+      org={session.org}
+      role={session.role}
+      actAs={session.via ? { name: session.name } : null}
+    >
       {children}
     </ConsoleShell>
   );

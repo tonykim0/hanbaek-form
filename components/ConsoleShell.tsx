@@ -116,10 +116,12 @@ const GROUPS: Group[] = [
 ];
 
 export default function ConsoleShell({
-  org, role, children,
+  org, role, actAs = null, children,
 }: {
   org: string | null;
   role: Role;
+  /** 대행 중이면 그 계정 이름 — 관리자가 협력사의 눈으로 보고 있다 */
+  actAs?: { name: string } | null;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
@@ -245,9 +247,41 @@ export default function ConsoleShell({
       {/* 본문은 전체 폭을 쓴다 — 보드의 칸이 화면 밖으로 나가지 않게 */}
       <div className={`transition-[padding] duration-150 print:pl-0 ${open ? 'pl-[184px]' : 'pl-[56px]'}`}>
         <TopBar role={role} />
+        {/*
+          * 대행 띠 — 지금 눈이 내 것이 아님을 어느 화면에서든 보인다. 사이드바에 관리
+          * 묶음이 사라지므로(눈이 협력사다) 돌아오는 길은 이 띠 하나뿐이다.
+          */}
+        {actAs && (
+          <div className="sticky top-12 z-20 flex items-center gap-3 border-b border-amber-200 bg-amber-50 px-5 py-1.5 sm:px-7 print:hidden">
+            <span className="text-small font-bold text-amber-900">
+              {actAs.name} 계정으로 보는 중
+            </span>
+            <ActAsExit />
+          </div>
+        )}
         {/* 바닥글은 걷어냈다(한백 확인) — 내부 도구에 매 페이지 같은 문장과 선은 자리만 먹는다 */}
         <main className="px-5 pb-16 pt-8 sm:px-7 sm:pt-9">{children}</main>
       </div>
     </div>
+  );
+}
+
+/** 대행을 벗고 관리자로 — 다시 로그인이 아니라 쿠키의 asId 를 지우는 것뿐이다 */
+function ActAsExit() {
+  const [busy, setBusy] = useState(false);
+  return (
+    <button
+      type="button"
+      disabled={busy}
+      onClick={async () => {
+        setBusy(true);
+        const res = await fetch('/api/admin/act-as', { method: 'DELETE' });
+        if (res.ok) window.location.reload();
+        else setBusy(false);
+      }}
+      className="ml-auto rounded-ctl border border-amber-300 bg-white px-2.5 py-1 text-tiny font-bold text-amber-900 transition hover:border-amber-400 disabled:opacity-40"
+    >
+      {busy ? '돌아가는 중…' : '관리자로 돌아가기'}
+    </button>
   );
 }

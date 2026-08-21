@@ -29,13 +29,15 @@ export function getSecret(): string {
   return 'dev-only-insecure-secret-do-not-ship';
 }
 
-export async function createSessionToken(user: User): Promise<string> {
+/** asId 를 주면 대행 쿠키 — 바탕(id·role)은 그대로 이 사용자(관리자)다 */
+export async function createSessionToken(user: User, asId?: string): Promise<string> {
   const payload: SessionPayload = {
     id: user.id,
     name: user.name,
     role: user.role,
     org: user.org,
     exp: Math.floor(Date.now() / 1000) + SESSION_TTL_SEC,
+    ...(asId ? { asId } : {}),
   };
   return signPayload(payload, getSecret());
 }
@@ -52,15 +54,44 @@ export const getSessionUser = cache(async (): Promise<SessionPayload | null> => 
   if (live === 'gone') return null;
 
   // 못 봤으면 쿠키에 실린 값을 그대로 쓴다 — DB 가 한 번 끊겼다고 전원을 내보내지 않는다
-  if (live === 'unknown') return signed;
-
   // 이름·구분·소속은 지금 값이 정본이다. 쿠키의 값은 발급 시점의 것이라 낡을 수 있다.
-  return { ...signed, name: live.name, role: live.role, org: live.org };
+  const base =
+    live === 'unknown' ? signed : { ...signed, name: live.name, role: live.role, org: live.org };
+
+  /*
+   * 대행 — 바탕이 관리자이고 대상 계정이 지금도 살아 있을 때만 그 계정의 눈이 된다.
+   * 대상이 중지·삭제됐거나 확인을 못 했으면 조용히 관리자 자신으로 돌아온다 —
+   * 대행이 깨졌다고 관리자 세션까지 끊으면 돌아올 길이 없다.
+   */
+  if (signed.asId && base.role === 'admin') {
+    const asLive = await accountForSession(signed.asId);
+    if (asLive !== 'gone' && asLive !== 'unknown') {
+      return {
+        ...base,
+        id: signed.asId,
+        name: asLive.name,
+        role: asLive.role,
+        org: asLive.org,
+        via: { id: base.id, name: base.name },
+      };
+    }
+  }
+  return base;
 });
 
 /** 쓰기를 일으킨 사람 — 감사 로그에 남길 최소 정보 */
 export function actorOf(session: SessionPayload): Actor {
-  return { id: session.id, name: session.name, role: session.role, org: session.org };
+  return {
+    id: session.id,
+    /*
+     * 대행 중의 쓰기는 진짜 사람을 이름에 남긴다 — 감사 기록이 거짓말하면 안 된다.
+     * id·구분·소속은 그 계정 그대로 둔다: 권한 판정이 실제 협력사 로그인과
+     * 똑같이 돌아야 대행으로 눌러 본 것이 시험이 된다.
+     */
+    name: session.via ? `${session.name}(대행: ${session.via.name})` : session.name,
+    role: session.role,
+    org: session.org,
+  };
 }
 
 export function viewerOf(session: SessionPayload): Viewer {

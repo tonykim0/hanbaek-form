@@ -19,10 +19,11 @@ export async function middleware(request: NextRequest) {
   const session = token ? await verifyPayload<SessionPayload>(token, secret()) : null;
 
   if (session) {
-    // 관리자 전용 구역 — 로그인했더라도 협력사는 못 들어간다
+    // 관리자 전용 구역 — 로그인했더라도 협력사는 못 들어간다.
+    // 대행 중(asId)의 눈은 협력사다 — 바탕이 관리자라도 여기는 못 들어간다.
     const path = request.nextUrl.pathname;
     const adminOnly = ['/admin', '/receivables', '/payouts', '/pricing', '/design'];
-    if (adminOnly.some((p) => path.startsWith(p)) && session.role !== 'admin') {
+    if (adminOnly.some((p) => path.startsWith(p)) && (session.role !== 'admin' || session.asId)) {
       return NextResponse.redirect(new URL('/projects', request.url));
     }
     return NextResponse.next();

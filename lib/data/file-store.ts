@@ -234,8 +234,11 @@ export const fileRepository: ProjectRepository = {
 
     doc.status = input.status;
     doc.rejectReason = input.status === 'rejected' ? input.reason!.trim() : null;
-    // 반려는 앞서 한 계약 확인을 무효로 만든다 (pg-store 와 같은 판정)
-    if (input.status === 'rejected') r.project.contractConfirmedAt = null;
+    // 반려는 앞서 한 계약 확인을 무효로 만들고, 공을 영업사로 넘긴다 (pg-store 와 같은 판정)
+    if (input.status === 'rejected') {
+      r.project.contractConfirmedAt = null;
+      r.court = '영업사';
+    }
     r.lastProgressAt = today();
     await save(records);
   },

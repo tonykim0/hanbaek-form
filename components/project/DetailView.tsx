@@ -14,7 +14,9 @@
  */
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
-import type { ContractState, ProjectDetail, SettlementRuleChoice } from '@/types/project';
+import type { ContractState, Court, ProjectDetail, SettlementRuleChoice } from '@/types/project';
+import { useAction } from '@/lib/use-action';
+import { Btn, Choice, Err } from '@/components/ui';
 import { buildDocContext, evaluateDocs, isPartyInferred, PROCESS_DOCS } from '@/lib/doc-rules';
 import { bandOfColumn, boardColumnOf, type BoardBand } from '@/lib/board';
 import type { ProcessEdit } from '@/lib/process';
@@ -271,13 +273,20 @@ function SiteHeader({
         * 단계를 이름 위에 둔다. 오른쪽 끝에 있으면 이름을 읽고 눈을 옮겨야 보이는데,
         * 이 화면에서 가장 먼저 알아야 하는 것이 「지금 어느 칸에 있나」다.
         */}
-      <div className="mt-2">
+      <div className="mt-2 flex flex-wrap items-center gap-2">
         <span
           className={`inline-flex rounded-full px-3 py-1 text-base font-black ${BAND_TONE[band]}`}
           title="보드에서 이 현장이 서는 칸"
         >
           {column}
         </span>
+        <TurnChip
+          projectId={project.id}
+          court={detail.court}
+          stage={stage}
+          rejected={contract.rejected}
+          canEdit={canReview}
+        />
       </div>
       <h1 className="mt-2 text-h1 font-black text-slate-900">
         {project.name}
@@ -360,3 +369,75 @@ const BAND_TONE: Record<BoardBand, string> = {
   시공: 'bg-brand-100 text-brand-900',
   멈춤: 'bg-slate-800 text-white',
 };
+
+const COURTS: Court[] = ['한백', '영업사', '시공사', '운영사'];
+
+/**
+ * 지금 누가 무엇을 할 차례인가 — 상태 문구로 유도한다.
+ *
+ * 저장값(court)은 「누가」뿐이다. 「무엇을」은 상황에서 유도한다 — 따로 저장하면 갈린다.
+ * 「공 차례」라는 말은 설계 문서의 은유라 화면에 쓰지 않는다.
+ */
+function turnPhrase(court: Court, stage: ProjectDetail['stage'], rejected: number): string {
+  switch (court) {
+    case '영업사': return rejected > 0 ? '영업사 보완 대기' : '영업사 진행 차례';
+    case '한백': return stage === 'intake' ? '한백 검수 대기' : '한백 진행 차례';
+    case '시공사': return '시공사 진행 차례';
+    case '운영사': return '운영사 회신 대기';
+  }
+}
+
+/**
+ * 차례 표시 — 단계 배지 옆에 늘 보인다.
+ *
+ * 값은 쓰기 동작이 스스로 넘긴다: 접수·서류 올리기 → 한백, 반려 → 영업사,
+ * 계약 확인 → 시공사. 그래도 손으로 넘길 수 있어야 한다 — 전화로 결정이 난 현장은
+ * 차례가 시스템 밖에서 움직인다. 넘기는 것은 한백만이고, 협력사에게는 이 문구가
+ * 보이는 것 자체가 「네 차례다」라는 신호다. (저장·라우트는 진작 있었는데 그리는 곳이 없었다)
+ */
+function TurnChip({
+  projectId, court, stage, rejected, canEdit,
+}: {
+  projectId: string;
+  court: Court;
+  stage: ProjectDetail['stage'];
+  rejected: number;
+  canEdit: boolean;
+}) {
+  const { busy, error, setError, run } = useAction();
+  const [editing, setEditing] = useState(false);
+
+  const pass = (next: Court) => {
+    if (busy) return;
+    void run({
+      url: `/api/projects/${projectId}/court`,
+      body: { court: next },
+      fail: '차례를 넘기지 못했습니다.',
+    }).then((ok) => { if (ok) setEditing(false); });
+  };
+
+  if (editing) {
+    return (
+      <span className="flex flex-wrap items-center gap-1.5">
+        {COURTS.map((c) => (
+          <Choice key={c} on={court === c} onClick={() => pass(c)}>{c}</Choice>
+        ))}
+        <Btn size="sm" kind="quiet" disabled={busy} onClick={() => { setEditing(false); setError(null); }}>
+          취소
+        </Btn>
+        <Err>{error}</Err>
+      </span>
+    );
+  }
+
+  return (
+    <span className="flex items-center gap-1">
+      <span className="rounded-full bg-amber-100 px-2.5 py-1 text-tiny font-bold text-amber-900">
+        {turnPhrase(court, stage, rejected)}
+      </span>
+      {canEdit && (
+        <Btn size="sm" kind="quiet" onClick={() => setEditing(true)}>넘기기</Btn>
+      )}
+    </span>
+  );
+}

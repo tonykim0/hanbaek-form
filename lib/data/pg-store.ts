@@ -497,12 +497,16 @@ export const pgRepository: ProjectRepository = {
        * 반려하면 앞서 한 계약 확인을 지운다. 반려는 「이 계약은 아직 아니다」는 판정이라
        * 그 확인을 무효로 만든다 — 보완한 뒤 한백이 다시 봐야 한다. 안 지우면 협력사가
        * 서류를 다시 올리는 순간 아무도 안 본 계약이 계약완료로 되돌아간다.
+       *
+       * 반려하면 공도 영업사로 넘어간다 — 보완할 차례다. 다시 올라오면 uploadDocument 가
+       * 공을 한백으로 되돌린다. 이 한쪽이 없으면 반려한 뒤에도 공 차례가 「한백」으로 남아,
+       * 협력사를 기다리는 현장이 한백이 막고 있는 것처럼 보인다.
        */
       await tx
         .update(projects)
         .set({
           lastProgressAt: today(),
-          ...(input.status === 'rejected' ? { contractConfirmedAt: null } : {}),
+          ...(input.status === 'rejected' ? { contractConfirmedAt: null, court: '영업사' } : {}),
         })
         .where(eq(projects.id, input.projectId));
 

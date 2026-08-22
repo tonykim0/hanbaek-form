@@ -158,13 +158,14 @@ function NoteItem({
         )}
         <span className="flex-1" />
         {mine && !editing && (
-          <button
-            type="button"
+          <Btn
+            size="sm"
+            kind="quiet"
+            className="shrink-0"
             onClick={() => { setBody(note.body); setEditing(true); }}
-            className="shrink-0 text-tiny font-bold text-slate-400 underline decoration-slate-300 transition hover:text-brand-800"
           >
             수정
-          </button>
+          </Btn>
         )}
       </div>
 

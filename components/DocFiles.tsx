@@ -10,7 +10,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAction } from '@/lib/use-action';
-import { Err } from '@/components/ui';
+import { Btn, Err } from '@/components/ui';
 import JSZip from 'jszip';
 import type { ProjectDocument } from '@/types/project';
 import { downloadBlob } from '@/lib/download';
@@ -121,14 +121,9 @@ export function DocDelete({
 
   return (
     <>
-      <button
-        type="button"
-        disabled={busy}
-        onClick={remove}
-        className="text-tiny font-bold text-slate-400 underline decoration-slate-300 transition hover:text-slate-700 disabled:text-slate-300"
-      >
-        {busy ? '지우는 중…' : '삭제'}
-      </button>
+      <Btn kind="undo" size="sm" busy={busy} busyLabel="지우는 중…" onClick={remove}>
+        삭제
+      </Btn>
       <Err className="mt-1 block">{error}</Err>
     </>
   );

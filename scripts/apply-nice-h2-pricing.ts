@@ -6,7 +6,8 @@
  *   DATABASE_URL=<프로덕션> npx tsx scripts/apply-nice-h2-pricing.ts --write
  *
  * 멱등하다 — 같은 칸(교체유형 × 수전 × 연수 × 유형 × 채널)을 같은 적용 시작으로 덮는
- * 활성 케이스가 이미 있으면 지나간다. 두 번 돌려도 같은 결과다.
+ * 활성 케이스가 이미 있으면 값이 같은지 보고, 같으면 지나가고 다르면 고친다.
+ * 두 번 돌려도 같은 결과다. 참조된 케이스는 저장소가 수정을 거절한다(그때는 개정이다).
  *
  * ★왜 스크립트인가★
  * 케이스의 정본은 DB 이고 화면(/pricing)에서 손으로 넣는 것이 정규 경로다. 그런데 이번
@@ -35,11 +36,11 @@
  * 잡힌다. 보조사업 「모자분리 교체」(공사 1,800)도 넣지 않았다 — 교체는 자체투자로만
  * 하기로 했다(2026-08-22 결정).
  *
- * ★영업비·시공비는 기존 값을 그대로 뒀다.★ 협력사에게 나가는 단가(영업비 110만 ·
- * 시공비 90만)는 정책이 정하는 값이 아니라 우리가 정하는 값이고, 분해는 따로 하기로
- * 했다(2026-08-22). 그래서 정책 인상분은 전부 마진에 있다 — 자체투자 7년은 총액이
- * 200만이라 마진이 0 이다. 분해가 정해지면 이 케이스들은 아직 참조가 없는 동안
- * 화면에서 「수정」으로 고칠 수 있다(참조가 붙으면 개정만 가능하다).
+ * ★분해는 마진·시공비를 못 박고 나머지를 영업비로 둔다.★ 협력사에게 나가는 단가는
+ * 정책이 정하는 값이 아니라 우리가 정하는 값이다 — 마진은 어느 케이스나 20만이고
+ * 시공비는 100만으로 올렸다(2026-08-22 결정). 그래서 정책 인상분은 영업비로 간다.
+ * 총액이 정책에서 오고 두 값이 고정이므로 영업비는 계산해서 나온다 — 케이스마다 손으로
+ * 적으면 총액과 어긋나고, 그 어긋남은 지급 단계에서야 드러난다.
  *
  * ★기성은 고정 + 잔액이다.★ 정책의 선금은 「공사 수수료 기준 50%」인데 저장 구조의
  * 비율은 턴키 × 비율이라(lib/settlement.ts) 그 50% 를 비율로 적으면 금액이 달라진다
@@ -59,7 +60,7 @@ loadEnvFile();
 
 import { pgRepository } from '../lib/data/pg-store';
 import { checkPricingRule, duplicateOf } from '../lib/pricing-match';
-import { stepUnits } from '../lib/settlement';
+import { settlementStepsKeyOf, stepUnits } from '../lib/settlement';
 import type { Actor } from '../lib/auth/types';
 import type { NewPricingRule, PowerType, ReplType, SettlementStepRule } from '../types/project';
 
@@ -67,9 +68,12 @@ const WRITE = process.argv.includes('--write');
 
 const ACTOR: Actor = { id: 'script', name: '나이스 하반기 정책 반영', role: 'admin', org: null };
 
-/** 정책이 정하는 값이 아니라 우리가 정하는 값 — 이번 개정에서 안 건드린다 */
-const PAYOUT_SALES = 1_100_000; // 영업사 지급 단가
-const PAYOUT_CONS = 900_000; // 시공사 지급 단가
+/*
+ * 정책이 정하는 값이 아니라 우리가 정하는 값. 이 둘을 못 박고 영업비를 계산으로 낸다 —
+ * 받는 단가는 정책이 주므로, 셋을 다 적으면 합이 총액과 어긋날 자리가 생긴다.
+ */
+const MARGIN = 200_000; // 한백 마진 — 케이스 불문 동일
+const PAYOUT_CONS = 1_000_000; // 시공사 지급 단가
 
 const START_DATE = '2026년 8월 1일';
 const BIZ_YEAR = 2026;
@@ -131,7 +135,7 @@ const won = (n: number) => n.toLocaleString('ko-KR');
 
 function ruleOf(row: PolicyRow): NewPricingRule {
   const receive = (row.feeSales + row.feeCons) * 1000;
-  const margin = receive - PAYOUT_SALES - PAYOUT_CONS;
+  const salesUnit = receive - MARGIN - PAYOUT_CONS;
   // 선금은 공사 수수료의 50% — 턴키 비율이 아니라 정책 표의 공사 금액에서 나온다
   const prepay = (row.feeCons * 1000) / 2;
   const steps: SettlementStepRule[] = [
@@ -158,15 +162,15 @@ function ruleOf(row: PolicyRow): NewPricingRule {
     channel: '턴키',
     bizYear: BIZ_YEAR,
     startDate: START_DATE,
-    salesUnit: PAYOUT_SALES,
+    salesUnit,
     consUnit: PAYOUT_CONS,
-    margin,
+    margin: MARGIN,
     supervisionBearer: '운영사',
     // 정책: 전기안전점검 수수료 지원 — 파트너사 선납 후 정산 시 지급
     safetyFeeBearer: '한백 대납(회수)',
     note:
       `26년 하반기 정책(2026-08-05 배포, 8/1 접수건~) — ${feeText}. ` +
-      `선금은 공사수수료의 50%. 영업비·시공비는 기존 단가 유지, 인상분은 마진(분해 미확정). ${row.extra}`,
+      `선금은 공사수수료의 50%. 마진 20만·시공비 100만 고정, 나머지가 영업비. ${row.extra}`,
     settlementSteps: steps,
   };
 }
@@ -174,11 +178,18 @@ function ruleOf(row: PolicyRow): NewPricingRule {
 async function main() {
   if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL 이 없습니다 — .env.local 을 확인하세요.');
 
-  const existing = await pgRepository.listPricingRules(ACTOR);
+  const [existing, settles] = await Promise.all([
+    pgRepository.listPricingRules(ACTOR),
+    pgRepository.listSettlementRules(ACTOR),
+  ]);
   console.log(`DB 의 나이스인프라 케이스 ${existing.filter((r) => r.cpo === '나이스인프라').length}건 (전체 ${existing.length}건)\n`);
+
+  /* 기성이 같은가는 규칙 id 로 못 본다 — 옛 규칙은 손으로 붙인 id(nice-2step)라 단계로 견준다 */
+  const stepsKeyById = new Map(settles.map((s) => [s.id, settlementStepsKeyOf(s.steps)]));
 
   const rules = ROWS.map(ruleOf);
   let added = 0;
+  let fixed = 0;
   let skipped = 0;
 
   for (const rule of rules) {
@@ -196,10 +207,39 @@ async function main() {
       skipped += 1;
       continue;
     }
+    /*
+     * 같은 칸을 같은 적용 시작으로 덮는 케이스가 이미 있으면 그것이 이 행이다.
+     * 값이 같으면 지나가고, 다르면 고친다 — 분해 규칙이 바뀌어 금액만 다시 넣는 일이 있다
+     * (2026-08-22: 마진 20만·시공비 100만으로 재분해). 참조가 붙어 있으면 고치는 것이
+     * 소급 변경이라 저장소가 거절한다 — 그때는 개정이고, 적용 시작을 다르게 잡아야 한다.
+     */
     const dup = duplicateOf(rule, existing);
     if (dup) {
-      console.log(`  · 이미 있음 — ${dup.caseName} (${dup.id}). 지나갑니다.\n`);
-      skipped += 1;
+      const sameMoney = dup.salesUnit === rule.salesUnit
+        && dup.consUnit === rule.consUnit
+        && dup.margin === rule.margin;
+      const sameSteps = stepsKeyById.get(dup.defaultSettlementRuleId)
+        === settlementStepsKeyOf(rule.settlementSteps);
+      if (sameMoney && sameSteps && dup.caseName === rule.caseName && dup.note === rule.note) {
+        console.log(`  · 이미 같은 값 — ${dup.id}. 지나갑니다.\n`);
+        skipped += 1;
+        continue;
+      }
+      console.log(
+        `  ! 값이 다릅니다 — ${dup.id}  DB(영업 ${won(dup.salesUnit)} / 시공 ${won(dup.consUnit)} / 마진 ${won(dup.margin)})`
+      );
+      if (!WRITE) {
+        console.log('  → 고칠 수 있습니다 (--write 를 붙이면 실제로 고칩니다)\n');
+        continue;
+      }
+      try {
+        await pgRepository.updatePricingRule(dup.id, rule, ACTOR);
+        console.log(`  ✓ 수정 ${dup.id}\n`);
+        fixed += 1;
+      } catch (e) {
+        console.log(`  ✗ 고칠 수 없습니다 — ${(e as Error).message}\n`);
+        skipped += 1;
+      }
       continue;
     }
     if (!WRITE) {
@@ -214,11 +254,11 @@ async function main() {
   }
 
   if (!WRITE) {
-    console.log(`— 미리보기 —  넣을 것 ${rules.length - skipped}건 · 지나갈 것 ${skipped}건`);
+    console.log(`— 미리보기 —  손댈 것 ${rules.length - skipped}건 · 지나갈 것 ${skipped}건`);
     console.log('실제로 넣으려면 --write 를 붙이세요.');
     return;
   }
-  console.log(`— 완료 —  추가 ${added}건 · 지나감 ${skipped}건`);
+  console.log(`— 완료 —  추가 ${added}건 · 수정 ${fixed}건 · 지나감 ${skipped}건`);
 }
 
 main().catch((e) => {

@@ -74,6 +74,45 @@ function lockMsFor(fails: number, freeTries: number): number | null {
   return Math.min(MAX_LOCK_MS, FIRST_LOCK_MS * 2 ** (fails - freeTries - 1));
 }
 
+function readRows(keys: string[]): Promise<Row[]> {
+  return getDb().select().from(loginAttempts).where(inArray(loginAttempts.key, keys));
+}
+
+/** 인스턴스마다 한 번만 시도한다 */
+let triedCreate = false;
+
+/**
+ * 표가 없으면 만든다.
+ *
+ * ★왜 코드가 표를 만드는가★
+ * 스키마 변경은 원래 로컬 `db:push` + 프로덕션에 따로 반영이다(CLAUDE.md). 그런데 프로덕션
+ * DATABASE_URL 은 Vercel 에서 Sensitive 로 잠겨 있어 값을 되읽을 수 없다 — CLI 로도 못
+ * 가져오고, 접속 문자열은 대화에 남기지 않는다. 그래서 프로덕션 안에서 한 번 돌리는 길밖에
+ * 없었고, 전에는 그때마다 일회용 라우트를 만들어 눌렀다가 걷어냈다(64951a1 → 62c2de7).
+ * 표 하나 때문에 그 왕복을 또 하지 않는다.
+ *
+ * ★이 한 표에만 쓴다.★ 다른 표는 schema.ts 와 `db:push` 가 정본이다. 이 표가 예외인 것은
+ * 로그인을 막지 않는 부속물이라서다 — 없으면 제한만 안 걸리고 로그인은 그대로 된다.
+ * 아래 DDL 은 schema.ts 의 loginAttempts 와 같아야 한다. 둘이 갈리면 db:push 가 되돌린다.
+ *
+ * 돌아온 값은 「이번에 만들기를 시도했나」다. false 면 이미 시도한 적이 있어 다시 읽어도
+ * 소용없다는 뜻이라, 부르는 쪽이 원래 오류를 그대로 던진다.
+ */
+async function ensureTable(): Promise<boolean> {
+  if (triedCreate) return false;
+  triedCreate = true;
+  await getDb().execute(sql`
+    create table if not exists login_attempts (
+      key           text primary key,
+      fails         integer not null default 0,
+      first_fail_at timestamptz not null default now(),
+      locked_until  timestamptz
+    )
+  `);
+  console.warn('[auth] login_attempts 표가 없어 만들었습니다');
+  return true;
+}
+
 export interface Throttle {
   /** 지금 막혀 있으면 남은 초. 아니면 null */
   lockedForSec: number | null;
@@ -98,11 +137,19 @@ export async function checkLoginThrottle(request: Request, loginId: string): Pro
 
   let rows: Row[];
   try {
-    rows = await getDb().select().from(loginAttempts).where(inArray(loginAttempts.key, keys));
-  } catch (err) {
-    // 표가 아직 없거나 DB 가 끊겼다 — 세지 못하는 것을 「막힘」으로 읽지 않는다
-    console.error('[auth] 시도 기록을 못 봤습니다, 제한 없이 진행합니다:', err);
-    return PASS;
+    rows = await readRows(keys);
+  } catch (first) {
+    /*
+     * 표가 없어서일 수 있다 — 그러면 만들고 한 번 다시 읽는다(ensureTable).
+     * 그것도 안 되면 DB 가 끊긴 것이다. 세지 못하는 것을 「막힘」으로 읽지 않는다.
+     */
+    try {
+      if (!(await ensureTable())) throw first;
+      rows = await readRows(keys);
+    } catch (err) {
+      console.error('[auth] 시도 기록을 못 봤습니다, 제한 없이 진행합니다:', err);
+      return PASS;
+    }
   }
 
   const byKey = new Map(rows.map((r) => [r.key, r]));

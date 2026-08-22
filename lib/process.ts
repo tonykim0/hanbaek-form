@@ -216,10 +216,10 @@ export const COURT_AFTER_STATUS: Record<ProcessStatus, Court> = {
 /**
  * 공정 쓰기 권한 — 한백은 전부, 그 현장의 시공사는 한백 전용 칸을 뺀 전부.
  *
- * 라우트는 로그인만 본다(sessionWrite). 누가 어느 칸을 적는지는 여기 한 곳이고,
- * pg-store 와 file-store 가 같은 판정을 부른다 — 화면에서만 잠그면 라우트를 직접
- * 불러 뚫린다. 소속 비교는 normalizeOrg — 「에코일렉」과 「에코일렉 」이 갈리면
- * 그 시공사는 자기 현장에 아무것도 못 적는다.
+ * 라우트는 로그인만 본다(sessionWrite). 누가 어느 칸을 적는지는 여기 한 곳이고
+ * 저장소(pg-store)가 그 판정을 부른다 — 화면에서만 잠그면 라우트를 직접 불러 뚫린다.
+ * 소속 비교는 normalizeOrg — 「에코일렉」과 「에코일렉 」이 갈리면 그 시공사는 자기
+ * 현장에 아무것도 못 적는다.
  */
 export function assertProcessWrite(
   actor: { role: string; org: string | null },

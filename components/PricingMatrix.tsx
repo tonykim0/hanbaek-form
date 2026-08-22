@@ -137,7 +137,12 @@ export default function PricingMatrix({
         </div>
         {/* 폼이 열리면 감춘다 — 채운 초록이 둘이면 「케이스 넣기」와 헷갈리고,
             이걸 누르면 입력이 통째로 사라진다. 닫는 길은 폼 안의 취소 하나다. */}
-        {canEdit && !form && <Btn onClick={() => setForm({ prefill: {} })}>새 케이스</Btn>}
+        {canEdit && !form && (
+          <div className="flex items-center gap-2">
+            <ApplyNicePolicy />
+            <Btn onClick={() => setForm({ prefill: {} })}>새 케이스</Btn>
+          </div>
+        )}
       </header>
 
       {form && (
@@ -159,6 +164,35 @@ export default function PricingMatrix({
       />
     </div>
     </CanEdit.Provider>
+  );
+}
+
+/* ── 정책 반영 (한 번 쓰고 걷어낸다) ──────────────────────────────────────
+ * 나이스 26년 하반기 정책 7건을 넣는 단추. 프로덕션 DB 접속 문자열이 Vercel 에서
+ * Sensitive 라 로컬에서 붙을 길이 없어, 접속 문자열이 이미 있는 서버 안에서 돌린다
+ * (자세한 이유는 app/api/pricing/apply-policy/route.ts).
+ *
+ * 멱등하다 — 이미 들어간 뒤에 또 눌러도 「지나감」이다. 그래서 눌렸는지를 화면이
+ * 기억하지 않는다(기억하려면 어느 케이스가 그 정책의 것인지 판정해야 하고, 그 판정이
+ * 이 단추보다 오래 살 코드가 된다). 반영을 확인하면 이 함수와 라우트를 지운다.
+ */
+function ApplyNicePolicy() {
+  const { busy, error, run } = useAction();
+  return (
+    <span className="flex items-center gap-2">
+      <Err>{error}</Err>
+      <Btn
+        kind="side"
+        busy={busy}
+        busyLabel="반영 중…"
+        onClick={() => void run({
+          url: '/api/pricing/apply-policy',
+          fail: '정책을 반영하지 못했습니다.',
+        })}
+      >
+        나이스 하반기 정책 반영
+      </Btn>
+    </span>
   );
 }
 

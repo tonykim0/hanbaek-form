@@ -27,7 +27,7 @@
  */
 import { useMemo, useState } from 'react';
 import { useAction } from '@/lib/use-action';
-import type { AccountView } from '@/lib/auth/types';
+import { PASSWORD_MIN_LEN, type AccountView } from '@/lib/auth/types';
 import { isHanbaek, type Role } from '@/lib/roles';
 import { Badge, Btn, Choice, Empty, Err, FIELD, FIELD_CELL, Note, PANEL, Saved } from '@/components/ui';
 
@@ -304,7 +304,10 @@ function NewAccountForm({
         </Field>
       )}
 
-      <Field label="비밀번호" hint="8자 이상. 저장되는 것은 해시뿐이라 나중에 다시 볼 수 없습니다">
+      <Field
+        label="비밀번호"
+        hint={`${PASSWORD_MIN_LEN}자 이상. 저장되는 것은 해시뿐이라 나중에 다시 볼 수 없습니다`}
+      >
         <input
           type="password"
           value={password}
@@ -572,7 +575,7 @@ function AccountRow({
                   value={pw}
                   onChange={(e) => setPw(e.target.value)}
                   autoComplete="off"
-                  placeholder="새 비밀번호 — 8자 이상"
+                  placeholder={`새 비밀번호 — ${PASSWORD_MIN_LEN}자 이상`}
                   className={`${FIELD_CELL} w-60`}
                 />
                 <Btn type="submit" size="sm" busy={pwAction.busy} busyLabel="바꾸는 중…">

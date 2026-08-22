@@ -80,3 +80,15 @@ export interface NewAccount {
 export const SESSION_COOKIE = 'hb_session';
 /** 12시간 */
 export const SESSION_TTL_SEC = 12 * 60 * 60;
+
+/**
+ * 비밀번호 최소 길이.
+ *
+ * 한 자리에만 적는다 — 만들기(create)·재설정(resetPassword)·화면 안내가 갈리면
+ * 「만들 때는 되는데 재설정은 안 되는」 값이 생긴다.
+ *
+ * 8 → 4 (한백 요청 2026-08-22). 협력사에 전화로 알려주는 값이라 짧아야 한다는 판단이다.
+ * 대신 이 값이 짧은 만큼 계정을 지키는 것은 다른 자리다 — 비밀번호는 pbkdf2 12만 회로
+ * 해시해 저장하고(해시만 저장한다), 로그인 응답은 ID 존재 여부를 알려주지 않는다.
+ */
+export const PASSWORD_MIN_LEN = 4;

@@ -9,7 +9,7 @@
  */
 import { eq } from 'drizzle-orm';
 import { isHanbaek, normalizeOrg, type Role } from '@/lib/roles';
-import type { AccountView, Actor, NewAccount, User } from './types';
+import { PASSWORD_MIN_LEN, type AccountView, type Actor, type NewAccount, type User } from './types';
 import { hashPassword, verifyPassword } from './crypto';
 import { getDb, hasDatabase } from '@/lib/db/client';
 import { users } from '@/lib/db/schema';
@@ -226,7 +226,9 @@ export const userStore: UserStore = {
       throw new Error('로그인 ID 는 소문자·숫자·하이픈 3~24자여야 합니다.');
     }
     if (!input.name.trim()) throw new Error('이름을 입력하세요.');
-    if (input.password.length < 8) throw new Error('비밀번호는 8자 이상이어야 합니다.');
+    if (input.password.length < PASSWORD_MIN_LEN) {
+      throw new Error(`비밀번호는 ${PASSWORD_MIN_LEN}자 이상이어야 합니다.`);
+    }
     /*
      * 협력사 계정은 소속으로 현장을 가른다 — 비어 있으면 아무 현장도 못 본다.
      * 한백 쪽(관리자·열람 전용)은 반대다: 소속으로 가르지 않으므로 소속을 두지 않는다.
@@ -314,7 +316,9 @@ export const userStore: UserStore = {
     assertAdmin(actor, '비밀번호 재설정');
     if (!hasDatabase()) throw new Error('계정 저장소(DB)가 연결되지 않았습니다.');
     // 만들 때와 같은 규칙 — 두 자리의 규칙이 갈리면 재설정으로 못 만드는 비밀번호가 생긴다
-    if (password.length < 8) throw new Error('비밀번호는 8자 이상이어야 합니다.');
+    if (password.length < PASSWORD_MIN_LEN) {
+      throw new Error(`비밀번호는 ${PASSWORD_MIN_LEN}자 이상이어야 합니다.`);
+    }
     const id = loginId.trim().toLowerCase();
 
     const db = getDb();

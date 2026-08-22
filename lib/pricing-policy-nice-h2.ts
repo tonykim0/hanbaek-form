@@ -91,34 +91,29 @@ const PROMO: Record<number, PromoStep[]> = {
   10: [{ months: 6, rate: 149 }, { months: 6, rate: 220 }],
 };
 
-/** 충전요금 — 원문 「충전단가 295원 (포인트 추가적립제도 종료)」 */
+/**
+ * 충전요금 — 원문 「충전단가 295원 (포인트 추가적립제도 종료)」.
+ *
+ * ★한백은 294원이라고 했다(2026-08-22).★ 스캔을 900dpi 로 확대해 다시 읽어도 원문은 295원이라
+ * 그 한 값만 고치지 않고 남겨 둔다. 어느 쪽이 맞는지 확인되면 여기만 고치면 된다 —
+ * 확인 안 된 값으로 확인된 값을 덮으면, 나중에 왜 이 숫자인지 되짚을 근거가 사라진다.
+ */
 const CHARGE_RATE = 295;
 
 /*
- * 지급자재 — 미지급품목까지 같이 적는다. 「무엇을 주는가」만 적으면 볼라드·카스토퍼를
- * 우리가 사야 하는지가 안 남고, 그것은 시공비를 잡을 때 실제로 묻게 되는 값이다.
- * 투자사업은 미지급품목이 다르다 — 도색(레터링 포함)·안내문이 더 빠진다.
+ * 아래 셋은 한백이 정리해 준 값이다(2026-08-22). 정책서 원문에는 더 많은 항목이 적혀 있지만
+ * (지급품목에 충전기·열화상카메라, 기타지원에 한전불입금·전기안전점검 수수료 등) 케이스에
+ * 담을 것은 이만큼이다 — 나머지는 정책서를 봐야 하는 조건이고, 케이스는 단가를 고르는 자리다.
  */
-const SUPPLY_SUB =
-  '충전기 / 열화상카메라(POE허브 포함) / 스탠드폴 / 가림막 · 미지급: 볼라드 · 카스토퍼 · 전면도색 · 분전함';
-const SUPPLY_INV =
-  '충전기 / 열화상카메라(POE허브 포함) / 스탠드폴 / 가림막 · 미지급: 볼라드 · 카스토퍼 · 도색(레터링 포함) · 안내문 · 분전함';
-
-/** 설치조건 — 「할 수 있는가」를 정하는 것들. 원문 상단 정책 표의 설치비율·전용면·충전기 줄 */
+const SUPPLY = '스탠드폴 + 가림막 제공 (운송비 제외)';
+const SUPPORT = '열화상 3면당 1대 무상 (옥내·지하 한정)';
+/*
+ * 감리비 미지원도 여기 적는다. 「감리비용 부담」 칸(supervisionBearer)이 따로 있지만
+ * 화면에 나오지도, 폼이 채우지도 않는다(항상 null 을 보낸다) — 거기 넣으면 아무도 못 본다.
+ */
 const INSTALL_BASE =
-  '전용면 5%(운영 원칙) · 기설치 이력(건설사·설치·교체·철거 전체)에 따라 기수 산정 · 과금형 4기를 1기로 산정'
-  + ' · 내구연한 8년 미만 장소 교체 불가(충전기 제조년월 기준) · 기설치 「철거 조건」 현장 신규 설치 불가'
-  + ' · 완속(급속은 기설치 기기 당사 연동 가능 시 사전 협의) · 전용면 당사 단독이면 일부 병행 가능, 타사 혼합은 병행 불가';
-
-/* 기타지원 — 운영사가 대주는 것. 투자사업은 한전수전이 빠진다(원문의 유일한 차이) */
-const SUPPORT_SUB =
-  '한전불입금(10년 계약 · 10기 이내, 파트너사 신청 후 당사 납부) · 전기안전점검 수수료(파트너사 선납 후 정산 지급)'
-  + ' · 열화상 시스템 3면당 1대 무상 · 친환경 주차면 레터링(지자체 조례 필수 시, 수수료 포함)'
-  + ' · 스탠드폴·가림막(사업자 지정 구매업체 선구매 후 정산, 운송비는 파트너사 부담)';
-const SUPPORT_INV =
-  '한전수전 지원 불가(수전장소는 보조사업으로만) · 전기안전점검 수수료(파트너사 선납 후 정산 지급)'
-  + ' · 열화상 시스템 3면당 1대 무상 · 친환경 주차면 레터링(지자체 조례 필수 시, 수수료 포함)'
-  + ' · 스탠드폴·가림막(사업자 지정 구매업체 선구매 후 정산, 운송비는 파트너사 부담)';
+  '공동주택 주차면 5% · 공동주택 외 주차면 2% · 나이스 단독은 일부 병행 가능(사전 협의)'
+  + ' · 타사 혼합은 병행 불가 · 감리비 미지원';
 
 const ROWS: PolicyRow[] = [
   // 보조사업 — 수수료(분리) 표. 교체는 논외(자체투자로만 한다)
@@ -175,7 +170,6 @@ function ruleOf(row: PolicyRow): NewPricingRule {
   // 화면(PricingMatrix)이 만드는 라벨과 같은 꼴로 — 같은 케이스가 두 얼굴로 뜨지 않게
   const caseName =
     `나이스인프라 (${NICE_H2_START}) | 공동주택 | ${row.term}년 ${row.replType} | ${row.powerType}`;
-  /** 보조사업인가 — 투자사업은 지급자재의 미지급품목과 기타지원이 다르다 */
   const sub = row.replType === '환경부 신규';
 
   return {
@@ -195,13 +189,13 @@ function ruleOf(row: PolicyRow): NewPricingRule {
     supervisionBearer: '운영사',
     // 정책: 전기안전점검 수수료 지원 — 파트너사 선납 후 정산 시 지급
     safetyFeeBearer: '한백 대납(회수)',
-    supplyItems: sub ? SUPPLY_SUB : SUPPLY_INV,
+    supplyItems: SUPPLY,
     promo: PROMO[row.term] ?? null,
     // 연장 차감 단가는 정책서에 없다 — 아직 정해진 값이 없어 미지정으로 둔다(한백 확인 2026-08-22)
     promoExtendDeduct: null,
     chargeRate: CHARGE_RATE,
     installTerms: row.extra ? `${INSTALL_BASE} · ${row.extra}` : INSTALL_BASE,
-    otherSupport: sub ? SUPPORT_SUB : SUPPORT_INV,
+    otherSupport: SUPPORT,
     /*
      * 비고는 비운다 — 화면에서 걷어낸 칸이다(2026-08-22). 「영업수수료 200천원 + 공사수수료
      * 2,400천원」 같은 돈의 유래는 이 파일 위쪽 주석이 정본이다. 화면에 안 보이는 자리에
@@ -278,9 +272,22 @@ export async function applyNiceH2(
 
     const dup = duplicateOf(rule, existing);
     if (dup) {
-      const same = dup.salesUnit === rule.salesUnit
+      /*
+       * ★비교할 것을 빠뜨리면 조용히 지나간다.★ 정책 칸을 안 견주던 동안, 지급자재·설치조건을
+       * 고쳐 놓고 돌려도 「이미 같은 값」으로 7건 전부 넘어갔다(2026-08-22). 그러니 저장하는
+       * 필드는 여기서도 전부 견준다 — 새 칸을 더할 때 이 목록도 같이 늘려야 한다.
+       */
+      const sameMoney = dup.salesUnit === rule.salesUnit
         && dup.consUnit === rule.consUnit
-        && dup.margin === rule.margin
+        && dup.margin === rule.margin;
+      const samePolicy = dup.supplyItems === rule.supplyItems
+        && JSON.stringify(dup.promo) === JSON.stringify(rule.promo)
+        && dup.promoExtendDeduct === rule.promoExtendDeduct
+        && dup.chargeRate === rule.chargeRate
+        && dup.installTerms === rule.installTerms
+        && dup.otherSupport === rule.otherSupport;
+      const same = sameMoney
+        && samePolicy
         && stepsKeyById.get(dup.defaultSettlementRuleId) === settlementStepsKeyOf(rule.settlementSteps)
         && dup.caseName === rule.caseName
         && dup.note === rule.note;
@@ -294,9 +301,10 @@ export async function applyNiceH2(
        * 같은 금액이 나란히 찍혀 「왜 고친다는 건가」가 된다(실제로 그랬다).
        */
       const changed = [
-        dup.salesUnit !== rule.salesUnit || dup.consUnit !== rule.consUnit || dup.margin !== rule.margin
+        !sameMoney
           ? `금액(지금 영업 ${won(dup.salesUnit)} / 시공 ${won(dup.consUnit)} / 마진 ${won(dup.margin)})`
           : null,
+        !samePolicy ? '정책 조건' : null,
         stepsKeyById.get(dup.defaultSettlementRuleId) !== settlementStepsKeyOf(rule.settlementSteps)
           ? '기성 단계' : null,
         dup.caseName !== rule.caseName ? '케이스 이름' : null,

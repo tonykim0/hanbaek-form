@@ -257,6 +257,11 @@ function Grid({
   const halves = [...new Set(rules.filter((r) => r.channel === '턴키').map(halfKeyOf))].sort();
   const half = halfPick && halves.includes(halfPick) ? halfPick : halves[halves.length - 1] ?? null;
 
+  /* 고른 시기에 적용 중인 케이스 — 정책 조건 요약이 이것을 묶는다 */
+  const inHalf = half
+    ? mine.filter((r) => startKey(r) <= halfEndKey(half))
+    : [];
+
   /** 칸에서 이 시기에 적용 중인 케이스 — 그 반기까지 시작된 것 중 최신. 이전 반기 것이면 이월이다 */
   const at = (repl: ReplType, power: (typeof POWER_TYPES)[number], term: number, bldg: BuildingType) => {
     if (!half) return { now: null, carried: false };
@@ -397,7 +402,53 @@ function Grid({
         <span>칸 값은 고른 시기에 적용 중인 받는 단가 · 연한 값은 이전 시기 단가의 이월</span>
         {sideCount > 0 && <span>영업·시공 채널 케이스 {sideCount}건은 아래 목록에</span>}
       </p>
+
+      <PolicySummary rules={inHalf} />
     </section>
+  );
+}
+
+/*
+ * 매트릭스가 보고 있는 운영사·시기의 정책 조건.
+ *
+ * ★왜 칸마다 두지 않는가★ 격자 한 칸은 연수 × 건축물유형이고 값이 대당 단가 하나다.
+ * 거기에 조건 여섯 줄을 넣으면 36칸에 같은 말이 서른여섯 번 적힌다 — 조건은 대개 운영사·
+ * 시기가 정하고, 갈리는 것은 프로모션(연수) 정도다. 그래서 갈리는 만큼만 묶어 표 아래 둔다.
+ *
+ * 케이스가 서로 다른 값을 들고 있으면 묶음이 여럿 뜬다 — 그것이 「이 운영사 조건이 축마다
+ * 다르다」는 사실이고, 감출 것이 아니다.
+ */
+function PolicySummary({ rules }: { rules: PricingRule[] }) {
+  const groups = new Map<string, { rules: PricingRule[]; sample: PricingRule }>();
+  for (const r of rules) {
+    const key = JSON.stringify([
+      r.supplyItems, r.promo, r.promoExtendDeduct, r.chargeRate, r.installTerms, r.otherSupport,
+    ]);
+    const hit = groups.get(key);
+    if (hit) hit.rules.push(r);
+    else groups.set(key, { rules: [r], sample: r });
+  }
+  if (groups.size === 0) return null;
+
+  return (
+    <div className="mt-4 border-t border-slate-100 pt-4">
+      <p className="mb-2.5 text-tiny font-bold tracking-[0.04em] text-slate-500">정책 조건</p>
+      <div className="flex flex-col gap-3">
+        {[...groups.values()].map(({ rules: rs, sample }) => (
+          <div key={sample.id} className="flex flex-col gap-1">
+            {/* 어느 축의 조건인지 — 묶음이 하나면 굳이 적지 않는다(같은 말이 두 번이 된다) */}
+            {groups.size > 1 && (
+              <p className="flex flex-wrap gap-1">
+                {[...new Set(rs.map((r) => `${r.termYears.join('·')}년 ${r.replType}`))].map((t) => (
+                  <Tag key={t}>{t}</Tag>
+                ))}
+              </p>
+            )}
+            <PolicyCell r={sample} wide />
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -478,10 +529,10 @@ function CaseList({
  * 설치조건·기타지원)은 길어서 두 줄로 자른다 — 전문은 「수정」·「개정」 폼에 있다.
  * 자르는 것과 비어 있는 것을 가른다: 빈 칸은 「미지정」이라고 적는다(화면 규칙 6·10번).
  */
-function PolicyCell({ r }: { r: PricingRule }) {
+function PolicyCell({ r, wide = false }: { r: PricingRule; wide?: boolean }) {
   const promo = r.promo;
   return (
-    <div className="flex w-64 flex-col gap-1 text-tiny text-slate-600">
+    <div className={`flex flex-col gap-1 text-tiny text-slate-600 ${wide ? 'w-full' : 'w-64'}`}>
       <p className="whitespace-nowrap">
         <span className="font-bold text-slate-400">충전</span>{' '}
         {r.chargeRate === null ? <Empty kind="miss" /> : <span className="font-bold tabular-nums text-slate-800">{won(r.chargeRate)}원</span>}
@@ -509,7 +560,7 @@ function PolicyCell({ r }: { r: PricingRule }) {
         ['설치조건', r.installTerms],
         ['기타지원', r.otherSupport],
       ] as const).map(([label, v]) => (
-        <p key={label} className="line-clamp-2">
+        <p key={label} className={wide ? 'break-keep' : 'line-clamp-2'}>
           <span className="font-bold text-slate-400">{label}</span>{' '}
           {v ? <span className="text-slate-700">{v}</span> : <Empty kind="miss" />}
         </p>

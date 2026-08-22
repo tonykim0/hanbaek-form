@@ -38,11 +38,8 @@ for (const r of niceH2Rules()) {
 where id = '${id}';\n`);
 }
 /*
- * 옛 케이스의 비고 값 — 화면에서 비고를 걷어냈으므로(2026-08-22) 남겨 두면 아무도 못 보는
- * 자리에 글이 쌓인다. 한백 지시로 비운다. 되짚을 근거는 doc/PRICING_MATRIX.md 와
- * lib/data/seed/pricing-rules.ts 에 있다.
+ * ★비고 일괄 비우기를 여기 두지 않는다.★ note 가 격자 부기로 되살아났다(2026-08-23) —
+ * 「note is not null 전부 비우기」가 방금 넣은 부기(한전불입 10기)까지 지우는 것을
+ * 마이그레이션 0004 초안에서 실제로 겪었다. 옛 비고는 0002 가 이미 비웠다.
  */
-console.log('-- 화면에서 걷어낸 칸이라 옛 케이스의 비고도 비운다 (한백 지시 2026-08-22)');
-console.log('update pricing_rules set note = null where note is not null;\n');
-
 console.log(`-- 검산은 러너 밖에서: 나이스 8/1 케이스 7건의 charge_rate=295, note 있는 케이스 0건`);

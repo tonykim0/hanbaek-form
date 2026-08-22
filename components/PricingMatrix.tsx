@@ -55,6 +55,7 @@ export interface Prefill {
   otherSupport?: string;
   coexistTerms?: string;
   miscTerms?: string;
+  note?: string;
   /**
    * 개정일 때 원 케이스의 startKey — 새 시작이 이보다 늦어야 저장된다.
    * 이르거나 같으면 매트릭스가 옛 케이스를 최신으로 집어 개정이 안 보이는 상태가 된다.
@@ -79,6 +80,7 @@ function prefillOf(r: PricingRule, settle: SettlementRule | null): Prefill {
     otherSupport: r.otherSupport ?? undefined,
     coexistTerms: r.coexistTerms ?? undefined,
     miscTerms: r.miscTerms ?? undefined,
+    note: r.note ?? undefined,
   };
 }
 
@@ -295,16 +297,22 @@ function Grid({
    * 한 칸의 값은 그 칸에 지금 적용 중인 케이스들에서 모은다 — 값이 서로 다르면 둘 다 적는다.
    * 감추면 「이 축의 조건이 갈린다」는 사실이 사라진다.
    */
-  const POLICY_ROWS: { label: string; of: (r: PricingRule) => string | null }[] = [
-    { label: '충전요금', of: (r) => (r.chargeRate === null ? null : `${won(r.chargeRate)}원`) },
+  /*
+   * num 행(충전요금·프로모션·연장차감)은 가운데 + tabular-nums, 글 행은 왼쪽 — 정렬을
+   * 병합 폭이 아니라 행의 종류가 정한다. 폭으로 정하면 같은 행이 시기마다 다르게 선다.
+   */
+  const POLICY_ROWS: { label: string; num?: boolean; of: (r: PricingRule) => string | null }[] = [
+    { label: '충전요금', num: true, of: (r) => (r.chargeRate === null ? null : `${won(r.chargeRate)}원`) },
     {
       label: '프로모션',
+      num: true,
       of: (r) => (r.promo === null ? null
         : r.promo.length === 0 ? '없음'
-          : r.promo.map((x) => `${x.months}개월 ${won(x.rate)}원`).join(' → ')),
+          : r.promo.map((x) => `${x.months}개월 ${won(x.rate)}원`).join(' + ')),
     },
     {
       label: '연장 차감',
+      num: true,
       of: (r) => (r.promoExtendDeduct === null ? null : `${won(r.promoExtendDeduct)}원/개월`),
     },
     { label: '지급자재', of: (r) => r.supplyItems },
@@ -392,7 +400,8 @@ function Grid({
           내용으로 너비를 정해서, 값이 든 열은 넓어지고 「—」만 있는 열은 좁아진다 —
           그러면 5·7·10년 머리글(colSpan 2)과 그 아래 공동·상업 칸이 어긋난다.
         */}
-        <table className="w-full min-w-[860px] table-fixed text-base">
+        {/* 표 안 글자는 text-small 한 벌이다 — 단가·조건이 크기로 갈리면 다른 표처럼 읽힌다 */}
+        <table className="w-full min-w-[860px] table-fixed text-small">
           <colgroup>
             <col className="w-56" />
             {gridTerms.flatMap((t) =>
@@ -458,6 +467,12 @@ function Grid({
                             {now ? (
                               <span className={`font-bold ${carried ? 'text-slate-400' : 'text-slate-800'}`}>
                                 {won(receiveUnitOf(now))}
+                                {/* 부기 — 이 금액을 읽는 순간 같이 봐야 하는 조건 (한전불입 10기 이내 등) */}
+                                {now.note && (
+                                  <span className="block whitespace-normal break-keep text-tiny font-semibold text-slate-400">
+                                    {now.note}
+                                  </span>
+                                )}
                               </span>
                             ) : (
                               <span className="font-bold text-slate-300">—</span>
@@ -476,20 +491,17 @@ function Grid({
           <tbody className="divide-y divide-slate-100 border-t-2 border-slate-200">
             {POLICY_ROWS.map((row) => (
               <tr key={row.label} className="align-top">
-                <td className="px-3 py-2">
-                  <span className="text-tiny font-bold text-slate-500">{row.label}</span>
-                </td>
+                {/* 행 라벨은 축 라벨(교체유형)과 같은 톤 — 표 안에 글자 크기를 셋 두지 않는다 */}
+                <td className="px-3 py-2 font-bold text-slate-700">{row.label}</td>
                 {spansOf(row.of).map((c, i) => (
                   <td
                     key={i}
                     colSpan={c.span}
-                    className={`whitespace-pre-line break-keep px-3 py-2 text-tiny ${i === 0 ? '' : 'border-l border-slate-100'} ${
-                      c.span >= 4 ? 'text-left' : c.span > 1 ? 'text-center' : 'text-right'
+                    className={`whitespace-pre-line break-keep px-3 py-2 text-small ${i === 0 ? '' : 'border-l border-slate-100'} ${
+                      row.num ? 'text-center font-bold tabular-nums text-slate-800' : 'text-left text-slate-700'
                     }`}
                   >
-                    {c.value === null
-                      ? <Empty kind="wait" />
-                      : <span className="text-slate-700">{c.value}</span>}
+                    {c.value === null ? <Empty kind="wait" /> : c.value}
                   </td>
                 ))}
               </tr>
@@ -890,6 +902,7 @@ function CaseForm({
   const [otherSupport, setOtherSupport] = useState(prefill.otherSupport ?? '');
   const [coexistTerms, setCoexistTerms] = useState(prefill.coexistTerms ?? '');
   const [miscTerms, setMiscTerms] = useState(prefill.miscTerms ?? '');
+  const [note, setNote] = useState(prefill.note ?? '');
 
   /*
    * 목록의 수정·개정, 그리드 칸에서 열리면 폼이 화면 밖(맨 위)에 있다 — 눌렀는데 아무 일도
@@ -984,6 +997,7 @@ function CaseForm({
         otherSupport: otherSupport.trim() || null,
         coexistTerms: coexistTerms.trim() || null,
         miscTerms: miscTerms.trim() || null,
+        note: note.trim() || null,
       },
       fail: editId ? '고치지 못했습니다.' : '넣지 못했습니다.',
     });
@@ -1309,12 +1323,21 @@ function CaseForm({
             />
           </Field>
 
-          <Field label="기타" hint="위 어디에도 안 드는 조건 — 교체공사 범위 · 계약 전 확인사항">
+          <Field label="기타" hint="위 어디에도 안 드는 조건 — 항목마다 「· 」로 줄을 가른다">
             <textarea
               value={miscTerms}
               onChange={(e) => setMiscTerms(e.target.value)}
               rows={2}
               className={FIELD}
+            />
+          </Field>
+
+          <Field label="부기" hint="매트릭스 단가 칸 밑에 붙는 한 줄 — 그 금액과 같이 봐야 하는 조건">
+            <input
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder="한전불입금 지원은 10기 이내"
+              className={`${FIELD} max-w-xl`}
             />
           </Field>
         </div>

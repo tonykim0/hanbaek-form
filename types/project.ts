@@ -259,6 +259,10 @@ export interface PricingRule {
   defaultSettlementRuleId: string;
   supervisionBearer: string | null;
   safetyFeeBearer: string | null;
+  /**
+   * 부기 — 매트릭스 단가 칸 밑에 붙는 한 줄. 그 금액을 읽는 순간 같이 봐야 하는 조건이다
+   * (한전불입 10기 이내처럼). 긴 조건은 정책 칸(설치조건·기타 등)에 적는다 — 여기는 칸이 좁다.
+   */
   note: string | null;
   active: boolean;
 }

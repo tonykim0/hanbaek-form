@@ -4,7 +4,7 @@ import { getSessionUser } from '@/lib/auth/session';
 import MaterialsBrowser from '@/components/MaterialsBrowser';
 import { getMaterials } from '@/lib/materials';
 
-export const metadata = { title: '자료실 — 한백 전기차사업관리' };
+export const metadata = { title: '충전사업자 자료실 — 한백 전기차사업관리' };
 // 자료를 올리면 배포 없이 바로 보이도록 매 요청마다 목록을 읽는다
 export const dynamic = 'force-dynamic';
 
@@ -26,7 +26,7 @@ export default async function LibraryPage() {
   return (
     <div className="max-w-[880px]">
       <div className="mb-6">
-        <h1 className="text-h1 font-black text-slate-900">자료실</h1>
+        <h1 className="text-h1 font-black text-slate-900">충전사업자 자료실</h1>
         <p className="mt-1.5 text-base text-slate-500">
           운영사별 영업자료 · 시방서 {fileCount}건
           {lastUpdated && ` · 마지막 업데이트 ${lastUpdated}`}

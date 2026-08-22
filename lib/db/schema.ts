@@ -46,6 +46,29 @@ export const partnerDetails = pgTable('partner_details', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
+/**
+ * 로그인 실패 기록 — 전수 대입을 막는다.
+ *
+ * ★왜 표가 필요한가★
+ * 비밀번호 최소 길이를 4자로 내렸다(PASSWORD_MIN_LEN). 숫자 4자리면 조합이 만 가지뿐이라
+ * 해시를 아무리 세게 걸어도(pbkdf2 12만 회) 로그인 화면을 두드리는 것만으로 뚫린다 —
+ * 해싱은 DB 가 새어나갔을 때를 막는 장치고, 이 표는 화면을 두드리는 쪽을 막는다.
+ *
+ * 메모리에 세지 않는다 — 서버리스는 인스턴스가 여러 개라 각자 따로 세면 인스턴스 수만큼
+ * 시도할 수 있다. 세는 자리는 모두가 같이 보는 한 곳이어야 한다.
+ *
+ * key 는 두 종류다. `id:<로그인ID>` 는 그 계정을 지키고, `ip:<주소>` 는 한 주소에서 여러
+ * 계정을 훑는 것을 막는다.
+ */
+export const loginAttempts = pgTable('login_attempts', {
+  key: text('key').primaryKey(),
+  fails: integer('fails').notNull().default(0),
+  /** 이 창의 첫 실패 — 창이 지나면 처음부터 다시 센다 */
+  firstFailAt: timestamp('first_fail_at', { withTimezone: true }).notNull().defaultNow(),
+  /** 이 시각까지 막는다. null 이면 아직 안 막힌 것 */
+  lockedUntil: timestamp('locked_until', { withTimezone: true }),
+});
+
 // ── 규칙 (불변) ─────────────────────────────────────────────────
 export const settlementRules = pgTable('settlement_rules', {
   id: text('id').primaryKey(),

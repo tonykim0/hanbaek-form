@@ -512,6 +512,17 @@ function CaseList({
     .slice()
     .sort((a, b) => a.cpo.localeCompare(b.cpo, 'ko') || startKey(b).localeCompare(startKey(a)));
 
+  /*
+   * 기성 열 수는 보이는 케이스에서 뽑는다 — 규칙은 1~3단계고 운영사마다 다르다.
+   * 3칸을 늘 펴 두면 2차까지인 운영사만 걸렀을 때 빈 열이 따라다니고, 그 빈 칸은
+   * 「값이 없다」가 아니라 「그 차수가 없다」다(화면 규칙 10번). 케이스가 하나도
+   * 없거나 전부 기성 미정이면 1칸은 남긴다 — 「기성 미정」이 설 자리다.
+   */
+  const stepCols = Math.max(
+    1,
+    ...shown.map((r) => settleById.get(r.defaultSettlementRuleId)?.steps.length ?? 0)
+  );
+
   return (
     <section className={`${PANEL} p-5 sm:p-6`}>
       {/* 매트릭스와 같은 모양으로 — 두 구역의 필터가 다르게 생기면 같은 일을 두 번 배운다 */}
@@ -535,18 +546,49 @@ function CaseList({
         <Blank>{cpo === '전체' ? '케이스 0건' : `${cpo} 케이스 0건`}</Blank>
       ) : (
         <div className="-mx-5 overflow-x-auto px-5 sm:-mx-6 sm:px-6">
-          {/* 돈의 흐름 순서로 읽힌다 — 받는 단가에서 마진을 떼면 지급 단가, 그것을 영업·시공으로 나눈다 */}
-          <table className="w-full min-w-[1420px] text-base">
+          {/*
+            ★한 칸에 여러 값을 접어 넣지 않는다.★ 축 다섯 개가 꼬리표로 한 칸에 뭉쳐 있어서
+            「7년 공동주택 케이스만 보자」고 눈으로 훑을 수가 없었다. 지급 단가와 기성 단계도
+            같은 문제였다 — 영업·시공이 한 칸의 잔글씨였고, 기성은 차수가 세로로 쌓여
+            케이스끼리 1차를 견주려면 줄을 세어야 했다. 값마다 열을 주면 한 열을 위아래로
+            읽는 것이 곧 비교다.
+
+            머리글이 두 줄이다 — 열이 열넷이라 한 줄이면 무엇이 축이고 무엇이 돈인지
+            구분이 사라진다. 매트릭스도 같은 두 줄 머리다.
+
+            정책 조건 열은 걷어냈다(한백 요청 2026-08-23). 같은 값이 매트릭스 아래
+            정책 조건 행에 축별로 이미 있었다 — 한 화면에 두 번 두면 갈린다(화면 규칙 5번).
+            케이스 하나의 전문은 「수정」·「개정」 폼에 있다.
+          */}
+          <table className="w-full min-w-[1760px] text-base">
             <thead className="border-b border-slate-200 bg-slate-50 text-tiny font-bold tracking-[0.06em] text-slate-500">
               <tr>
-                <th className="px-3 py-2.5 text-left">케이스</th>
-                <th className="px-3 py-2.5 text-left">축</th>
-                <th className="px-3 py-2.5 text-right">받는 단가</th>
-                <th className="px-3 py-2.5 text-right">마진</th>
-                <th className="px-3 py-2.5 text-right">지급 단가</th>
-                <th className="px-3 py-2.5 text-left">기성 단계</th>
-                <th className="px-3 py-2.5 text-left">정책 조건</th>
-                <th className="px-3 py-2.5 text-right">상태</th>
+                <th className="px-3 pt-2.5 text-left" rowSpan={2}>케이스</th>
+                <th colSpan={5} className="border-l border-slate-200 px-3 pt-2 text-center">축</th>
+                <th colSpan={5} className="border-l border-slate-200 px-3 pt-2 text-center">단가 (대당)</th>
+                <th colSpan={stepCols} className="border-l border-slate-200 px-3 pt-2 text-center">기성 단계 (대당)</th>
+                <th className="border-l border-slate-200 px-3 pt-2.5 text-right" rowSpan={2}>상태</th>
+              </tr>
+              <tr>
+                <th className="border-l border-slate-200 px-3 pb-2 text-left font-semibold">교체유형</th>
+                <th className="px-3 pb-2 text-left font-semibold">수전</th>
+                <th className="px-3 pb-2 text-left font-semibold">연수</th>
+                <th className="px-3 pb-2 text-left font-semibold">건축물</th>
+                <th className="px-3 pb-2 text-left font-semibold">채널</th>
+                {/* 돈의 흐름 순서 — 받는 단가에서 마진을 떼면 지급 단가, 그것을 영업·시공으로 나눈다 */}
+                <th className="border-l border-slate-200 px-3 pb-2 text-right font-semibold">받는</th>
+                <th className="px-3 pb-2 text-right font-semibold">마진</th>
+                <th className="px-3 pb-2 text-right font-semibold">지급</th>
+                <th className="px-3 pb-2 text-right font-semibold">영업</th>
+                <th className="px-3 pb-2 text-right font-semibold">시공</th>
+                {Array.from({ length: stepCols }, (_, i) => (
+                  <th
+                    key={i}
+                    className={`px-3 pb-2 text-right font-semibold ${i === 0 ? 'border-l border-slate-200' : ''}`}
+                  >
+                    {i + 1}차
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -556,6 +598,7 @@ function CaseList({
                   r={r}
                   settle={settleById.get(r.defaultSettlementRuleId) ?? null}
                   referenced={referenced.has(r.id)}
+                  stepCols={stepCols}
                   onOpen={onOpen}
                 />
               ))}
@@ -568,58 +611,21 @@ function CaseList({
 }
 
 /*
- * 정책 조건 한 칸 — 운영사 정책이 정하는 것들.
+ * 케이스 한 줄.
  *
- * 숫자(충전요금·프로모션·연장차감)는 운영사끼리 견주는 값이라 그대로 보이고, 글(지급자재·
- * 설치조건·기타지원)은 길어서 두 줄로 자른다 — 전문은 「수정」·「개정」 폼에 있다.
- * 자르는 것과 비어 있는 것을 가른다: 빈 칸은 「미지정」이라고 적는다(화면 규칙 6·10번).
+ * 정책 조건(충전요금·프로모션·연장차감·지급자재·설치조건·기타지원) 칸은 걷어냈다
+ * (한백 요청 2026-08-23). 같은 값이 매트릭스 아래 정책 조건 행에 축별로 이미 있고,
+ * 여기서는 여섯 값을 폭 256px 한 칸에 접어 넣느라 긴 글은 두 줄로 자르고 있었다 —
+ * 자른 글은 견줄 수도 없다. 케이스 하나의 전문은 「수정」·「개정」 폼이 정본이다.
  */
-function PolicyCell({ r }: { r: PricingRule }) {
-  const promo = r.promo;
-  return (
-    <div className="flex w-64 flex-col gap-1 text-tiny text-slate-600">
-      <p className="whitespace-nowrap">
-        <span className="font-bold text-slate-400">충전</span>{' '}
-        {r.chargeRate === null ? <Empty kind="miss" /> : <span className="font-bold tabular-nums text-slate-800">{won(r.chargeRate)}원</span>}
-      </p>
-      <p>
-        <span className="font-bold text-slate-400">프로모션</span>{' '}
-        {promo === null ? (
-          <Empty kind="miss" />
-        ) : promo.length === 0 ? (
-          <Empty kind="na" label="없음" />
-        ) : (
-          <span className="font-semibold text-slate-800">
-            {promo.map((x) => `${x.months}개월 ${won(x.rate)}원`).join(' → ')}
-          </span>
-        )}
-      </p>
-      <p className="whitespace-nowrap">
-        <span className="font-bold text-slate-400">연장 차감</span>{' '}
-        {r.promoExtendDeduct === null
-          ? <Empty kind="miss" />
-          : <span className="font-bold tabular-nums text-slate-800">{won(r.promoExtendDeduct)}원/개월</span>}
-      </p>
-      {([
-        ['지급자재', r.supplyItems],
-        ['설치조건', r.installTerms],
-        ['기타지원', r.otherSupport],
-      ] as const).map(([label, v]) => (
-        <p key={label} className="line-clamp-2">
-          <span className="font-bold text-slate-400">{label}</span>{' '}
-          {v ? <span className="text-slate-700">{v}</span> : <Empty kind="miss" />}
-        </p>
-      ))}
-    </div>
-  );
-}
-
 function Row({
-  r, settle, referenced, onOpen,
+  r, settle, referenced, stepCols, onOpen,
 }: {
   r: PricingRule;
   settle: SettlementRule | null;
   referenced: boolean;
+  /** 표 전체가 쓰는 기성 열 수 — 이 케이스의 차수가 그보다 적으면 남는 칸은 「—」다 */
+  stepCols: number;
   onOpen: (f: FormOpen) => void;
 }) {
   const canEdit = useContext(CanEdit);
@@ -683,45 +689,63 @@ function Row({
           </p>
         )}
       </td>
-      <td className="px-3 py-2.5">
-        <div className="flex flex-wrap gap-1">
-          <Tag>{r.replType}</Tag>
-          <Tag>{r.powerType}</Tag>
-          <Tag>{r.termYears.join('·')}년</Tag>
-          <Tag>{r.bldgTypes.length === 2 ? '전체' : r.bldgTypes[0]}</Tag>
-          {r.channel !== '턴키' && <Tag>{r.channel}</Tag>}
-        </div>
+      {/*
+        축 다섯 — 값마다 한 칸이다. 꼬리표(Tag)를 벗기고 글자로 둔다: 열이 이미
+        「무엇인가」를 말하고 있어서 꼬리표는 테를 한 겹 더 그리는 일뿐이고,
+        누르는 것도 아니다(화면 규칙 11번 — 각지면 누르는 것).
+      */}
+      <td className="break-keep border-l border-slate-100 px-3 py-2.5 text-slate-700">{r.replType}</td>
+      <td className="whitespace-nowrap px-3 py-2.5 text-slate-700">{r.powerType}</td>
+      <td className="whitespace-nowrap px-3 py-2.5 tabular-nums text-slate-700">{r.termYears.join('·')}년</td>
+      <td className="whitespace-nowrap px-3 py-2.5 text-slate-700">
+        {r.bldgTypes.length === 2 ? '전체' : r.bldgTypes[0]}
       </td>
-      <td className="px-3 py-2.5 text-right font-black tabular-nums text-slate-900">
+      {/* 턴키가 대부분이라 연하게 — 눈에 걸려야 하는 것은 드문 영업·시공 채널이다 */}
+      <td className={`whitespace-nowrap px-3 py-2.5 ${r.channel === '턴키' ? 'text-slate-400' : 'font-bold text-slate-700'}`}>
+        {r.channel}
+      </td>
+
+      <td className="border-l border-slate-100 px-3 py-2.5 text-right font-black tabular-nums text-slate-900">
         {won(receiveUnitOf(r))}
       </td>
       <td className="px-3 py-2.5 text-right tabular-nums text-slate-700">{won(r.margin)}</td>
-      <td className="px-3 py-2.5 text-right">
-        <p className="font-bold tabular-nums text-slate-800">{won(payoutUnitOf(r))}</p>
-        <p className="whitespace-nowrap text-tiny tabular-nums text-slate-400">
-          영업 {won(r.salesUnit)} · 시공 {won(r.consUnit)}
-        </p>
-      </td>
-      <td className="px-3 py-2.5">
-        {settle ? (
-          <div className="flex flex-col gap-0.5 text-tiny text-slate-600">
-            {settle.steps.map((s, i) => (
-              <p key={i} className="whitespace-nowrap">
-                <span className="font-bold text-slate-400">{i + 1}차</span>{' '}
-                {s.trigger}{' '}
-                <span className="tabular-nums font-semibold text-slate-700">{won(stepAmount[i])}</span>
-              </p>
-            ))}
-          </div>
-        ) : (
-          // 미정과 해당없음을 가르지 않는다 — 규칙이 없으면 이 케이스의 현장은 기성이 계산되지 않는다
+      <td className="px-3 py-2.5 text-right font-bold tabular-nums text-slate-800">{won(payoutUnitOf(r))}</td>
+      <td className="px-3 py-2.5 text-right tabular-nums text-slate-700">{won(r.salesUnit)}</td>
+      <td className="px-3 py-2.5 text-right tabular-nums text-slate-700">{won(r.consUnit)}</td>
+
+      {/*
+        기성은 차수마다 한 칸이다 — 트리거와 대당 금액을 같이 적는다. 금액만 두면
+        「40%인지 잔액인지」가 사라지고, 트리거만 두면 얼마인지가 사라진다.
+        규칙이 없는 케이스는 차수 칸을 통째로 묶어 「기성 미정」 하나만 적는다 —
+        빈 칸 세 개로 두면 「1차가 없다」로 읽힌다.
+      */}
+      {settle === null ? (
+        <td colSpan={stepCols} className="border-l border-slate-100 px-3 py-2.5">
+          {/* 미정과 해당없음을 가르지 않는다 — 규칙이 없으면 이 케이스의 현장은 기성이 계산되지 않는다 */}
           <Tag tone="warn">기성 미정</Tag>
-        )}
-      </td>
-      <td className="px-3 py-2.5 align-top">
-        <PolicyCell r={r} />
-      </td>
-      <td className="px-3 py-2.5 text-right">
+        </td>
+      ) : (
+        Array.from({ length: stepCols }, (_, i) => {
+          const step = settle.steps[i];
+          return (
+            <td
+              key={i}
+              className={`px-3 py-2.5 text-right ${i === 0 ? 'border-l border-slate-100' : ''}`}
+            >
+              {step ? (
+                <>
+                  <p className="font-bold tabular-nums text-slate-800">{won(stepAmount[i])}</p>
+                  <p className="break-keep text-tiny text-slate-400">{step.trigger}</p>
+                </>
+              ) : (
+                // 이 운영사에는 없는 차수다 — 값이 빠진 것이 아니다
+                <Empty kind="na" />
+              )}
+            </td>
+          );
+        })
+      )}
+      <td className="border-l border-slate-100 px-3 py-2.5 text-right">
         <div className="flex items-center justify-end gap-2">
           {r.active ? <Badge tone="ok">사용</Badge> : <Badge tone="hold">중지</Badge>}
           {/*

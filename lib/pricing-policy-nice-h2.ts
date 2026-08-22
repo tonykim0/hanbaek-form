@@ -77,17 +77,34 @@ interface PolicyRow {
   extra: string;
 }
 
+/*
+ * 프로모션 — 계약기간이 정한다. 행마다 손으로 적지 않는 이유는 원문 표기가 두 줄에 걸쳐
+ * 있어서다: 7년 「6개월 / 149원」, 10년 「+6개월 / 220원」. 「+」는 7년 조건에 6개월이
+ * 더 붙는다는 뜻이라(한백 확인 2026-08-22) 10년은 총 12개월이고 뒤 6개월이 220원이다.
+ * 그대로 「+6개월/220원」만 적어 두면 10년이 6개월만 받는 것으로 읽힌다.
+ *
+ * 투자사업에도 같이 적는다 — 원문이 「보조사업 정책 동일 적용(단, 한전수전 지원 불가)」이다.
+ * 「공동주택 외 시설 적용 불가」는 여기 케이스가 다 공동주택이라 걸리지 않는다.
+ */
+const PROMO: Record<number, string> = {
+  7: '프로모션 6개월/149원',
+  10: '프로모션 6개월/149원 + 6개월/220원(총 12개월)',
+};
+
+/** 보조·투자사업에 공통인 조건 — 원문 상단 정책 표에서 온다 */
+const COMMON = '충전단가 295원, 설치비율 5%(전용면). 프로모션 연장은 영업비 차감 — 차감 단가 미정';
+
 const ROWS: PolicyRow[] = [
   // 보조사업 — 수수료(분리) 표. 교체는 논외(자체투자로만 한다)
   {
     replType: '환경부 신규', powerType: '모자분리', term: 7,
     feeSales: 200, feeCons: 2400,
-    extra: '프로모션 6개월/149원. 충전단가 295원, 설치비율 5%',
+    extra: '기설치 「철거 조건」 현장은 신규 불가. 내구연한 8년 미만 교체 불가',
   },
   {
     replType: '환경부 신규', powerType: '모자분리', term: 10,
     feeSales: 200, feeCons: 2400 + 100,
-    extra: '프로모션 +6개월/220원. 충전단가 295원, 설치비율 5%',
+    extra: '기설치 「철거 조건」 현장은 신규 불가. 내구연한 8년 미만 교체 불가',
   },
   {
     replType: '환경부 신규', powerType: '한전불입', term: 10,
@@ -155,7 +172,8 @@ function ruleOf(row: PolicyRow): NewPricingRule {
     safetyFeeBearer: '한백 대납(회수)',
     note:
       `26년 하반기 정책(2026-08-05 배포, 8/1 접수건~) — ${feeText}. ` +
-      `선금은 공사수수료의 50%. 마진 20만·시공비 100만 고정, 나머지가 영업비. ${row.extra}`,
+      `선금은 공사수수료의 50%. 마진 20만·시공비 100만 고정, 나머지가 영업비. ` +
+      `${PROMO[row.term] ?? '프로모션 미확인'}. ${COMMON}. ${row.extra}`,
     settlementSteps,
   };
 }
@@ -237,8 +255,20 @@ export async function applyNiceH2(
         skipped += 1;
         continue;
       }
-      const diff =
-        `지금 값은 영업 ${won(dup.salesUnit)} / 시공 ${won(dup.consUnit)} / 마진 ${won(dup.margin)} 입니다.`;
+      /*
+       * 무엇이 다른지 적는다 — 「값이 다릅니다」만 적고 금액을 보여주면, 비고만 바뀐 경우에
+       * 같은 금액이 나란히 찍혀 「왜 고친다는 건가」가 된다(실제로 그랬다).
+       */
+      const changed = [
+        dup.salesUnit !== rule.salesUnit || dup.consUnit !== rule.consUnit || dup.margin !== rule.margin
+          ? `금액(지금 영업 ${won(dup.salesUnit)} / 시공 ${won(dup.consUnit)} / 마진 ${won(dup.margin)})`
+          : null,
+        stepsKeyById.get(dup.defaultSettlementRuleId) !== settlementStepsKeyOf(rule.settlementSteps)
+          ? '기성 단계' : null,
+        dup.caseName !== rule.caseName ? '케이스 이름' : null,
+        dup.note !== rule.note ? '비고' : null,
+      ].filter(Boolean);
+      const diff = `다른 것: ${changed.join(' · ')}`;
       if (!write) {
         steps.push({ rule, id: dup.id, action: '고칠 것', message: diff });
         continue;

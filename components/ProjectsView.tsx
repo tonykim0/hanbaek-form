@@ -15,7 +15,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useAction } from '@/lib/use-action';
-import { FIELD, Note, PANEL } from '@/components/ui';
+import { Choice, FIELD, Note, PANEL } from '@/components/ui';
 import type { ProcessStatus, ProjectSummary } from '@/types/project';
 import { type BoardColumn } from '@/lib/board';
 import {
@@ -323,25 +323,17 @@ function Group({
       <span className="w-[76px] shrink-0 text-tiny font-bold tracking-[0.04em] text-slate-400">
         {label}
       </span>
+      {/* 누르는 것은 각지다(화면 규칙 11) — 모양은 부품이 쥔다 */}
       <div className="flex flex-1 flex-wrap gap-1.5">
-        {options.map((o) => {
-          const on = picked.includes(o.value);
-          return (
-            <button
-              key={o.value}
-              type="button"
-              aria-pressed={on}
-              onClick={() => onToggle(o.value)}
-              className={`rounded-full border px-2.5 py-1 text-tiny font-bold transition ${
-                on
-                  ? 'border-brand-500 bg-brand-600 text-white'
-                  : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
-              }`}
-            >
-              {o.label}
-            </button>
-          );
-        })}
+        {options.map((o) => (
+          <Choice
+            key={o.value}
+            on={picked.includes(o.value)}
+            onClick={() => onToggle(o.value)}
+          >
+            {o.label}
+          </Choice>
+        ))}
       </div>
     </div>
   );

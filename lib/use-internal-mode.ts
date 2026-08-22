@@ -22,7 +22,3 @@ export function useInternalModeState(): boolean | null {
 
   return enabled;
 }
-
-export function useInternalMode(): boolean {
-  return useInternalModeState() ?? false;
-}

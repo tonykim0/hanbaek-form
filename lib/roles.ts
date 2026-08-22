@@ -14,15 +14,6 @@ export const ROLE_LABEL: Record<Role, string> = {
   sales: '영업사',
 };
 
-/** 턴키업체(영업+시공 겸업) — INTAKE_SPEC §1 */
-export const DUAL_ORGS = [
-  '에코일렉',
-  '대상전력',
-  '이에프이노베이션',
-  '제일전기통신',
-  '네이비인프라',
-] as const;
-
 export interface Visibility {
   /** 영업비 */
   sales: boolean;

@@ -39,9 +39,6 @@ export const today = (now: Date = new Date()): string => dayOf(now);
 export const stampOf = (at: Date): string =>
   wall(at).toISOString().slice(0, 16).replace('T', ' ');
 
-/** 지금 (한국 시각) */
-export const stamp = (now: Date = new Date()): string => stampOf(now);
-
 /** 이번 달 (한국 달력) — `2026-08` */
 export const thisMonth = (now: Date = new Date()): string => dayOf(now).slice(0, 7);
 

@@ -38,34 +38,6 @@ const ZIP_SIGNATURES = [
 ];
 
 /**
- * File[] (multipart/form-data)을 받아 PDF 목록으로 정규화.
- * ZIP은 압축 해제하여 내부 PDF만 추출.
- */
-export async function extractAndHashFiles(files: File[]): Promise<NormalizedFile[]> {
-  const result: NormalizedFile[] = [];
-
-  for (const file of files) {
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
-
-    if (file.name.toLowerCase().endsWith('.zip')) {
-      const pdfs = await extractPDFsFromZip(buffer);
-      result.push(...pdfs);
-    } else if (file.name.toLowerCase().endsWith('.pdf')) {
-      result.push({
-        name: file.name,
-        buffer,
-        hash: sha256(buffer),
-        mimeType: 'application/pdf',
-      });
-    }
-    // HWP, XLSX 등 지원하지 않는 형식은 무시
-  }
-
-  return result;
-}
-
-/**
  * ZIP Buffer에서 PDF를 추출합니다 (Vercel Blob 경유 업로드용).
  */
 export async function extractAndHashFromZipBuffer(buffer: Buffer): Promise<NormalizedFile[]> {

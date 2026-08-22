@@ -321,9 +321,6 @@ export async function sliceApplicationAndConsulting(
   };
 }
 
-/** 기존 호출부 호환용 별칭 */
-export const sliceNiceApplicationAndConsulting = sliceApplicationAndConsulting;
-
 export async function sliceConsultingReport(
   source: Blob,
   options: SliceOptions = {}

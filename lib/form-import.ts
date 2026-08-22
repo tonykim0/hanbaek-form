@@ -182,24 +182,6 @@ const COMMON_KEYS = [
 
 export type CpoKey = 'hec' | 'nice' | 'sk' | 'pluglink';
 
-export const IMPORT_FIELD_KEYS: Record<CpoKey, readonly ImportedFieldKey[]> = {
-  // HecFormData — 공통 + 대표자·현장담당자·전기차등록대수·별지2 총 설치대수
-  hec: [
-    ...COMMON_KEYS,
-    'custRepresentative',
-    'siteManager',
-    'evCount',
-    'siteTotalSlow',
-    'siteTotalFast',
-  ],
-  // NiceFormData — 공통 + 대표자 + 제1조 설치위치 상세
-  nice: [...COMMON_KEYS, 'custRepresentative', 'installDetailLocation'],
-  // SkFormData — 공통 + 대표자 (직인동의서에 들어감)
-  sk: [...COMMON_KEYS, 'custRepresentative'],
-  // ContractFormData — 공통만
-  pluglink: [...COMMON_KEYS],
-};
-
 // ─────────────────────────────────────────────
 // 폼 적용
 // ─────────────────────────────────────────────
@@ -211,43 +193,6 @@ export interface ApplyOutcome {
   missing: ImportedFieldKey[];
   /** 채웠지만 신뢰도가 낮아 사람이 확인해야 하는 필드 */
   lowConfidence: ImportedFieldKey[];
-}
-
-/**
- * 추출값을 react-hook-form에 반영합니다.
- *
- * null·빈 문자열은 건너뜁니다 — 잘못 읽은 빈칸이 폼 기본값(예: 모집대행사
- * 기본 담당자)을 지워버리면 오히려 손이 더 갑니다.
- */
-export function applyImportedFields<TFieldValues extends FieldValues>(
-  result: FormImportResult,
-  setValue: UseFormSetValue<TFieldValues>,
-  keys: readonly ImportedFieldKey[]
-): ApplyOutcome {
-  const applied: ImportedFieldKey[] = [];
-  const missing: ImportedFieldKey[] = [];
-  const lowConfidence: ImportedFieldKey[] = [];
-
-  for (const key of keys) {
-    const value = result.fields[key];
-    if (value === null || value === undefined || value === '') {
-      missing.push(key);
-      continue;
-    }
-    setValue(
-      key as Path<TFieldValues>,
-      value as PathValue<TFieldValues, Path<TFieldValues>>,
-      { shouldValidate: false, shouldDirty: true }
-    );
-    applied.push(key);
-
-    const score = result.confidence[key];
-    if (typeof score === 'number' && score < LOW_CONFIDENCE_THRESHOLD) {
-      lowConfidence.push(key);
-    }
-  }
-
-  return { applied, missing, lowConfidence };
 }
 
 /** 사용자에게 보여줄 한글 필드명 */

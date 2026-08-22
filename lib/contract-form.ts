@@ -1,7 +1,5 @@
 export const YEAR_OPTIONS = ['2025', '2026', '2027'] as const;
 export const DEFAULT_YEAR = '2026';
-export const PHONE_RE = /^(0\d{1,2}-\d{3,4}-\d{4}|1[5-9]\d{2}-\d{4})$/;
-
 /**
  * 전화번호 입력 시 자동으로 하이픈(-)을 삽입한다.
  * - 15xx/16xx/18xx 대표번호: XXXX-XXXX

@@ -78,11 +78,3 @@ export function deriveStage(input: {
  * UTC 로 세서 한국 시간 오전 9시 전에는 경과일이 하루 적게 나왔다.
  */
 export const stalledDaysSince = daysSince;
-
-export const STAGE_LABEL: Record<Stage, string> = {
-  // 콘솔에서 부르는 이름은 「계약」이다. 협력사가 쓰는 포털의 「접수」와 구분한다 —
-  // 포털은 서류를 넣는 행위이고, 콘솔은 그 계약이 어디까지 왔는지를 본다.
-  intake: '계약',
-  construction: '시공',
-  settlement: '정산',
-};

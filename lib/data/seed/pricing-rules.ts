@@ -499,5 +499,3 @@ export const PRICING_RULES: PricingRule[] = [
     active: true,
   },
 ];
-
-export const PRICING_RULE_BY_ID = new Map(PRICING_RULES.map((r) => [r.id, r]));

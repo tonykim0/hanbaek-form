@@ -66,11 +66,6 @@ export const SIDO_ALIAS: Record<string, string> = {
   경산북도: '경상북도',
 };
 
-export function canonicalSido(raw: string): string {
-  const value = (raw ?? '').trim();
-  return SIDO_ALIAS[value] ?? value;
-}
-
 /* ------------------------------------------------------------- 주소 파싱 */
 
 /**

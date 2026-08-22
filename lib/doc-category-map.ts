@@ -80,14 +80,3 @@ export function excelCategory(fileName: string): FileCategory {
   if (/설치이력|기설치|이력서?\b|history/.test(n)) return '기설치 충전기 설치이력';
   return '실사보고서';
 }
-
-/** 자동분류가 절대 채울 수 없는 칸 — 화면에서 안내가 필요하다 */
-export function unmatchedKinds(infos: ClassifiedFileInfo[]): string[] {
-  const filled = new Set(
-    infos.map((i) => kindOfCategory(i.category)).filter((k): k is string => k !== null)
-  );
-  return Object.values(CATEGORY_TO_KIND)
-    .filter((k): k is string => k !== null)
-    .filter((k, i, arr) => arr.indexOf(k) === i)
-    .filter((k) => !filled.has(k));
-}

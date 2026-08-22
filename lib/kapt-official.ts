@@ -105,18 +105,6 @@ export async function searchOfficialCandidates(query: string) {
     .slice(0, 20);
 }
 
-export async function getOfficialBasis(kaptCode: string) {
-  const [basicPayload, detailPayload] = await Promise.all([
-    fetchOfficialJson("AptBasisInfoServiceV4/getAphusBassInfoV4", { kaptCode }),
-    fetchOfficialJson("AptBasisInfoServiceV4/getAphusDtlInfoV4", { kaptCode }),
-  ]);
-
-  return {
-    basic: extractItems(basicPayload)[0] ?? {},
-    detail: extractItems(detailPayload)[0] ?? {},
-  };
-}
-
 export function hasOfficialKey() {
   return Boolean(process.env.DATA_GO_KR_SERVICE_KEY);
 }

@@ -143,16 +143,6 @@ export function canEnter(
   return { ok: true };
 }
 
-/**
- * 계약 단계에 보완이 필요한가.
- *
- * 별도 상태로 저장하지 않는다 — 반려된 서류가 있다는 사실 자체가 「계약보완」이다.
- * 상태를 따로 두면 반려를 풀고도 상태가 남아 어긋난다.
- */
-export function contractNeedsFix(documents: ProjectDocument[]): string[] {
-  return documents.filter((d) => d.status === 'rejected').map((d) => d.kind);
-}
-
 // ── 공정 입력 권한 ──────────────────────────────────────────────
 /**
  * 한백만 적는 공정 칸.

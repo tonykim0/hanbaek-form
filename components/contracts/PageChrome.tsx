@@ -140,22 +140,3 @@ export function FormActions({
     </div>
   );
 }
-
-export function NoticePanel({ sections }: { sections: NoticeSection[] }) {
-  return (
-    <div className="mt-6 p-4 bg-amber-50 border border-amber-200 rounded text-sm text-amber-900">
-      {sections.map((section, sectionIndex) => (
-        <div key={section.title}>
-          <p className={`font-semibold mb-1 ${sectionIndex > 0 ? 'mt-3' : ''}`}>
-            {section.title}
-          </p>
-          <ul className="list-disc ml-5 space-y-1">
-            {section.items.map((item, itemIndex) => (
-              <li key={`${section.title}-${itemIndex}`}>{item}</li>
-            ))}
-          </ul>
-        </div>
-      ))}
-    </div>
-  );
-}

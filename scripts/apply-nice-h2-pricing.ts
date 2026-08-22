@@ -1,9 +1,14 @@
 /**
  * 나이스인프라 26년 하반기 정책 반영 — 2026-08-05 배포본 (2026-08-01 접수건부터 적용).
  *
- *   npx tsx scripts/apply-nice-h2-pricing.ts            무엇이 들어갈지만 보여준다
- *   npx tsx scripts/apply-nice-h2-pricing.ts --write    실제로 넣는다
- *   DATABASE_URL=<프로덕션> npx tsx scripts/apply-nice-h2-pricing.ts --write
+ *   npx tsx scripts/apply-nice-h2-pricing.ts            무엇이 들어갈지만 보여준다 (개발 DB)
+ *   npx tsx scripts/apply-nice-h2-pricing.ts --write    실제로 넣는다 (개발 DB)
+ *   npx tsx scripts/apply-nice-h2-pricing.ts --env .env.production.local [--write]
+ *
+ * ★어느 DB 인가★ 기본은 `.env.local`(개발)이고 `--env <파일>` 로 바꾼다. 접속 문자열을
+ * 명령줄에 적지 않는다 — 셸 히스토리에 남는다. `.env.local` 을 프로덕션 값으로 바꿔치기
+ * 하는 것도 되돌리는 것을 잊으면 다음 작업이 프로덕션을 친다. 파일을 따로 두고 골라 쓴다
+ * (`.env*` 는 gitignore 에 있다). 어느 DB 에 붙었는지 첫 줄에 호스트로 찍어준다.
  *
  * 멱등하다 — 같은 칸(교체유형 × 수전 × 연수 × 유형 × 채널)을 같은 적용 시작으로 덮는
  * 활성 케이스가 이미 있으면 값이 같은지 보고, 같으면 지나가고 다르면 고친다.
@@ -54,9 +59,21 @@
  * 개정 방식이고(케이스 이름에 적용 시작이 들어가 화면에서 구분된다), 8월 이후 접수에
  * 옛 케이스를 못 고르게 막고 싶으면 화면에서 중지한다.
  */
+import { existsSync } from 'fs';
 import { loadEnvFile } from '../lib/env-file';
 
-loadEnvFile();
+/*
+ * 환경 파일을 먼저 얹는다 — 아래 저장소 모듈이 불릴 때 이미 DATABASE_URL 이 있어야 한다.
+ * 없는 파일을 조용히 넘기면(loadEnvFile 의 기본 동작) 오타 하나로 개발 DB 를 치게 되므로
+ * 여기서 막는다.
+ */
+const envAt = process.argv.indexOf('--env');
+const ENV_FILE = envAt >= 0 ? process.argv[envAt + 1] : '.env.local';
+if (!ENV_FILE || ENV_FILE.startsWith('--')) {
+  throw new Error('--env 뒤에 파일 이름이 없습니다 (예: --env .env.production.local).');
+}
+if (!existsSync(ENV_FILE)) throw new Error(`${ENV_FILE} 이 없습니다.`);
+loadEnvFile(ENV_FILE);
 
 import { pgRepository } from '../lib/data/pg-store';
 import { checkPricingRule, duplicateOf } from '../lib/pricing-match';
@@ -176,7 +193,12 @@ function ruleOf(row: PolicyRow): NewPricingRule {
 }
 
 async function main() {
-  if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL 이 없습니다 — .env.local 을 확인하세요.');
+  const url = process.env.DATABASE_URL;
+  if (!url) throw new Error(`DATABASE_URL 이 없습니다 — ${ENV_FILE} 을 확인하세요.`);
+  /* 비밀은 안 찍는다 — 호스트만. 어느 DB 를 치는지 모르고 --write 하는 일이 없게 */
+  let host = '알 수 없음';
+  try { host = new URL(url).host; } catch { /* 파싱 못 하면 호스트를 비워 둔다 */ }
+  console.log(`DB ${host}  (${ENV_FILE})\n`);
 
   const [existing, settles] = await Promise.all([
     pgRepository.listPricingRules(ACTOR),

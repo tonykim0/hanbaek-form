@@ -27,6 +27,7 @@ import type {
   ProjectDetail, ProjectDocument, ProjectSummary, ReplType, Settlement, SettlementRule,
   SettlementStepRule, SettlementSummary, TaxInvoice,
 } from '@/types/project';
+import { subsidized } from '@/types/project';
 import type { Viewer } from '@/lib/auth/types';
 import { canAccessProject, effectiveVisibility, isHanbaek, normalizeOrg } from '@/lib/roles';
 import { needsPreInstallCheck, PROCESS_DOCS } from '@/lib/doc-rules';
@@ -1299,11 +1300,11 @@ export const pgRepository: ProjectRepository = {
         .limit(1);
       if (!row) throw new Error('현장을 찾을 수 없습니다.');
       /*
-       * 자체투자 현장은 환경부 보조금을 받지 않으므로 대기번호가 없다.
+       * 자체투자·연동 현장은 환경부 보조금을 받지 않으므로 대기번호가 없다.
        * 화면에서 입력칸을 주지 않지만 여기서도 막는다 — 라우트는 직접 부를 수 있다.
        */
-      if (row.bizType === '자체투자' && value !== null) {
-        throw new Error('자체투자 현장은 환경부 대기번호가 없습니다.');
+      if (!subsidized(row.bizType as BizType | null) && value !== null) {
+        throw new Error(`${row.bizType} 현장은 환경부 대기번호가 없습니다.`);
       }
       if (row.envQueueNo === value) return;
 

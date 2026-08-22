@@ -10,8 +10,11 @@
  * 체크해서 지급일 하나로 확정하면(runPayoutBatch, 전부 되거나 전부 안 됨) 지급처가
  * 여럿 섞여 있어도 배치는 (지급처 × 지급일)로 저절로 갈라진다 — 명세서도 그 단위다.
  *
- * 배치 줄의 세금계산서 상태: 미첨부 → 금액 미확인(판독 실패) → 일치 ✓ / 차액 △.
- * 대조 기준은 공급가액이다 — 원장 금액이 공급가액이다(한백 확인 2026-08-23).
+ * 세금계산서는 배치 옆의 첨부다 — 금액 판독·대조는 걷어냈다(한백 확인 2026-08-23,
+ * 「기록 옆에 첨부해 두고 싶은 것뿐」). 열도 한백에게만 보인다 — 한백의 보관함이다.
+ *
+ * ★협력사도 본다★ — 자기 배치만(저장소가 가른다). 풀·확정·첨부는 한백의 일이라
+ * seesAll/canConfirm 으로 가린다.
  */
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
@@ -36,28 +39,16 @@ interface Batch {
   invoice: TaxInvoice | null;
 }
 
-/** 배치와 세금계산서의 대조 — 기준은 공급가액 */
-type MatchState =
-  | { kind: 'none' }
-  | { kind: 'unknown' }
-  | { kind: 'match' }
-  | { kind: 'diff'; gap: number };
-
-function matchOf(b: Batch): MatchState {
-  if (!b.invoice) return { kind: 'none' };
-  if (b.invoice.supplyAmount === null) return { kind: 'unknown' };
-  if (b.invoice.supplyAmount === b.total) return { kind: 'match' };
-  return { kind: 'diff', gap: b.invoice.supplyAmount - b.total };
-}
-
 export default function StatementsBoard({
-  plans, history, invoices, canConfirm,
+  plans, history, invoices, canConfirm, seesAll,
 }: {
   plans: PayoutRowInput[];
   history: PayoutRow[];
   invoices: TaxInvoice[];
   /** 확정할 수 있는가 — 관리자만. 열람 전용은 풀·배치를 읽기만 한다. */
   canConfirm: boolean;
+  /** 한백의 눈인가 — 풀·세금계산서 열이 보인다. 협력사는 자기 배치 목록만 본다. */
+  seesAll: boolean;
 }) {
   const payable = useMemo(
     () =>
@@ -90,7 +81,7 @@ export default function StatementsBoard({
 
   return (
     <div className="flex flex-col gap-7">
-      <PayablePool payable={payable} canConfirm={canConfirm} />
+      {seesAll && <PayablePool payable={payable} canConfirm={canConfirm} />}
 
       <section>
         <div className="mb-2 flex items-baseline gap-2">
@@ -113,13 +104,13 @@ export default function StatementsBoard({
                 <th className="px-3 py-2.5 text-left">지급처</th>
                 <th className="px-3 py-2.5 text-right">건수</th>
                 <th className="px-3 py-2.5 text-right">공급가액</th>
-                <th className="px-3 py-2.5 text-left">세금계산서</th>
+                {seesAll && <th className="px-3 py-2.5 text-left">세금계산서</th>}
                 <th className="px-3 py-2.5 text-right"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {batches.map((b) => (
-                <BatchRow key={`${b.paidAt}|${b.org ?? ''}`} b={b} />
+                <BatchRow key={`${b.paidAt}|${b.org ?? ''}`} b={b} seesAll={seesAll} />
               ))}
             </tbody>
           </Frame>
@@ -274,8 +265,7 @@ function PayablePool({ payable, canConfirm }: { payable: PayoutWork[]; canConfir
   );
 }
 
-function BatchRow({ b }: { b: Batch }) {
-  const m = matchOf(b);
+function BatchRow({ b, seesAll }: { b: Batch; seesAll: boolean }) {
   return (
     <tr className="transition hover:bg-brand-50/40">
       <td className="whitespace-nowrap px-3 py-2.5 tabular-nums text-slate-700">
@@ -291,14 +281,23 @@ function BatchRow({ b }: { b: Batch }) {
       <td className={`whitespace-nowrap px-3 py-2.5 text-right font-bold tabular-nums ${b.total < 0 ? 'text-amber-800' : 'text-slate-800'}`}>
         {won(b.total)}
       </td>
-      <td className="whitespace-nowrap px-3 py-2.5">
-        {m.kind === 'none' && <Empty kind="miss" label="미첨부" />}
-        {m.kind === 'unknown' && <Badge tone="warn">금액 미확인</Badge>}
-        {m.kind === 'match' && <Badge tone="ok">일치</Badge>}
-        {m.kind === 'diff' && (
-          <Badge tone="stop">차액 {m.gap > 0 ? '+' : ''}{won(m.gap)}</Badge>
-        )}
-      </td>
+      {seesAll && (
+        <td className="whitespace-nowrap px-3 py-2.5">
+          {b.invoice ? (
+            <a
+              href={b.invoice.blobUrl}
+              target="_blank"
+              rel="noopener"
+              className="text-small font-bold text-brand-700 underline-offset-2 hover:underline"
+            >
+              첨부됨
+            </a>
+          ) : (
+            /* 빠뜨림이 아니라 아직 안 온 것일 수도 — 회색으로 조용히 */
+            <span className="text-small text-slate-300">미첨부</span>
+          )}
+        </td>
+      )}
       <td className="whitespace-nowrap px-3 py-2.5 text-right">
         {b.org && (
           <Link

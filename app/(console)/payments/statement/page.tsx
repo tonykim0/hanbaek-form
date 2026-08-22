@@ -56,10 +56,10 @@ export default async function StatementPage({
     <div className="mx-auto max-w-3xl">
       <div className="mb-5 flex items-center gap-2 print:hidden">
         <Link
-          href={seesAll ? '/statements' : `/payments?month=${date.slice(0, 7)}`}
+          href="/statements"
           className="text-small font-bold text-slate-500 transition hover:text-brand-800"
         >
-          ← {seesAll ? '거래명세서 목록' : '지급 및 기성관리'}
+          ← {seesAll ? '협력사 거래명세서' : '협력사 거래명세서 목록'}
         </Link>
         <span className="ml-auto" />
         <PrintButton />

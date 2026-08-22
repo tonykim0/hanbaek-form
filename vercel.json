@@ -7,9 +7,6 @@
   "functions": {
     "app/api/intake/route.ts": {
       "maxDuration": 60
-    },
-    "app/api/statements/tax-invoice/route.ts": {
-      "maxDuration": 60
     }
   }
 }

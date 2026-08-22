@@ -99,8 +99,8 @@ const GROUPS: Group[] = [
       // 협력사도 연다(한백 확인) — 자기가 받을 지급의 회차·금액·지급시기를 본다
       { href: '/payouts', label: '협력사 지급관리', short: '지급' },
       { href: '/receivables', label: '운영사 기성관리', short: '기성', hanbaekOnly: true },
-      // 배치를 만들고 세금계산서와 대조하는 작업대 — 지급관리(계획표)의 다음 걸음이다
-      { href: '/statements', label: '거래명세서', short: '명세', hanbaekOnly: true },
+      // 배치를 만들고 보관하는 작업대 — 협력사도 자기 배치(최종 확인분)를 여기서 본다
+      { href: '/statements', label: '협력사 거래명세서', short: '명세' },
     ],
   },
   {

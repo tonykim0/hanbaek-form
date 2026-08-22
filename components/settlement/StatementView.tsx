@@ -7,8 +7,8 @@
  * (원장 삭제 → 그 회차는 지급 가능 풀로 돌아간다) 거래명세서 화면에서 다시 확정한다.
  * 반쯤 고친 명세서가 남는 것보다, 원장을 고치고 이 장을 다시 그리는 것이 맞다.
  *
- * ★부가세 줄★ 원장 금액은 공급가액이다(한백 확인 2026-08-23). 세금계산서와의 대조는
- * 공급가액 기준이고, 부가세·합계는 참고로 적는다 — 실제 송금액은 합계다.
+ * ★부가세 줄★ 원장 금액은 공급가액이다(한백 확인 2026-08-23). 부가세·합계는 참고로
+ * 적는다 — 실제 송금액은 합계다.
  *
  * 편집(빼기·지급일·세금계산서)은 전부 print:hidden — 종이에는 명세서만 남는다.
  */
@@ -16,7 +16,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { PayoutRow, TaxInvoice } from '@/types/project';
 import { useAction } from '@/lib/use-action';
-import { Badge, Btn, Empty, Err, FIELD_CELL, Saved } from '@/components/ui';
+import { Btn, Empty, Err, FIELD_CELL, Saved } from '@/components/ui';
 import { won } from './parts';
 
 export default function StatementView({
@@ -112,7 +112,7 @@ export default function StatementView({
 
       {canEdit && rows.length > 0 && (
         <div className="mt-5 grid gap-4 print:hidden lg:grid-cols-2">
-          <InvoiceCard org={org} date={date} invoice={invoice} statementSupply={supply} />
+          <InvoiceCard org={org} date={date} invoice={invoice} />
           <MoveBatch org={org} date={date} />
         </div>
       )}
@@ -163,22 +163,20 @@ function ItemRow({ r, canEdit }: { r: PayoutRow; canEdit: boolean }) {
 }
 
 /* ── 세금계산서 ───────────────────────────────────────────────────────────
- * 올리면 AI 가 금액을 읽고 검산(공급가액+세액=합계)을 통과한 것만 채운다.
- * 못 읽으면 「금액 미확인」 — 사람이 적는다. 채워진 값도 언제든 고친다(규칙 7).
+ * 명세서 기록 옆의 첨부다 — 금액 판독·대조는 걷어냈다(한백 확인 2026-08-23).
+ * 협력사가 발행해 보낸 것을 붙여 두는 보관함이고, 배치 하나에 한 장이다.
  */
 function InvoiceCard({
-  org, date, invoice, statementSupply,
+  org, date, invoice,
 }: {
   org: string;
   date: string;
   invoice: TaxInvoice | null;
-  statementSupply: number;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const del = useAction();
-  const [editing, setEditing] = useState(false);
 
   async function upload(file: File) {
     setBusy(true);
@@ -233,10 +231,6 @@ function InvoiceCard({
     if (ok) router.refresh();
   }
 
-  const matched = invoice?.supplyAmount !== null && invoice?.supplyAmount !== undefined
-    ? invoice.supplyAmount === statementSupply
-    : null;
-
   return (
     <section className="rounded-panel border border-slate-200 bg-white p-5">
       <h2 className="mb-3 text-base font-black tracking-[-0.02em] text-slate-900">세금계산서</h2>
@@ -244,7 +238,7 @@ function InvoiceCard({
       {!invoice ? (
         <label className="block">
           <span className="mb-2 block text-small text-slate-500">
-            {org}이(가) 발행한 세금계산서를 붙입니다 — 금액은 올리면 자동으로 읽습니다
+            {org}이(가) 발행한 세금계산서를 이 명세서 옆에 붙여 둡니다
           </span>
           <input
             type="file"
@@ -257,12 +251,12 @@ function InvoiceCard({
             }}
             className="block text-small text-slate-600 file:mr-3 file:rounded-ctl file:border file:border-slate-200 file:bg-white file:px-3 file:py-1.5 file:text-small file:font-bold file:text-slate-700"
           />
-          {busy && <p className="mt-2 text-small font-bold text-slate-500">올리고 금액을 읽는 중…</p>}
+          {busy && <p className="mt-2 text-small font-bold text-slate-500">올리는 중…</p>}
           <Err className="mt-2 block">{error}</Err>
         </label>
       ) : (
         <div className="flex flex-col gap-3">
-          <p className="flex flex-wrap items-center gap-2">
+          <p className="flex flex-wrap items-baseline gap-2">
             <a
               href={invoice.blobUrl}
               target="_blank"
@@ -271,32 +265,8 @@ function InvoiceCard({
             >
               {invoice.filename}
             </a>
-            {matched === null && <Badge tone="warn">금액 미확인</Badge>}
-            {matched === true && <Badge tone="ok">명세서와 일치</Badge>}
-            {matched === false && invoice.supplyAmount !== null && (
-              <Badge tone="stop">
-                차액 {invoice.supplyAmount - statementSupply > 0 ? '+' : ''}
-                {won(invoice.supplyAmount - statementSupply)}
-              </Badge>
-            )}
+            <span className="text-tiny text-slate-400">첨부 {invoice.uploadedAt}</span>
           </p>
-
-          {editing || matched === null ? (
-            <InvoiceAmountForm
-              invoice={invoice}
-              onDone={() => {
-                setEditing(false);
-                router.refresh();
-              }}
-            />
-          ) : (
-            <p className="flex flex-wrap items-baseline gap-x-4 gap-y-1 text-small text-slate-600">
-              <span>공급가액 <b className="tabular-nums text-slate-900">{won(invoice.supplyAmount ?? 0)}</b></span>
-              <span>세액 <b className="tabular-nums text-slate-800">{invoice.taxAmount === null ? '—' : won(invoice.taxAmount)}</b></span>
-              <span>합계 <b className="tabular-nums text-slate-900">{invoice.totalAmount === null ? '—' : won(invoice.totalAmount)}</b></span>
-              <Btn kind="quiet" size="sm" onClick={() => setEditing(true)}>금액 수정</Btn>
-            </p>
-          )}
 
           <div className="flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3">
             <label className="cursor-pointer text-small font-bold text-slate-500 transition hover:text-slate-800">
@@ -317,66 +287,12 @@ function InvoiceCard({
             <Btn kind="quiet" size="sm" busy={del.busy} onClick={() => void remove()}>
               삭제
             </Btn>
-            {busy && <span className="text-small font-bold text-slate-500">올리고 금액을 읽는 중…</span>}
+            {busy && <span className="text-small font-bold text-slate-500">올리는 중…</span>}
             <Err>{error ?? del.error}</Err>
           </div>
         </div>
       )}
     </section>
-  );
-}
-
-/** 금액 수기 입력 — 판독이 못 읽었거나 틀렸을 때 사람이 적는다 */
-function InvoiceAmountForm({ invoice, onDone }: { invoice: TaxInvoice; onDone: () => void }) {
-  const { busy, error, run } = useAction();
-  const [supply, setSupply] = useState(invoice.supplyAmount?.toString() ?? '');
-  const [tax, setTax] = useState(invoice.taxAmount?.toString() ?? '');
-  const [total, setTotal] = useState(invoice.totalAmount?.toString() ?? '');
-
-  const int = (v: string): number | null => {
-    const t = v.replace(/[,\s원]/g, '');
-    if (t === '') return null;
-    const n = Number(t);
-    return Number.isSafeInteger(n) ? n : null;
-  };
-
-  async function save(e: React.FormEvent) {
-    e.preventDefault();
-    const ok = await run({
-      url: '/api/statements/tax-invoice',
-      method: 'PATCH',
-      body: {
-        id: invoice.id,
-        supplyAmount: int(supply),
-        taxAmount: int(tax),
-        totalAmount: int(total),
-      },
-      fail: '저장하지 못했습니다.',
-    });
-    if (ok) onDone();
-  }
-
-  return (
-    <form onSubmit={save} className="flex flex-wrap items-end gap-2">
-      {[
-        ['공급가액', supply, setSupply],
-        ['세액', tax, setTax],
-        ['합계', total, setTotal],
-      ].map(([label, value, set]) => (
-        <label key={label as string} className="block">
-          <span className="mb-1 block text-tiny font-bold text-slate-400">{label as string}</span>
-          <input
-            value={value as string}
-            onChange={(e) => (set as (v: string) => void)(e.target.value)}
-            inputMode="numeric"
-            placeholder="원"
-            className={`${FIELD_CELL} w-32 text-right tabular-nums`}
-          />
-        </label>
-      ))}
-      <Btn type="submit" size="sm" busy={busy} busyLabel="저장 중…">저장</Btn>
-      <Err>{error}</Err>
-    </form>
   );
 }
 

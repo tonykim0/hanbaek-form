@@ -115,7 +115,7 @@ export async function middleware(request: NextRequest) {
     const starts = (list: string[]) => hits(path, list);
 
     const adminOnly = ['/admin'];
-    const hanbaekOnly = ['/receivables', '/pricing', '/design', '/statements'];
+    const hanbaekOnly = ['/receivables', '/pricing', '/design'];
     const writerOnly = ['/projects/new', '/contracts', '/settings'];
 
     const blocked =

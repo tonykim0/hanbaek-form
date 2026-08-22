@@ -94,9 +94,8 @@ const PROMO: Record<number, PromoStep[]> = {
 /**
  * 충전요금 — 원문 「충전단가 295원 (포인트 추가적립제도 종료)」.
  *
- * ★한백은 294원이라고 했다(2026-08-22).★ 스캔을 900dpi 로 확대해 다시 읽어도 원문은 295원이라
- * 그 한 값만 고치지 않고 남겨 둔다. 어느 쪽이 맞는지 확인되면 여기만 고치면 된다 —
- * 확인 안 된 값으로 확인된 값을 덮으면, 나중에 왜 이 숫자인지 되짚을 근거가 사라진다.
+ * 한 번 294원으로 정정 요청이 왔다가 정책서 기준 295원으로 확정됐다(한백 확인 2026-08-22).
+ * 남겨 두는 이유: 원본이 스캔 이미지라 4와 5를 눈으로 가리는 값이고, 다음에 또 물어볼 자리다.
  */
 const CHARGE_RATE = 295;
 
@@ -228,6 +227,20 @@ export interface ApplyReport {
   failed: number;
 }
 
+/**
+ * 프로모션 구간이 같은가 — 값으로 견준다.
+ *
+ * ★JSON.stringify 로 견주면 안 된다.★ jsonb 는 키 순서를 제 방식으로 정규화해서 저장한다 —
+ * `{months,rate}` 로 넣은 것이 `{rate,months}` 로 돌아온다. 글자로 견주면 값이 같은데도
+ * 늘 다르다고 나오고, 반영 스크립트가 매번 7건을 「고칠 것」으로 집어 멱등이 깨진다
+ * (2026-08-22 실제로 그랬다).
+ */
+function samePromo(a: PromoStep[] | null, b: PromoStep[] | null): boolean {
+  if (a === null || b === null) return a === b;
+  if (a.length !== b.length) return false;
+  return a.every((x, i) => x.months === b[i].months && x.rate === b[i].rate);
+}
+
 /** 저장소에서 이 일에 쓰는 것만 — 스크립트는 pgRepository 를, 라우트는 getRepository() 를 넘긴다 */
 type Repo = Pick<
   ProjectRepository,
@@ -281,7 +294,7 @@ export async function applyNiceH2(
         && dup.consUnit === rule.consUnit
         && dup.margin === rule.margin;
       const samePolicy = dup.supplyItems === rule.supplyItems
-        && JSON.stringify(dup.promo) === JSON.stringify(rule.promo)
+        && samePromo(dup.promo, rule.promo)
         && dup.promoExtendDeduct === rule.promoExtendDeduct
         && dup.chargeRate === rule.chargeRate
         && dup.installTerms === rule.installTerms

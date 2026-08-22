@@ -140,7 +140,7 @@
 | `/receivables` · `/pricing` | 위 두 줄과 같은 화면 — 열람 전용도 본다(읽기만) | 한백(관리자·열람 전용) |
 | `/admin/partners` | 협력사 정보 — 계정마다 사업자등록증·계좌·통장사본 | 한백만 |
 | `/admin/accounts` | 계정설정 — 계정 등록·구분·소속·중지 | 관리자만 |
-| `/admin/materials` · `/admin/reissue` | 자료실 관리(사이드바 관리) · 서류 재발행(상단 바) | 한백만 |
+| `/admin/materials` · `/admin/reissue` | 자료실 관리(상단 바, 자료실 옆) · 서류 재발행(상단 바) | 한백만 |
 | `/design` | 부품 카탈로그 — `components/ui.tsx` 를 그려 보는 화면 | 한백만 |
 
 한백 전용은 `(admin)` 라우트 그룹의 레이아웃 한 곳이 잠근다 — 그 아래 새 화면을 만들면 저절로 잠긴다.

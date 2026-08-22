@@ -15,8 +15,10 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import type { Role } from '@/lib/roles';
 
-const TOOLS = [
+const TOOLS: { href: string; label: string; adminOnly?: boolean }[] = [
   { href: '/library', label: '충전사업자 자료실' },
+  // 사이드바 관리 묶음에서 옮겼다 — 보는 자리(자료실) 바로 옆이 올리는 자리여야 찾는다
+  { href: '/admin/materials', label: '자료실 관리', adminOnly: true },
   { href: '/lookup', label: '기설치 이력조회' },
   { href: '/apartments', label: 'K-APT 정보' },
 ];
@@ -168,7 +170,7 @@ export default function TopBar({ role }: { role: Role }) {
             <div className="mx-1 h-5 w-px bg-white/25" />
           </>
         )}
-        {TOOLS.map((t) => (
+        {TOOLS.filter((t) => !t.adminOnly || role === 'admin').map((t) => (
           <BarLink key={t.href} href={t.href} label={t.label} active={pathname.startsWith(t.href)} />
         ))}
       </nav>

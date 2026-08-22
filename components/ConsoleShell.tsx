@@ -114,15 +114,15 @@ const GROUPS: Group[] = [
   {
     /*
      * 관리 — 기준값과 계정. 묶음은 한백의 눈에게 열어 두고 항목마다 다시 가른다.
-     * 열람 전용에게 남는 것은 단가 케이스 하나뿐이다(읽기). 계정·자료실·협력사 정보는
+     * 열람 전용에게 남는 것은 단가 케이스 하나뿐이다(읽기). 계정·협력사 정보는
      * 바꾸는 자리라 주소부터 막혀 있다(app/(console)/(admin)/admin/layout.tsx).
+     * 자료실 관리는 상단 바의 자료실 옆으로 옮겼다 — 보는 자리 옆이 올리는 자리다.
      */
     label: '관리',
     hanbaekOnly: true,
     items: [
       // 정산 묶음에서 옮겼다(한백 확인) — 매일 도는 흐름이 아니라 어쩌다 만지는 기준값이다
       { href: '/pricing', label: '단가표', short: '단가' },
-      { href: '/admin/materials', label: '자료실 관리', short: '관리', adminOnly: true },
       // 계정설정(/admin/accounts)에서 뗐다(한백 확인) — 지급 전마다 보는 값이라 계정 등록과 결이 다르다
       { href: '/admin/partners', label: '협력사 정보', short: '협력', adminOnly: true },
       { href: '/admin/accounts', label: '계정설정', short: '계정', adminOnly: true },

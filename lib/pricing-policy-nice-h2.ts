@@ -51,7 +51,7 @@ import type { Actor } from '@/lib/auth/types';
 import type { ProjectRepository } from '@/lib/data/repository';
 import { checkPricingRule, duplicateOf } from '@/lib/pricing-match';
 import { settlementStepsKeyOf } from '@/lib/settlement';
-import type { NewPricingRule, PowerType, ReplType, SettlementStepRule } from '@/types/project';
+import type { NewPricingRule, PowerType, PromoStep, ReplType, SettlementStepRule } from '@/types/project';
 
 /** 적용 시작 — 정책이 못 박은 날. 케이스 이름에 그대로 들어가 개정을 가른다 */
 export const NICE_H2_START = '2026년 8월 1일';
@@ -73,7 +73,7 @@ interface PolicyRow {
   feeSales: number;
   /** 공사 수수료, 천원 — 10년 가산(100)을 더한 값 */
   feeCons: number;
-  /** 케이스 비고에 덧붙일 정책 조건 */
+  /** 설치조건에 덧붙일 행별 조건 — 없으면 빈 문자열 */
   extra: string;
 }
 
@@ -86,51 +86,77 @@ interface PolicyRow {
  * 투자사업에도 같이 적는다 — 원문이 「보조사업 정책 동일 적용(단, 한전수전 지원 불가)」이다.
  * 「공동주택 외 시설 적용 불가」는 여기 케이스가 다 공동주택이라 걸리지 않는다.
  */
-const PROMO: Record<number, string> = {
-  7: '프로모션 6개월/149원',
-  10: '프로모션 6개월/149원 + 6개월/220원(총 12개월)',
+const PROMO: Record<number, PromoStep[]> = {
+  7: [{ months: 6, rate: 149 }],
+  10: [{ months: 6, rate: 149 }, { months: 6, rate: 220 }],
 };
 
-/** 보조·투자사업에 공통인 조건 — 원문 상단 정책 표에서 온다 */
-const COMMON = '충전단가 295원, 설치비율 5%(전용면). 프로모션 연장은 영업비 차감 — 차감 단가 미정';
+/** 충전요금 — 원문 「충전단가 295원 (포인트 추가적립제도 종료)」 */
+const CHARGE_RATE = 295;
+
+/*
+ * 지급자재 — 미지급품목까지 같이 적는다. 「무엇을 주는가」만 적으면 볼라드·카스토퍼를
+ * 우리가 사야 하는지가 안 남고, 그것은 시공비를 잡을 때 실제로 묻게 되는 값이다.
+ * 투자사업은 미지급품목이 다르다 — 도색(레터링 포함)·안내문이 더 빠진다.
+ */
+const SUPPLY_SUB =
+  '충전기 / 열화상카메라(POE허브 포함) / 스탠드폴 / 가림막 · 미지급: 볼라드 · 카스토퍼 · 전면도색 · 분전함';
+const SUPPLY_INV =
+  '충전기 / 열화상카메라(POE허브 포함) / 스탠드폴 / 가림막 · 미지급: 볼라드 · 카스토퍼 · 도색(레터링 포함) · 안내문 · 분전함';
+
+/** 설치조건 — 「할 수 있는가」를 정하는 것들. 원문 상단 정책 표의 설치비율·전용면·충전기 줄 */
+const INSTALL_BASE =
+  '전용면 5%(운영 원칙) · 기설치 이력(건설사·설치·교체·철거 전체)에 따라 기수 산정 · 과금형 4기를 1기로 산정'
+  + ' · 내구연한 8년 미만 장소 교체 불가(충전기 제조년월 기준) · 기설치 「철거 조건」 현장 신규 설치 불가'
+  + ' · 완속(급속은 기설치 기기 당사 연동 가능 시 사전 협의) · 전용면 당사 단독이면 일부 병행 가능, 타사 혼합은 병행 불가';
+
+/* 기타지원 — 운영사가 대주는 것. 투자사업은 한전수전이 빠진다(원문의 유일한 차이) */
+const SUPPORT_SUB =
+  '한전불입금(10년 계약 · 10기 이내, 파트너사 신청 후 당사 납부) · 전기안전점검 수수료(파트너사 선납 후 정산 지급)'
+  + ' · 열화상 시스템 3면당 1대 무상 · 친환경 주차면 레터링(지자체 조례 필수 시, 수수료 포함)'
+  + ' · 스탠드폴·가림막(사업자 지정 구매업체 선구매 후 정산, 운송비는 파트너사 부담)';
+const SUPPORT_INV =
+  '한전수전 지원 불가(수전장소는 보조사업으로만) · 전기안전점검 수수료(파트너사 선납 후 정산 지급)'
+  + ' · 열화상 시스템 3면당 1대 무상 · 친환경 주차면 레터링(지자체 조례 필수 시, 수수료 포함)'
+  + ' · 스탠드폴·가림막(사업자 지정 구매업체 선구매 후 정산, 운송비는 파트너사 부담)';
 
 const ROWS: PolicyRow[] = [
   // 보조사업 — 수수료(분리) 표. 교체는 논외(자체투자로만 한다)
   {
     replType: '환경부 신규', powerType: '모자분리', term: 7,
     feeSales: 200, feeCons: 2400,
-    extra: '기설치 「철거 조건」 현장은 신규 불가. 내구연한 8년 미만 교체 불가',
+    extra: '',
   },
   {
     replType: '환경부 신규', powerType: '모자분리', term: 10,
     feeSales: 200, feeCons: 2400 + 100,
-    extra: '기설치 「철거 조건」 현장은 신규 불가. 내구연한 8년 미만 교체 불가',
+    extra: '',
   },
   {
     replType: '환경부 신규', powerType: '한전불입', term: 10,
     feeSales: 200, feeCons: 2200,
-    extra: '한전불입금 지원은 10년 계약·10기 이내. 파트너사 신청 후 당사 납부',
+    extra: '',
   },
   // 투자사업 — 수수료(턴키) 표. 영업 열이 비어 총액이 공사뿐이다. 한전수전은 불가
   {
     replType: '자체투자 (제자리교체)', powerType: '모자분리', term: 7,
     feeSales: 0, feeCons: 2000,
-    extra: '한전수전 지원 불가(수전장소는 보조사업으로만). 교체공사는 케이블·배관 신설, 차단기·튜브 교체, 도색 재시공 필수',
+    extra: '교체공사는 노후설비에 따른 일부 재시공 필수 — 분전함~충전기 케이블·배관 신설, 차단기·튜브 교체, 도색(레터링). 배관이 후강전선관·덕트면 재사용 가능',
   },
   {
     replType: '자체투자 (제자리교체)', powerType: '모자분리', term: 10,
     feeSales: 0, feeCons: 2000 + 100,
-    extra: '한전수전 지원 불가(수전장소는 보조사업으로만). 교체공사는 케이블·배관 신설, 차단기·튜브 교체, 도색 재시공 필수',
+    extra: '교체공사는 노후설비에 따른 일부 재시공 필수 — 분전함~충전기 케이블·배관 신설, 차단기·튜브 교체, 도색(레터링). 배관이 후강전선관·덕트면 재사용 가능',
   },
   {
     replType: '자체투자 (신규위치)', powerType: '모자분리', term: 7,
     feeSales: 0, feeCons: 2000,
-    extra: '한전수전 지원 불가(수전장소는 보조사업으로만). 사전 입주민 의향조사 필요',
+    extra: '교체 전 입주민 의향조사 필요(민원 사전 차단). 타CPO 교체는 계약종료 확인 필수 — 해지 내용증명·소유권, 보조금 의무운영 5년 경과',
   },
   {
     replType: '자체투자 (신규위치)', powerType: '모자분리', term: 10,
     feeSales: 0, feeCons: 2000 + 100,
-    extra: '한전수전 지원 불가(수전장소는 보조사업으로만). 사전 입주민 의향조사 필요',
+    extra: '교체 전 입주민 의향조사 필요(민원 사전 차단). 타CPO 교체는 계약종료 확인 필수 — 해지 내용증명·소유권, 보조금 의무운영 5년 경과',
   },
 ];
 
@@ -153,10 +179,13 @@ function ruleOf(row: PolicyRow): NewPricingRule {
     ? `영업수수료 ${won(row.feeSales)}천원 + 공사수수료 ${won(row.feeCons)}천원`
     : `공사수수료 ${won(row.feeCons)}천원(영업수수료 없음)`;
 
+  /** 보조사업인가 — 투자사업은 지급자재의 미지급품목과 기타지원이 다르다 */
+  const sub = row.replType === '환경부 신규';
+
   return {
     caseName,
     cpo: '나이스인프라',
-    bizType: row.replType === '환경부 신규' ? '환경부' : '자체투자',
+    bizType: sub ? '환경부' : '자체투자',
     powerType: row.powerType,
     termYears: [row.term],
     bldgTypes: ['공동주택'],
@@ -170,10 +199,19 @@ function ruleOf(row: PolicyRow): NewPricingRule {
     supervisionBearer: '운영사',
     // 정책: 전기안전점검 수수료 지원 — 파트너사 선납 후 정산 시 지급
     safetyFeeBearer: '한백 대납(회수)',
+    supplyItems: sub ? SUPPLY_SUB : SUPPLY_INV,
+    promo: PROMO[row.term] ?? null,
+    // 연장 차감 단가는 정책서에 없다 — 아직 정해진 값이 없어 미지정으로 둔다(한백 확인 2026-08-22)
+    promoExtendDeduct: null,
+    chargeRate: CHARGE_RATE,
+    installTerms: row.extra ? `${INSTALL_BASE} · ${row.extra}` : INSTALL_BASE,
+    otherSupport: sub ? SUPPORT_SUB : SUPPORT_INV,
+    /*
+     * 비고는 돈의 유래만 적는다 — 조건은 이제 칸이 있다. 둘 다 적으면 한쪽만 고쳐져 갈린다.
+     */
     note:
       `26년 하반기 정책(2026-08-05 배포, 8/1 접수건~) — ${feeText}. ` +
-      `선금은 공사수수료의 50%. 마진 20만·시공비 100만 고정, 나머지가 영업비. ` +
-      `${PROMO[row.term] ?? '프로모션 미확인'}. ${COMMON}. ${row.extra}`,
+      `선금은 공사수수료의 50%. 마진 20만·시공비 100만 고정, 나머지가 영업비.`,
     settlementSteps,
   };
 }

@@ -65,6 +65,32 @@ async function main() {
           problems.push(`${p.id} (${role} ${org}): 필요한 키 "${key}" 가 없습니다`);
         }
       }
+      /*
+       * 단가 케이스의 금액 칸 — 키는 있어도 값이 null 이어야 한다.
+       *
+       * 키 이름만 보는 위 검사로는 이것을 못 잡는다. 케이스는 조건(지급자재·충전요금·
+       * 설치조건·기타지원)과 금액을 한 객체에 담고 있어서, 조건은 협력사도 봐야 하고
+       * 금액은 안 된다 — 키를 지우는 방식이 아니라 값을 null 로 바꾸는 방식이라 그렇다.
+       * 그러면 새 금액 칸을 더한 사람이 assemble 에서 가리는 것을 잊어도 아무도 모른다.
+       * 그 자리를 여기서 값으로 확인한다.
+       *
+       * margin·promoExtendDeduct 는 원가를 보는 사람만(vis.cost) 본다. salesUnit·consUnit 은
+       * 자기 쪽만 보므로 role 에 따라 갈린다 — 영업사는 시공비가, 시공사는 영업비가 null 이다.
+       */
+      for (const l of detail.lines) {
+        if (!l.rule) continue;
+        const hidden: [string, unknown][] = [
+          ['margin', l.rule.margin],
+          ['promoExtendDeduct', l.rule.promoExtendDeduct],
+          [role === 'sales' ? 'consUnit' : 'salesUnit', role === 'sales' ? l.rule.consUnit : l.rule.salesUnit],
+        ];
+        for (const [key, v] of hidden) {
+          if (v !== null) {
+            problems.push(`${p.id} (${role} ${org}): 라인 ${l.id} 의 ${key} 가 안 가려졌습니다 (${String(v)})`);
+          }
+        }
+      }
+
       // 남의 쪽 원장이 섞이지 않았는가
       const wrongSide = detail.payoutEntries.filter((e) =>
         role === 'sales' ? e.kind !== '영업비' : e.kind !== '시공비'

@@ -146,6 +146,35 @@ export function checkPricingRule(r: NewPricingRule): string[] {
   if (!Number.isInteger(r.bizYear) || r.bizYear < 2020 || r.bizYear > 2100) {
     bad.push('사업연도를 확인해주세요.');
   }
+
+  /*
+   * 정책 조건 — 전부 비워 둘 수 있다(옛 케이스는 이 칸이 생기기 전에 만들어졌다).
+   * 넣었으면 앞뒤가 맞아야 한다. 여기서 막는 것은 다 「나중에 화면에 이상하게 뜨는」 값이다:
+   * 0개월 구간은 프로모션이 있다는 건지 없다는 건지 알 수 없고, 음수 요금은 계산에 들어간다.
+   */
+  if (r.promo !== null) {
+    if (!Array.isArray(r.promo)) bad.push('프로모션 구간이 올바르지 않습니다.');
+    else if (r.promo.length > 4) bad.push('프로모션 구간은 4개까지입니다.');
+    else {
+      r.promo.forEach((p, i) => {
+        const no = `프로모션 ${i + 1}구간`;
+        if (!p || !Number.isInteger(p.months) || p.months <= 0) {
+          bad.push(`${no} 기간은 0 보다 큰 개월 수여야 합니다.`);
+        }
+        if (!p || !Number.isInteger(p.rate) || p.rate < 0) {
+          bad.push(`${no} 요금은 0 이상의 정수여야 합니다.`);
+        }
+      });
+    }
+  }
+  for (const [label, v] of [
+    ['프로모션 연장 차감', r.promoExtendDeduct],
+    ['충전요금', r.chargeRate],
+  ] as const) {
+    if (v !== null && (!Number.isInteger(v) || v < 0)) {
+      bad.push(`${label}은 0 이상의 정수여야 합니다.`);
+    }
+  }
   return bad;
 }
 

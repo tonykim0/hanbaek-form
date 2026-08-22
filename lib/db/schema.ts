@@ -95,6 +95,19 @@ export const pricingRules = pgTable('pricing_rules', {
   startDate: text('start_date').notNull(),
   salesUnit: integer('sales_unit').notNull(),
   consUnit: integer('cons_unit').notNull(),
+  /*
+   * 정책 조건 — 전부 nullable 이다. 이 칸이 생기기 전에 만든 케이스가 이미 있고(2026-08-22),
+   * 그것들은 「아직 안 적음」이라 빈 값이 맞다. notNull + 기본값으로 채우면 「0원 · 없음」이
+   * 되어 적은 것과 안 적은 것이 같아 보인다(화면 규칙 10번).
+   */
+  supplyItems: text('supply_items'),
+  /** [{ months, rate }] — 구간이 이어진다. null 은 미지정, [] 은 프로모션 없음 */
+  promo: jsonb('promo'),
+  /** 프로모션 1개월 연장당 영업비 차감 (원/대) — 금액이라 협력사에게 안 보인다 */
+  promoExtendDeduct: integer('promo_extend_deduct'),
+  chargeRate: integer('charge_rate'),
+  installTerms: text('install_terms'),
+  otherSupport: text('other_support'),
   margin: integer('margin').notNull(),
   /** 이 케이스에 통상 붙는 정산 규칙 — 제안값. 실제 적용은 현장에 둔다. */
   defaultSettlementRuleId: text('default_settlement_rule_id').references(() => settlementRules.id),

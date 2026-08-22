@@ -197,6 +197,16 @@ export type SettlementRuleChoice = Pick<SettlementRule, 'id' | 'name'>;
  * ★불변★ 한 번 계약 라인에 지정되면 수정하지 않는다. 조건이 바뀌면 새 행을 추가한다.
  * 그래서 계약 라인은 값을 복사하지 않고 이 케이스를 참조만 한다 — 스냅샷이 필요 없다.
  */
+/**
+ * 프로모션 한 구간 — 몇 개월간 얼마(원/kWh)인가. 구간이 이어져 전체 프로모션이 된다.
+ * 나이스 10년: 6개월 149원 → 6개월 220원. 7년: 6개월 149원 한 구간.
+ */
+export interface PromoStep {
+  months: number;
+  /** 원/kWh */
+  rate: number;
+}
+
 export interface PricingRule {
   id: string;
   caseName: string;
@@ -214,6 +224,31 @@ export interface PricingRule {
   salesUnit: number;
   consUnit: number;
   margin: number;
+  /**
+   * 운영사가 대주는 자재 — 「충전기 / 열화상카메라(POE허브) / 스탠드폴 / 가림막」처럼 적는다.
+   * 목록(열거값)으로 두지 않는다 — 운영사마다 품목이 갈리고 미지급품목까지 있어서,
+   * 목록을 만들면 곧 「그 밖」 칸이 필요해지고 실제 값은 거기 다 들어간다.
+   */
+  supplyItems: string | null;
+  /**
+   * 프로모션 구간 — 순서대로 이어진다. 나이스 10년은 [{6,149},{6,220}] (총 12개월).
+   *
+   * 기간·요금 한 쌍으로 두지 않는다. 원문이 구간을 이어 붙이는 꼴이라(7년 조건에 6개월
+   * 추가) 한 쌍만 있으면 뒤 구간을 적을 자리가 없고, 그러면 비고 문장으로 새어나간다.
+   * null 은 「미지정」, 빈 배열은 「프로모션 없음」이다 — 둘은 다른 말이다(화면 규칙 10번).
+   */
+  promo: PromoStep[] | null;
+  /**
+   * 프로모션 기간을 1개월 늘릴 때 영업비에서 떼는 금액(대당).
+   * ★금액이다 — 협력사에게 보이지 않는다★ (PricingRuleView 가 가린다).
+   */
+  promoExtendDeduct: number | null;
+  /** 충전요금 (원/kWh) — 프로모션이 끝난 뒤의 정상 요금 */
+  chargeRate: number | null;
+  /** 설치조건 — 전용면 비율·내구연한·기수 산정처럼 「할 수 있는가」를 정하는 것 */
+  installTerms: string | null;
+  /** 기타지원 — 한전불입금·전기안전점검 수수료·열화상처럼 운영사가 대주는 것 */
+  otherSupport: string | null;
   /** 이 케이스에 통상 붙는 정산 규칙 — 제안값. 실제 적용은 현장(Project)에 둔다. */
   defaultSettlementRuleId: string;
   supervisionBearer: string | null;
@@ -285,10 +320,15 @@ export interface ContractLine {
  *
  * 타입이 nullable 이므로 새 화면을 만들 때도 「없을 수 있다」를 강제로 다루게 된다.
  */
-export type PricingRuleView = Omit<PricingRule, 'salesUnit' | 'consUnit' | 'margin'> & {
+export type PricingRuleView = Omit<
+  PricingRule,
+  'salesUnit' | 'consUnit' | 'margin' | 'promoExtendDeduct'
+> & {
   salesUnit: number | null;
   consUnit: number | null;
   margin: number | null;
+  /* 프로모션 연장 차감도 금액이다 — 여기 두면 조립(assemble)이 가리는 것을 잊을 수 없다 */
+  promoExtendDeduct: number | null;
 };
 
 /** 화면이 받는 조립된 라인 — 참조가 풀려 있다 */

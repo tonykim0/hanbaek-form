@@ -22,13 +22,13 @@ import { createContext, useContext, useEffect, useMemo, useRef, useState } from 
 import {
   BUILDING_TYPES, bizTypeOfRepl, CHANNELS, CPO_NAMES, REPL_TYPES,
   type BuildingType, type Channel, type CpoName, type LineAxes, type PricingRule, type ReplType,
-  type SettlementRule, type SettlementStepRule, type Trigger,
+  type PromoStep, type SettlementRule, type SettlementStepRule, type Trigger,
 } from '@/types/project';
 import { won } from '@/lib/format';
 import { useAction } from '@/lib/use-action';
 import { halfEndKey, halfKeyOf, halfLabel, startKey } from '@/lib/pricing-match';
 import { checkSettlementSteps, RECEIVE_TRIGGERS, stepUnits } from '@/lib/settlement';
-import { Badge, Blank, Btn, Choice, Err, FIELD, FIELD_CELL, PANEL, Tag } from '@/components/ui';
+import { Badge, Blank, Btn, Choice, Empty, Err, FIELD, FIELD_CELL, PANEL, Tag } from '@/components/ui';
 
 const POWER_TYPES = ['한전불입', '모자분리'] as const;
 const TERMS = [5, 7, 10] as const;
@@ -48,6 +48,12 @@ export interface Prefill {
   margin?: number;
   steps?: SettlementStepRule[];
   note?: string;
+  supplyItems?: string;
+  promo?: PromoStep[] | null;
+  promoExtendDeduct?: number | null;
+  chargeRate?: number | null;
+  installTerms?: string;
+  otherSupport?: string;
   /**
    * 개정일 때 원 케이스의 startKey — 새 시작이 이보다 늦어야 저장된다.
    * 이르거나 같으면 매트릭스가 옛 케이스를 최신으로 집어 개정이 안 보이는 상태가 된다.
@@ -64,6 +70,12 @@ function prefillOf(r: PricingRule, settle: SettlementRule | null): Prefill {
     bizYear: r.bizYear,
     salesUnit: r.salesUnit, consUnit: r.consUnit, margin: r.margin,
     steps: settle?.steps, note: r.note ?? undefined,
+    supplyItems: r.supplyItems ?? undefined,
+    promo: r.promo,
+    promoExtendDeduct: r.promoExtendDeduct,
+    chargeRate: r.chargeRate,
+    installTerms: r.installTerms ?? undefined,
+    otherSupport: r.otherSupport ?? undefined,
   };
 }
 
@@ -423,7 +435,7 @@ function CaseList({
       ) : (
         <div className="-mx-5 overflow-x-auto px-5 sm:-mx-6 sm:px-6">
           {/* 돈의 흐름 순서로 읽힌다 — 받는 단가에서 마진을 떼면 지급 단가, 그것을 영업·시공으로 나눈다 */}
-          <table className="w-full min-w-[1160px] text-base">
+          <table className="w-full min-w-[1420px] text-base">
             <thead className="border-b border-slate-200 bg-slate-50 text-tiny font-bold tracking-[0.06em] text-slate-500">
               <tr>
                 <th className="px-3 py-2.5 text-left">케이스</th>
@@ -432,6 +444,7 @@ function CaseList({
                 <th className="px-3 py-2.5 text-right">마진</th>
                 <th className="px-3 py-2.5 text-right">지급 단가</th>
                 <th className="px-3 py-2.5 text-left">기성 단계</th>
+                <th className="px-3 py-2.5 text-left">정책 조건</th>
                 <th className="px-3 py-2.5 text-right">상태</th>
               </tr>
             </thead>
@@ -450,6 +463,53 @@ function CaseList({
         </div>
       )}
     </section>
+  );
+}
+
+/*
+ * 정책 조건 한 칸 — 운영사 정책이 정하는 것들.
+ *
+ * 숫자(충전요금·프로모션·연장차감)는 운영사끼리 견주는 값이라 그대로 보이고, 글(지급자재·
+ * 설치조건·기타지원)은 길어서 두 줄로 자른다 — 전문은 「수정」·「개정」 폼에 있다.
+ * 자르는 것과 비어 있는 것을 가른다: 빈 칸은 「미지정」이라고 적는다(화면 규칙 6·10번).
+ */
+function PolicyCell({ r }: { r: PricingRule }) {
+  const promo = r.promo;
+  return (
+    <div className="flex w-64 flex-col gap-1 text-tiny text-slate-600">
+      <p className="whitespace-nowrap">
+        <span className="font-bold text-slate-400">충전</span>{' '}
+        {r.chargeRate === null ? <Empty kind="miss" /> : <span className="font-bold tabular-nums text-slate-800">{won(r.chargeRate)}원</span>}
+      </p>
+      <p>
+        <span className="font-bold text-slate-400">프로모션</span>{' '}
+        {promo === null ? (
+          <Empty kind="miss" />
+        ) : promo.length === 0 ? (
+          <Empty kind="na" label="없음" />
+        ) : (
+          <span className="font-semibold text-slate-800">
+            {promo.map((x) => `${x.months}개월 ${won(x.rate)}원`).join(' → ')}
+          </span>
+        )}
+      </p>
+      <p className="whitespace-nowrap">
+        <span className="font-bold text-slate-400">연장 차감</span>{' '}
+        {r.promoExtendDeduct === null
+          ? <Empty kind="miss" />
+          : <span className="font-bold tabular-nums text-slate-800">{won(r.promoExtendDeduct)}원/개월</span>}
+      </p>
+      {([
+        ['지급자재', r.supplyItems],
+        ['설치조건', r.installTerms],
+        ['기타지원', r.otherSupport],
+      ] as const).map(([label, v]) => (
+        <p key={label} className="line-clamp-2">
+          <span className="font-bold text-slate-400">{label}</span>{' '}
+          {v ? <span className="text-slate-700">{v}</span> : <Empty kind="miss" />}
+        </p>
+      ))}
+    </div>
   );
 }
 
@@ -564,6 +624,9 @@ function Row({
           // 미정과 해당없음을 가르지 않는다 — 규칙이 없으면 이 케이스의 현장은 기성이 계산되지 않는다
           <Tag tone="warn">기성 미정</Tag>
         )}
+      </td>
+      <td className="px-3 py-2.5 align-top">
+        <PolicyCell r={r} />
       </td>
       <td className="px-3 py-2.5 text-right">
         <div className="flex items-center justify-end gap-2">
@@ -687,6 +750,19 @@ function CaseForm({
     )
   );
   const [note, setNote] = useState(prefill.note ?? '');
+  /*
+   * 정책 조건 — 케이스가 「얼마인가」 말고 「어떤 조건인가」를 담는 칸들.
+   * 프로모션만 구간 배열이다(6개월 149원 → 6개월 220원처럼 이어진다). 나머지는 한 칸이다.
+   * 비어 있는 것은 지우지 않고 null 로 보낸다 — 「0원·없음」과 「아직 안 적음」은 다른 말이다.
+   */
+  const [supplyItems, setSupplyItems] = useState(prefill.supplyItems ?? '');
+  const [promo, setPromo] = useState<{ months: string; rate: string }[]>(
+    (prefill.promo ?? []).map((x) => ({ months: String(x.months), rate: String(x.rate) }))
+  );
+  const [promoExtendDeduct, setPromoExtendDeduct] = useState(money(prefill.promoExtendDeduct ?? undefined));
+  const [chargeRate, setChargeRate] = useState(money(prefill.chargeRate ?? undefined));
+  const [installTerms, setInstallTerms] = useState(prefill.installTerms ?? '');
+  const [otherSupport, setOtherSupport] = useState(prefill.otherSupport ?? '');
 
   /*
    * 목록의 수정·개정, 그리드 칸에서 열리면 폼이 화면 밖(맨 위)에 있다 — 눌렀는데 아무 일도
@@ -731,6 +807,16 @@ function CaseForm({
       : s.kind === '비율' ? { trigger: s.trigger, basis: { kind: '비율', ratio: num(s.value) / 100 } }
         : { trigger: s.trigger, basis: { kind: '잔액' } }
   );
+  /*
+   * 프로모션 구간 — 화면은 글자로 받고 저장은 숫자다. 구간이 하나도 없으면 null(미지정)이고,
+   * 넣었는데 비어 있으면 0 이 되어 검증(checkPricingRule)이 막는다 — 여기서 미리 이유를 적는다.
+   */
+  const promoSteps: PromoStep[] | null =
+    promo.length === 0 ? null : promo.map((x) => ({ months: num(x.months), rate: num(x.rate) }));
+  const promoBad = promoSteps?.some((x) => x.months <= 0)
+    ? '프로모션 구간의 기간을 적어주세요'
+    : null;
+
   const stepBad = checkSettlementSteps(stepRules, receive);
   const stepAmount = receive > 0 ? stepUnits(stepRules, receive) : [];
 
@@ -740,6 +826,7 @@ function CaseForm({
         : receive === 0 ? '받는 단가 미입력'
           : mg > receive ? '마진이 받는 단가보다 큼'
             : !splitOk ? '영업·시공 합이 지급 단가와 다름'
+              : promoBad ? promoBad
               : stepBad.length > 0 ? '기성 단계 확인 필요'
                 : year < 2020 || year > 2100 ? '연도 확인 필요'
                   // 개정이 원 케이스보다 이르거나 같으면 매트릭스가 옛 것을 최신으로 집는다
@@ -759,6 +846,16 @@ function CaseForm({
         settlementSteps: stepRules,
         supervisionBearer: null, safetyFeeBearer: null,
         note: note.trim() || null,
+        /*
+         * 빈 칸은 null 로 보낸다 — 빈 문자열·0 으로 보내면 「없음」이 되어 아직 안 적은 것과
+         * 구별이 안 된다(화면 규칙 10번). 프로모션은 구간이 하나도 없으면 null 이다.
+         */
+        supplyItems: supplyItems.trim() || null,
+        promo: promoSteps,
+        promoExtendDeduct: promoExtendDeduct.trim() === '' ? null : num(promoExtendDeduct),
+        chargeRate: chargeRate.trim() === '' ? null : num(chargeRate),
+        installTerms: installTerms.trim() || null,
+        otherSupport: otherSupport.trim() || null,
       },
       fail: editId ? '고치지 못했습니다.' : '넣지 못했습니다.',
     });
@@ -966,6 +1063,115 @@ function CaseForm({
           {steps.length > 0 && receive > 0 && stepBad.length > 0 && (
             <span className="text-tiny font-semibold text-red-600">{stepBad[0]}</span>
           )}
+        </div>
+      </FormSection>
+
+      <FormSection title="정책 조건" hint="운영사 정책이 정하는 것 — 비워 두면 「미지정」">
+        <div className="flex flex-col gap-4">
+          <Field label="지급자재" hint="운영사가 대주는 품목 · 미지급품목도 같이">
+            <input
+              value={supplyItems}
+              onChange={(e) => setSupplyItems(e.target.value)}
+              placeholder="충전기 / 열화상카메라(POE허브 포함) / 스탠드폴 / 가림막"
+              className={FIELD}
+            />
+          </Field>
+
+          {/*
+            프로모션은 구간이 이어진다 — 「6개월 149원 → 6개월 220원」. 한 쌍만 두면
+            뒤 구간이 비고 문장으로 새어나간다. 기성 단계와 같은 모양으로 늘린다.
+          */}
+          <div className="flex flex-col gap-1.5">
+            <span className="flex items-baseline gap-2">
+              <span className="text-tiny font-bold tracking-[0.04em] text-slate-500">프로모션</span>
+              <span className="text-micro text-slate-400">구간이 순서대로 이어진다</span>
+            </span>
+            {promo.length === 0 ? (
+              <span className="text-tiny text-slate-400">구간 없음 — 넣지 않으면 「미지정」이다</span>
+            ) : (
+              <div className="flex flex-col gap-2">
+                {promo.map((x, i) => (
+                  <div key={i} className="flex flex-wrap items-center gap-2">
+                    <span className="w-8 shrink-0 text-tiny font-bold text-slate-400">{i + 1}구간</span>
+                    <input
+                      value={x.months}
+                      onChange={(e) => setPromo((p) => p.map((v, k) => (k === i ? { ...v, months: e.target.value } : v)))}
+                      inputMode="numeric"
+                      placeholder="6"
+                      className={`${FIELD_CELL} w-20 text-right tabular-nums`}
+                    />
+                    <span className="shrink-0 text-micro text-slate-400">개월</span>
+                    <input
+                      value={x.rate}
+                      onChange={(e) => setPromo((p) => p.map((v, k) => (k === i ? { ...v, rate: e.target.value } : v)))}
+                      inputMode="numeric"
+                      placeholder="149"
+                      className={`${FIELD_CELL} w-24 text-right tabular-nums`}
+                    />
+                    <span className="shrink-0 text-micro text-slate-400">원/kWh</span>
+                    <Btn
+                      size="sm"
+                      kind="quiet"
+                      className="ml-auto"
+                      onClick={() => setPromo((p) => p.filter((_, k) => k !== i))}
+                    >
+                      빼기
+                    </Btn>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="mt-1">
+              {promo.length < 4 && (
+                <Btn size="sm" kind="side" onClick={() => setPromo((p) => [...p, { months: '', rate: '' }])}>
+                  구간 추가
+                </Btn>
+              )}
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-4">
+            <div className="w-52">
+              <Field label="프로모션 연장 차감" hint="1개월 연장당 · 영업비에서 뗀다">
+                <input
+                  value={promoExtendDeduct}
+                  onChange={(e) => setPromoExtendDeduct(e.target.value)}
+                  inputMode="numeric"
+                  placeholder="미정"
+                  className={`${FIELD} text-right tabular-nums`}
+                />
+              </Field>
+            </div>
+            <div className="w-40">
+              <Field label="충전요금" hint="원/kWh">
+                <input
+                  value={chargeRate}
+                  onChange={(e) => setChargeRate(e.target.value)}
+                  inputMode="numeric"
+                  placeholder="295"
+                  className={`${FIELD} text-right tabular-nums`}
+                />
+              </Field>
+            </div>
+          </div>
+
+          <Field label="설치조건" hint="할 수 있는가를 정하는 것 — 비율 · 내구연한 · 기수 산정">
+            <textarea
+              value={installTerms}
+              onChange={(e) => setInstallTerms(e.target.value)}
+              rows={3}
+              className={FIELD}
+            />
+          </Field>
+
+          <Field label="기타지원" hint="운영사가 대주는 것 — 한전불입금 · 안전점검 수수료 등">
+            <textarea
+              value={otherSupport}
+              onChange={(e) => setOtherSupport(e.target.value)}
+              rows={3}
+              className={FIELD}
+            />
+          </Field>
         </div>
       </FormSection>
 

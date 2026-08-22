@@ -17,7 +17,24 @@
  */
 import type { PricingRule } from '@/types/project';
 
-export const PRICING_RULES: PricingRule[] = [
+/**
+ * 정책 조건 여섯 칸(지급자재·프로모션·연장차감·충전요금·설치조건·기타지원)은 2026-08-22 에
+ * 생겼고, 이 시드는 그전에 옮긴 값이라 전부 비어 있다 — 「아직 안 적음」이 맞다.
+ * 행마다 null 여섯 개를 적지 않는 이유: 40여 행에 같은 여섯 줄을 늘어놓으면 정작 다른 값이
+ * 안 보이고, 다음에 칸이 하나 더 생기면 또 40군데를 고쳐야 한다.
+ */
+const BLANK_POLICY = {
+  supplyItems: null,
+  promo: null,
+  promoExtendDeduct: null,
+  chargeRate: null,
+  installTerms: null,
+  otherSupport: null,
+} as const;
+
+type SeedRule = Omit<PricingRule, keyof typeof BLANK_POLICY>;
+
+const RULES: SeedRule[] = [
   {
     id: "pl-h1-y10-kepco-new-apt",
     caseName: "플러그링크 (상반기) | 공동주택 | 10년 신규 | 한전불입",
@@ -499,3 +516,5 @@ export const PRICING_RULES: PricingRule[] = [
     active: true,
   },
 ];
+
+export const PRICING_RULES: PricingRule[] = RULES.map((r) => ({ ...BLANK_POLICY, ...r }));

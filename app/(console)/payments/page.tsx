@@ -1,5 +1,6 @@
 import { monthShift, thisMonth as seoulMonth } from '@/lib/date';
 import { won } from '@/lib/format';
+import { Blank } from '@/components/ui';
 import PayChart, { type MonthBar } from '@/components/settlement/PayChart';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
@@ -170,9 +171,7 @@ function Block({
       </div>
 
       {rows.length === 0 ? (
-        <p className="rounded-box border border-dashed border-slate-200 py-8 text-center text-base text-slate-400">
-          이 달에 나간 지급이 없습니다
-        </p>
+        <Blank>이 달에 나간 지급 0건</Blank>
       ) : (
         <div className="flex flex-col gap-4">
           {ordered.map(([org, list]) => (

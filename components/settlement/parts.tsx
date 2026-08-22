@@ -7,6 +7,7 @@
  * 다르게 생겨서, 두 화면을 번갈아 보는 사람이 매번 다시 읽어야 한다.
  */
 import Link from 'next/link';
+import { PANEL } from '@/components/ui';
 import { won } from '@/lib/format';
 
 export { won };
@@ -33,43 +34,18 @@ export function SiteLink({
   );
 }
 
-export function Toggle({
-  on, onChange, label, count,
-}: {
-  on: boolean;
-  onChange: (v: boolean) => void;
-  label: string;
-  count: number;
-}) {
-  return (
-    <button
-      type="button"
-      aria-pressed={on}
-      onClick={() => onChange(!on)}
-      className={`mb-3 rounded-full border px-3 py-1.5 text-small font-bold transition ${
-        on
-          ? 'border-brand-500 bg-brand-600 text-white'
-          : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
-      }`}
-    >
-      {label} <span className="tabular-nums">{count}</span>
-    </button>
-  );
-}
-
-export function Empty() {
-  return (
-    <p className="rounded-2xl border border-dashed border-slate-200 py-12 text-center text-sm text-slate-400">
-      해당하는 것이 없습니다.
-    </p>
-  );
-}
+/*
+ * 고르는 칩(Toggle)과 빈 목록(Empty)은 여기 있었는데 걷어냈다 —
+ * 부품에 이미 있다(`ui.Choice` · `ui.Blank`). 두 벌로 두니 같은 자리가 화면마다
+ * 동글고 각졌고, 빈 목록 문구도 갈렸다.
+ */
 
 export function Frame({ min, children }: { min: string; children: React.ReactNode }) {
   return (
-    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+    <div className="overflow-hidden rounded-panel border border-slate-200 bg-white">
       <div className="overflow-x-auto">
-        <table className="w-full text-sm" style={{ minWidth: min }}>
+        {/* 활자는 콘솔 규격이다 — 여기만 text-sm(14px) 이라 돈 표만 글자가 한 단계 컸다 */}
+        <table className="w-full text-base" style={{ minWidth: min }}>
           {children}
         </table>
       </div>
@@ -93,11 +69,11 @@ export function Tile({
   note?: string;
 }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4">
+    <div className={`${PANEL} p-4`}>
       <p className="text-tiny font-bold tracking-[0.06em] text-slate-400">{label}</p>
-      <p className={`mt-1 text-xl font-black tabular-nums tracking-[-0.02em] ${TILE_TONE[tone]}`}>
+      <p className={`mt-1 text-h2 font-black tabular-nums ${TILE_TONE[tone]}`}>
         {won(value)}
-        <span className="ml-1 text-xs font-bold text-slate-400">원</span>
+        <span className="ml-1 text-small font-bold text-slate-400">원</span>
       </p>
       {note && <p className="mt-0.5 text-tiny text-slate-400">{note}</p>}
     </div>
@@ -116,7 +92,7 @@ export function CrossLink({
   return (
     <Link
       href={href}
-      className="mt-4 flex flex-wrap items-baseline gap-x-2 gap-y-1 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm transition hover:border-brand-300 hover:bg-brand-50/40"
+      className="mt-4 flex flex-wrap items-baseline gap-x-2 gap-y-1 rounded-box border border-slate-200 bg-white px-4 py-3 text-base transition hover:border-brand-300 hover:bg-brand-50/40"
     >
       <span className="text-slate-500">{note}</span>
       <span className="font-black tabular-nums text-slate-900">{won(amount)}원</span>

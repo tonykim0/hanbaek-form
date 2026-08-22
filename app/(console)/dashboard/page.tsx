@@ -4,7 +4,7 @@ import { thisMonth as seoulMonth } from '@/lib/date';
 import { getRepository } from '@/lib/data';
 import { getSessionUser, viewerOf } from '@/lib/auth/session';
 import { ATTRS, EMPTY, optionsOf, type AttrKey } from '@/lib/project-filter';
-import { PANEL } from '@/components/ui';
+import { Blank, PANEL } from '@/components/ui';
 import type { ProjectSummary } from '@/types/project';
 import type { ReactNode } from 'react';
 
@@ -44,9 +44,9 @@ export default async function DashboardPage({
     return (
       <div>
         <PageHeader year={year} years={years} period={`${Number(thisMonth.slice(5, 7))}월 기준`} />
-        <p className="mt-6 rounded-panel border border-dashed border-slate-200 py-16 text-center text-base text-slate-400">
-          현장 0건
-        </p>
+        <div className="mt-6">
+          <Blank>현장 0건</Blank>
+        </div>
       </div>
     );
   }

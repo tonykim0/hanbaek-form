@@ -25,8 +25,8 @@ import { payoutPrerequisiteBlockersOf, payoutReleaseOf, payoutStepsOf } from '@/
 import type { PayoutRowInput } from '@/lib/payout-board';
 import { today } from '@/lib/date';
 import { useAction } from '@/lib/use-action';
-import { Btn, Choice, Empty as EmptyValue, Err, FIELD_CELL, Tag } from '@/components/ui';
-import { Empty, Frame, SiteLink, won } from './parts';
+import { Blank, Btn, Choice, Empty, Err, FIELD_CELL, Tag } from '@/components/ui';
+import { Frame, SiteLink, won } from './parts';
 
 /** 지급일 후보 — 트리거 충족일의 익월 10일·25일 (지급 규칙, 한백 확인) */
 function payDateChoices(metAt: string): [string, string] {
@@ -167,7 +167,7 @@ export default function PayoutWorkBoard({
       </div>
 
       {shown.length === 0 ? (
-        <Empty />
+        <Blank>조건에 맞는 지급이 0건</Blank>
       ) : (
         <Frame min="1120px">
           <thead className="border-b border-slate-100 bg-slate-50 text-tiny font-bold tracking-[0.06em] text-slate-500">
@@ -189,7 +189,7 @@ export default function PayoutWorkBoard({
                   <SiteLink id={p.projectId} name={p.projectName} tab="settlement" />
                   <p className="mt-0.5 text-tiny text-slate-400">{p.cpo}</p>
                 </td>
-                <td className="px-3 py-2.5 align-top text-slate-600">{p.org ?? <EmptyValue kind="miss" />}</td>
+                <td className="px-3 py-2.5 align-top text-slate-600">{p.org ?? <Empty kind="miss" />}</td>
                 <td className="px-3 py-2.5 align-top">
                   <Tag tone={p.kind === '영업비' ? 'stage' : 'ok'}>{p.kind}</Tag>
                   {p.adjust !== 0 && <p className="mt-0.5 text-micro font-semibold text-slate-400">조정 {p.adjust > 0 ? '+' : ''}{won(p.adjust)}</p>}
@@ -220,9 +220,7 @@ export default function PayoutWorkBoard({
           <span className="text-tiny font-bold tabular-nums text-slate-400">{shownHistory.length}건</span>
         </div>
         {shownHistory.length === 0 ? (
-          <p className="rounded-box border border-dashed border-slate-200 py-5 text-center text-base text-slate-400">
-            0건
-          </p>
+          <Blank>0건</Blank>
         ) : (
           <Frame min="760px">
             <thead className="border-b border-slate-100 bg-slate-50 text-tiny font-bold tracking-[0.06em] text-slate-500">
@@ -243,7 +241,7 @@ export default function PayoutWorkBoard({
                   <td className="px-3 py-2">
                     <SiteLink id={r.projectId} name={r.projectName} tab="settlement" />
                   </td>
-                  <td className="px-3 py-2 text-slate-600">{r.org ?? <EmptyValue kind="miss" />}</td>
+                  <td className="px-3 py-2 text-slate-600">{r.org ?? <Empty kind="miss" />}</td>
                   <td className="whitespace-nowrap px-3 py-2">
                     <Tag tone={r.kind === '영업비' ? 'stage' : 'ok'}>{r.kind}</Tag>
                   </td>

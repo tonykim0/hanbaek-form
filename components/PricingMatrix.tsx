@@ -297,24 +297,52 @@ function Grid({
 
   return (
     <section className={`${PANEL} p-5 sm:p-6`}>
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-          <h2 className="text-h3 font-black text-slate-900">매트릭스</h2>
-          <div className="flex flex-wrap gap-1">
+      {/*
+        시기·운영사는 드롭다운이고 왼쪽에 몰려 있다 — 칩으로 늘어놓으면 해가 바뀔 때마다
+        칩이 늘어(2026 상·하 → 2027 상·하 …) 줄바꿈되고, 그러면 표 머리가 아래로 밀린다.
+        고르는 것이 둘뿐이라 한 줄에 나란히 두면 「무엇을 보고 있는가」가 한눈에 읽힌다.
+      */}
+      <div className="mb-4 flex flex-wrap items-center gap-3">
+        <h2 className="text-h3 font-black text-slate-900">매트릭스</h2>
+        <div className="w-40">
+          <select
+            aria-label="시기"
+            className={FIELD}
+            value={half ?? ''}
+            onChange={(e) => setHalfPick(e.target.value)}
+          >
             {halves.map((h) => (
-              <Choice key={h} on={half === h} onClick={() => setHalfPick(h)}>{halfLabel(h)}</Choice>
+              <option key={h} value={h}>{halfLabel(h)}</option>
             ))}
-          </div>
+          </select>
         </div>
-        <div className="flex flex-wrap gap-1">
-          {CPO_NAMES.map((c) => (
-            <Choice key={c} on={cpo === c} onClick={() => setCpo(c)}>{c}</Choice>
-          ))}
+        <div className="w-40">
+          <select
+            aria-label="운영사"
+            className={FIELD}
+            value={cpo}
+            onChange={(e) => setCpo(e.target.value as CpoName)}
+          >
+            {CPO_NAMES.map((c) => (
+              <option key={c} value={c}>{c}</option>
+            ))}
+          </select>
         </div>
       </div>
 
       <div className="-mx-5 overflow-x-auto px-5 sm:-mx-6 sm:px-6">
-        <table className="w-full min-w-[880px] text-base">
+        {/*
+          table-fixed + colgroup 으로 열 너비를 못 박는다. auto 레이아웃에서는 브라우저가
+          내용으로 너비를 정해서, 값이 든 열은 넓어지고 「—」만 있는 열은 좁아진다 —
+          그러면 5·7·10년 머리글(colSpan 2)과 그 아래 공동·상업 칸이 어긋난다.
+        */}
+        <table className="w-full min-w-[860px] table-fixed text-base">
+          <colgroup>
+            <col className="w-56" />
+            {TERMS.flatMap((t) =>
+              BUILDING_TYPES.map((b) => <col key={`${t}-${b}`} />)
+            )}
+          </colgroup>
           <thead className="border-b border-slate-200 bg-slate-50 text-tiny font-bold tracking-[0.06em] text-slate-500">
             <tr>
               <th className="px-3 py-2.5 text-left" rowSpan={2}>교체유형 · 수전</th>
@@ -336,7 +364,8 @@ function Grid({
             {REPL_TYPES.flatMap((repl) =>
               POWER_TYPES.map((power) => (
                 <tr key={`${repl}-${power}`}>
-                  <td className="whitespace-nowrap px-3 py-2">
+                  {/* 열 너비가 고정이라 줄바꿈을 막지 않는다 — 막으면 「자체투자 (제자리교체)」가 칸을 넘는다 */}
+                  <td className="px-3 py-2">
                     <span className="font-bold text-slate-700">{repl}</span>
                     <span className="ml-1.5 text-tiny text-slate-400">{power}</span>
                   </td>

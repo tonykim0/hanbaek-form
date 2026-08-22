@@ -13,7 +13,9 @@
  * 새 화면을 만들 때 여기서 고른다. 여기 없는 값이 필요하면 자리에서 클래스를 적지 말고
  * components/ui.tsx(모양) 와 tailwind.config.js(토큰) 에 먼저 추가한다.
  */
-import { Badge, Blank, Btn, Empty, Err, FIELD, FIELD_CELL, Note, Saved, Tag } from '@/components/ui';
+import {
+  Badge, Blank, Btn, Choice, Empty, Err, FIELD, FIELD_CELL, HR, Note, Saved, Tag, Val,
+} from '@/components/ui';
 
 export const metadata = { title: '디자인 기준 — 한백 전기차사업관리' };
 
@@ -162,8 +164,17 @@ export default function DesignPage() {
           <Part label="배지">
             <Badge tone="stage">계약</Badge>
             <Badge tone="ok">시공</Badge>
-            <Badge tone="mute">멈춤</Badge>
+            <Badge tone="warn">청구 가능</Badge>
+            {/* 멈춤은 색이 아니라 무게로 말한다 — 어느 단계도 아니기 때문이다 */}
+            <Badge tone="hold">보류</Badge>
             <span className="text-tiny text-slate-400">한 건에 하나 — 지금 있는 자리</span>
+          </Part>
+
+          <Part label="큰 배지">
+            <Badge tone="stage" size="lg">계약검토</Badge>
+            <span className="text-tiny text-slate-400">
+              그 화면에서 제일 먼저 읽는 자리 하나에만 — 지금은 현장 상세 머리말의 단계뿐이다
+            </span>
           </Part>
 
           <Part label="꼬리표">
@@ -171,6 +182,23 @@ export default function DesignPage() {
             <Tag tone="warn">확인 필요</Tag>
             <Tag tone="mute">단가 미지정</Tag>
             <span className="text-tiny text-slate-400">여럿이 붙는다 — 그 안에서 세어진 것</span>
+          </Part>
+
+          <Part label="고르는 칩">
+            <Choice on>플러그링크</Choice>
+            <Choice on={false}>SK일렉링크</Choice>
+            <span className="text-tiny text-slate-400">
+              여럿 중에 켜고 끄는 것(필터 · 다중 선택) — 고른 것은 채운 초록 한 모양이다
+            </span>
+          </Part>
+
+          <Part label="값">
+            <Val value="플러그링크" />
+            <Val value={null} when="miss" />
+            <Val value={null} when="wait" />
+            <span className="text-tiny text-slate-400">
+              값이 있으면 값, 없으면 그 없음의 종류를 보여준다 — 빈 자리를 지우지 않는다
+            </span>
           </Part>
 
           <Part label="입력칸">
@@ -194,6 +222,16 @@ export default function DesignPage() {
 
           <Part label="빈 목록">
             <Blank>조건에 맞는 현장이 0건</Blank>
+          </Part>
+
+          <Part label="나누는 선">
+            <div className="w-full">
+              <p className="pb-2 text-base text-slate-600">카드 안에서 층을 나누는 가장 약한 수단</p>
+              <HR />
+              <p className="pt-2 text-tiny text-slate-400">
+                여백 → 얇은 선(HR) → 배경색 → 테두리. 테두리는 마지막 수단이다(화면 규칙 1)
+              </p>
+            </div>
           </Part>
         </div>
       </Section>

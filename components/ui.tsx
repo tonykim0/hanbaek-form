@@ -116,16 +116,35 @@ export function Btn({
  *   Badge(동글)  그 현장이 지금 있는 자리. 한 건에 하나뿐이다 (계약 / 시공 / 멈춤)
  *   Tag(각진)    그 안에서 세어진 것. 여럿이 나란히 붙는다 (반려 2 · 단가 미지정)
  * 동글면 상태, 각지면 셈이다. 누르는 것은 둘 다 아니다 — 누르는 것은 rounded-ctl 이다.
+ *
+ * 배지 크기는 두 가지다. lg 는 그 화면에서 제일 먼저 읽어야 하는 자리 하나에만 쓴다 —
+ * 지금은 현장 상세 머리말의 단계뿐이다. 세 번째 크기를 만들지 않는다.
  */
-export function Badge({ tone = 'mute', children }: { tone?: Tone; children: ReactNode }) {
+const BADGE_SIZE = {
+  md: 'px-2.5 py-1 text-tiny font-bold',
+  lg: 'px-3 py-1 text-base font-black',
+};
+
+/** 좁은 표 칸에서 「트리거 대기」가 두 줄로 접혔다 — 배지·꼬리표는 줄을 바꾸지 않는다 */
+const PILL = 'inline-block whitespace-nowrap';
+
+export function Badge({
+  tone = 'mute',
+  size = 'md',
+  children,
+}: {
+  tone?: Tone;
+  size?: keyof typeof BADGE_SIZE;
+  children: ReactNode;
+}) {
   return (
-    <span className={`rounded-full px-2.5 py-1 text-tiny font-bold ${BADGE[tone]}`}>{children}</span>
+    <span className={`${PILL} rounded-full ${BADGE_SIZE[size]} ${BADGE[tone]}`}>{children}</span>
   );
 }
 
 export function Tag({ tone = 'mute', children }: { tone?: Tone; children: ReactNode }) {
   return (
-    <span className={`rounded-tag px-1.5 py-0.5 text-micro font-bold ${BADGE[tone]}`}>{children}</span>
+    <span className={`${PILL} rounded-tag px-1.5 py-0.5 text-micro font-bold ${BADGE[tone]}`}>{children}</span>
   );
 }
 

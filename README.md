@@ -35,7 +35,10 @@ npm run dev    # http://localhost:3000
 
 ## 배포
 
-`main` 에 푸시하면 Vercel 이 자동 배포한다 → https://hanbaek-form.vercel.app
+`main` 에 푸시하면 Vercel 이 자동 배포한다. 주소가 둘이고 배포는 하나다:
+
+- 포털 https://hanbaek-form.vercel.app — 협력사의 입구. 콘솔 경로는 404 다.
+- 콘솔 https://hanbaek-ev.vercel.app — 한백의 자리. `/` 는 `/projects` 로 보낸다.
 함수 지역은 `icn1`(서울) — DB 와 같은 도시여야 한다 (`vercel.json`, 이유는 `CLAUDE.md` 코드 규칙).
 
 ## 스택

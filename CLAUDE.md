@@ -47,6 +47,16 @@
   되돌리려면 `npm run db:seed -- --reset --with-dev-users`.
 - 스키마를 바꾸면 **로컬에 `db:push` 하고, 프로덕션에도 따로 반영해야 한다** — 이제
   자동으로 같이 바뀌지 않는다. 배포 전에 프로덕션 DB 에 컬럼이 있는지 확인한다.
+- ★**프로덕션 DATABASE_URL 은 Vercel 에서 Sensitive 다 — 값을 되읽을 수 없다.**★
+  `vercel env pull`·`vercel env run` 으로도 안 나온다(`env run` 은 `.env.local` 을 덧씌운다).
+  그래서 **프로덕션 스키마 반영은 접속 문자열을 가진 사람만** 할 수 있다. 밖에서 돌릴 수
+  없는 것을 모르고 배포하면, 코드는 나갔는데 표가 없어 기능이 조용히 안 도는 일이 된다
+  (실제로 `login_attempts` 가 그랬다 — 개발 DB 에만 만들어져 있었다).
+  예외 하나: `login_attempts` 는 `lib/auth/throttle.ts` 가 처음 쓸 때 스스로 만든다.
+  로그인을 막지 않는 부속물이라서 둔 예외고, 다른 표에 이 방식을 늘리지 않는다.
+- **프로덕션이 왜 그러는지는 런타임 로그로 본다** — `npx vercel logs --environment production
+  -x --since 30m`. 화면에 안 나오는 조용한 실패(위 표 없음이 그랬다)는 여기 `[auth]`·`[db]`
+  줄이 유일한 신호다. `npx vercel ls` 로 배포가 실제로 Ready 인지도 먼저 확인한다.
 - 프로덕션 DB 를 봐야 할 때만 접속 문자열을 바꿔 쓰고, 끝나면 개발 DB 로 되돌린다.
 - 프로덕션의 첫 관리자는 `npm run auth:bootstrap`, 다음 사람부터는 `/admin/accounts`.
 

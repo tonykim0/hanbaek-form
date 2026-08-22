@@ -47,6 +47,15 @@
   되돌리려면 `npm run db:seed -- --reset --with-dev-users`.
 - 스키마를 바꾸면 **로컬에 `db:push` 하고, 프로덕션에도 따로 반영해야 한다** — 이제
   자동으로 같이 바뀌지 않는다. 배포 전에 프로덕션 DB 에 컬럼이 있는지 확인한다.
+- ★**어느 Supabase 프로젝트가 프로덕션인가**★ 헷갈리면 고친 것이 안 고쳐진다.
+  - **프로덕션 = `fsngrxdmucwlqnduzrhw`** — 처음 만든 프로젝트. Vercel 의 `DATABASE_URL` 이 여기다.
+  - **개발·시험 = `impavoeuvywtdkeweyqd`** — 나중에 만든 것. `.env.local` 이 여기다.
+
+  로컬에서 붙는 DB 도, Supabase SQL Editor 를 무심코 여는 프로젝트도 뒤쪽이다. 그래서
+  프로덕션 스키마를 고친 줄 알았는데 개발 DB 를 고치고 마는 일이 실제로 있었다
+  (2026-08-22 `pricing_rules` 정책 6칸 — SQL 은 「Success」였고 프로덕션은 그대로였다).
+  **반영 전에 프로젝트 ref 를 먼저 본다** — 대시보드 주소가 `…/project/<ref>` 다.
+  어디 붙었는지 가리는 법: 개발 DB 의 `pricing_rules` 는 41행이다(2026-08-22 기준).
 - ★**프로덕션 DATABASE_URL 은 Vercel 에서 Sensitive 다 — 값을 되읽을 수 없다.**★
   `vercel env pull`·`vercel env run` 으로도 안 나온다(`env run` 은 `.env.local` 을 덧씌운다).
   그래서 **프로덕션 스키마 반영은 접속 문자열을 가진 사람만** 할 수 있다. 밖에서 돌릴 수

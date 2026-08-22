@@ -16,6 +16,7 @@ import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { ContractState, ProjectDetail, SettlementRuleChoice } from '@/types/project';
+import { subsidized } from '@/types/project';
 import { useAction } from '@/lib/use-action';
 import { today } from '@/lib/date';
 import { DatePicker } from '@/components/DatePicker';
@@ -383,7 +384,7 @@ function SiteHeader({
         process={process}
         edit={processEdit}
         envQueueNo={project.envQueueNo}
-        isSelfInvest={project.bizType === '자체투자'}
+        isSelfInvest={!subsidized(project.bizType)}
         canReview={canReview}
       />
 

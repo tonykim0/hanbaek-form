@@ -94,6 +94,7 @@ const REPL_SLUG: Record<ReplType, string> = {
   '환경부 신규': 'new',
   '자체투자 (제자리교체)': 'inplace',
   '자체투자 (신규위치)': 'move',
+  '연동': 'link',
 };
 
 const POWER_CASES = ['한전불입', '모자분리'] as const;

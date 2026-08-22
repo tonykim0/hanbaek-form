@@ -16,6 +16,7 @@ import type {
   PowerType,
   PreInstall,
 } from '@/types/project';
+import { subsidized } from '@/types/project';
 
 /** m=필수 · c=조건부필수 · o=해당없음 */
 export type DocReq = 'm' | 'c' | 'o';
@@ -234,11 +235,11 @@ export function buildDocContext(input: {
 /**
  * 이 현장에 기설치 조사가 필요한가.
  *
- * 환경부 보조금이 기설치 여부로 갈리기 때문에 환경부 사업만 조사한다.
- * 화면·표·필터가 같은 판정을 봐야 해서 여기 한 곳에 둔다.
+ * 환경부 보조금이 기설치 여부로 갈리기 때문에 보조 사업만 조사한다 —
+ * 자체투자·연동은 해당없음이다. 화면·표·필터가 같은 판정을 봐야 해서 여기 한 곳에 둔다.
  */
 export const needsPreInstallCheck = (bizType: BizType | null): boolean =>
-  bizType !== '자체투자';
+  subsidized(bizType);
 
 /** 공정 서류 슬롯 — 노션 공정관리 마스터의 file 속성들 */
 export const PROCESS_DOCS = [

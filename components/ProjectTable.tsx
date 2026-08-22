@@ -17,7 +17,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAction } from '@/lib/use-action';
 import Link from 'next/link';
 import type { ProcessStatus, ProjectSummary } from '@/types/project';
-import { PROCESS_STATUSES } from '@/types/project';
+import { PROCESS_STATUSES, subsidized } from '@/types/project';
 import {
   BAND_TONE, bandOfColumn, BOARD_COLUMNS, boardColumnOf, type BoardColumn,
 } from '@/lib/board';
@@ -310,7 +310,7 @@ export default function ProjectTable({
                   */}
                   {show('pre') && (
                     <td className="whitespace-nowrap px-3 py-2.5">
-                      {p.bizType === '자체투자' ? (
+                      {!subsidized(p.bizType) ? (
                         <span className="text-slate-300">해당없음</span>
                       ) : p.preInstall ? (
                         <span className="text-slate-600">{p.preInstall}</span>
@@ -474,8 +474,8 @@ function ColumnPicker({
 function QueueCell({ p, canEdit }: { p: ProjectSummary; canEdit: boolean }) {
   const { busy, error, run } = useAction();
 
-  // 자체투자는 환경부 보조금을 받지 않는다 — 받을 대기번호가 없다
-  if (p.bizType === '자체투자') {
+  // 자체투자·연동은 환경부 보조금을 받지 않는다 — 받을 대기번호가 없다
+  if (!subsidized(p.bizType)) {
     return <span className="text-slate-300">해당없음</span>;
   }
   if (!canEdit) {

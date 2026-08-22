@@ -10,6 +10,7 @@
  * 실제로 필요한 질문이다. 그래서 빈 값에도 이름을 준다(EMPTY).
  */
 import type { ProjectSummary } from '@/types/project';
+import { subsidized } from '@/types/project';
 import { boardColumnOf } from './board';
 
 /** 값이 비어 있는 현장을 고르는 이름. 실제 값과 겹치지 않게 괄호를 쓴다. */
@@ -55,7 +56,7 @@ export const ATTRS: Attr[] = [
      * 들어오고, 그 목록으로는 독촉할 곳을 알 수 없다.
      */
     valuesOf: (p) =>
-      p.bizType === '자체투자' ? ['해당없음'] : [p.envQueueNo?.trim() ? '있음' : '없음'],
+      !subsidized(p.bizType) ? ['해당없음'] : [p.envQueueNo?.trim() ? '있음' : '없음'],
   },
   {
     key: 'pre',
@@ -68,7 +69,7 @@ export const ATTRS: Attr[] = [
      * 없는데, 둘을 같은 값으로 두면 조사할 곳 목록에 자체투자가 섞여 들어온다.
      */
     valuesOf: (p) =>
-      p.bizType === '자체투자'
+      !subsidized(p.bizType)
         ? ['해당없음']
         : [p.preInstall ? `기설치 ${p.preInstall}` : '조사 필요'],
   },

@@ -1,4 +1,5 @@
 import { Suspense } from 'react';
+import Image from 'next/image';
 import { redirect } from 'next/navigation';
 import LoginForm from './LoginForm';
 import { getSessionUser } from '@/lib/auth/session';
@@ -13,9 +14,15 @@ export default async function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-[#f7f8f4] px-5 py-12">
       <div className="w-full max-w-sm">
         <div className="mb-6 text-center">
-          <p className="text-tiny font-bold tracking-[0.06em] text-brand-700">한백 전기차충전사업 관리시스템</p>
-          <h1 className="mt-1 text-h1 font-black text-slate-900">현장 관리 콘솔</h1>
-          <p className="mt-1.5 text-base text-slate-500">접수 · 시공 · 정산</p>
+          <Image
+            src="/logo.png"
+            alt=""
+            width={56}
+            height={56}
+            className="mx-auto mb-3 rounded-2xl"
+            priority
+          />
+          <h1 className="text-h1 font-black text-slate-900">한백 전기차충전사업 관리시스템</h1>
         </div>
 
         <div className="rounded-panel border border-slate-200 bg-white p-6 shadow-[0_20px_40px_-32px_rgba(15,23,42,0.5)]">

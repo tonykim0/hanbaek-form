@@ -11,21 +11,10 @@
  * 사람이 생기고, 「얼마 남았나」가 어느 쪽 이야기인지 매번 따져야 한다.
  */
 import { useMemo, useState } from 'react';
-import type { SettlementStep, SettlementSummary } from '@/types/project';
-import { CrossLink, Empty, Frame, SiteLink, Tile, Toggle, won } from './parts';
-
-const STEP_BADGE: Record<SettlementStep['state'], string> = {
-  na: 'bg-slate-50 text-slate-400',
-  waiting: 'bg-slate-100 text-slate-500',
-  open: 'bg-amber-100 text-amber-900',
-  collected: 'bg-brand-100 text-brand-900',
-};
-const STEP_LABEL: Record<SettlementStep['state'], string> = {
-  na: '해당없음',
-  waiting: '트리거 대기',
-  open: '청구 가능',
-  collected: '회수',
-};
+import type { SettlementSummary } from '@/types/project';
+import { STEP_LABEL, STEP_TONE } from '@/lib/settlement';
+import { Badge, Blank, Choice, Empty, Note } from '@/components/ui';
+import { CrossLink, Frame, SiteLink, Tile, won } from './parts';
 
 export default function ReceivableBoard({ rows }: { rows: SettlementSummary[] }) {
   const [openOnly, setOpenOnly] = useState(false);
@@ -59,16 +48,20 @@ export default function ReceivableBoard({ rows }: { rows: SettlementSummary[] })
       </section>
 
       {money.noRule > 0 && (
-        <p className="mb-4 rounded-xl border-l-[3px] border-amber-500 bg-amber-50/70 px-4 py-3 text-xs leading-relaxed text-amber-900">
+        <Note tone="warn" className="mb-4">
           정산 규칙이 없는 현장 <b>{money.noRule}건</b> — 기성 차수와 금액이 계산되지 않습니다.
           현장 상세의 기성 탭에서 규칙을 지정해야 합니다.
-        </p>
+        </Note>
       )}
 
-      <Toggle on={openOnly} onChange={setOpenOnly} label="청구 가능한 것만" count={openCount} />
+      <div className="mb-3">
+        <Choice on={openOnly} onClick={() => setOpenOnly(!openOnly)}>
+          청구 가능한 것만 <span className="tabular-nums">{openCount}</span>
+        </Choice>
+      </div>
 
       {shown.length === 0 ? (
-        <Empty />
+        <Blank>조건에 맞는 현장이 0건</Blank>
       ) : (
         <Frame min="960px">
           <thead className="border-b border-slate-100 bg-slate-50 text-tiny font-bold tracking-[0.06em] text-slate-500">
@@ -96,19 +89,20 @@ export default function ReceivableBoard({ rows }: { rows: SettlementSummary[] })
                   {r.ruleName ? (
                     <span className="text-small text-slate-600">{r.ruleName}</span>
                   ) : (
-                    <span className="rounded-full bg-amber-100 px-2 py-0.5 text-tiny font-bold text-amber-900">
-                      미적용
-                    </span>
+                    <Badge tone="warn">미적용</Badge>
                   )}
                 </td>
                 {[1, 2, 3].map((no) => {
                   const s = r.steps.find((x) => x.no === no);
-                  if (!s) return <td key={no} className="px-3 py-2.5 text-slate-300">—</td>;
+                  if (!s) return <td key={no} className="px-3 py-2.5"><Empty kind="na" /></td>;
                   return (
                     <td key={no} className="px-3 py-2.5">
-                      <span className={`inline-block whitespace-nowrap rounded-full px-2 py-0.5 text-micro font-bold ${STEP_BADGE[s.state]}`}>
-                        {STEP_LABEL[s.state]}
-                      </span>
+                      {/* 규칙상 없는 차수는 배지가 아니라 빈 값이다(화면 규칙 10) */}
+                      {s.state === 'na' ? (
+                        <Empty kind="na" />
+                      ) : (
+                        <Badge tone={STEP_TONE[s.state]}>{STEP_LABEL[s.state]}</Badge>
+                      )}
                       <p className="mt-0.5 text-tiny font-bold tabular-nums text-slate-700">
                         {s.planAmount === null ? '—' : won(s.planAmount)}
                       </p>

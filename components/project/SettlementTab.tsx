@@ -17,14 +17,15 @@ import type {
   SettlementStep,
 } from '@/types/project';
 import {
-  distributionUnit, entryTypeOf, payoutSideOf, payoutStepsOf, recoveryRate, triggerSource, turnkeyUnit,
+  distributionUnit, entryTypeOf, payoutSideOf, payoutStepsOf, recoveryRate, STEP_LABEL, STEP_TONE,
+  triggerSource, turnkeyUnit,
 } from '@/lib/settlement';
 import type { Visibility } from '@/lib/roles';
 import type { RuleOptions } from '@/lib/pricing-match';
 import { useAction } from '@/lib/use-action';
 import { won } from '@/lib/format';
 import { today } from '@/lib/date';
-import { Btn, Choice, Empty, Err, FIELD, FIELD_CELL, Note, Saved, Tag } from '@/components/ui';
+import { Badge, Btn, Choice, Empty, Err, FIELD, FIELD_CELL, Note, Saved, Tag } from '@/components/ui';
 
 // ── 정산 탭 ─────────────────────────────────────────────────────
 const STEP_STYLE: Record<SettlementStep['state'], string> = {
@@ -32,13 +33,6 @@ const STEP_STYLE: Record<SettlementStep['state'], string> = {
   waiting: 'border-l-slate-300 bg-white',
   open: 'border-l-amber-500 bg-amber-50/70',
   collected: 'border-l-brand-500 bg-brand-50/60',
-};
-
-const STEP_LABEL: Record<SettlementStep['state'], string> = {
-  na: '해당없음',
-  waiting: '트리거 대기',
-  open: '청구 가능',
-  collected: '회수 완료',
 };
 
 export function SettlementTab({
@@ -149,17 +143,12 @@ export function ReceivableTab({
                 {s.state === 'na' ? '해당 차수 없음' : triggerSource(s.trigger)}
               </p>
             </div>
-            <span
-              className={`rounded-full px-2.5 py-0.5 text-tiny font-bold ${
-                s.state === 'open'
-                  ? 'bg-amber-200 text-amber-900'
-                  : s.state === 'collected'
-                    ? 'bg-brand-200 text-brand-900'
-                    : 'bg-slate-100 text-slate-500'
-              }`}
-            >
-              {STEP_LABEL[s.state]}
-            </span>
+            {/* 규칙상 없는 차수는 배지가 아니라 빈 값이다(화면 규칙 10) */}
+            {s.state === 'na' ? (
+              <Empty kind="na" />
+            ) : (
+              <Badge tone={STEP_TONE[s.state]}>{STEP_LABEL[s.state]}</Badge>
+            )}
             <span className="w-28 shrink-0 text-right text-lead font-black tabular-nums text-slate-800">
               {s.planAmount === null ? <span className="text-slate-300">—</span> : won(s.planAmount)}
             </span>

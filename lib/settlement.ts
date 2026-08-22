@@ -184,6 +184,28 @@ export function checkSettlementSteps(steps: SettlementStepRule[], turnkey: numbe
   return bad;
 }
 
+/**
+ * 기성 차수 상태의 이름과 말투 — 두 화면이 같은 말을 쓰게 여기 한 벌만 둔다.
+ *
+ * 예전에는 현장 상세(SettlementTab)와 기성관리 표(ReceivableBoard)가 각자 들고 있어서
+ * 같은 상태가 「회수 완료」와 「회수」로 갈리고 색도 amber-200·amber-100 으로 달랐다.
+ *
+ * na 는 배지가 아니다 — 규칙상 없는 것은 빈 값(`<Empty kind="na">`)으로 보인다.
+ * 그래서 말투에는 na 가 없다.
+ */
+export const STEP_LABEL: Record<StepState, string> = {
+  na: '해당없음',
+  waiting: '트리거 대기',
+  open: '청구 가능',
+  collected: '회수',
+};
+
+export const STEP_TONE = {
+  waiting: 'mute',
+  open: 'warn',
+  collected: 'ok',
+} as const satisfies Record<Exclude<StepState, 'na'>, string>;
+
 const EMPTY_STEP = (no: 1 | 2 | 3): SettlementStep => ({
   no,
   trigger: '해당없음',

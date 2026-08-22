@@ -46,14 +46,14 @@ for (const r of rules) {
   id, case_name, cpo, biz_type, power_type, term_years, bldg_types, repl_type, channel,
   biz_year, start_date, sales_unit, cons_unit, margin, default_settlement_rule_id,
   supervision_bearer, safety_fee_bearer, note, active,
-  supply_items, promo, promo_extend_deduct, charge_rate, install_terms, other_support,
+  supply_items, promo, promo_extend, charge_rate, install_terms, other_support,
   coexist_terms, misc_terms
 ) values (
   '${id}', ${q(r.caseName)}, ${q(r.cpo)}, ${q(r.bizType)}, ${q(r.powerType)},
   '${JSON.stringify(r.termYears)}'::jsonb, ${j(r.bldgTypes)}, ${q(r.replType)}, ${q(r.channel)},
   ${r.bizYear}, ${q(r.startDate)}, ${r.salesUnit}, ${r.consUnit}, ${r.margin}, ${settle},
   ${q(r.supervisionBearer)}, ${q(r.safetyFeeBearer)}, ${q(r.note)}, true,
-  ${q(r.supplyItems)}, ${j(r.promo)}, ${n(r.promoExtendDeduct)}, ${n(r.chargeRate)},
+  ${q(r.supplyItems)}, ${j(r.promo)}, ${j(r.promoExtend)}, ${n(r.chargeRate)},
   ${q(r.installTerms)}, ${q(r.otherSupport)}, ${q(r.coexistTerms)}, ${q(r.miscTerms)}
 ) on conflict (id) do nothing;\n`);
 }

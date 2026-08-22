@@ -31,7 +31,7 @@ function insertSql(r: NewPricingRule, id: string, settleId: string | null): stri
   id, case_name, cpo, biz_type, power_type, term_years, bldg_types, repl_type, channel,
   biz_year, start_date, sales_unit, cons_unit, margin, default_settlement_rule_id,
   supervision_bearer, safety_fee_bearer, note, active,
-  supply_items, promo, promo_extend_deduct, charge_rate, install_terms, other_support,
+  supply_items, promo, promo_extend, charge_rate, install_terms, other_support,
   coexist_terms, misc_terms
 ) values (
   '${id}', ${q(r.caseName)}, ${q(r.cpo)}, ${q(r.bizType)}, ${q(r.powerType)},
@@ -39,7 +39,7 @@ function insertSql(r: NewPricingRule, id: string, settleId: string | null): stri
   ${r.bizYear}, ${q(r.startDate)}, ${r.salesUnit}, ${r.consUnit}, ${r.margin},
   ${settleId === null ? 'null' : `'${settleId}'`},
   ${q(r.supervisionBearer)}, ${q(r.safetyFeeBearer)}, ${q(r.note)}, true,
-  ${q(r.supplyItems)}, ${j(r.promo)}, ${n(r.promoExtendDeduct)}, ${n(r.chargeRate)},
+  ${q(r.supplyItems)}, ${j(r.promo)}, ${j(r.promoExtend)}, ${n(r.chargeRate)},
   ${q(r.installTerms)}, ${q(r.otherSupport)}, ${q(r.coexistTerms)}, ${q(r.miscTerms)}
 ) on conflict (id) do nothing;\n`;
 }
@@ -65,7 +65,7 @@ for (const k of PL_KEEP) {
   const p = plPolicy(true, k.term);
   console.log(`-- 260629 기준 조건 + 기성 pl-2step 복원: ${k.id}`);
   console.log(`update pricing_rules set
-  promo = ${j(p.promo)}, promo_extend_deduct = null, charge_rate = null,
+  promo = ${j(p.promo)}, promo_extend = ${j(p.promoExtend)}, charge_rate = ${n(p.chargeRate)},
   supply_items = null, install_terms = ${q(p.installTerms)}, coexist_terms = null,
   other_support = null, misc_terms = ${q(p.miscTerms)},
   default_settlement_rule_id = 'pl-2step'${k.id.startsWith('pl-y') ? `,\n  start_date = '2026년 하반기'` : ''}

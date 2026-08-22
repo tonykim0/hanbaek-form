@@ -220,7 +220,7 @@ function ruleOf(row: PolicyRow): NewPricingRule {
     supplyItems: SUPPLY,
     promo: PROMO[row.term] ?? null,
     // 연장 차감 단가는 정책서에 없다 — 아직 정해진 값이 없어 미지정으로 둔다(한백 확인 2026-08-22)
-    promoExtendDeduct: null,
+    promoExtend: null,
     chargeRate: CHARGE_RATE,
     installTerms: INSTALL,
     otherSupport: SUPPORT,
@@ -326,7 +326,7 @@ export async function applyNiceH2(
         && dup.margin === rule.margin;
       const samePolicy = dup.supplyItems === rule.supplyItems
         && samePromo(dup.promo, rule.promo)
-        && dup.promoExtendDeduct === rule.promoExtendDeduct
+        && JSON.stringify(dup.promoExtend) === JSON.stringify(rule.promoExtend)
         && dup.chargeRate === rule.chargeRate
         && dup.installTerms === rule.installTerms
         && dup.otherSupport === rule.otherSupport

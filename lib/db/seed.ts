@@ -47,7 +47,7 @@ async function seedRules() {
       replType: r.replType, channel: r.channel, bizYear: r.bizYear, startDate: r.startDate,
       salesUnit: r.salesUnit, consUnit: r.consUnit, margin: r.margin,
       supplyItems: r.supplyItems, promo: r.promo,
-      promoExtendDeduct: r.promoExtendDeduct, chargeRate: r.chargeRate,
+      promoExtend: r.promoExtend, chargeRate: r.chargeRate,
       installTerms: r.installTerms, otherSupport: r.otherSupport,
       coexistTerms: r.coexistTerms, miscTerms: r.miscTerms,
       defaultSettlementRuleId: r.defaultSettlementRuleId,

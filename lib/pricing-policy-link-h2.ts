@@ -23,10 +23,12 @@ const MARGIN = 200_000;
 
 const SK_LINK_INSTALL =
   '모자분리 조건 · 7년 계약 이상 · 지역: 수도권 · 6개 광역시 · 시 단위의 상면';
-const SK_LINK_MISC = [
-  '· 급속충전기 연동에 대한 수수료는 제외',
-  '· 대금: 완료·개통 준공 후 — 세금계산서 확인 후 익월 25일 현금 지급',
-].join('\n');
+/*
+ * 대금 줄은 안 적는다 — SK 공통 기타(sk-h2 케이스들의 「대금: 세금계산서 확인 후 익월
+ * 25일…」)와 같은 말이라, 두 벌이면 기타 행에 나란히 떠서 중복으로 읽힌다(한백 지적
+ * 2026-08-23). 연동만의 조건(급속 제외)만 남긴다.
+ */
+const SK_LINK_MISC = '· 급속충전기 연동에 대한 수수료는 제외';
 
 const PL_LINK_MISC = [
   '· 연동 대상 기기·세부 조건은 운영사 확인 필요(코스텔·PNE 한정으로 안내된 바 있음)',
@@ -46,7 +48,7 @@ const BASE = {
   safetyFeeBearer: null,
   supplyItems: null,
   promo: null,
-  promoExtendDeduct: null,
+  promoExtend: null,
   chargeRate: null,
   coexistTerms: null,
   otherSupport: null,
@@ -76,6 +78,8 @@ export function linkRules(): NewPricingRule[] {
       startDate: '2026년 하반기',
       salesUnit: 550_000 - MARGIN,
       installTerms: null,
+      // 충전요금은 운영사의 것이라 연동 케이스에도 같다 (한백 확정 2026-08-23) — SK 는 아직 미지정
+      chargeRate: 292,
       miscTerms: PL_LINK_MISC,
       settlementSteps: [],
     },
@@ -88,6 +92,8 @@ export function linkRules(): NewPricingRule[] {
       startDate: '2026년 하반기',
       salesUnit: 750_000 - MARGIN,
       installTerms: null,
+      // 충전요금은 운영사의 것이라 연동 케이스에도 같다 (한백 확정 2026-08-23) — SK 는 아직 미지정
+      chargeRate: 292,
       miscTerms: PL_LINK_MISC,
       settlementSteps: [],
     },

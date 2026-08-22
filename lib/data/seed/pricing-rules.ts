@@ -29,7 +29,7 @@ import type { PricingRule } from '@/types/project';
 const BLANK_POLICY = {
   supplyItems: null,
   promo: null,
-  promoExtendDeduct: null,
+  promoExtend: null,
   chargeRate: null,
   installTerms: null,
   otherSupport: null,

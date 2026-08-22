@@ -18,11 +18,11 @@
  * 지우는 자리는 없다. 이미 참조하는 라인이 있으면 지급액을 계산할 수 없게 된다 —
  * 중지하면 새로 붙일 수는 없고, 이미 붙은 것은 그대로 계산된다.
  */
-import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { createContext, Fragment, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import {
   BUILDING_TYPES, bizTypeOfRepl, CHANNELS, CPO_NAMES, REPL_TYPES,
   type BuildingType, type Channel, type CpoName, type LineAxes, type PricingRule, type ReplType,
-  type PromoStep, type SettlementRule, type SettlementStepRule, type Trigger,
+  type PromoExtendOption, type PromoStep, type SettlementRule, type SettlementStepRule, type Trigger,
 } from '@/types/project';
 import { won } from '@/lib/format';
 import { useAction } from '@/lib/use-action';
@@ -31,6 +31,31 @@ import { checkSettlementSteps, RECEIVE_TRIGGERS, stepUnits } from '@/lib/settlem
 import { Badge, Blank, Btn, Choice, Empty, Err, FIELD, FIELD_CELL, PANEL, Tag } from '@/components/ui';
 
 const POWER_TYPES = ['한전불입', '모자분리'] as const;
+
+/**
+ * 건축물 축 두 칸이 실제로 무엇을 뜻하는가 — 운영사마다 다르다.
+ *
+ * ★「공동 / 공동 외」로 줄여 적던 것을 걷어냈다 (한백 지적 2026-08-23).★
+ * 줄이면 두 칸이 같은 말을 두 번 하는 것처럼 보이고, 무엇보다 운영사마다 경계가 다른 것을
+ * 감춘다 — 플러그링크는 주거용 오피스텔이 공동주택 쪽에 들고(정책 배포본 260629),
+ * 나이스는 「공동주택 외(주거형 오피스텔 · 지식산업센터 등)」로 반대쪽에 든다.
+ * 같은 「공동 외」 라벨 아래 정반대의 것이 들어 있었다.
+ *
+ * DB 의 저장값은 그대로 '공동주택' · '상업시설' 이다 — 여기서 바꾸는 것은 이름표뿐이다.
+ * 축을 운영사마다 쪼개면 케이스 판정(matchingRules)까지 갈라져야 하고, 경계가 갈리는 것은
+ * 「어느 건물이 어느 쪽인가」일 뿐 축의 개수는 둘 그대로다.
+ * 무엇이 드는지 자세한 것은 아래 설치조건 행이 말한다.
+ */
+const BLDG_LABEL: Partial<Record<CpoName, Record<BuildingType, string>>> = {
+  플러그링크: { 공동주택: '공동주택 · 주거용 오피스텔', 상업시설: '그 외' },
+};
+const BLDG_LABEL_DEFAULT: Record<BuildingType, string> = {
+  공동주택: '공동주택',
+  상업시설: '공동주택 외',
+};
+const bldgAxisLabel = (cpo: CpoName, b: BuildingType) =>
+  BLDG_LABEL[cpo]?.[b] ?? BLDG_LABEL_DEFAULT[b];
+
 const TERMS = [5, 7, 10] as const;
 
 /** 폼으로 넘기는 값 — 채워진 것만 프리필된다. 그리드 칸·막힌 라인은 축만, 수정·개정은 전부 싣는다 */
@@ -49,7 +74,7 @@ export interface Prefill {
   steps?: SettlementStepRule[];
   supplyItems?: string;
   promo?: PromoStep[] | null;
-  promoExtendDeduct?: number | null;
+  promoExtend?: PromoExtendOption[] | null;
   chargeRate?: number | null;
   installTerms?: string;
   otherSupport?: string;
@@ -74,7 +99,7 @@ function prefillOf(r: PricingRule, settle: SettlementRule | null): Prefill {
     steps: settle?.steps,
     supplyItems: r.supplyItems ?? undefined,
     promo: r.promo,
-    promoExtendDeduct: r.promoExtendDeduct,
+    promoExtend: r.promoExtend,
     chargeRate: r.chargeRate,
     installTerms: r.installTerms ?? undefined,
     otherSupport: r.otherSupport ?? undefined,
@@ -311,9 +336,17 @@ function Grid({
           : r.promo.map((x) => `${x.months}개월 ${won(x.rate)}원`).join(' + ')),
     },
     {
+      /*
+       * 연장은 고를 수 있는 것이 여럿이다 — 늘리는 요금마다 차감액이 다르다
+       * (플러그링크: 6개월 149원 20만 · 6개월 249원 10만). 하나만 적으면 고를 것이
+       * 하나뿐인 것처럼 보이므로 전부 적는다. 숫자 한 칸이 아니게 되어 num 을 뗀다.
+       */
       label: '연장 차감',
-      num: true,
-      of: (r) => (r.promoExtendDeduct === null ? null : `${won(r.promoExtendDeduct)}원/개월`),
+      of: (r) => (r.promoExtend === null ? null
+        : r.promoExtend.length === 0 ? '없음'
+          : r.promoExtend
+            .map((x) => `${x.months}개월 ${won(x.rate)}원 → ${won(x.deduct)}원`)
+            .join(' · ')),
     },
     { label: '지급자재', of: (r) => r.supplyItems },
     { label: '설치조건', of: (r) => r.installTerms },
@@ -344,6 +377,38 @@ function Grid({
    * 같은 값이고(빈 칸은 그 축에 케이스가 없다는 뜻일 뿐이다), 그럴 때 쪼개 봤자 읽히지 않는다.
    * 실제로 갈리는 조건(연수마다 다른 프로모션)만 칸이 쪼개진다.
    */
+  /*
+   * ── 글 행의 공통/차이 분해 ──────────────────────────────────────────────
+   * 한 칸의 값은 그 칸 케이스들(교체유형×수전이 합쳐진)의 글을 겹치지 않게 모은 것이다.
+   * 칸끼리 문자열 통째로 견주면 몇 줄만 달라도 「다른 값」이 되어, 공통 불릿까지 칸마다
+   * 통째로 반복된다 — 기타 행에서 같은 일곱 줄이 세 칸에 찍혔다(2026-08-23 한백 지적).
+   * 그래서 줄(불릿) 단위로 가른다: 값이 있는 모든 칸에 든 줄은 「공통」으로 전 폭에 한 번,
+   * 나머지만 칸별로 남긴다.
+   */
+  const bulletsAt = (term: number, bldg: BuildingType, of: (r: PricingRule) => string | null) => {
+    const out: string[] = [];
+    for (const r of casesAt(term, bldg)) {
+      const v = of(r);
+      if (!v) continue;
+      for (const line of v.split('\n')) if (!out.includes(line)) out.push(line);
+    }
+    return out;
+  };
+
+  const splitCommon = (of: (r: PricingRule) => string | null) => {
+    const cells = gridTerms.flatMap((t) => BUILDING_TYPES.map((b) => bulletsAt(t, b, of)));
+    const filled = cells.filter((c) => c.length > 0);
+    const common = filled.length === 0
+      ? []
+      : filled[0].filter((line) => filled.every((c) => c.includes(line)));
+    const rest = cells.map((c) => {
+      const left = c.filter((line) => !common.includes(line));
+      return left.length > 0 ? left.join('\n') : null;
+    });
+    return { common, rest };
+  };
+
+  /** 남은 칸별 값(또는 숫자 행의 칸 값)을 같은 값끼리 병합한다 */
   const spansOf = (of: (r: PricingRule) => string | null) => {
     const cells = gridTerms.flatMap((t) => BUILDING_TYPES.map((b) => policyAt(t, b, of)));
     const distinct = [...new Set(cells.filter((v): v is string => v !== null))];
@@ -418,10 +483,12 @@ function Grid({
             <tr>
               {gridTerms.flatMap((t) =>
                 BUILDING_TYPES.map((b) => (
-                  <th key={`${t}-${b}`} className={`px-3 pb-2 text-right font-semibold ${b === '공동주택' ? 'border-l border-slate-100' : ''}`}>
-                    {/* 「상업」이 아니다 — 이 축은 공동주택이 아닌 전부다(주거형 오피스텔·지식산업센터 등).
-                        무엇이 드는지는 아래 설치조건 행이 말한다 (한백 확인 2026-08-23) */}
-                    {b === '공동주택' ? '공동' : '공동 외'}
+                  <th
+                    key={`${t}-${b}`}
+                    className={`break-keep px-3 pb-2 text-right font-semibold ${b === '공동주택' ? 'border-l border-slate-100' : ''}`}
+                  >
+                    {/* 줄여 적지 않는다 — 운영사마다 경계가 다르다(BLDG_LABEL) */}
+                    {bldgAxisLabel(cpo, b)}
                   </th>
                 ))
               )}
@@ -489,23 +556,75 @@ function Grid({
 
           {/* 단가와 조건을 한 표로 잇는다 — 굵은 선 한 겹으로만 가른다(상자를 겹치지 않는다) */}
           <tbody className="divide-y divide-slate-100 border-t-2 border-slate-200">
-            {POLICY_ROWS.map((row) => (
-              <tr key={row.label} className="align-top">
-                {/* 행 라벨은 축 라벨(교체유형)과 같은 톤 — 표 안에 글자 크기를 셋 두지 않는다 */}
-                <td className="px-3 py-2 font-bold text-slate-700">{row.label}</td>
-                {spansOf(row.of).map((c, i) => (
-                  <td
-                    key={i}
-                    colSpan={c.span}
-                    className={`whitespace-pre-line break-keep px-3 py-2 text-small ${i === 0 ? '' : 'border-l border-slate-100'} ${
-                      row.num ? 'text-center font-bold tabular-nums text-slate-800' : 'text-left text-slate-700'
-                    }`}
-                  >
-                    {c.value === null ? <Empty kind="wait" /> : c.value}
-                  </td>
-                ))}
-              </tr>
-            ))}
+            {POLICY_ROWS.map((row) => {
+              /* 숫자 행은 칸 값 그대로, 글 행은 공통 불릿을 떼어 전 폭에 한 번만 */
+              if (row.num) {
+                return (
+                  <tr key={row.label} className="align-top">
+                    <td className="px-3 py-2 font-bold text-slate-700">{row.label}</td>
+                    {spansOf(row.of).map((c, i) => (
+                      <td
+                        key={i}
+                        colSpan={c.span}
+                        className={`whitespace-pre-line break-keep px-3 py-2 text-small text-center font-bold tabular-nums text-slate-800 ${i === 0 ? '' : 'border-l border-slate-100'}`}
+                      >
+                        {c.value === null ? <Empty kind="wait" /> : c.value}
+                      </td>
+                    ))}
+                  </tr>
+                );
+              }
+              const { common, rest } = splitCommon(row.of);
+              const diffs: { value: string | null; span: number }[] = [];
+              for (const v of rest) {
+                const last = diffs[diffs.length - 1];
+                if (last && last.value === v) last.span += 1;
+                else diffs.push({ value: v, span: 1 });
+              }
+              const hasDiff = rest.some((v) => v !== null);
+              const cols = gridTerms.length * BUILDING_TYPES.length;
+              return (
+                <Fragment key={row.label}>
+                  <tr className="align-top">
+                    {/* 행 라벨은 축 라벨(교체유형)과 같은 톤 — 표 안에 글자 크기를 셋 두지 않는다 */}
+                    <td className="px-3 py-2 font-bold text-slate-700" rowSpan={common.length > 0 && hasDiff ? 2 : 1}>
+                      {row.label}
+                    </td>
+                    {common.length > 0 ? (
+                      <td colSpan={cols} className="whitespace-pre-line break-keep px-3 py-2 text-left text-small text-slate-700">
+                        {common.join('\n')}
+                      </td>
+                    ) : hasDiff ? (
+                      diffs.map((c, i) => (
+                        <td
+                          key={i}
+                          colSpan={c.span}
+                          className={`whitespace-pre-line break-keep px-3 py-2 text-left text-small text-slate-700 ${i === 0 ? '' : 'border-l border-slate-100'}`}
+                        >
+                          {c.value === null ? <Empty kind="wait" /> : c.value}
+                        </td>
+                      ))
+                    ) : (
+                      <td colSpan={cols} className="px-3 py-2 text-left text-small"><Empty kind="wait" /></td>
+                    )}
+                  </tr>
+                  {/* 축마다 갈리는 줄만 아래 칸별로 — 공통이 없으면 위 행이 이미 칸별이다 */}
+                  {common.length > 0 && hasDiff && (
+                    <tr className="align-top">
+                      {diffs.map((c, i) => (
+                        <td
+                          key={i}
+                          colSpan={c.span}
+                          className={`whitespace-pre-line break-keep px-3 pb-2 text-left text-small text-slate-700 ${i === 0 ? '' : 'border-l border-slate-100'}`}
+                        >
+                          {c.value === null ? <span className="text-slate-300">—</span> : c.value}
+                        </td>
+                      ))}
+                    </tr>
+                  )}
+                </Fragment>
+              );
+            })}
           </tbody>
         </table>
       </div>
@@ -718,8 +837,9 @@ function Row({
       <td className="break-keep border-l border-slate-100 px-3 py-2.5 text-slate-700">{r.replType}</td>
       <td className="whitespace-nowrap px-3 py-2.5 text-slate-700">{r.powerType}</td>
       <td className="whitespace-nowrap px-3 py-2.5 tabular-nums text-slate-700">{r.termYears.join('·')}년</td>
-      <td className="whitespace-nowrap px-3 py-2.5 text-slate-700">
-        {r.bldgTypes.length === 2 ? '전체' : r.bldgTypes[0]}
+      <td className="break-keep px-3 py-2.5 text-slate-700">
+        {/* 매트릭스 머리글과 같은 이름표 — 두 자리가 다르게 부르면 같은 축인지 알 수 없다 */}
+        {r.bldgTypes.length === 2 ? '전체' : bldgAxisLabel(r.cpo, r.bldgTypes[0])}
       </td>
       {/* 턴키가 대부분이라 연하게 — 눈에 걸려야 하는 것은 드문 영업·시공 채널이다 */}
       <td className={`whitespace-nowrap px-3 py-2.5 ${r.channel === '턴키' ? 'text-slate-400' : 'font-bold text-slate-700'}`}>
@@ -896,7 +1016,11 @@ function CaseForm({
   const [promo, setPromo] = useState<{ months: string; rate: string }[]>(
     (prefill.promo ?? []).map((x) => ({ months: String(x.months), rate: String(x.rate) }))
   );
-  const [promoExtendDeduct, setPromoExtendDeduct] = useState(money(prefill.promoExtendDeduct ?? undefined));
+  const [promoExtend, setPromoExtend] = useState<{ months: string; rate: string; deduct: string }[]>(
+    (prefill.promoExtend ?? []).map((x) => ({
+      months: String(x.months), rate: String(x.rate), deduct: money(x.deduct),
+    }))
+  );
   const [chargeRate, setChargeRate] = useState(money(prefill.chargeRate ?? undefined));
   const [installTerms, setInstallTerms] = useState(prefill.installTerms ?? '');
   const [otherSupport, setOtherSupport] = useState(prefill.otherSupport ?? '');
@@ -991,7 +1115,10 @@ function CaseForm({
          */
         supplyItems: supplyItems.trim() || null,
         promo: promoSteps,
-        promoExtendDeduct: promoExtendDeduct.trim() === '' ? null : num(promoExtendDeduct),
+        /* 프로모션 구간과 같은 규칙 — 한 줄도 안 넣었으면 「미지정」(null)이다 */
+        promoExtend: promoExtend.length === 0
+          ? null
+          : promoExtend.map((x) => ({ months: num(x.months), rate: num(x.rate), deduct: num(x.deduct) })),
         chargeRate: chargeRate.trim() === '' ? null : num(chargeRate),
         installTerms: installTerms.trim() || null,
         otherSupport: otherSupport.trim() || null,
@@ -1272,25 +1399,81 @@ function CaseForm({
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-4">
-            <div className="w-52">
-              <Field label="프로모션 연장 차감" hint="1개월 연장당 · 영업비에서 뗀다">
-                <input
-                  value={promoExtendDeduct}
-                  onChange={(e) => setPromoExtendDeduct(e.target.value)}
-                  inputMode="numeric"
-                  placeholder="미정"
-                  className={`${FIELD} text-right tabular-nums`}
-                />
-              </Field>
+          {/*
+            프로모션 연장 — 프로모션 구간과 같은 모양의 반복 행이다. 예전에는 「1개월
+            연장당 차감액」 숫자 한 칸이었는데, 실제 정책은 늘리는 요금마다 차감액이
+            갈린다(플러그링크: 6개월 149원 20만 · 6개월 249원 10만). 한 칸으로는 그
+            갈림을 적을 자리가 없어 비고 문장으로 새어나갔다 — 프로모션 구간을 배열로
+            둔 것과 같은 이유다.
+          */}
+          <div className="flex flex-col gap-1.5">
+            <span className="flex items-baseline gap-2">
+              <span className="text-tiny font-bold tracking-[0.04em] text-slate-500">프로모션 연장</span>
+              <span className="text-micro text-slate-400">고를 수 있는 것을 다 적는다 · 차감은 영업비에서</span>
+            </span>
+            {promoExtend.length === 0 ? (
+              <span className="text-tiny text-slate-400">연장 없음 — 넣지 않으면 「미지정」이다</span>
+            ) : (
+              <div className="flex flex-col gap-2">
+                {promoExtend.map((x, i) => (
+                  <div key={i} className="flex flex-wrap items-center gap-2">
+                    <input
+                      value={x.months}
+                      onChange={(e) => setPromoExtend((p) => p.map((v, k) => (k === i ? { ...v, months: e.target.value } : v)))}
+                      inputMode="numeric"
+                      placeholder="6"
+                      className={`${FIELD_CELL} w-20 text-right tabular-nums`}
+                    />
+                    <span className="shrink-0 text-micro text-slate-400">개월</span>
+                    <input
+                      value={x.rate}
+                      onChange={(e) => setPromoExtend((p) => p.map((v, k) => (k === i ? { ...v, rate: e.target.value } : v)))}
+                      inputMode="numeric"
+                      placeholder="149"
+                      className={`${FIELD_CELL} w-24 text-right tabular-nums`}
+                    />
+                    <span className="shrink-0 text-micro text-slate-400">원/kWh 연장 시</span>
+                    <input
+                      value={x.deduct}
+                      onChange={(e) => setPromoExtend((p) => p.map((v, k) => (k === i ? { ...v, deduct: e.target.value } : v)))}
+                      inputMode="numeric"
+                      placeholder="200,000"
+                      className={`${FIELD_CELL} w-28 text-right tabular-nums`}
+                    />
+                    <span className="shrink-0 text-micro text-slate-400">원 차감</span>
+                    <Btn
+                      size="sm"
+                      kind="quiet"
+                      className="ml-auto"
+                      onClick={() => setPromoExtend((p) => p.filter((_, k) => k !== i))}
+                    >
+                      빼기
+                    </Btn>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="mt-1">
+              {promoExtend.length < 4 && (
+                <Btn
+                  size="sm"
+                  kind="side"
+                  onClick={() => setPromoExtend((p) => [...p, { months: '', rate: '', deduct: '' }])}
+                >
+                  연장 추가
+                </Btn>
+              )}
             </div>
+          </div>
+
+          <div className="flex flex-wrap gap-4">
             <div className="w-40">
-              <Field label="충전요금" hint="원/kWh">
+              <Field label="충전요금" hint="원/kWh · 프로모션이 끝난 뒤의 정상 요금">
                 <input
                   value={chargeRate}
                   onChange={(e) => setChargeRate(e.target.value)}
                   inputMode="numeric"
-                  placeholder="295"
+                  placeholder="292"
                   className={`${FIELD} text-right tabular-nums`}
                 />
               </Field>

@@ -104,8 +104,16 @@ export const pricingRules = pgTable('pricing_rules', {
   supplyItems: text('supply_items'),
   /** [{ months, rate }] — 구간이 이어진다. null 은 미지정, [] 은 프로모션 없음 */
   promo: jsonb('promo'),
-  /** 프로모션 1개월 연장당 영업비 차감 (원/대) — 협력사도 본다(연장 여부 판단에 쓴다) */
-  promoExtendDeduct: integer('promo_extend_deduct'),
+  /**
+   * [{ months, rate, deduct }] — 고를 수 있는 프로모션 연장. 협력사도 본다(연장 여부 판단).
+   * null 은 미지정, [] 은 연장 없음.
+   *
+   * 옛 칸 promo_extend_deduct(integer, 1개월당 차감액)를 대신한다 — 늘리는 요금마다
+   * 차감액이 갈리는 것을 한 숫자로 담을 수 없었다(0011). 옛 칸은 DB 에 남아 있다:
+   * 마이그레이션은 배포보다 먼저 돌아서, 지우면 아직 바뀌기 전 배포가 그 칸을 찾다 터진다.
+   * 값이 전부 null 이라 남겨 둬도 해가 없고, 새 코드가 다 나간 뒤 따로 지운다.
+   */
+  promoExtend: jsonb('promo_extend'),
   chargeRate: integer('charge_rate'),
   installTerms: text('install_terms'),
   otherSupport: text('other_support'),

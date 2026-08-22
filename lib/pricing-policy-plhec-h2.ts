@@ -26,8 +26,9 @@
  * 흐름뿐이라 ★기성 미정★으로 둔다 — 없는 근거로 단계를 지어내지 않는다.
  *
  * 프로모션(계약기간 기준): 7년 149원 180일 · 10년 149원 180일 + 249원 180일.
- * 자체투자는 문서에 프로모션 언급이 없어 미지정으로 둔다. 기본요금 294.3원은
- * 충전요금 칸이 정수라 못 담는다 — 기타 칸에 적는다.
+ * 자체투자는 문서에 프로모션 언급이 없어 미지정으로 둔다.
+ * 충전요금은 292원으로 확정됐다(한백 2026-08-23) — 배포본의 기본요금 294.3원을
+ * 기타 칸에 적어 뒀던 것은 걷어냈다. 프로모션 연장 차감도 같이 확정됐다(PL_PROMO_EXTEND).
  *
  * ── 현대엔지니어링 (rev4) — 처음부터 이 문서 기준이라 그대로다 ────────────────
  * 기존 하반기 4건(250만 = 승인 100 → 준공 150)이 rev4 와 일치 — 조건만 채웠고(0005),
@@ -35,7 +36,7 @@
  * 신설했다(교체·신규위치 × 공동·상업 겸용, 영업 60 + 시공 100 + 마진 20).
  * 선급 70만의 실제 트리거(계약서류 접수)는 목록에 없어 착공으로 두고 기타에 적었다.
  */
-import type { NewPricingRule, PromoStep, SettlementStepRule } from '@/types/project';
+import type { NewPricingRule, PromoExtendOption, PromoStep, SettlementStepRule } from '@/types/project';
 
 const MARGIN = 200_000;
 const PAYOUT_CONS = 1_000_000;
@@ -54,26 +55,40 @@ const PL_INSTALL =
   '총 주차면의 5%까지 지원 · 충전기 최소 2% 전용 구역 도색 필수 · 1개 단지 최대 130대(7년)/120대(10년)'
   + ' · 상업시설은 주차면 2%만(7년 계약·한전불입 불가 — 대상지: 공영주차장·관공서·주민센터·지식산업센터·4성 이상 호텔/리조트·사옥·골프장·병원)';
 
+/*
+ * 기타 — 네 항목을 걷어냈다(한백 요청 2026-08-23).
+ *   · 기본요금 294.3원 — 요금이 292원으로 확정돼 충전요금 칸으로 갔다. 기타에 적어 둔 것은
+ *     정수 칸에 294.3 을 못 담아서였는데, 그 이유가 사라졌다.
+ *   · 대금 조항(영업비·공사비 선금·잔금 / 자투의 「기성 미정」 설명) — 기성 관련 조항이다.
+ *   · 등록된 외주모집대행사 직원만 영업 가능 · 현금성 리베이트 금지
+ *   · 지원 초과분·보조금 신청 후 취소 건 — 취소 수수료
+ * 남긴 것은 케이스를 고를 때 판단이 갈리는 조건들이다.
+ */
 const PL_MISC_SUB = [
-  '· 기본요금 294.3원/kWh',
-  '· 프로모션 연장은 영업비 차감으로 가능 — 7년 최대 1년 · 10년 최대 2년(차감 단가 미정)',
+  '· 프로모션 연장은 영업비 차감으로 가능 — 7년 최대 1년 · 10년 최대 2년',
   '· 기존 플러그링크 설치 현장 추가 영업 시 프로모션 없음(프로모션 기간만큼 계약 연장 합의서 작성 시 적용 가능)',
-  '· 지원 초과분·보조금 신청 후 취소 건은 비보조금 사업으로 진행 — 취소 수수료: 공동 신규 7년 100만/10년 120만 · 상업 10년 100만(케이스 미등록)',
   '· 보조금 미수령 시 귀책 무관 비보조금 기준 수수료 지급(기지급분 차액 환수)',
-  '· 등록된 외주모집대행사 직원만 영업 가능 · 현금성 리베이트 등 비정상 영업 금지(적발 시 사업 취소·손해배상)',
-  '· 대금: 영업비 20만 계약 승인 후 익월 말일 · 공사비 선금 50%(보조금 선금 수령 익월 — 비율 미확정) · 잔금 50%(준공 승인 후 익월 말일)',
 ].join('\n');
-const PL_MISC_INV = [
-  '· 기본요금 294.3원/kWh · 프로모션은 문서에 명시 없음',
-  '· 대금 조항이 보조금 흐름 기준뿐이라 기성 미정 — 확인되면 채운다',
-].join('\n');
+const PL_MISC_INV = '· 프로모션은 문서에 명시 없음';
+
+/**
+ * 프로모션 연장 — 늘리는 요금마다 영업비 차감액이 다르다 (한백 확정 2026-08-23).
+ *
+ * 두 가지를 7년·10년에 똑같이 둔다. 문서가 연장을 계약기간별로 가르는 것은 최대 기간뿐이고
+ * (7년 1년 · 10년 2년, 기타 칸에 있다) 차감 단가는 요금으로만 갈린다.
+ */
+const PL_PROMO_EXTEND: PromoExtendOption[] = [
+  { months: 6, rate: 149, deduct: 200_000 },
+  { months: 6, rate: 249, deduct: 100_000 },
+];
 
 /** 260629 를 반영한 조건 — 유지 케이스(update)와 신설 케이스(insert)가 같이 쓴다 */
 export function plPolicy(sub: boolean, termYears: number | null) {
   return {
     promo: sub && termYears !== null ? PL_PROMO[termYears] ?? null : null,
-    promoExtendDeduct: null as number | null, // 연장은 가능하되 차감 단가가 미정이다
-    chargeRate: null as number | null, // 294.3원 — 정수 칸에 못 담아 기타에 적는다
+    // 연장은 프로모션이 있는 케이스만 — 자체투자는 문서에 프로모션 언급이 없어 미지정이다
+    promoExtend: sub && termYears !== null ? PL_PROMO_EXTEND : null,
+    chargeRate: 292, // 최종 확정 (한백 2026-08-23) — 자체투자까지 같다
     supplyItems: null as string | null,
     installTerms: PL_INSTALL,
     coexistTerms: null as string | null,
@@ -221,7 +236,7 @@ export function hecNewRules(): NewPricingRule[] {
     safetyFeeBearer: null,
     supplyItems: HEC_SUPPLY,
     promo: HEC_PROMO,
-    promoExtendDeduct: null,
+    promoExtend: null,
     chargeRate: HEC_CHARGE,
     installTerms: HEC_INSTALL,
     coexistTerms: HEC_COEXIST,

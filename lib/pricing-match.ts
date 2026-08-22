@@ -168,13 +168,27 @@ export function checkPricingRule(r: NewPricingRule): string[] {
       });
     }
   }
-  for (const [label, v] of [
-    ['프로모션 연장 차감', r.promoExtendDeduct],
-    ['충전요금', r.chargeRate],
-  ] as const) {
-    if (v !== null && (!Number.isInteger(v) || v < 0)) {
-      bad.push(`${label}은 0 이상의 정수여야 합니다.`);
+  /* 연장도 목록이다 — 프로모션 구간과 같은 잣대로 본다. 차감액 0 은 「무료 연장」이라 허용한다 */
+  if (r.promoExtend !== null) {
+    if (!Array.isArray(r.promoExtend)) bad.push('프로모션 연장이 올바르지 않습니다.');
+    else if (r.promoExtend.length > 4) bad.push('프로모션 연장은 4가지까지입니다.');
+    else {
+      r.promoExtend.forEach((x, i) => {
+        const no = `프로모션 연장 ${i + 1}번째`;
+        if (!x || !Number.isInteger(x.months) || x.months <= 0) {
+          bad.push(`${no} 기간은 0 보다 큰 개월 수여야 합니다.`);
+        }
+        if (!x || !Number.isInteger(x.rate) || x.rate < 0) {
+          bad.push(`${no} 요금은 0 이상의 정수여야 합니다.`);
+        }
+        if (!x || !Number.isInteger(x.deduct) || x.deduct < 0) {
+          bad.push(`${no} 차감액은 0 이상의 정수여야 합니다.`);
+        }
+      });
     }
+  }
+  if (r.chargeRate !== null && (!Number.isInteger(r.chargeRate) || r.chargeRate < 0)) {
+    bad.push('충전요금은 0 이상의 정수여야 합니다.');
   }
   return bad;
 }

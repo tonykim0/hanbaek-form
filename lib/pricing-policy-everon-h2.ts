@@ -58,7 +58,7 @@ const EV_MISC_INV = [
   '· 타CPO 의 교체·이전은 최소 5년 경과 & 계약 종료(건설사 설치분 제외) — 교체는 가능 · 이전 설치의 철거는 공단 지침 전까지 불허(철거 유보 + 신규 설치)',
   '· 3kW→7kW 제자리 교체는 170/180/190만(5/7/10년) — 이 케이스(7kW→7kW)와 축이 같아 미등록, 현장 갈리면 등록',
   '· 전체 500기 이상 달성 시 에버온 투자분 도색 지원(26-07-30 기준)',
-  '· 정산 방식이 정책서에 없어 기성 미정 — 확인되면 채운다',
+  '· 자체투자 정산 방식은 정책서에 없음 — 기성 미정(확인되면 채운다). 보조사업 정산과 별개다',
 ].join('\n');
 
 /** 기존 보조 케이스에 채울 조건 — 금액·기성(env-40-60)은 신정책과 같아 안 건드린다 */
@@ -118,7 +118,7 @@ export function evNewRules(): NewPricingRule[] {
     supplyItems: EV_SUPPLY,
     // 자투 프로모션은 정책서에 없다 — 모자분리 표의 할인은 요금제(전 사업 공통)로 읽어 같이 적는다
     promo: EV_PROMO_MOTHER[row.term],
-    promoExtendDeduct: null,
+    promoExtend: null,
     chargeRate: EV_CHARGE,
     installTerms: EV_INSTALL,
     otherSupport: null,

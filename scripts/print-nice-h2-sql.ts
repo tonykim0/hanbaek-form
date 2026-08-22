@@ -17,6 +17,7 @@ import { pricingRuleId } from '../lib/pricing-match';
 
 const q = (v: string | null) => (v === null ? 'null' : `'${v.replace(/'/g, "''")}'`);
 const n = (v: number | null) => (v === null ? 'null' : String(v));
+const j = (v: unknown) => (v === null || v === undefined ? 'null' : `'${JSON.stringify(v)}'::jsonb`);
 
 const taken = new Set<string>();
 console.log('-- 나이스인프라 26년 하반기 정책 값 (2026-08-05 배포본)');
@@ -28,7 +29,7 @@ for (const r of niceH2Rules()) {
   console.log(`update pricing_rules set
   supply_items        = ${q(r.supplyItems)},
   promo               = ${r.promo === null ? 'null' : `'${JSON.stringify(r.promo)}'::jsonb`},
-  promo_extend_deduct = ${n(r.promoExtendDeduct)},
+  promo_extend        = ${j(r.promoExtend)},
   charge_rate         = ${n(r.chargeRate)},
   install_terms       = ${q(r.installTerms)},
   other_support       = ${q(r.otherSupport)},

@@ -18,14 +18,14 @@ import { allSlots } from './db-slot';
 import { dayOf, stampOf, today } from '@/lib/date';
 import {
   contractLines, documents, payoutEntries, pricingRules, processDocuments, processes,
-  projectNotes, projects, settlementRules, settlements,
+  projectNotes, projects, settlementRules, settlements, taxInvoices,
 } from '@/lib/db/schema';
 import type {
   BizType, BuildingType, ContractLine, ContractParty, Court, CpoName, DocStatus,
   IntakeDraft, LineAxes, NewPayoutEntry, PayoutCategory, PayoutEntry, PayoutKind, PayoutRow,
   PowerType, PreInstall, PricingRule, ProcessInfo, Project, PromoStep,
   ProjectDetail, ProjectDocument, ProjectSummary, ReplType, Settlement, SettlementRule,
-  SettlementStepRule, SettlementSummary,
+  SettlementStepRule, SettlementSummary, TaxInvoice,
 } from '@/types/project';
 import type { Viewer } from '@/lib/auth/types';
 import { canAccessProject, effectiveVisibility, isHanbaek, normalizeOrg } from '@/lib/roles';
@@ -36,8 +36,8 @@ import {
 import type { Actor, PaymentPatch, ProcessPatch, ProjectRepository } from './repository';
 import { checkPricingRule, duplicateOf, normalizePricingRule, pricingRuleId } from '@/lib/pricing-match';
 import {
-  checkPayoutEntry, payoutPrerequisiteBlockersOf, payoutReleaseOf, payoutSideOf, payoutStepsOf,
-  settlementRuleIdOf, settlementRuleNameOf, settlementStepsKeyOf,
+  checkPayoutEntry, entryTypeOf, payoutPrerequisiteBlockersOf, payoutReleaseOf, payoutSideOf,
+  payoutStepsOf, settlementRuleIdOf, settlementRuleNameOf, settlementStepsKeyOf,
 } from '@/lib/settlement';
 import {
   ALL_DOC_KEYS, byStalled, contractStateFor, isProcessDocKind, payoutPlansOf, payoutRowsOf, redactForViewer,
@@ -1039,6 +1039,128 @@ export const pgRepository: ProjectRepository = {
         field: `${row.kind} ${row.category}`,
         oldValue: `${row.amount}원 · ${row.at}${row.note ? ` · ${row.note}` : ''}`, newValue: null,
       });
+    });
+  },
+
+  async movePayoutBatch(org, from, to, actor): Promise<{ moved: number }> {
+    assertAdmin(actor, '배치 지급일 변경');
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(to)) throw new Error('지급일은 YYYY-MM-DD 형식이어야 합니다.');
+    if (from === to) throw new Error('같은 지급일입니다.');
+
+    const db = getDb();
+    return db.transaction(async (tx) => {
+      /*
+       * 배치의 줄 = 그 지급일의 「지급」 타입 원장 줄 중, kind 가 가리키는 쪽의
+       * 소속이 이 지급처인 것. 원장에는 org 가 없어서(정본은 현장) 현장을 조인해 가른다.
+       * 조정(자재비·차감)은 안 옮긴다 — at 이 지급일이 아니라 발생일이다.
+       */
+      const rows = await tx
+        .select({
+          id: payoutEntries.id, projectId: payoutEntries.projectId,
+          kind: payoutEntries.kind, category: payoutEntries.category,
+          salesOrg: projects.salesOrg, gcOrg: projects.gcOrg,
+        })
+        .from(payoutEntries)
+        .innerJoin(projects, eq(payoutEntries.projectId, projects.id))
+        .where(eq(payoutEntries.at, from));
+      const mine = rows.filter(
+        (r) =>
+          entryTypeOf(r.category as PayoutCategory) === '지급' &&
+          (r.kind === '영업비' ? r.salesOrg : r.gcOrg) === org
+      );
+      if (mine.length === 0) throw new Error('그 지급일에 이 지급처로 나간 지급이 없습니다.');
+
+      // 옮겨간 날에 같은 지급처의 배치가 이미 있으면 합쳐진다 — 명세서도 한 장이 된다. 막지 않는다.
+      await tx
+        .update(payoutEntries)
+        .set({ at: to })
+        .where(inArray(payoutEntries.id, mine.map((r) => r.id)));
+      // 세금계산서는 배치를 따라간다 — 남겨두면 옛 날짜의 고아가 된다
+      await tx
+        .update(taxInvoices)
+        .set({ payDate: to })
+        .where(and(eq(taxInvoices.org, org), eq(taxInvoices.payDate, from)));
+
+      await writeAudit(tx, {
+        projectId: null, actor, action: `배치 지급일 변경 — ${org}`,
+        field: 'payDate', oldValue: from, newValue: `${to} (${mine.length}건)`,
+      });
+      return { moved: mine.length };
+    });
+  },
+
+  async listTaxInvoices(actor): Promise<TaxInvoice[]> {
+    assertHanbaek(actor, '세금계산서 조회');
+    const rows = await getDb().select().from(taxInvoices);
+    return rows.map((r) => ({
+      id: r.id, org: r.org, payDate: r.payDate, blobUrl: r.blobUrl, filename: r.filename,
+      supplyAmount: r.supplyAmount, taxAmount: r.taxAmount, totalAmount: r.totalAmount,
+      uploadedAt: r.uploadedAt,
+    }));
+  },
+
+  async saveTaxInvoice(input, actor): Promise<{ id: string; replacedBlobUrl: string | null }> {
+    assertAdmin(actor, '세금계산서 저장');
+    if (!input.org.trim()) throw new Error('지급처가 없습니다.');
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(input.payDate)) throw new Error('지급일이 올바르지 않습니다.');
+
+    const db = getDb();
+    const id = crypto.randomUUID();
+    return db.transaction(async (tx) => {
+      // 배치 하나에 한 장 — 이미 있으면 교체다. 옛 파일 주소를 돌려줘 라우트가 Blob 을 지운다.
+      const [prev] = await tx
+        .select()
+        .from(taxInvoices)
+        .where(and(eq(taxInvoices.org, input.org), eq(taxInvoices.payDate, input.payDate)))
+        .limit(1);
+      if (prev) await tx.delete(taxInvoices).where(eq(taxInvoices.id, prev.id));
+
+      await tx.insert(taxInvoices).values({
+        id, org: input.org, payDate: input.payDate,
+        blobUrl: input.blobUrl, filename: input.filename,
+        supplyAmount: input.supplyAmount, taxAmount: input.taxAmount, totalAmount: input.totalAmount,
+        uploadedAt: today(),
+      });
+      await writeAudit(tx, {
+        projectId: null, actor, action: `세금계산서 ${prev ? '교체' : '저장'} — ${input.org} ${input.payDate}`,
+        field: 'file', oldValue: prev?.filename ?? null,
+        newValue: `${input.filename}${input.supplyAmount !== null ? ` · 공급가액 ${input.supplyAmount}원` : ' · 금액 미확인'}`,
+      });
+      return { id, replacedBlobUrl: prev?.blobUrl ?? null };
+    });
+  },
+
+  async updateTaxInvoice(id, patch, actor): Promise<void> {
+    assertAdmin(actor, '세금계산서 금액 수정');
+    const db = getDb();
+    await db.transaction(async (tx) => {
+      const [row] = await tx.select().from(taxInvoices).where(eq(taxInvoices.id, id)).limit(1);
+      if (!row) throw new Error('세금계산서를 찾을 수 없습니다.');
+      await tx
+        .update(taxInvoices)
+        .set({ supplyAmount: patch.supplyAmount, taxAmount: patch.taxAmount, totalAmount: patch.totalAmount })
+        .where(eq(taxInvoices.id, id));
+      await writeAudit(tx, {
+        projectId: null, actor, action: `세금계산서 금액 수정 — ${row.org} ${row.payDate}`,
+        field: 'amounts',
+        oldValue: `공급 ${row.supplyAmount ?? '?'} · 세액 ${row.taxAmount ?? '?'} · 합계 ${row.totalAmount ?? '?'}`,
+        newValue: `공급 ${patch.supplyAmount ?? '?'} · 세액 ${patch.taxAmount ?? '?'} · 합계 ${patch.totalAmount ?? '?'}`,
+      });
+    });
+  },
+
+  async deleteTaxInvoice(id, actor): Promise<{ blobUrl: string }> {
+    assertAdmin(actor, '세금계산서 삭제');
+    const db = getDb();
+    return db.transaction(async (tx) => {
+      const [row] = await tx.select().from(taxInvoices).where(eq(taxInvoices.id, id)).limit(1);
+      if (!row) throw new Error('세금계산서를 찾을 수 없습니다.');
+      await tx.delete(taxInvoices).where(eq(taxInvoices.id, id));
+      await writeAudit(tx, {
+        projectId: null, actor, action: `세금계산서 삭제 — ${row.org} ${row.payDate}`,
+        field: 'file', oldValue: row.filename, newValue: null,
+      });
+      return { blobUrl: row.blobUrl };
     });
   },
 

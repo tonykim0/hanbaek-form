@@ -402,7 +402,7 @@ export function payoutRowsOf(r: ProjectRecord, viewer: Viewer, rules: RuleMap, s
       d.payoutEntries
         .filter((e) => e.kind === side.kind && entryTypeOf(e.category) === '지급')
         .map((e) => ({
-          ...base, kind: side.kind, org: side.org,
+          ...base, entryId: e.id, kind: side.kind, org: side.org,
           label: e.category, amount: e.amount, paidAt: e.at, note: e.note,
         }))
     );

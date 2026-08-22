@@ -315,6 +315,29 @@ export const payoutEntries = pgTable('payout_entries', {
   byProject: index('payout_entries_project_idx').on(t.projectId, t.at),
 }));
 
+// ── 세금계산서 ─────────────────────────────────────────────────
+/**
+ * 배치(지급처 × 지급일)마다 한 장. [한백 전용]
+ * 현장이 아니라 배치에 붙는다 — 협력사는 한 지급일에 여러 현장 몫을 묶어 한 장으로
+ * 발행하므로 project_id 가 없다. 배치의 지급일을 옮기면 이 행의 pay_date 도 같이
+ * 옮긴다(pg-store movePayoutBatch) — 키가 갈라지면 첨부가 고아가 된다.
+ */
+export const taxInvoices = pgTable('tax_invoices', {
+  id: text('id').primaryKey(),
+  org: text('org').notNull(),
+  payDate: text('pay_date').notNull(),
+  blobUrl: text('blob_url').notNull(),
+  filename: text('filename').notNull(),
+  /** 공급가액 — 명세서 합계와 대조하는 기준. null = AI 검산 실패, 사람이 적는다 */
+  supplyAmount: integer('supply_amount'),
+  taxAmount: integer('tax_amount'),
+  totalAmount: integer('total_amount'),
+  uploadedAt: text('uploaded_at').notNull(),
+}, (t) => ({
+  // 배치 하나에 한 장 — 다시 올리면 교체다
+  byBatch: uniqueIndex('tax_invoices_batch_idx').on(t.org, t.payDate),
+}));
+
 // ── 감사 로그 ───────────────────────────────────────────────────
 /** 협력사가 직접 입력하므로 누가 무엇을 바꿨는지 남긴다 */
 export const auditLog = pgTable('audit_log', {

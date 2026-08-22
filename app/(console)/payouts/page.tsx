@@ -33,7 +33,7 @@ export default async function PayoutsPage() {
    * 300초 런타임 타임아웃으로 죽었다(2026-08-21). 조립은 저장소가 하고, 협력사에게
    * 마진·기성이 안 가는 것도 저장소가 지운다 — 화면은 그릴 것만 받는다.
    */
-  const { plans, history } = await getRepository().listPayoutOverview(viewerOf(session));
+  const { plans } = await getRepository().listPayoutOverview(viewerOf(session));
 
   const siteCount = new Set(plans.map((r) => r.projectId)).size;
 
@@ -46,7 +46,7 @@ export default async function PayoutsPage() {
         </p>
       </div>
 
-      <PayoutWorkBoard rows={plans} history={history} canConfirm={canConfirm} />
+      <PayoutWorkBoard rows={plans} canConfirm={canConfirm} />
     </>
   );
 }

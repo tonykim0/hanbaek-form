@@ -11,7 +11,9 @@
 import type {
   PayoutEntry, PayoutKind, PayoutMilestones, PayoutPlanRow, ProjectDetail,
 } from '@/types/project';
-import { payoutSideOf } from '@/lib/settlement';
+import {
+  payoutPrerequisiteBlockersOf, payoutReleaseOf, payoutSideOf, payoutStepsOf,
+} from '@/lib/settlement';
 import type { Visibility } from '@/lib/roles';
 
 /**
@@ -61,4 +63,65 @@ export function payoutsOfDetail(d: ProjectDetail, vis: Visibility): PayoutRowInp
   if (vis.sales) rows.push(build('영업비'));
   if (vis.cons) rows.push(build('시공비'));
   return rows;
+}
+
+// ── 지급 줄의 작업 상태 ────────────────────────────────────────────
+/*
+ * 지급관리 표(PayoutWorkBoard)에 있던 것을 옮겼다 — 거래명세서 화면(StatementsBoard)이
+ * 「지급 가능」 풀을 같은 판정으로 모아야 한다. 계산이 두 벌이면 한쪽 화면에는 지급
+ * 가능인데 다른 쪽에는 없는 줄이 생긴다.
+ */
+
+export type WorkState = '지급 가능' | '조건 대기' | '확정 완료';
+
+export interface PayoutWork extends PayoutRowInput {
+  state: WorkState;
+  blockers: string[];
+  open: { no: 1 | 2; amount: number } | null;
+  due: number;
+  step1Amount: number;
+  step2Amount: number;
+  step1Done: boolean;
+  step2Done: boolean;
+}
+
+export function workOf(p: PayoutRowInput): PayoutWork {
+  const steps = payoutStepsOf(p.plan, p.adjust, p.confirmed);
+  const prerequisites = payoutPrerequisiteBlockersOf({
+    kind: p.kind, org: p.org, unpriced: p.unpriced, feeMissing: p.feeMissing,
+  });
+  const stepFields = {
+    due: steps.due,
+    step1Amount: steps.parts[0],
+    step2Amount: steps.parts[1],
+    step1Done: steps.step1Done,
+    step2Done: steps.step2Done,
+  };
+
+  if (p.unpriced > 0) {
+    return { ...p, ...stepFields, state: '조건 대기', blockers: prerequisites, open: null };
+  }
+  if (!steps.open) {
+    return { ...p, ...stepFields, state: '확정 완료', blockers: [], open: null };
+  }
+
+  const release = payoutReleaseOf(p.kind, steps.open.no, p.milestones);
+  const blockers = [...prerequisites];
+  if (!release.met) blockers.push(`${release.trigger} 대기`);
+
+  return {
+    ...p,
+    ...stepFields,
+    state: blockers.length > 0 ? '조건 대기' : '지급 가능',
+    blockers,
+    open: steps.open,
+  };
+}
+
+/** 지급일 후보 — 트리거 충족일의 익월 10일·25일 (지급 규칙, 한백 확인) */
+export function payDateChoices(metAt: string): [string, string] {
+  const [y, m] = metAt.split('-').map(Number);
+  const ny = m === 12 ? y + 1 : y;
+  const mm = String(m === 12 ? 1 : m + 1).padStart(2, '0');
+  return [`${ny}-${mm}-10`, `${ny}-${mm}-25`];
 }

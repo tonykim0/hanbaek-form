@@ -797,6 +797,8 @@ export interface ProjectNote {
  * 아직 안 나간 몫은 여기 없다 — 잔액은 하도급사 지급관리(/payouts)가 센다.
  */
 export interface PayoutRow {
+  /** 원장 항목 id — 거래명세서에서 항목을 뺄 때(확정 취소) 가리킨다 */
+  entryId: string;
   projectId: string;
   projectName: string;
   cpo: CpoName;
@@ -810,6 +812,31 @@ export interface PayoutRow {
   /** 지급일 */
   paidAt: string;
   note: string | null;
+}
+
+/**
+ * 세금계산서 — 배치(지급처 × 지급일)에 붙는다. [한백 전용]
+ *
+ * 협력사가 발행해 보낸 것을 한백이 보관하고, 거래명세서 합계(공급가액)와 대조한다.
+ * 금액은 올린 PDF 에서 AI 가 읽되(lib/tax-invoice.ts) 공급가액+세액=합계 검산을
+ * 통과한 것만 채운다 — 검산에 실패하면 null 로 남고 사람이 적는다. 사람이 언제든
+ * 고칠 수 있다(화면 규칙 7번 — 넣는 자리를 만들면 고치는 자리도 만든다).
+ */
+export interface TaxInvoice {
+  id: string;
+  /** 발행한 협력사 — 배치의 지급처와 같은 문자열 */
+  org: string;
+  /** 배치의 지급일 (YYYY-MM-DD) */
+  payDate: string;
+  blobUrl: string;
+  filename: string;
+  /** 공급가액 — 거래명세서 합계와 대조하는 기준. null = 아직 미확인 */
+  supplyAmount: number | null;
+  /** 세액 */
+  taxAmount: number | null;
+  /** 합계금액 (공급가액 + 세액) */
+  totalAmount: number | null;
+  uploadedAt: string;
 }
 
 export interface ContractState {

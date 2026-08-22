@@ -13,7 +13,7 @@
  */
 import type {
   Court, DocStatus, HoldState, IntakeDraft, LineAxes, NewPayoutEntry, NewPricingRule, PayoutKind, PayoutRow, PreInstall, PricingRule,
-  PayoutPlanRow, ProcessInfo, ProcessStatus, ProjectDetail, ProjectSummary, Settlement, SettlementRule, SettlementSummary,
+  PayoutPlanRow, ProcessInfo, ProcessStatus, ProjectDetail, ProjectSummary, Settlement, SettlementRule, SettlementSummary, TaxInvoice,
 } from '@/types/project';
 import type { Actor, Viewer } from '@/lib/auth/types';
 
@@ -326,6 +326,37 @@ export interface ProjectRepository {
    * 여기로 못 들어온다(runPayoutBatch 가 계산해 넣는다). 검사는 checkPayoutEntry.
    */
   addPayoutEntry(projectId: string, input: NewPayoutEntry, actor: Actor): Promise<string>;
+
+  /**
+   * 배치의 지급일을 옮긴다. [한백 전용]
+   *
+   * 배치 = 그 지급일에 그 지급처로 나간 지급 타입 원장 줄 전부. 세금계산서가
+   * (지급처 × 지급일) 키로 붙어 있으므로 같은 트랜잭션에서 함께 옮긴다 —
+   * 따로 옮기면 첨부가 옛 날짜에 고아로 남는다.
+   */
+  movePayoutBatch(org: string, from: string, to: string, actor: Actor): Promise<{ moved: number }>;
+
+  /** 세금계산서 목록 — 배치 목록에 상태를 붙이는 데 쓴다. [한백의 눈] */
+  listTaxInvoices(actor: Actor): Promise<TaxInvoice[]>;
+
+  /**
+   * 세금계산서 저장 — 배치 하나에 한 장(같은 배치에 다시 올리면 교체). [한백 전용]
+   * 금액(공급가액·세액·합계)은 AI 판독이 검산을 통과했을 때만 실려 온다.
+   */
+  saveTaxInvoice(
+    input: Omit<TaxInvoice, 'id' | 'uploadedAt'>,
+    actor: Actor
+  ): Promise<{ id: string; replacedBlobUrl: string | null }>;
+
+  /** 세금계산서 금액 고치기 — 판독이 틀렸거나 못 읽은 것을 사람이 적는다. [한백 전용] */
+  updateTaxInvoice(
+    id: string,
+    patch: { supplyAmount: number | null; taxAmount: number | null; totalAmount: number | null },
+    actor: Actor
+  ): Promise<void>;
+
+  /** 세금계산서 삭제 — 지운 파일 주소를 돌려준다(라우트가 Blob 도 지운다). [한백 전용] */
+  deleteTaxInvoice(id: string, actor: Actor): Promise<{ blobUrl: string }>;
 
   /**
    * 지급 원장에서 한 건을 지운다. [한백 전용]

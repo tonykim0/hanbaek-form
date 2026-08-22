@@ -50,6 +50,7 @@ const CONSOLE_PATHS = [
   '/payments',
   '/payouts',
   '/receivables',
+  '/statements',
   '/settings',
   '/pricing',
   '/admin',
@@ -114,7 +115,7 @@ export async function middleware(request: NextRequest) {
     const starts = (list: string[]) => hits(path, list);
 
     const adminOnly = ['/admin'];
-    const hanbaekOnly = ['/receivables', '/pricing', '/design'];
+    const hanbaekOnly = ['/receivables', '/pricing', '/design', '/statements'];
     const writerOnly = ['/projects/new', '/contracts', '/settings'];
 
     const blocked =

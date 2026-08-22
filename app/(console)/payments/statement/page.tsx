@@ -1,10 +1,10 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { getRepository } from '@/lib/data';
-import { getSessionUser, viewerOf } from '@/lib/auth/session';
+import { actorOf, getSessionUser, viewerOf } from '@/lib/auth/session';
 import { isHanbaek } from '@/lib/roles';
-import { won } from '@/lib/format';
 import PrintButton from '@/components/settlement/PrintButton';
+import StatementView from '@/components/settlement/StatementView';
 
 export const metadata = { title: '거래명세서 — 한백 전기차사업관리' };
 
@@ -15,6 +15,11 @@ const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
  *
  * 지급은 매월 1~2회 배치로 나간다. 배치 하나에 나간 원장 줄들이 이 한 장이 된다 —
  * 줄을 손으로 다시 적지 않는다. 원장이 틀렸으면 원장을 고치고 이 장은 다시 뽑는다.
+ * 관리자는 이 자리에서 원장을 고친다(항목 빼기 · 지급일 변경) — StatementView 가
+ * 편집 자리를 print:hidden 으로 들고 있어 종이에는 명세서만 남는다.
+ *
+ * 세금계산서도 이 배치에 붙는다 — 협력사가 발행한 것을 보관하고 합계(공급가액)를
+ * 대조한다. 목록은 /statements 에서 본다.
  *
  * ★협력사도 자기 것을 본다.★ org 는 한백만 고를 수 있고, 협력사는 파라미터와 무관하게
  * 자기 소속으로 고정된다 — listPayouts 가 애초에 자기 줄만 주지만, 주소를 바꿔 남의
@@ -32,94 +37,41 @@ export default async function StatementPage({
   if (!DATE_RE.test(date)) redirect('/payments');
 
   // 남의 업체 명세서를 열 수 있는가 — 눈의 문제다(열람 전용도 전부 본다)
-  const isAdmin = isHanbaek(session.role);
-  const org = isAdmin ? searchParams.org ?? '' : session.org ?? '';
+  const seesAll = isHanbaek(session.role);
+  const org = seesAll ? searchParams.org ?? '' : session.org ?? '';
   if (!org) redirect('/payments');
 
   const rows = (await getRepository().listPayouts(viewerOf(session)))
     .filter((r) => r.paidAt === date && r.org === org)
     .sort((a, b) => a.projectName.localeCompare(b.projectName, 'ko') || a.kind.localeCompare(b.kind));
 
-  const total = rows.reduce((n, r) => n + r.amount, 0);
+  // 세금계산서는 한백의 눈만 — 협력사 화면에는 섹션 자체가 없다
+  const invoice = seesAll
+    ? (await getRepository().listTaxInvoices(actorOf(session))).find(
+        (i) => i.org === org && i.payDate === date
+      ) ?? null
+    : null;
 
   return (
     <div className="mx-auto max-w-3xl">
       <div className="mb-5 flex items-center gap-2 print:hidden">
         <Link
-          href={`/payments?month=${date.slice(0, 7)}`}
+          href={seesAll ? '/statements' : `/payments?month=${date.slice(0, 7)}`}
           className="text-small font-bold text-slate-500 transition hover:text-brand-800"
         >
-          ← 지급 및 기성관리
+          ← {seesAll ? '거래명세서 목록' : '지급 및 기성관리'}
         </Link>
         <span className="ml-auto" />
         <PrintButton />
       </div>
 
-      <section className="rounded-panel border border-slate-200 bg-white p-8 print:border-0 print:p-0">
-        <header className="flex flex-wrap items-end justify-between gap-3 border-b-2 border-slate-900 pb-4">
-          <h1 className="text-h1 font-black tracking-tight text-slate-900">거래명세서</h1>
-          <div className="text-right text-small leading-relaxed text-slate-600">
-            <p>
-              <span className="font-bold text-slate-400">지급일</span>{' '}
-              <span className="font-bold tabular-nums text-slate-900">{date}</span>
-            </p>
-            <p>
-              <span className="font-bold text-slate-400">공급자</span>{' '}
-              <span className="font-bold text-slate-900">한백</span>
-              <span className="mx-1 text-slate-300">→</span>
-              <span className="font-bold text-slate-400">받는 곳</span>{' '}
-              <span className="font-bold text-slate-900">{org}</span>
-            </p>
-          </div>
-        </header>
-
-        {rows.length === 0 ? (
-          <p className="py-10 text-center text-base text-slate-400">
-            이 지급일에 {org}(으)로 나간 지급이 0건입니다
-          </p>
-        ) : (
-          <table className="mt-4 w-full text-base">
-            <thead className="border-b border-slate-200 text-tiny font-bold tracking-[0.08em] text-slate-500">
-              <tr>
-                <th className="py-2 pr-3 text-left">현장</th>
-                <th className="px-3 py-2 text-left">구분</th>
-                <th className="px-3 py-2 text-left">명목</th>
-                <th className="px-3 py-2 text-left">메모</th>
-                <th className="py-2 pl-3 text-right">금액</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {rows.map((r, i) => (
-                <tr key={`${r.projectId}-${r.kind}-${r.label}-${i}`}>
-                  <td className="py-2.5 pr-3 font-semibold text-slate-800">
-                    {r.projectName}
-                    <span className="ml-1.5 text-tiny font-normal text-slate-400">{r.cpo}</span>
-                  </td>
-                  <td className="whitespace-nowrap px-3 py-2.5 text-slate-600">{r.kind}</td>
-                  <td className="whitespace-nowrap px-3 py-2.5 text-slate-600">{r.label}</td>
-                  <td className="px-3 py-2.5 text-small text-slate-500">
-                    {r.note ?? <span className="text-slate-300">—</span>}
-                  </td>
-                  <td className={`whitespace-nowrap py-2.5 pl-3 text-right font-bold tabular-nums ${r.amount < 0 ? 'text-amber-800' : 'text-slate-900'}`}>
-                    {won(r.amount)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-            <tfoot>
-              <tr className="border-t-2 border-slate-900">
-                <td colSpan={4} className="py-3 pr-3 text-right text-base font-black text-slate-900">
-                  합계 ({rows.length}건)
-                </td>
-                <td className="whitespace-nowrap py-3 pl-3 text-right text-lead font-black tabular-nums text-slate-900">
-                  {won(total)}
-                  <span className="ml-1 text-tiny font-bold text-slate-400">원</span>
-                </td>
-              </tr>
-            </tfoot>
-          </table>
-        )}
-      </section>
+      <StatementView
+        rows={rows}
+        org={org}
+        date={date}
+        invoice={invoice}
+        canEdit={session.role === 'admin'}
+      />
     </div>
   );
 }

@@ -1,9 +1,14 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "nextjs",
-  "regions": ["icn1"],
+  "regions": [
+    "icn1"
+  ],
   "functions": {
     "app/api/intake/route.ts": {
+      "maxDuration": 60
+    },
+    "app/api/statements/tax-invoice/route.ts": {
       "maxDuration": 60
     }
   }

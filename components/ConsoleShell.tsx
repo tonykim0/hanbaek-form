@@ -119,7 +119,7 @@ const GROUPS: Group[] = [
     hanbaekOnly: true,
     items: [
       // 정산 묶음에서 옮겼다(한백 확인) — 매일 도는 흐름이 아니라 어쩌다 만지는 기준값이다
-      { href: '/pricing', label: '단가 케이스', short: '단가' },
+      { href: '/pricing', label: '단가표', short: '단가' },
       { href: '/admin/materials', label: '자료실 관리', short: '관리', adminOnly: true },
       // 계정설정(/admin/accounts)에서 뗐다(한백 확인) — 지급 전마다 보는 값이라 계정 등록과 결이 다르다
       { href: '/admin/partners', label: '협력사 정보', short: '협력', adminOnly: true },

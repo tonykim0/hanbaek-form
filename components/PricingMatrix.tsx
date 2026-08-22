@@ -124,7 +124,7 @@ export default function PricingMatrix({
     <div className="flex flex-col gap-7">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-h1 font-black text-slate-900">단가 케이스</h1>
+          <h1 className="text-h1 font-black text-slate-900">단가표</h1>
           <p className="mt-1.5 flex flex-wrap items-baseline gap-x-3 text-base text-slate-500">
             <span>
               사용 <b className="tabular-nums text-slate-800">{live.length}</b>건

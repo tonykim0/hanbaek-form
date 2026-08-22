@@ -59,7 +59,7 @@ export interface UserStore {
 
 /**
  * 개발용 시드. 비밀번호는 전부 `dev1234!`.
- * 운영에서는 절대 쓰이지 않는다 — AUTH_USERS 가 없으면 로그인 자체가 막힌다.
+ * 운영에서는 절대 쓰이지 않는다 — production 이면 이 목록을 아예 안 돌려준다.
  */
 export const DEV_USERS: StoredUser[] = [
   {
@@ -85,7 +85,17 @@ export const DEV_USERS: StoredUser[] = [
   },
 ];
 
-/** AUTH_USERS = JSON 배열 [{ id, name, role, org, hash }] */
+/**
+ * AUTH_USERS = JSON 배열 [{ id, name, role, org, hash }]
+ *
+ * ★없는 것은 오류가 아니다★ 계정의 정본은 DB 다(`/admin/accounts`). AUTH_USERS 는
+ * DB 가 비어 있던 시절의 뒷단이고, 지금 운영에서는 비어 있는 것이 정상이다.
+ * 예전에는 이 자리에서 「로그인이 차단됩니다」를 찍었는데, DB 계정으로 멀쩡히 로그인되는
+ * 동안에도 화면을 열 때마다 찍혔다 — 로그를 보는 사람이 헛다리를 짚는다(2026-08-22).
+ * 정말 막히는 순간은 여기가 아니라 userStore.find 다. 거기서만 찍는다.
+ *
+ * 값이 들어 있는데 못 읽는 것은 여전히 오류다 — 넣은 사람의 뜻이 안 먹고 있다.
+ */
 function loadUsers(): StoredUser[] {
   const raw = process.env.AUTH_USERS;
   if (raw) {
@@ -98,11 +108,7 @@ function loadUsers(): StoredUser[] {
     }
     return [];
   }
-  if (process.env.NODE_ENV === 'production') {
-    console.error('[auth] 운영 환경에 AUTH_USERS 가 없습니다. 로그인이 차단됩니다.');
-    return [];
-  }
-  return DEV_USERS;
+  return process.env.NODE_ENV === 'production' ? [] : DEV_USERS;
 }
 
 /**
@@ -194,7 +200,18 @@ export const userStore: UserStore = {
     const inDb = await findInDb(id);
     if (inDb === 'disabled') return null;
     // 없거나 못 봤으면 파일로 내려간다 — DB 가 비어 있는 환경에서도 로그인이 살아 있어야 한다
-    if (inDb === 'missing' || inDb === 'unavailable') return findInFile(id);
+    if (inDb === 'missing' || inDb === 'unavailable') {
+      const file = findInFile(id);
+      /*
+       * 진짜 막힌 순간만 찍는다 — DB 를 못 봤는데 뒷단도 비어 있으면 아무도 못 들어온다.
+       * 「없음」(missing)은 안 찍는다. 그것은 대개 아이디를 잘못 적은 것이고, 매 시도마다
+       * 찍으면 정작 위 상황이 로그에서 묻힌다.
+       */
+      if (!file && inDb === 'unavailable' && loadUsers().length === 0) {
+        console.error('[auth] DB 를 못 봤고 AUTH_USERS 도 비어 있습니다 — 로그인이 막힙니다.');
+      }
+      return file;
+    }
     return inDb;
   },
 

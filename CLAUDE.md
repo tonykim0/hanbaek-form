@@ -45,8 +45,13 @@
 - 로컬 개발 DB 에는 시드 현장 5건 + 개발 계정 5개(`admin`/`ecoelec`/`daesang`/`navy`/`viewer`,
   비밀번호 전부 `dev1234!`)가 있다. `viewer` 가 열람 전용이다 — 소속 없이 전 현장을 본다.
   되돌리려면 `npm run db:seed -- --reset --with-dev-users`.
-- 스키마를 바꾸면 **로컬에 `db:push` 하고, 프로덕션에도 따로 반영해야 한다** — 이제
-  자동으로 같이 바뀌지 않는다. 배포 전에 프로덕션 DB 에 컬럼이 있는지 확인한다.
+- ★**스키마·데이터 변경은 마이그레이션 파일로 한다**★ (2026-08-23 도입) — `migrations/*.sql`
+  에 **멱등하게**(IF NOT EXISTS 등) 적으면 `npm run build` 가 먼저 적용한다. Vercel 프로덕션
+  빌드도 같은 러너(`scripts/migrate.ts`)를 돌므로 **배포가 코드보다 먼저 DB 를 맞춘다** —
+  「컬럼 없이 코드가 먼저 나가 500」(2026-08-22 실사고)이 구조적으로 안 생긴다.
+  적용된 파일은 고치지 않는다(원장 `db_migrations` 에 있으면 다시 안 돈다) — 새 번호로.
+  로컬 개발 DB 에는 `npm run db:migrate`. `db:push` 는 마이그레이션 없는 실험용으로만 —
+  push 로 만든 스키마는 프로덕션에 못 간다.
 - ★**어느 Supabase 프로젝트가 프로덕션인가**★ 헷갈리면 고친 것이 안 고쳐진다.
   - **프로덕션 = `fsngrxdmucwlqnduzrhw`** — 처음 만든 프로젝트. Vercel 의 `DATABASE_URL` 이 여기다.
   - **개발·시험 = `impavoeuvywtdkeweyqd`** — 나중에 만든 것. `.env.local` 이 여기다.
@@ -58,9 +63,9 @@
   어디 붙었는지 가리는 법: 개발 DB 의 `pricing_rules` 는 41행이다(2026-08-22 기준).
 - ★**프로덕션 DATABASE_URL 은 Vercel 에서 Sensitive 다 — 값을 되읽을 수 없다.**★
   `vercel env pull`·`vercel env run` 으로도 안 나온다(`env run` 은 `.env.local` 을 덧씌운다).
-  그래서 **프로덕션 스키마 반영은 접속 문자열을 가진 사람만** 할 수 있다. 밖에서 돌릴 수
-  없는 것을 모르고 배포하면, 코드는 나갔는데 표가 없어 기능이 조용히 안 도는 일이 된다
-  (실제로 `login_attempts` 가 그랬다 — 개발 DB 에만 만들어져 있었다).
+  밖에서 프로덕션 DB 에 붙을 길이 없다 — 그래서 반영은 위의 **마이그레이션**으로 한다.
+  접속 문자열이 있는 곳(빌드)이 대신 돌아 주므로, 사람이 SQL Editor 에 붙여넣던 절차와
+  「어느 프로젝트에 돌렸나」 사고(위 ref 항목)가 같이 사라진다.
   예외 하나: `login_attempts` 는 `lib/auth/throttle.ts` 가 처음 쓸 때 스스로 만든다.
   로그인을 막지 않는 부속물이라서 둔 예외고, 다른 표에 이 방식을 늘리지 않는다.
 - **프로덕션이 왜 그러는지는 런타임 로그로 본다** — `npx vercel logs --environment production

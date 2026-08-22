@@ -1,8 +1,6 @@
 -- 나이스인프라 26년 하반기 정책 값 (2026-08-05 배포본)
 -- lib/pricing-policy-nice-h2.ts 에서 생성 — 손으로 고치지 마세요
 
-begin;
-
 -- 나이스인프라 (2026년 8월 1일) | 공동주택 | 7년 환경부 신규 | 모자분리
 update pricing_rules set
   supply_items        = '스탠드폴 + 가림막 제공 (운송비 제외)',
@@ -83,9 +81,4 @@ where id = 'nice-y10-mother-move-apt-2026';
 -- 화면에서 걷어낸 칸이라 옛 케이스의 비고도 비운다 (한백 지시 2026-08-22)
 update pricing_rules set note = null where note is not null;
 
-commit;
-
--- 확인: 위는 7, 아래는 0 이 나와야 합니다
-select count(*) from pricing_rules
-where cpo = '나이스인프라' and start_date = '2026년 8월 1일' and charge_rate = 295;
-select count(*) from pricing_rules where note is not null;
+-- 검산은 러너 밖에서: 나이스 8/1 케이스 7건의 charge_rate=295, note 있는 케이스 0건

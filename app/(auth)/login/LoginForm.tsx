@@ -15,6 +15,19 @@ export default function LoginForm({ devSeed }: { devSeed: boolean }) {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
+  /*
+   * 눌렀는데 1초쯤 아무 일도 안 일어나 보였다(2026-08-22 제보). 로그인 요청 자체는
+   * 150ms 안쪽이다 — 시간은 그 뒤 콘솔 첫 화면을 그리는 데 간다. 그래서 두 가지를 고쳤다.
+   *
+   * 1. 성공하면 busy 를 되돌리지 않는다. finally 로 풀면 다음 화면을 기다리는 동안
+   *    버튼이 멀쩡한 「로그인」으로 돌아와서, 누른 것이 먹지 않은 것처럼 보인다.
+   *    화면이 바뀌면 이 컴포넌트는 사라지므로 되돌릴 필요도 없다.
+   *
+   * 2. refresh() 를 뺀다. replace() 가 이미 새 쿠키로 다음 화면의 RSC 를 받아오는데,
+   *    바로 뒤에 refresh() 를 부르면 같은 화면을 서버에서 한 번 더 그린다 —
+   *    /projects 는 현장 전체를 읽는 화면이라 그 한 번이 대기의 절반쯤이었다.
+   *    로그인 화면에는 /projects 로 가는 <Link> 가 없어 미리 받아둔 응답도 없다.
+   */
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
@@ -28,13 +41,12 @@ export default function LoginForm({ devSeed }: { devSeed: boolean }) {
       if (!res.ok) {
         const data = (await res.json().catch(() => ({}))) as { error?: string };
         setError(data.error ?? '로그인에 실패했습니다.');
+        setBusy(false);
         return;
       }
       router.replace(next.startsWith('/') ? next : '/projects');
-      router.refresh();
     } catch {
       setError('서버에 연결하지 못했습니다.');
-    } finally {
       setBusy(false);
     }
   }

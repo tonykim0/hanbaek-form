@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import { getSessionUser } from '@/lib/auth/session';
 import IntakeForm from '@/components/IntakeForm';
 import { knownOrgs } from '@/lib/orgs';
+import { canWrite } from '@/lib/roles';
 import { viewerOf } from '@/lib/auth/session';
 
 export const metadata = { title: '서류 접수 — 한백 전기차사업관리' };
@@ -22,6 +23,8 @@ export const metadata = { title: '서류 접수 — 한백 전기차사업관리
 export default async function ConsoleIntakePage() {
   const session = await getSessionUser();
   if (!session) redirect('/login?next=/projects/new');
+  // 내는 자리다 — 열람 전용에게는 낼 것이 없다(미들웨어가 먼저 걸러도 문은 여기에도 둔다)
+  if (!canWrite(session.role)) redirect('/projects');
   const isAdmin = session.role === 'admin';
   // 한백이 대신 접수할 때 업체 이름을 골라 넣게 한다 — 손으로 적으면 한 글자씩 갈린다
   const orgs = isAdmin ? await knownOrgs(viewerOf(session)) : [];

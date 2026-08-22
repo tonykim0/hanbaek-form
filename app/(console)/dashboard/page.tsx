@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { thisMonth as seoulMonth } from '@/lib/date';
 import { getRepository } from '@/lib/data';
 import { getSessionUser, viewerOf } from '@/lib/auth/session';
+import { isHanbaek } from '@/lib/roles';
 import { ATTRS, EMPTY, optionsOf, type AttrKey } from '@/lib/project-filter';
 import { Blank, PANEL } from '@/components/ui';
 import type { ProjectSummary } from '@/types/project';
@@ -32,7 +33,8 @@ export default async function DashboardPage({
   if (!session) redirect('/login?next=/dashboard');
 
   const all = await getRepository().listProjects(viewerOf(session));
-  const isAdmin = session.role === 'admin';
+  // 업체별 쪼개기는 「전 현장을 보는 눈」의 것이다 — 열람 전용도 본다
+  const isAdmin = isHanbaek(session.role);
   const thisMonth = seoulMonth();
   const thisYear = thisMonth.slice(0, 4);
   const years = [...new Set(all.map((p) => p.createdAt.slice(0, 4)))].sort().reverse();

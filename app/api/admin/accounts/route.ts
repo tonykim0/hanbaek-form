@@ -9,18 +9,28 @@
  * 관리자 계정은 여기서 만들 수 없고, 여기로 올릴 수도 없다. 화면에서 만들 수 있게 두면
  * 실수 한 번으로 협력사가 원가·마진을 보는 계정이 생긴다 — 그건 첫 한 명만
  * scripts/bootstrap-admin.ts 로 심는다.
+ *
+ * 열람 전용(viewer)은 만들 수 있다. 같은 것을 보지만 쓰기가 없어서, 잘못 만들어도
+ * 되돌릴 수 없는 일이 생기지 않는다 — 못 만들게 막을 이유가 관리자와 다르다.
  */
 import { userStore } from '@/lib/auth/users';
 import type { Role } from '@/lib/roles';
 import { adminWrite, BadRequest } from '@/lib/api/write-route';
 
-/** 설정 화면에서 만들 수 있는 구분 */
-const CREATABLE: Role[] = ['sales', 'cons', 'salesCons'];
+/**
+ * 계정설정 화면에서 만들 수 있는 구분.
+ *
+ * 열람 전용이 여기 들어 있는 것은 그것이 손이 없는 구분이기 때문이다 — 실수로 만들어도
+ * 아무것도 바꾸지 못한다. 관리자는 반대라서 끝까지 빠져 있다.
+ */
+const CREATABLE: Role[] = ['sales', 'cons', 'salesCons', 'viewer'];
 
 /** 보낸 구분이 만들 수 있는 것인가. 관리자는 여기를 통과하지 못한다. */
 function creatableRole(value: unknown): Role {
   const role = CREATABLE.find((r) => r === value);
-  if (!role) throw new BadRequest('구분은 영업사 · 시공사 · 턴키업체 중 하나여야 합니다.');
+  if (!role) {
+    throw new BadRequest('구분은 영업사 · 시공사 · 턴키업체 · 열람 전용 중 하나여야 합니다.');
+  }
   return role;
 }
 

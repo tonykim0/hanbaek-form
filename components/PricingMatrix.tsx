@@ -18,7 +18,7 @@
  * 지우는 자리는 없다. 이미 참조하는 라인이 있으면 지급액을 계산할 수 없게 된다 —
  * 중지하면 새로 붙일 수는 없고, 이미 붙은 것은 그대로 계산된다.
  */
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import {
   BUILDING_TYPES, bizTypeOfRepl, CHANNELS, CPO_NAMES, REPL_TYPES,
   type BuildingType, type Channel, type CpoName, type LineAxes, type PricingRule, type ReplType,
@@ -78,8 +78,21 @@ interface FormOpen {
   editId?: string;
 }
 
+/**
+ * 고칠 수 있는가 — 열람 전용이면 false 다.
+ *
+ * 프롭으로 내리지 않고 컨텍스트로 두는 이유: 이 화면의 「고치는 자리」는 네 겹 안쪽까지
+ * 흩어져 있다(머리말의 새 케이스 · 막힌 라인의 만들기 · 그리드 칸 · 케이스 줄의 수정·개정·중지).
+ * 여섯 자리에 같은 값을 나르려고 중간 부품 셋의 프롭을 늘리면, 다음에 단추를 하나 더
+ * 넣는 사람이 그 사슬을 다시 잇거나 빠뜨린다.
+ *
+ * 판정의 정본은 서버다 — /api/pricing 은 adminWrite 라 열람 전용이면 403 이다.
+ * 여기서 하는 일은 못 하는 것을 눌리지 않게 두는 것뿐이다(화면 규칙 3번).
+ */
+const CanEdit = createContext(true);
+
 export default function PricingMatrix({
-  rules, settlementRules, blockedLines, referencedIds,
+  rules, settlementRules, blockedLines, referencedIds, canEdit,
 }: {
   rules: PricingRule[];
   /** 정산 규칙 표 — 케이스의 기성 단계를 그리는 데 쓴다. 케이스가 단계를 정의하면 저장소에 쌓인다 */
@@ -88,6 +101,8 @@ export default function PricingMatrix({
   blockedLines: LineAxes[];
   /** 계약 라인이 참조하는 케이스 id — 「수정」(자리 고침)과 「개정」(새 케이스)을 가른다 */
   referencedIds: string[];
+  /** 고칠 수 있는가 — 열람 전용은 표만 본다 */
+  canEdit: boolean;
 }) {
   /*
    * 폼은 「무엇을 들고 여는가」와 함께 열린다 — 그리드의 빈 칸·막힌 라인은 축만,
@@ -105,6 +120,7 @@ export default function PricingMatrix({
   const stopped = rules.length - live.length;
 
   return (
+    <CanEdit.Provider value={canEdit}>
     <div className="flex flex-col gap-7">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
@@ -121,7 +137,7 @@ export default function PricingMatrix({
         </div>
         {/* 폼이 열리면 감춘다 — 채운 초록이 둘이면 「케이스 넣기」와 헷갈리고,
             이걸 누르면 입력이 통째로 사라진다. 닫는 길은 폼 안의 취소 하나다. */}
-        {!form && <Btn onClick={() => setForm({ prefill: {} })}>새 케이스</Btn>}
+        {canEdit && !form && <Btn onClick={() => setForm({ prefill: {} })}>새 케이스</Btn>}
       </header>
 
       {form && (
@@ -142,6 +158,7 @@ export default function PricingMatrix({
         onOpen={setForm}
       />
     </div>
+    </CanEdit.Provider>
   );
 }
 
@@ -150,6 +167,7 @@ export default function PricingMatrix({
  * 것이 아니라 — 실제로 들어온 라인이 케이스를 못 찾을 때만 여기 나타난다.
  */
 function BlockedLines({ lines, onFill }: { lines: LineAxes[]; onFill: (p: Prefill) => void }) {
+  const canEdit = useContext(CanEdit);
   if (lines.length === 0) return null;
   return (
     <section className={`${PANEL} border-amber-200 p-5 sm:p-6`}>
@@ -169,6 +187,7 @@ function BlockedLines({ lines, onFill }: { lines: LineAxes[]; onFill: (p: Prefil
                 {l.powerType ? <Tag>{l.powerType}</Tag> : <Tag tone="warn">수전 미지정</Tag>}
                 {l.bldgType ? <Tag>{l.bldgType}</Tag> : <Tag tone="warn">유형 미지정</Tag>}
               </span>
+              {canEdit && (
               <Btn
                 size="sm"
                 kind="side"
@@ -185,6 +204,7 @@ function BlockedLines({ lines, onFill }: { lines: LineAxes[]; onFill: (p: Prefil
               >
                 이 축으로 케이스 만들기
               </Btn>
+              )}
             </div>
           );
         })}
@@ -214,6 +234,7 @@ function Grid({
   settleById: Map<string, SettlementRule>;
   onOpen: (f: FormOpen) => void;
 }) {
+  const canEdit = useContext(CanEdit);
   const [cpo, setCpo] = useState<CpoName>(CPO_NAMES[0]);
   const [halfPick, setHalfPick] = useState<string | null>(null);
 
@@ -292,8 +313,13 @@ function Grid({
                         <td key={`${term}-${bldg}`} className={`px-1 py-1 text-right ${bldg === '공동주택' ? 'border-l border-slate-100' : ''}`}>
                           <button
                             type="button"
+                            disabled={!canEdit}
                             title={
-                              now
+                              !canEdit
+                                ? now
+                                  ? `${now.startDate}부터 적용`
+                                  : '케이스 없음'
+                                : now
                                 ? carried
                                   ? `${now.startDate} 단가가 계속 적용 — 이 시기 개정 없음. 누르면 개정 폼이 열린다`
                                   : `${now.startDate}부터 적용 — 누르면 전 값을 실은 개정 폼이 열린다`
@@ -306,7 +332,7 @@ function Grid({
                                   : { cpo, replType: repl, powerType: power, terms: [term], bldgs: [bldg] },
                               })
                             }
-                            className="w-full rounded-ctl px-2 py-1 text-right tabular-nums transition hover:bg-brand-50"
+                            className="w-full rounded-ctl px-2 py-1 text-right tabular-nums transition enabled:hover:bg-brand-50 disabled:cursor-default"
                           >
                             {now ? (
                               <span className={`font-bold ${carried ? 'text-slate-400' : 'text-slate-800'}`}>
@@ -406,6 +432,7 @@ function Row({
   referenced: boolean;
   onOpen: (f: FormOpen) => void;
 }) {
+  const canEdit = useContext(CanEdit);
   const { busy, error, run } = useAction();
   const [editing, setEditing] = useState(false);
   const [startDraft, setStartDraft] = useState(r.startDate);
@@ -468,7 +495,7 @@ function Row({
           <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-tiny text-slate-400">
             <code className="text-micro">{r.id}</code>
             {r.note && <span className="break-keep">{r.note}</span>}
-            {referenced && (
+            {canEdit && referenced && (
               <Btn size="sm" kind="quiet" onClick={() => setEditing(true)}>시작·비고 수정</Btn>
             )}
           </p>
@@ -516,41 +543,44 @@ function Row({
             * 참조 전에는 자리에서 고치고(수정), 참조 뒤에는 전 값을 실은 새 케이스로 연다(개정) —
             * 참조된 케이스의 금액을 고치면 그 현장의 지급액이 소급해서 바뀌기 때문이다.
             */}
-          {referenced ? (
+          {canEdit &&
+            (referenced ? (
+              <Btn
+                size="sm"
+                kind="quiet"
+                onClick={() => onOpen({ prefill: { ...prefillOf(r, settle), after: startKey(r) } })}
+              >
+                개정
+              </Btn>
+            ) : (
+              <Btn
+                size="sm"
+                kind="quiet"
+                onClick={() =>
+                  onOpen({ prefill: { ...prefillOf(r, settle), startDate: r.startDate }, editId: r.id })
+                }
+              >
+                수정
+              </Btn>
+            ))}
+          {/* 중지는 되돌릴 수 있다 — 넣는 자리를 만들면 되돌리는 자리도 만든다 */}
+          {canEdit && (
             <Btn
               size="sm"
-              kind="quiet"
-              onClick={() => onOpen({ prefill: { ...prefillOf(r, settle), after: startKey(r) } })}
-            >
-              개정
-            </Btn>
-          ) : (
-            <Btn
-              size="sm"
-              kind="quiet"
+              kind={r.active ? 'undo' : 'quiet'}
+              busy={busy}
               onClick={() =>
-                onOpen({ prefill: { ...prefillOf(r, settle), startDate: r.startDate }, editId: r.id })
+                void run({
+                  url: '/api/pricing',
+                  method: 'PATCH',
+                  body: { id: r.id, active: !r.active },
+                  fail: '바꾸지 못했습니다.',
+                })
               }
             >
-              수정
+              {r.active ? '중지' : '다시 사용'}
             </Btn>
           )}
-          {/* 중지는 되돌릴 수 있다 — 넣는 자리를 만들면 되돌리는 자리도 만든다 */}
-          <Btn
-            size="sm"
-            kind={r.active ? 'undo' : 'quiet'}
-            busy={busy}
-            onClick={() =>
-              void run({
-                url: '/api/pricing',
-                method: 'PATCH',
-                body: { id: r.id, active: !r.active },
-                fail: '바꾸지 못했습니다.',
-              })
-            }
-          >
-            {r.active ? '중지' : '다시 사용'}
-          </Btn>
         </div>
         {/* 실패 문구는 누른 단추 옆 — 첫 칸에 두면 좁은 창에서 스크롤 밖이다(규칙 9) */}
         <Err className="mt-1 block text-right">{error}</Err>

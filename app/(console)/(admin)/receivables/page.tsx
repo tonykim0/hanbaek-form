@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import { getRepository } from '@/lib/data';
 import { getSessionUser, viewerOf } from '@/lib/auth/session';
 import ReceivableBoard from '@/components/settlement/ReceivableBoard';
+import { isHanbaek } from '@/lib/roles';
 
 export const metadata = { title: '운영사 기성관리 — 한백 전기차충전사업' };
 
@@ -12,13 +13,16 @@ export const metadata = { title: '운영사 기성관리 — 한백 전기차충
  * 여기는 차수·트리거가 축이고, 저기는 상대·회차가 축이다. 한 화면에서 토글로 바꾸면
  * 두 화면 중 어디를 보고 있었는지가 주소에 안 남아서 링크로 보낼 수도, 돌아올 수도 없다.
  *
- * ★한백 전용★ 저장소가 관리자가 아니면 빈 목록을 준다. 여기서도 한 번 더 막는다 —
+ * ★한백 전용★ 저장소가 한백이 아니면 빈 목록을 준다. 여기서도 한 번 더 막는다 —
  * 화면만 막으면 저장소를 바꿀 때 가드가 빠진다.
+ *
+ * 열람 전용도 본다. 넣는 칸이 아직 없는 화면이라(회수 체크·준공마감 지정) 읽기만 여는
+ * 데 따로 잠글 것이 없다 — 목록을 그리는 것이 전부다.
  */
 export default async function ReceivablesPage() {
   const session = await getSessionUser();
   if (!session) redirect('/login?next=/receivables');
-  if (session.role !== 'admin') redirect('/projects');
+  if (!isHanbaek(session.role)) redirect('/projects');
 
   const rows = await getRepository().listSettlements(viewerOf(session));
 

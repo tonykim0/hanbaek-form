@@ -14,6 +14,7 @@
  *
  *   401  로그인 안 됨            (sessionWrite)
  *   403  한백 전용인데 협력사임   (adminWrite)
+ *   403  열람 전용 계정          (모든 쓰기 — 아래 canWrite)
  *   400  값이 틀렸다             (BadRequest 를 throw)
  *   422  규칙에 걸렸다           (저장소가 던진 그 밖의 Error)
  *   200  { ok: true }
@@ -25,6 +26,7 @@ import { NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/auth/guard';
 import { actorOf, getSessionUser } from '@/lib/auth/session';
 import type { Actor } from '@/lib/auth/types';
+import { canWrite } from '@/lib/roles';
 
 /**
  * 값이 틀렸다 — 400 으로 나간다.
@@ -46,6 +48,21 @@ function wrap<P, B>(adminOnly: boolean, deny: string, handle: Handler<P, B>) {
     const session = adminOnly ? await requireAdmin() : await getSessionUser();
     if (!session) {
       return NextResponse.json({ error: deny }, { status: adminOnly ? 403 : 401 });
+    }
+
+    /*
+     * ★열람 전용은 여기서 전부 걸린다.★
+     *
+     * 쓰기마다 「이 사람이 이걸 할 수 있나」를 적어 두면 다음에 만드는 라우트가 빠뜨린다.
+     * 열람 전용의 규칙은 자리마다 다르지 않다 — 어떤 쓰기도 안 된다. 그러면 판정할 자리는
+     * 쓰기의 입구 한 곳이면 된다. 저장소의 assertAdmin 이 한 번 더 보지만 그것은 한백
+     * 전용 쓰기만 본다: 협력사도 하는 쓰기(접수·진행현황·공정)는 여기가 유일한 문이다.
+     */
+    if (!canWrite(session.role)) {
+      return NextResponse.json(
+        { error: '열람 전용 계정입니다 — 보기만 할 수 있습니다.' },
+        { status: 403 }
+      );
     }
 
     /*

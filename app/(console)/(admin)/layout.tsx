@@ -1,5 +1,10 @@
 /**
- * 한백 전용 구역 — 계정·자료실 관리 · 재발행 · 기성 · 지급 · 디자인 기준.
+ * 한백 구역 — 기성 · 단가 케이스 · 디자인 기준, 그리고 그 아래 admin/ 의 관리 화면들.
+ *
+ * ★문이 두 겹이다.★ 여기는 「한백의 눈인가」만 본다 — 관리자와 열람 전용이 통과한다.
+ * 바꾸는 화면(계정설정 · 자료실 관리 · 협력사 정보 · 재발행)은 한 층 안쪽 admin/layout.tsx
+ * 가 다시 「관리자인가」로 막는다. 주소가 이미 /admin/* 으로 갈려 있어서 문을 그 자리에
+ * 하나 더 두면 되고, 화면마다 확인을 적지 않아도 된다.
  *
  * ★왜 그룹으로 묶는가★
  * 미들웨어에도 관리자 전용 목록이 있지만 그것은 엣지에서 돌아 DB 를 볼 수 없다 —
@@ -14,10 +19,11 @@
  */
 import { redirect } from 'next/navigation';
 import { getSessionUser } from '@/lib/auth/session';
+import { isHanbaek } from '@/lib/roles';
 
-export default async function AdminLayout({ children }: { children: React.ReactNode }) {
+export default async function HanbaekLayout({ children }: { children: React.ReactNode }) {
   const session = await getSessionUser();
   // 로그인 자체가 없는 경우는 콘솔 레이아웃이 먼저 로그인으로 보낸다
-  if (session && session.role !== 'admin') redirect('/projects');
+  if (session && !isHanbaek(session.role)) redirect('/projects');
   return <>{children}</>;
 }

@@ -28,7 +28,7 @@ import type {
   SettlementStepRule, SettlementSummary,
 } from '@/types/project';
 import type { Viewer } from '@/lib/auth/types';
-import { canAccessProject, effectiveVisibility, normalizeOrg } from '@/lib/roles';
+import { canAccessProject, effectiveVisibility, isHanbaek, normalizeOrg } from '@/lib/roles';
 import { needsPreInstallCheck, PROCESS_DOCS } from '@/lib/doc-rules';
 import {
   asProcessStatus, assertProcessWrite, canEnter, CHECK_ADVANCES, COURT_AFTER_STATUS, statusIndex,
@@ -279,11 +279,24 @@ function assertAdmin(actor: Actor, what: string): void {
 }
 
 /**
+ * 한백의 눈만 읽는 것 — 관리자와 열람 전용이 통과한다.
+ *
+ * assertAdmin 과 가르는 기준은 「쓰기냐 읽기냐」다. 단가 케이스·정산 규칙·판정 축은
+ * 금액이 들어 있어 협력사에게 못 주지만, 열람 전용에게는 준다 — 그쪽은 한백의 눈이다.
+ * 같은 표를 고치는 쪽(추가·수정·중지)은 그대로 assertAdmin 이다.
+ */
+function assertHanbaek(actor: Actor, what: string): void {
+  if (!isHanbaek(actor.role)) {
+    throw new Error(`${what}는 한백만 할 수 있습니다.`);
+  }
+}
+
+/**
  * 권한을 SQL 로 내린다 — 전부 읽어와 화면에서 가리는 방식은 쓰지 않는다.
- * admin 은 조건 없음, 협력사는 영업사·시공사 중 하나가 자기 소속인 현장만.
+ * 한백(관리자·열람 전용)은 조건 없음, 협력사는 영업사·시공사 중 하나가 자기 소속인 현장만.
  */
 function accessWhere(viewer: Viewer) {
-  if (viewer.role === 'admin') return undefined;
+  if (isHanbaek(viewer.role)) return undefined;
   // 소속 없는 협력사 계정은 볼 현장이 없다. 조건을 비우면 전부 보이므로 명시적으로 막는다.
   if (!viewer.org) return sql`false`;
   return or(eq(projects.salesOrg, viewer.org), eq(projects.gcOrg, viewer.org));
@@ -414,7 +427,7 @@ async function advanceAfterCheck(projectId: string, patch: ProcessPatch, actor: 
 
 export const pgRepository: ProjectRepository = {
   async listProjects(viewer: Viewer): Promise<ProjectSummary[]> {
-    if (viewer.role !== 'admin' && !viewer.org) return [];
+    if (!isHanbaek(viewer.role) && !viewer.org) return [];
     const rows = await getDb().select().from(projects).where(accessWhere(viewer));
     const [records, [rules, settles]] = await Promise.all([
       recordsOf(rows),
@@ -424,8 +437,8 @@ export const pgRepository: ProjectRepository = {
   },
 
   async listSettlements(viewer: Viewer): Promise<SettlementSummary[]> {
-    // 관리자가 아니면 금액을 읽어오지도 않는다
-    if (viewer.role !== 'admin') return [];
+    // 한백이 아니면 금액을 읽어오지도 않는다
+    if (!isHanbaek(viewer.role)) return [];
     const rows = await getDb().select().from(projects);
     const [records, [rules, settles]] = await Promise.all([
       recordsOf(rows),
@@ -1450,7 +1463,7 @@ export const pgRepository: ProjectRepository = {
   },
 
   async listLineAxes(actor): Promise<LineAxes[]> {
-    assertAdmin(actor, '단가 판정 축 조회');
+    assertHanbaek(actor, '단가 판정 축 조회');
     const rows = await getDb()
       .select({
         lineId: contractLines.id,
@@ -1485,13 +1498,13 @@ export const pgRepository: ProjectRepository = {
   },
 
   async listPricingRules(actor): Promise<PricingRule[]> {
-    assertAdmin(actor, '단가 케이스 조회');
+    assertHanbaek(actor, '단가 케이스 조회');
     const rows = await getDb().select().from(pricingRules).orderBy(pricingRules.caseName);
     return rows.map(rowToRule);
   },
 
   async listSettlementRules(actor): Promise<SettlementRule[]> {
-    assertAdmin(actor, '정산 규칙 조회');
+    assertHanbaek(actor, '정산 규칙 조회');
     const rows = await getDb().select().from(settlementRules).orderBy(settlementRules.name);
     return rows.map(rowToSettle);
   },

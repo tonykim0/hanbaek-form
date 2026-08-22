@@ -22,7 +22,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import type { Role } from '@/lib/roles';
-import { ROLE_LABEL } from '@/lib/roles';
+import { canWrite, isHanbaek, ROLE_LABEL } from '@/lib/roles';
 import TopBar from '@/components/TopBar';
 
 const COLLAPSE_KEY = 'hb-console-sidebar-collapsed';
@@ -35,12 +35,24 @@ interface Item {
   /** 접었을 때 보이는 글자 — 아이콘 대신 두 글자를 쓴다 */
   short: string;
   note?: string;
-  /** 한백만 — 묶음은 열려 있는데 항목만 막을 때 쓴다(정산의 기성·지급 관리) */
+  /** 한백의 눈만 — 묶음은 열려 있는데 항목만 막을 때 쓴다(정산의 기성) */
+  hanbaekOnly?: boolean;
+  /** 관리자만 — 바꾸는 자리다. 열람 전용에게도 안 보인다 */
   adminOnly?: boolean;
+  /** 쓰는 사람만 — 열람 전용에게만 안 보인다 */
+  writerOnly?: boolean;
 }
 
+/**
+ * 묶음의 문도 항목과 같은 세 가지다.
+ *
+ *   hanbaekOnly  전 현장을 보는 눈 (관리자 · 열람 전용)
+ *   adminOnly    바꾸는 손 (관리자)
+ *   partnerOnly  협력사 — 한백 쪽(관리자 · 열람 전용)에게는 안 보인다
+ */
 interface Group {
   label: string;
+  hanbaekOnly?: boolean;
   adminOnly?: boolean;
   partnerOnly?: boolean;
   items: Item[];
@@ -86,11 +98,11 @@ const GROUPS: Group[] = [
       { href: '/payments', label: '지급 및 기성관리', short: '내역' },
       // 협력사도 연다(한백 확인) — 자기가 받을 지급의 회차·금액·지급시기를 본다
       { href: '/payouts', label: '협력사 지급관리', short: '지급' },
-      { href: '/receivables', label: '운영사 기성관리', short: '기성', adminOnly: true },
+      { href: '/receivables', label: '운영사 기성관리', short: '기성', hanbaekOnly: true },
     ],
   },
   {
-    // 협력사가 자기 사업자등록증·정산 계좌를 적는 자리 — 한백의 「설정」은 관리 묶음에 있다
+    // 협력사가 자기 사업자등록증·정산 계좌를 적는 자리 — 한백의 「계정설정」은 관리 묶음에 있다
     label: '설정',
     partnerOnly: true,
     items: [
@@ -98,15 +110,20 @@ const GROUPS: Group[] = [
     ],
   },
   {
+    /*
+     * 관리 — 기준값과 계정. 묶음은 한백의 눈에게 열어 두고 항목마다 다시 가른다.
+     * 열람 전용에게 남는 것은 단가 케이스 하나뿐이다(읽기). 계정·자료실·협력사 정보는
+     * 바꾸는 자리라 주소부터 막혀 있다(app/(console)/(admin)/admin/layout.tsx).
+     */
     label: '관리',
-    adminOnly: true,
+    hanbaekOnly: true,
     items: [
       // 정산 묶음에서 옮겼다(한백 확인) — 매일 도는 흐름이 아니라 어쩌다 만지는 기준값이다
       { href: '/pricing', label: '단가 케이스', short: '단가' },
-      { href: '/admin/materials', label: '자료실 관리', short: '관리' },
-      // 설정(/admin/accounts)에서 뗐다(한백 확인) — 지급 전마다 보는 값이라 계정 등록과 결이 다르다
-      { href: '/admin/partners', label: '협력사 정보', short: '협력' },
-      { href: '/admin/accounts', label: '설정', short: '설정' },
+      { href: '/admin/materials', label: '자료실 관리', short: '관리', adminOnly: true },
+      // 계정설정(/admin/accounts)에서 뗐다(한백 확인) — 지급 전마다 보는 값이라 계정 등록과 결이 다르다
+      { href: '/admin/partners', label: '협력사 정보', short: '협력', adminOnly: true },
+      { href: '/admin/accounts', label: '계정설정', short: '계정', adminOnly: true },
       /*
        * 디자인 기준(/design)은 메뉴에 없다 — 화면을 만드는 사람의 도구라서
        * 주소를 아는 사람만 연다(한백 확인 2026-08-20). 페이지 자체는 (admin) 그룹에
@@ -138,9 +155,19 @@ export default function ConsoleShell({
     if (ready) localStorage.setItem(COLLAPSE_KEY, open ? '0' : '1');
   }, [open, ready]);
 
-  const groups = GROUPS.filter(
-    (g) => (!g.adminOnly || role === 'admin') && (!g.partnerOnly || role !== 'admin')
-  );
+  /*
+   * 묶음과 항목이 같은 판정을 쓴다 — 묶음만 열고 항목을 안 걸러 두면 빈 제목이 남는다.
+   * 항목을 다 거른 묶음은 제목째 사라진다(아래 filter).
+   */
+  const allow = (x: { hanbaekOnly?: boolean; adminOnly?: boolean; writerOnly?: boolean; partnerOnly?: boolean }) =>
+    (!x.hanbaekOnly || isHanbaek(role))
+    && (!x.adminOnly || role === 'admin')
+    && (!x.writerOnly || canWrite(role))
+    && (!x.partnerOnly || !isHanbaek(role));
+
+  const groups = GROUPS.filter(allow)
+    .map((g) => ({ ...g, items: g.items.filter(allow) }))
+    .filter((g) => g.items.length > 0);
 
   return (
     <div className="min-h-screen bg-[#f7f8f4] text-slate-900">
@@ -173,7 +200,7 @@ export default function ConsoleShell({
                 <div className="mx-2 mb-1.5 border-t border-slate-100" />
               )}
               <ul className="flex flex-col gap-0.5">
-                {g.items.filter((it) => !it.adminOnly || role === 'admin').map((it) => {
+                {g.items.map((it) => {
                   const active = !it.external && pathname.startsWith(it.href) && it.href !== '/';
                   return (
                     <li key={it.href}>

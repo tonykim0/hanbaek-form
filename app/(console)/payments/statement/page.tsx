@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { getRepository } from '@/lib/data';
 import { getSessionUser, viewerOf } from '@/lib/auth/session';
+import { isHanbaek } from '@/lib/roles';
 import { won } from '@/lib/format';
 import PrintButton from '@/components/settlement/PrintButton';
 
@@ -30,7 +31,8 @@ export default async function StatementPage({
   const date = searchParams.date ?? '';
   if (!DATE_RE.test(date)) redirect('/payments');
 
-  const isAdmin = session.role === 'admin';
+  // 남의 업체 명세서를 열 수 있는가 — 눈의 문제다(열람 전용도 전부 본다)
+  const isAdmin = isHanbaek(session.role);
   const org = isAdmin ? searchParams.org ?? '' : session.org ?? '';
   if (!org) redirect('/payments');
 

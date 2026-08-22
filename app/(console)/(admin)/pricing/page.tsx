@@ -10,6 +10,7 @@
  * 정본은 저장소다(DB). 이 화면에서 넣은 케이스가 현장 상세의 후보 목록에 그대로 나온다.
  *
  * 금액이 들어 있으므로 (admin) 그룹 아래 둔다 — 협력사에게는 서버가 렌더조차 하지 않는다.
+ * 열람 전용은 본다. 기준값이라 원가를 읽는 눈에게는 필요하고, 고치는 자리만 걷으면 된다.
  */
 import { getRepository } from '@/lib/data';
 import { actorOf, getSessionUser } from '@/lib/auth/session';
@@ -23,6 +24,8 @@ export default async function PricingPage() {
   const session = await getSessionUser();
   if (!session) redirect('/login?next=/pricing');
 
+  // 눈은 (admin) 레이아웃이 이미 봤다. 여기서 가르는 것은 손이다 — 열람 전용은 표만 본다.
+  const canEdit = session.role === 'admin';
   const actor = actorOf(session);
   const [rules, axes, settlementRules] = await Promise.all([
     getRepository().listPricingRules(actor),
@@ -59,6 +62,7 @@ export default async function PricingPage() {
       settlementRules={settlementRules}
       blockedLines={blockedLines}
       referencedIds={referencedIds}
+      canEdit={canEdit}
     />
   );
 }

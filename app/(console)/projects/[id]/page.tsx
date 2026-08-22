@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation';
 import ProjectDetailView, { type TabKey } from '@/components/project/DetailView';
 import { getRepository } from '@/lib/data';
 import { actorOf, getSessionUser, viewerOf } from '@/lib/auth/session';
-import { effectiveVisibility, normalizeOrg } from '@/lib/roles';
+import { effectiveVisibility, isHanbaek, normalizeOrg } from '@/lib/roles';
 import type { ProcessEdit } from '@/lib/process';
 import { matchingRules, type RuleOptions } from '@/lib/pricing-match';
 import type { SettlementRuleChoice } from '@/types/project';
@@ -54,7 +54,15 @@ export default async function ProjectPage({
   const detail = await loadDetail(params.id, session.role, session.org);
   if (!detail) notFound();
 
-  const isAdmin = session.role === 'admin';
+  /*
+   * ★눈과 손을 가른다.★
+   *   seesAll — 전 현장·원가·마진·기성을 보는 눈 (관리자 · 열람 전용)
+   *   canEdit — 검수·계약 확인·단가 지정·공정 입력을 하는 손 (관리자만)
+   * 예전에는 둘 다 isAdmin 하나였다. 단가 후보·정산 규칙 후보는 「보는 것」에 속한다 —
+   * 정산 탭이 그 이름과 금액을 그리는 데 쓰기 때문이다. 고르는 단추만 손이 쥔다.
+   */
+  const seesAll = isHanbaek(session.role);
+  const canEdit = session.role === 'admin';
   /*
    * 단가 후보를 서버에서 계산해 넘긴다.
    * 후보에는 영업비·시공비·마진이 들어 있어서, 협력사에게 보내면 화면에서 가려도
@@ -64,11 +72,11 @@ export default async function ProjectPage({
    * 업체 이름 후보 — 한백이 영업사·시공사를 고칠 때 골라 넣는다.
    * 협력사에게는 필요 없다(고칠 수 없다).
    */
-  const orgs = isAdmin ? await knownOrgs(viewerOf(session)) : [];
+  const orgs = canEdit ? await knownOrgs(viewerOf(session)) : [];
 
   /* 후보는 저장소의 케이스 표에서 고른다 — 시드 파일이 아니라 지금 등록된 것이 정본이다 */
-  const rules = isAdmin ? await getRepository().listPricingRules(actorOf(session)) : [];
-  const ruleOptions: RuleOptions | null = isAdmin
+  const rules = seesAll ? await getRepository().listPricingRules(actorOf(session)) : [];
+  const ruleOptions: RuleOptions | null = seesAll
     ? Object.fromEntries(detail.lines.map((l) => [l.id, matchingRules(detail.project, l, rules)]))
     : null;
 
@@ -77,7 +85,7 @@ export default async function ProjectPage({
    * 이름에 기성 모양이 들어 있어 한백일 때만 만든다. 협력사에게는 조회 자체를 안 한다 —
    * 서버가 렌더한 값은 브라우저에 통째로 실린다.
    */
-  const settlementRuleChoices: SettlementRuleChoice[] | null = isAdmin
+  const settlementRuleChoices: SettlementRuleChoice[] | null = seesAll
     ? (await getRepository().listSettlementRules(actorOf(session)))
         .filter((r) => r.active)
         .map(({ id, name }) => ({ id, name }))
@@ -92,19 +100,19 @@ export default async function ProjectPage({
     (session.role === 'cons' || session.role === 'salesCons') &&
     normalizeOrg(session.org) !== null &&
     normalizeOrg(session.org) === normalizeOrg(detail.project.gcOrg);
-  const processEdit: ProcessEdit = isAdmin ? 'all' : isGcHere ? 'partner' : 'none';
+  const processEdit: ProcessEdit = canEdit ? 'all' : isGcHere ? 'partner' : 'none';
 
   return (
     <ProjectDetailView
       detail={detail}
       vis={effectiveVisibility(session.role, session.org, detail.project)}
       // 검수·공 차례는 한백만 한다. vis.cost 로 유추하지 않고 명시적으로 넘긴다.
-      canReview={isAdmin}
+      canReview={canEdit}
       /*
        * 진행현황을 남길 때 붙는 이름. 서버(addNote)가 실제로 쓰는 값과 같은 규칙이다 —
        * 화면이 「한백으로 남깁니다」라고 하고 서버가 다른 이름을 적으면 기록을 믿을 수 없다.
        */
-      noteAuthor={isAdmin ? '한백' : session.org ?? '협력사'}
+      noteAuthor={canEdit ? '한백' : session.org ?? '협력사'}
       knownOrgs={orgs}
       ruleOptions={ruleOptions}
       settlementRuleChoices={settlementRuleChoices}

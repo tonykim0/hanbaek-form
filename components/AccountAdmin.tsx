@@ -1,36 +1,58 @@
 'use client';
 
 /**
- * 협력사 계정 등록.
+ * 계정설정 — 계정을 만들고, 구분·소속을 고치고, 사용을 중지한다.
  *
- * 구분 세 가지 — 영업사 · 시공사 · 턴키업체(영업+시공 겸업). 관리자 계정은 여기서 만들지
- * 않는다. 화면에서 만들 수 있게 두면 실수 한 번으로 원가·마진을 보는 계정이 생긴다.
+ * 구분 네 가지 — 영업사 · 시공사 · 턴키업체(영업+시공 겸업) · 열람 전용. 관리자 계정은
+ * 여기서 만들지 않는다. 화면에서 만들 수 있게 두면 실수 한 번으로 원가·마진을 바꾸는
+ * 계정이 생긴다. 열람 전용은 반대다 — 같은 것을 보되 손이 없어서, 잘못 만들어도
+ * 되돌릴 수 없는 일이 생기지 않는다. 그래서 이 화면에 있다.
  *
  * ★소속이 이 화면의 핵심이다.★ 협력사가 보는 현장은 소속 문자열이 현장의 영업사·시공사와
  * 같은지로 갈린다(lib/roles.ts). 「에코일렉」과 「에코일렉 」은 다른 회사가 되고, 그 계정은
  * 로그인은 되는데 현장이 하나도 안 보인다. 그래서 쓰이고 있는 소속을 눌러 넣게 한다.
+ * 한백 쪽(관리자·열람 전용)은 소속으로 가르지 않으므로 소속 칸 자체가 없다.
  *
  * 비밀번호는 만들 때 한 번만 화면에 있다. 저장하는 것은 해시뿐이라 다시 볼 수 없다 —
  * 잊으면 계정 줄의 「비밀번호 재설정」으로 새로 정한다.
+ *
+ * ★화면을 이렇게 바꾼 이유 (2026-08-22)★
+ * - 등록 폼이 늘 펼쳐져 화면 위 절반을 먹었다. 계정을 만드는 것은 어쩌다 한 번이고 매번
+ *   보는 것은 목록인데, 목록이 접힌 화면 밖으로 밀려 있었다 → 폼을 접었다.
+ * - 「사용 중 · 중지」 한 단추가 상태와 동작을 같이 말했다. 지금이 사용 중이라는 것인지
+ *   누르면 사용 중이 된다는 것인지 눌러 봐야 알았다 → 상태는 동글게, 동작은 각지게
+ *   갈랐다(화면 규칙 11번).
+ * - 중지된 계정이 목록 한가운데 섞여 있었다 → 아래로 내렸다.
+ * - 계정이 늘면 눈으로 훑는 수밖에 없었다 → 검색칸과 구분 칩을 얹었다.
  */
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useAction } from '@/lib/use-action';
 import type { AccountView } from '@/lib/auth/types';
-import type { Role } from '@/lib/roles';
-import { Btn, Err, FIELD, FIELD_CELL, Note, PANEL, Saved } from '@/components/ui';
+import { isHanbaek, type Role } from '@/lib/roles';
+import { Badge, Btn, Choice, Empty, Err, FIELD, FIELD_CELL, Note, PANEL, Saved } from '@/components/ui';
 
+/** 이 화면에서 만들 수 있는 구분. 정본은 서버다(app/api/admin/accounts CREATABLE). */
 const KINDS: Array<{ role: Role; label: string; note: string }> = [
-  { role: 'sales', label: '영업사', note: '영업비만 본다' },
-  { role: 'cons', label: '시공사', note: '시공비만 본다' },
-  { role: 'salesCons', label: '턴키업체', note: '영업·시공 겸업 — 둘 다 본다' },
+  { role: 'sales', label: '영업사', note: '자기 현장 · 영업비' },
+  { role: 'cons', label: '시공사', note: '자기 현장 · 시공비' },
+  { role: 'salesCons', label: '턴키업체', note: '자기 현장 · 영업비 + 시공비' },
+  { role: 'viewer', label: '열람 전용', note: '전 현장 · 원가까지 — 바꾸지는 못함' },
 ];
 
 const ROLE_TEXT: Record<Role, string> = {
   admin: '한백 관리자',
+  viewer: '열람 전용',
   salesCons: '턴키업체',
   cons: '시공사',
   sales: '영업사',
 };
+
+/** 목록 위의 구분 칩. 한백 관리자는 여기서 못 만들지만 목록에는 있으므로 거를 수 있어야 한다. */
+const FILTERS: Array<{ key: Role | 'all'; label: string }> = [
+  { key: 'all', label: '전체' },
+  ...KINDS.map((k) => ({ key: k.role, label: k.label })),
+  { key: 'admin' as const, label: '한백' },
+];
 
 export default function AccountAdmin({
   accounts, knownOrgs, meId, dbReady,
@@ -41,36 +63,38 @@ export default function AccountAdmin({
   meId: string;
   dbReady: boolean;
 }) {
-  const { busy, error, run } = useAction();
-  const [role, setRole] = useState<Role>('sales');
-  const [id, setId] = useState('');
-  const [name, setName] = useState('');
-  const [org, setOrg] = useState('');
-  const [password, setPassword] = useState('');
+  const [open, setOpen] = useState(false);
   const [done, setDone] = useState<string | null>(null);
+  const [q, setQ] = useState('');
+  const [filter, setFilter] = useState<Role | 'all'>('all');
 
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
-    setDone(null);
-    const ok = await run({
-      url: '/api/admin/accounts',
-      body: { id, name, role, org, password },
-      fail: '계정을 만들지 못했습니다.',
-    });
-    if (!ok) return;
-    setDone(`${id} 계정을 만들었습니다.`);
-    setId('');
-    setName('');
-    setOrg('');
-    setPassword('');
-  }
+  const counts = useMemo(() => {
+    const m = new Map<Role, number>();
+    for (const a of accounts) m.set(a.role, (m.get(a.role) ?? 0) + 1);
+    return m;
+  }, [accounts]);
 
+  /*
+   * 중지된 계정은 아래로 내린다 — 지금 쓰는 계정 사이에 섞여 있으면 목록을 훑을 때마다
+   * 회색 줄을 건너뛰며 읽어야 한다. 그 안의 순서는 저장소가 준 대로(로그인 ID) 둔다.
+   */
+  const rows = useMemo(() => {
+    const needle = q.trim().toLowerCase();
+    return accounts
+      .filter((a) => filter === 'all' || a.role === filter)
+      .filter(
+        (a) =>
+          needle === ''
+          || a.id.includes(needle)
+          || a.name.toLowerCase().includes(needle)
+          || (a.org ?? '').toLowerCase().includes(needle)
+      )
+      .sort((x, y) => Number(y.active) - Number(x.active));
+  }, [accounts, filter, q]);
 
   return (
     <div className="flex flex-col gap-7">
       <section>
-        <h2 className="mb-3 text-base font-black tracking-[-0.02em] text-slate-900">계정 등록</h2>
-
         {!dbReady && (
           <Note tone="warn" className="mb-3">
             지금은 파일 저장소로 돌고 있어 계정을 만들 수 없습니다. <code>DATABASE_URL</code> 이
@@ -78,115 +102,53 @@ export default function AccountAdmin({
           </Note>
         )}
 
-        <form
-          onSubmit={submit}
-          className={`flex flex-col gap-4 ${PANEL} p-5`}
-        >
-          <div>
-            <p className="mb-2 text-tiny font-bold tracking-[0.08em] text-slate-400">구분</p>
-            <div className="flex flex-wrap gap-1.5">
-              {KINDS.map((k) => (
-                <button
-                  key={k.role}
-                  type="button"
-                  aria-pressed={role === k.role}
-                  onClick={() => setRole(k.role)}
-                  className={`rounded-box border px-3.5 py-2 text-left transition ${
-                    role === k.role
-                      ? 'border-brand-500 bg-brand-50'
-                      : 'border-slate-200 bg-white hover:border-slate-300'
-                  }`}
-                >
-                  <span
-                    className={`block text-lead font-bold ${role === k.role ? 'text-brand-800' : 'text-slate-700'}`}
-                  >
-                    {k.label}
-                  </span>
-                  <span className="block text-tiny text-slate-400">{k.note}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="로그인 ID" hint="소문자·숫자·하이픈 3~24자">
-              <input
-                value={id}
-                onChange={(e) => setId(e.target.value)}
-                autoComplete="off"
-                placeholder="ecoelec"
-                className={inputClass}
-              />
-            </Field>
-            <Field label="이름" hint="사람 이름까지 넣으면 감사 기록에서 알아보기 쉽습니다">
-              <input
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                autoComplete="off"
-                placeholder="에코일렉 김현수"
-                className={inputClass}
-              />
-            </Field>
-          </div>
-
-          <Field
-            label="소속"
-            hint="현장의 영업사·시공사 이름과 정확히 같아야 합니다 — 다르면 현장이 안 보입니다"
-          >
-            <input
-              value={org}
-              onChange={(e) => setOrg(e.target.value)}
-              autoComplete="off"
-              placeholder="에코일렉"
-              className={inputClass}
-            />
-            {knownOrgs.length > 0 && (
-              <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                <span className="text-tiny text-slate-400">쓰이고 있는 소속</span>
-                {knownOrgs.map((o) => (
-                  <button
-                    key={o}
-                    type="button"
-                    onClick={() => setOrg(o)}
-                    className={`rounded-full border px-2 py-0.5 text-tiny font-bold transition ${
-                      org === o
-                        ? 'border-brand-500 bg-brand-600 text-white'
-                        : 'border-slate-200 bg-white text-slate-600 hover:border-brand-300'
-                    }`}
-                  >
-                    {o}
-                  </button>
-                ))}
-              </div>
-            )}
-          </Field>
-
-          <Field label="비밀번호" hint="8자 이상. 저장되는 것은 해시뿐이라 나중에 다시 볼 수 없습니다">
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              autoComplete="new-password"
-              className={inputClass}
-            />
-          </Field>
-
-          <Err className="block">{error}</Err>
-          {done && <Saved>{done}</Saved>}
-
-          <div>
-            <Btn type="submit" disabled={!dbReady} busy={busy} busyLabel="만드는 중…">
+        {open ? (
+          <NewAccountForm
+            knownOrgs={knownOrgs}
+            dbReady={dbReady}
+            onDone={(msg) => {
+              setDone(msg);
+              setOpen(false);
+            }}
+            onCancel={() => setOpen(false)}
+          />
+        ) : (
+          <div className="flex flex-wrap items-center gap-2.5">
+            <Btn disabled={!dbReady} onClick={() => setOpen(true)}>
               계정 만들기
             </Btn>
+            {/* 「저장됨」은 잠깐 뜨고 사라지게 만들지 않는다 — 못 보고 지나친다(규칙 9번) */}
+            {done && <Saved>{done}</Saved>}
           </div>
-        </form>
+        )}
       </section>
 
       <section>
-        <h2 className="mb-3 text-base font-black tracking-[-0.02em] text-slate-900">계정</h2>
+        <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-2">
+          <h2 className="text-base font-black tracking-[-0.02em] text-slate-900">계정</h2>
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            aria-label="계정 검색"
+            placeholder="로그인 ID · 이름 · 소속"
+            className={`${FIELD_CELL} w-52`}
+          />
+          <div className="flex flex-wrap items-center gap-1.5">
+            {FILTERS.map((f) => {
+              const n = f.key === 'all' ? null : counts.get(f.key) ?? 0;
+              return (
+                <Choice key={f.key} on={filter === f.key} onClick={() => setFilter(f.key)}>
+                  {f.label}
+                  {n !== null && <span className="ml-1 tabular-nums opacity-70">{n}</span>}
+                </Choice>
+              );
+            })}
+          </div>
+        </div>
+
         <div className={`overflow-hidden ${PANEL}`}>
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[720px] text-base">
+            <table className="w-full min-w-[880px] text-base">
               <thead className="border-b border-slate-100 bg-slate-50 text-tiny font-bold tracking-[0.06em] text-slate-500">
                 <tr>
                   <th className="px-3 py-2.5 text-left">로그인 ID</th>
@@ -194,13 +156,22 @@ export default function AccountAdmin({
                   <th className="px-3 py-2.5 text-left">구분</th>
                   <th className="px-3 py-2.5 text-left">소속</th>
                   <th className="px-3 py-2.5 text-left">만든 날</th>
-                  <th className="px-3 py-2.5 text-right">상태</th>
+                  <th className="px-3 py-2.5 text-left">상태</th>
+                  <th className="px-3 py-2.5 text-right">동작</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {accounts.map((a) => (
+                {rows.map((a) => (
                   <AccountRow key={a.id} a={a} meId={meId} knownOrgs={knownOrgs} />
                 ))}
+                {rows.length === 0 && (
+                  <tr>
+                    {/* 세었고 없다 — 「아직 없습니다」라고 적지 않는다(규칙 6·10번) */}
+                    <td colSpan={7} className="px-3 py-6 text-center text-small font-bold text-slate-400">
+                      0건
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
@@ -217,12 +188,153 @@ export default function AccountAdmin({
 }
 
 /**
+ * 계정 등록 폼 — 열면 나오고, 만들면 접힌다.
+ *
+ * 소속 칸은 구분을 따라 사라진다. 열람 전용은 소속으로 현장을 가르지 않아서 넣을 값이
+ * 없다 — 흐리게 두면 왜 못 적는지 알 수 없으므로 칸 자체를 없앤다(화면 규칙 3번).
+ */
+function NewAccountForm({
+  knownOrgs, dbReady, onDone, onCancel,
+}: {
+  knownOrgs: string[];
+  dbReady: boolean;
+  onDone: (msg: string) => void;
+  onCancel: () => void;
+}) {
+  const { busy, error, run } = useAction();
+  const [role, setRole] = useState<Role>('sales');
+  const [id, setId] = useState('');
+  const [name, setName] = useState('');
+  const [org, setOrg] = useState('');
+  const [password, setPassword] = useState('');
+
+  const needsOrg = !isHanbaek(role);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    const ok = await run({
+      url: '/api/admin/accounts',
+      body: { id, name, role, org: needsOrg ? org : null, password },
+      fail: '계정을 만들지 못했습니다.',
+    });
+    if (!ok) return;
+    onDone(`${id} 계정을 만들었습니다.`);
+  }
+
+  return (
+    <form onSubmit={submit} className={`flex flex-col gap-4 ${PANEL} p-5`}>
+      <div>
+        <p className="mb-2 text-tiny font-bold tracking-[0.08em] text-slate-400">구분</p>
+        <div className="grid gap-1.5 sm:grid-cols-2 lg:grid-cols-4">
+          {KINDS.map((k) => (
+            <button
+              key={k.role}
+              type="button"
+              aria-pressed={role === k.role}
+              onClick={() => setRole(k.role)}
+              className={`rounded-box border px-3.5 py-2 text-left transition ${
+                role === k.role
+                  ? 'border-brand-500 bg-brand-50'
+                  : 'border-slate-200 bg-white hover:border-slate-300'
+              }`}
+            >
+              <span
+                className={`block text-lead font-bold ${role === k.role ? 'text-brand-800' : 'text-slate-700'}`}
+              >
+                {k.label}
+              </span>
+              <span className="block text-tiny text-slate-400">{k.note}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field label="로그인 ID" hint="소문자·숫자·하이픈 3~24자">
+          <input
+            value={id}
+            onChange={(e) => setId(e.target.value)}
+            autoComplete="off"
+            placeholder={needsOrg ? 'ecoelec' : 'hanbaek-view'}
+            className={FIELD}
+          />
+        </Field>
+        <Field label="이름" hint="사람 이름까지 넣으면 감사 기록에서 알아보기 쉽습니다">
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            autoComplete="off"
+            placeholder={needsOrg ? '에코일렉 김현수' : '한백 김대표'}
+            className={FIELD}
+          />
+        </Field>
+      </div>
+
+      {needsOrg && (
+        <Field
+          label="소속"
+          hint="현장의 영업사·시공사 이름과 정확히 같아야 합니다 — 다르면 현장이 안 보입니다"
+        >
+          <input
+            value={org}
+            onChange={(e) => setOrg(e.target.value)}
+            autoComplete="off"
+            placeholder="에코일렉"
+            className={FIELD}
+          />
+          {knownOrgs.length > 0 && (
+            <div className="mt-2 flex flex-wrap items-center gap-1.5">
+              <span className="text-tiny text-slate-400">쓰이고 있는 소속</span>
+              {knownOrgs.map((o) => (
+                <button
+                  key={o}
+                  type="button"
+                  onClick={() => setOrg(o)}
+                  className={`rounded-full border px-2 py-0.5 text-tiny font-bold transition ${
+                    org === o
+                      ? 'border-brand-500 bg-brand-600 text-white'
+                      : 'border-slate-200 bg-white text-slate-600 hover:border-brand-300'
+                  }`}
+                >
+                  {o}
+                </button>
+              ))}
+            </div>
+          )}
+        </Field>
+      )}
+
+      <Field label="비밀번호" hint="8자 이상. 저장되는 것은 해시뿐이라 나중에 다시 볼 수 없습니다">
+        <input
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          autoComplete="new-password"
+          className={FIELD}
+        />
+      </Field>
+
+      <div className="flex flex-wrap items-center gap-2.5">
+        <Btn type="submit" disabled={!dbReady} busy={busy} busyLabel="만드는 중…">
+          계정 만들기
+        </Btn>
+        <Btn kind="quiet" disabled={busy} onClick={onCancel}>
+          취소
+        </Btn>
+        <Err>{error}</Err>
+      </div>
+    </form>
+  );
+}
+
+/**
  * 계정 한 줄.
  *
  * ★구분·소속을 여기서 고칠 수 있다.★
- * 이 두 값이 그 사람이 무엇을 보는지를 정한다 — 구분은 영업비·시공비 중 어느 쪽을,
- * 소속은 어느 현장을(문자열 일치). 만들 때 잘못 고르면 로그인 ID 가 primary key 라
- * 다시 만들 수도 없어서, 고치는 자리가 없으면 DB 를 직접 만지는 수밖에 없었다.
+ * 이 두 값이 그 사람이 무엇을 보는지를 정한다 — 구분은 영업비·시공비 중 어느 쪽을(열람
+ * 전용이면 전부), 소속은 어느 현장을(문자열 일치). 만들 때 잘못 고르면 로그인 ID 가
+ * primary key 라 다시 만들 수도 없어서, 고치는 자리가 없으면 DB 를 직접 만지는 수밖에
+ * 없었다.
  *
  * 칸을 떠날 때 저장한다. 관리자 계정과 배포 설정 계정은 아예 입력칸을 주지 않는다 —
  * 못 하는 일은 눌리지 않게 한다.
@@ -242,8 +354,26 @@ function AccountRow({
   const [pwDone, setPwDone] = useState(false);
   const fixed = a.source === '파일' || a.role === 'admin';
 
+  /*
+   * 구분을 바꾸는 중의 임시값.
+   *
+   * 열람 전용 → 영업사처럼 소속이 없는 계정을 협력사로 내리면 소속이 반드시 있어야 한다
+   * (서버가 막는다). 구분만 먼저 보내면 422 가 뜨는데 그 줄에는 소속 칸이 아직 없어서
+   * 고칠 길이 없었다 — 막다른 길이다. 그래서 구분을 고르면 소속 칸부터 나타나고,
+   * 둘을 한 번에 보낸다.
+   */
+  const [roleDraft, setRoleDraft] = useState<Role>(a.role);
+  const draftNeedsOrg = !isHanbaek(roleDraft);
+  const orgMissing = draftNeedsOrg && !a.org;
+
   const patch = (body: Record<string, unknown>) =>
     void run({ url: '/api/admin/accounts', method: 'PATCH', body: { id: a.id, ...body } });
+
+  function onRoleChange(next: Role) {
+    setRoleDraft(next);
+    // 소속이 필요 없거나 이미 있으면 그대로 보낸다. 없으면 소속 칸이 열리고 거기서 같이 간다.
+    if (isHanbaek(next) || a.org) patch({ role: next });
+  }
 
   async function submitPw(e: React.FormEvent) {
     e.preventDefault();
@@ -265,7 +395,7 @@ function AccountRow({
       body: { id: a.id },
       fail: '이 계정으로 전환하지 못했습니다.',
     });
-    // 눈이 통째로 바뀌므로 새로 고침이 아니라 협력사의 첫 화면으로 간다
+    // 눈이 통째로 바뀌므로 새로 고침이 아니라 그 계정의 첫 화면으로 간다
     if (ok) window.location.assign('/projects');
   }
 
@@ -295,19 +425,13 @@ function AccountRow({
 
         <td className="px-3 py-2.5">
           {fixed ? (
-            <span
-              className={`rounded-full px-2 py-0.5 text-tiny font-bold ${
-                a.role === 'admin' ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-600'
-              }`}
-            >
-              {ROLE_TEXT[a.role]}
-            </span>
+            <Badge tone={a.role === 'admin' ? 'stage' : 'mute'}>{ROLE_TEXT[a.role]}</Badge>
           ) : (
             <select
               aria-label={`${a.id} 구분`}
-              value={a.role}
+              value={roleDraft}
               disabled={busy}
-              onChange={(e) => patch({ role: e.target.value })}
+              onChange={(e) => onRoleChange(e.target.value as Role)}
               className={`${cellInput} cursor-pointer font-bold`}
             >
               {KINDS.map((k) => (
@@ -321,7 +445,10 @@ function AccountRow({
 
         <td className="px-3 py-2.5 text-slate-600">
           {fixed ? (
-            (a.org ?? '—')
+            /* 한백 관리자는 소속으로 가르지 않는다 — 빠뜨린 것이 아니라 규칙상 없는 것이다 */
+            a.role === 'admin' ? <Empty kind="na" /> : a.org ?? <Empty kind="na" />
+          ) : !draftNeedsOrg ? (
+            <Empty kind="na" />
           ) : (
             <>
               {/* 쓰이고 있는 소속을 골라 넣게 한다 — 손으로 적으면 「에코일렉」과 「에코일렉 」이 갈린다 */}
@@ -329,11 +456,19 @@ function AccountRow({
                 aria-label={`${a.id} 소속`}
                 defaultValue={a.org ?? ''}
                 disabled={busy}
+                autoFocus={orgMissing}
+                placeholder={orgMissing ? '소속을 넣어야 저장됩니다' : undefined}
                 list={`orgs-${a.id}`}
                 onBlur={(e) => {
-                  if (e.target.value.trim() !== (a.org ?? '')) patch({ org: e.target.value });
+                  const v = e.target.value;
+                  // 구분이 함께 바뀌는 중이면 둘을 한 번에 보낸다(위 roleDraft 주석)
+                  if (orgMissing) {
+                    if (v.trim()) patch({ role: roleDraft, org: v });
+                  } else if (v.trim() !== (a.org ?? '')) {
+                    patch({ org: v });
+                  }
                 }}
-                className={cellInput}
+                className={`${cellInput} ${orgMissing ? 'border-amber-400' : ''}`}
               />
               <datalist id={`orgs-${a.id}`}>
                 {knownOrgs.map((o) => (
@@ -348,13 +483,24 @@ function AccountRow({
           {a.createdAt ?? <span title="환경변수·개발 시드 계정">배포 설정</span>}
         </td>
 
+        {/* 동글면 상태 — 누르는 것이 아니다(화면 규칙 11번) */}
+        <td className="px-3 py-2.5">
+          {a.source === '파일' ? (
+            <Badge tone="mute">고정</Badge>
+          ) : a.active ? (
+            <Badge tone="ok">사용 중</Badge>
+          ) : (
+            <Badge tone="hold">중지됨</Badge>
+          )}
+        </td>
+
         <td className="px-3 py-2.5 text-right">
           {a.source === '파일' ? (
             <span
               className="text-tiny text-slate-400"
               title="배포 설정에 있는 계정이라 화면에서 못 바꿉니다"
             >
-              고정
+              배포 설정 —
             </span>
           ) : (
             <span className="inline-flex items-center gap-1.5">
@@ -385,25 +531,27 @@ function AccountRow({
                   비밀번호 재설정
                 </Btn>
               )}
-              <button
-                type="button"
-                disabled={busy || a.id === meId}
-                onClick={() => patch({ active: !a.active })}
-                className={`rounded-ctl border px-2.5 py-1 text-tiny font-bold transition disabled:opacity-40 ${
-                  a.active
-                    ? 'border-slate-200 text-slate-600 hover:border-red-300 hover:text-red-700'
-                    : 'border-brand-300 bg-brand-50 text-brand-800'
-                }`}
-              >
-                {a.active ? '사용 중 · 중지' : '중지됨 · 재개'}
-              </button>
+              {/*
+                * 되돌리기 어려운 것은 자주 누르는 것과 떼어 둔다(화면 규칙 8번).
+                * 빨강 배경은 쓰지 않는다 — 중지는 되돌릴 수 있다(규칙 12번).
+                */}
+              <span className="ml-3">
+                <Btn
+                  kind="quiet"
+                  size="sm"
+                  disabled={busy || a.id === meId}
+                  onClick={() => patch({ active: !a.active })}
+                >
+                  {a.id === meId ? '내 계정 — 중지 불가' : a.active ? '중지' : '재개'}
+                </Btn>
+              </span>
             </span>
           )}
         </td>
       </tr>
       {pwOpen && (
         <tr>
-          <td colSpan={6} className="px-3 pb-3">
+          <td colSpan={7} className="px-3 pb-3">
             {pwDone ? (
               <span className="flex items-center gap-2.5">
                 <Saved>
@@ -448,14 +596,14 @@ function AccountRow({
       )}
       {error && (
         <tr>
-          <td colSpan={6} className="px-3 pb-2.5">
-            {error}
+          <td colSpan={7} className="px-3 pb-2.5">
+            <Err>{error}</Err>
           </td>
         </tr>
       )}
       {actAs.error && (
         <tr>
-          <td colSpan={6} className="px-3 pb-2.5">
+          <td colSpan={7} className="px-3 pb-2.5">
             <Err>{actAs.error}</Err>
           </td>
         </tr>
@@ -465,7 +613,6 @@ function AccountRow({
 }
 
 const cellInput = `${FIELD_CELL} min-w-[92px]`;
-const inputClass = FIELD;
 
 function Field({
   label, hint, children,

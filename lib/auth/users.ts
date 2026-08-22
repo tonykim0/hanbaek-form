@@ -8,7 +8,7 @@
  * (audit_log 를 자체 저장소에 두기로 한 것과 같은 이유 — SYSTEM_ARCHITECTURE §6)
  */
 import { eq } from 'drizzle-orm';
-import { normalizeOrg, type Role } from '@/lib/roles';
+import { isHanbaek, normalizeOrg, type Role } from '@/lib/roles';
 import type { AccountView, Actor, NewAccount, User } from './types';
 import { hashPassword, verifyPassword } from './crypto';
 import { getDb, hasDatabase } from '@/lib/db/client';
@@ -77,6 +77,11 @@ export const DEV_USERS: StoredUser[] = [
   {
     id: 'navy', name: '네이비인프라 이수정', role: 'sales' as Role, org: '네이비인프라',
     hash: 'pbkdf2$120000$GtQpXDPksONLxh8DODKcsA$u5_5TxeMviIOEu7MoF26jIlAUIvL6az0kiIUc3Vnwq0',
+  },
+  {
+    // 열람 전용 — 소속이 없다. 전 현장을 보되 어떤 쓰기도 403 이다
+    id: 'viewer', name: '한백 열람', role: 'viewer' as Role, org: null,
+    hash: 'pbkdf2$120000$kXM1cr9kmQqCuHXAhmXvJg$C20yiJt67FosJtcZXIB9_ZBv0tGxUrSK6O6_BEEP6M8',
   },
 ];
 
@@ -222,8 +227,12 @@ export const userStore: UserStore = {
     }
     if (!input.name.trim()) throw new Error('이름을 입력하세요.');
     if (input.password.length < 8) throw new Error('비밀번호는 8자 이상이어야 합니다.');
-    // 협력사 계정은 소속으로 현장을 가른다 — 비어 있으면 아무 현장도 못 본다
-    if (input.role !== 'admin' && !input.org?.trim()) {
+    /*
+     * 협력사 계정은 소속으로 현장을 가른다 — 비어 있으면 아무 현장도 못 본다.
+     * 한백 쪽(관리자·열람 전용)은 반대다: 소속으로 가르지 않으므로 소속을 두지 않는다.
+     * 넣어 두면 그 문자열이 어디선가 접근 키로 쓰일 때 뜻이 갈린다.
+     */
+    if (!isHanbaek(input.role) && !input.org?.trim()) {
       throw new Error('협력사 계정은 소속을 반드시 넣어야 합니다.');
     }
     if (await this.find(id)) throw new Error('이미 있는 로그인 ID 입니다.');
@@ -232,7 +241,7 @@ export const userStore: UserStore = {
       id,
       name: input.name.trim(),
       role: input.role,
-      org: input.role === 'admin' ? null : input.org!.trim(),
+      org: isHanbaek(input.role) ? null : input.org!.trim(),
       passwordHash: await hashPassword(input.password),
       active: true,
     });
@@ -259,9 +268,21 @@ export const userStore: UserStore = {
       throw new Error('관리자 계정의 구분은 이 화면에서 바꿀 수 없습니다.');
     }
 
-    // 협력사 계정은 소속으로 현장을 가른다 — 비우면 아무 현장도 못 본다
-    const org = patch.org === undefined ? row.org : normalizeOrg(patch.org);
-    if (!org) throw new Error('협력사 계정은 소속을 반드시 넣어야 합니다.');
+    /*
+     * 소속 규칙은 바뀐 뒤의 구분을 따른다.
+     *
+     * 협력사로 두면서 소속을 비우면 아무 현장도 못 본다 — 막는다. 반대로 열람 전용으로
+     * 바꾸면 소속은 뜻을 잃으므로 여기서 지운다. 구분만 바꾸고 소속을 그대로 두면
+     * 「소속이 있는데 전 현장이 보이는」 계정이 남아 다음 사람이 판정을 오해한다.
+     */
+    const org = isHanbaek(role)
+      ? null
+      : patch.org === undefined
+        ? row.org
+        : normalizeOrg(patch.org);
+    if (!isHanbaek(role) && !org) {
+      throw new Error('협력사 계정은 소속을 반드시 넣어야 합니다.');
+    }
 
     const name = patch.name === undefined ? row.name : patch.name.trim();
     if (!name) throw new Error('이름을 입력하세요.');

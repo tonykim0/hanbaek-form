@@ -17,7 +17,7 @@ import {
 export const users = pgTable('users', {
   id: text('id').primaryKey(),               // 로그인 ID
   name: text('name').notNull(),
-  role: text('role').notNull(),              // admin | salesCons | cons | sales
+  role: text('role').notNull(),              // admin | viewer | salesCons | cons | sales
   org: text('org'),                          // 협력사 소속. 관리자는 null
   passwordHash: text('password_hash').notNull(),
   active: boolean('active').notNull().default(true),

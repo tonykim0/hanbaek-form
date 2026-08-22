@@ -16,9 +16,16 @@ import type { Court } from '@/types/project';
 
 export const dynamic = 'force-dynamic';
 
-/** 어느 차례가 내 것인가 — 턴키업체는 영업·시공 양쪽 다 */
+/**
+ * 어느 차례가 내 것인가 — 턴키업체는 영업·시공 양쪽 다.
+ *
+ * 열람 전용은 빈 목록이다. 「내 차례」는 알림함이 아니라 할 일이라, 아무것도 할 수 없는
+ * 눈에게는 차례가 오지 않는다 — 한백의 차례를 그대로 보여주면 처리할 수 없는 목록이
+ * 영영 줄지 않는 배지로 남는다.
+ */
 const COURTS_OF_ROLE: Record<Role, Court[]> = {
   admin: ['한백'],
+  viewer: [],
   sales: ['영업사'],
   cons: ['시공사'],
   salesCons: ['영업사', '시공사'],

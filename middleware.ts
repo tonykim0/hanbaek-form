@@ -7,6 +7,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { verifyPayload } from '@/lib/auth/crypto';
 import { SESSION_COOKIE, type SessionPayload } from '@/lib/auth/types';
+import { canWrite, isHanbaek } from '@/lib/roles';
 
 function secret(): string {
   const s = process.env.AUTH_SECRET;
@@ -19,14 +20,31 @@ export async function middleware(request: NextRequest) {
   const session = token ? await verifyPayload<SessionPayload>(token, secret()) : null;
 
   if (session) {
-    // 관리자 전용 구역 — 로그인했더라도 협력사는 못 들어간다.
-    // 대행 중(asId)의 눈은 협력사다 — 바탕이 관리자라도 여기는 못 들어간다.
-    // /payouts 는 여기 없다 — 협력사도 자기 몫을 본다(페이지가 줄을 가른다).
+    /*
+     * 구역이 셋이다. 대행 중(asId)이면 눈이 협력사이므로 앞의 둘은 언제나 막힌다 —
+     * 바탕이 관리자여도 그렇다.
+     *
+     *   adminOnly    쓰는 자리. 관리자만. (계정·자료실·재발행·협력사 정보)
+     *   hanbaekOnly  보는 자리. 관리자와 열람 전용. (기성·단가·디자인 기준)
+     *   writerOnly   내는 자리. 열람 전용만 못 들어간다. (접수·계약서 작성·협력사 정보)
+     *
+     * /payouts 는 어디에도 없다 — 협력사도 자기 몫을 본다(페이지가 줄을 가른다).
+     * 여기는 엣지라 쿠키에 박힌 구분을 그대로 읽는다. 진짜 문은 레이아웃이다
+     * (app/(console)/(admin)/layout.tsx · 그 아래 admin/layout.tsx).
+     */
     const path = request.nextUrl.pathname;
-    const adminOnly = ['/admin', '/receivables', '/pricing', '/design'];
-    if (adminOnly.some((p) => path.startsWith(p)) && (session.role !== 'admin' || session.asId)) {
-      return NextResponse.redirect(new URL('/projects', request.url));
-    }
+    const starts = (list: string[]) => list.some((p) => path === p || path.startsWith(`${p}/`));
+
+    const adminOnly = ['/admin'];
+    const hanbaekOnly = ['/receivables', '/pricing', '/design'];
+    const writerOnly = ['/projects/new', '/contracts', '/settings'];
+
+    const blocked =
+      (starts(adminOnly) && (session.role !== 'admin' || session.asId))
+      || (starts(hanbaekOnly) && (!isHanbaek(session.role) || session.asId))
+      || (starts(writerOnly) && !canWrite(session.role));
+
+    if (blocked) return NextResponse.redirect(new URL('/projects', request.url));
     return NextResponse.next();
   }
 
@@ -39,8 +57,10 @@ export const config = {
   matcher: [
     '/dashboard',
     '/projects/:path*',
-    // 지급 명세는 협력사도 본다 — 아래 adminOnly 목록에 넣지 않는다
+    // 지급 명세는 협력사도 본다 — 위 세 목록 어디에도 넣지 않는다
     '/payments',
+    // 협력사 정보 — 자기 것을 적는 자리라 열람 전용은 못 들어간다(writerOnly)
+    '/settings',
     '/receivables/:path*',
     '/pricing',
     '/payouts/:path*',

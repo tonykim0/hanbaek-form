@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import { getRepository } from '@/lib/data';
 import { getSessionUser, viewerOf } from '@/lib/auth/session';
 import PayoutWorkBoard from '@/components/settlement/PayoutWorkBoard';
+import { isHanbaek } from '@/lib/roles';
 
 export const metadata = { title: '협력사 지급관리 — 한백 전기차충전사업' };
 
@@ -15,7 +16,14 @@ export const metadata = { title: '협력사 지급관리 — 한백 전기차충
 export default async function PayoutsPage() {
   const session = await getSessionUser();
   if (!session) redirect('/login?next=/payouts');
-  const isAdmin = session.role === 'admin';
+  /*
+   * 여기서 눈과 손이 갈린다.
+   *   눈(isHanbaek) — 전 협력사의 줄을 보는가, 자기 몫만 보는가.
+   *   손(canConfirm) — 지급일을 골라 확정할 수 있는가. 열람 전용은 못 한다.
+   * 예전에는 둘 다 isAdmin 한 값이었다.
+   */
+  const seesAll = isHanbaek(session.role);
+  const canConfirm = session.role === 'admin';
 
   /*
    * 한 번의 읽기로 계획과 내역을 같이 받는다(listPayoutOverview).
@@ -34,11 +42,11 @@ export default async function PayoutsPage() {
       <div className="mb-6">
         <h1 className="text-h1 font-black text-slate-900">협력사 지급관리</h1>
         <p className="mt-1.5 text-base text-slate-500">
-          {isAdmin ? `한백 → 협력사 · 현장 ${siteCount}건` : `받을 지급 — 현장 ${siteCount}건`}
+          {seesAll ? `한백 → 협력사 · 현장 ${siteCount}건` : `받을 지급 — 현장 ${siteCount}건`}
         </p>
       </div>
 
-      <PayoutWorkBoard rows={plans} history={history} canConfirm={isAdmin} />
+      <PayoutWorkBoard rows={plans} history={history} canConfirm={canConfirm} />
     </>
   );
 }

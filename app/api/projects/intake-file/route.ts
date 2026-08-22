@@ -13,6 +13,7 @@
 import { generateClientTokenFromReadWriteToken } from '@vercel/blob/client';
 import { NextResponse } from 'next/server';
 import { getSessionUser } from '@/lib/auth/session';
+import { canWrite } from '@/lib/roles';
 import { isKnownDocKind } from '@/lib/data/assemble';
 import { stagePrefix } from '@/lib/intake-stage';
 
@@ -32,6 +33,16 @@ export async function POST(request: Request) {
   const session = await getSessionUser();
   if (!session) {
     return NextResponse.json({ error: '로그인이 필요합니다.' }, { status: 401 });
+  }
+  /*
+   * 열람 전용은 올리지 않는다. 쓰기의 문은 lib/api/write-route 한 곳이지만 이 라우트는
+   * 그 껍데기를 못 쓴다(위 머리말) — 그래서 같은 판정을 여기서 한 번 더 부른다.
+   */
+  if (!canWrite(session.role)) {
+    return NextResponse.json(
+      { error: '열람 전용 계정입니다 — 보기만 할 수 있습니다.' },
+      { status: 403 }
+    );
   }
 
   const body = (await request.json().catch(() => null)) as

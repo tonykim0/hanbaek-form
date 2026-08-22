@@ -6,6 +6,7 @@ import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { getRepository } from '@/lib/data';
 import { getSessionUser, viewerOf } from '@/lib/auth/session';
+import { isHanbaek } from '@/lib/roles';
 import type { PayoutRow } from '@/types/project';
 
 export const metadata = { title: '지급 및 기성관리 — 한백 전기차사업관리' };
@@ -33,7 +34,8 @@ export default async function PaymentsPage({
 }) {
   const session = await getSessionUser();
   if (!session) redirect('/login?next=/payments');
-  const isAdmin = session.role === 'admin';
+  // 전 업체를 묶어 보는가, 자기 몫만 보는가 — 눈의 문제다(열람 전용도 전부 본다)
+  const isAdmin = isHanbaek(session.role);
   const rows = await getRepository().listPayouts(viewerOf(session));
 
   const thisMonth = seoulMonth();

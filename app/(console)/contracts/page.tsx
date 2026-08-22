@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { getSessionUser } from '@/lib/auth/session';
+import { canWrite } from '@/lib/roles';
 
 export const metadata = { title: '계약서 작성 — 한백 전기차사업관리' };
 
@@ -25,6 +26,8 @@ const FORMS: Array<{ path: string; cpo: string; note: string }> = [
 export default async function ContractsPage() {
   const session = await getSessionUser();
   if (!session) redirect('/login?next=/contracts');
+  // 만들어서 내는 자리다 — 열람 전용은 들어오지 않는다
+  if (!canWrite(session.role)) redirect('/projects');
   /*
    * 관리자도 이 화면을 본다. 예전에는 관리자를 /admin/reissue 로 보내서
    * 「계약서 작성」을 누르면 서류 재발행이 떴다 — 메뉴 이름과 뜨는 화면이 달랐다.

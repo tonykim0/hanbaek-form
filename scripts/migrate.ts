@@ -64,8 +64,6 @@ async function main() {
   console.log(`[migrate] DB ${host} · 파일 ${files.length}개`);
 
   try {
-    // 같은 DB 에 빌드 두 개가 겹치면 줄을 선다 — 연결이 끊기면 락도 풀린다 (숫자는 임의 고정값)
-    await sql`select pg_advisory_lock(48590822)`;
     await sql`create table if not exists db_migrations (
       id text primary key,
       applied_at timestamptz not null default now()
@@ -78,11 +76,27 @@ async function main() {
       if (done.has(f)) continue;
       const body = readFileSync(path.join(dir, f), 'utf8');
       await sql.begin(async (tx) => {
+        /*
+         * ★세션 락(pg_advisory_lock)이 아니라 트랜잭션 락이다.★ 접속이 Transaction
+         * pooler(6543)라 트랜잭션 밖 문장은 문장마다 다른 서버 백엔드로 갈 수 있다 —
+         * 세션 락을 잡으면 남의 백엔드에 락이 남아 안 풀리고, 다음 실행이 그 락을
+         * 기다리다 statement timeout 으로 죽는다(2026-08-23 실제로 그랬다).
+         * 트랜잭션 락은 커밋·롤백과 함께 반드시 풀리고, 트랜잭션은 한 백엔드에 붙는다.
+         *
+         * 락을 잡은 뒤 원장을 다시 본다 — 빌드 두 개가 겹치면 늦은 쪽이 여기서 걸러진다.
+         *
+         * 키가 48590823 인 이유: 첫 배포가 세션 락(48590822)을 잡은 채 끝나 그 키에
+         * 유령 락이 남았을 수 있다 — 프로덕션은 밖에서 정리할 수 없으니 키를 옮겨 피한다.
+         * 유령 락은 아무도 그 키를 안 기다리면 무해하고, 백엔드가 재활용되며 사라진다.
+         */
+        await tx`select pg_advisory_xact_lock(48590823)`;
+        const [again] = await tx`select 1 from db_migrations where id = ${f}`;
+        if (again) return;
         await tx.unsafe(body);
         await tx`insert into db_migrations (id) values (${f})`;
+        console.log(`  ✓ ${f}`);
+        applied += 1;
       });
-      console.log(`  ✓ ${f}`);
-      applied += 1;
     }
     console.log(`[migrate] 적용 ${applied}건 · 이미 적용 ${files.length - applied}건`);
   } finally {

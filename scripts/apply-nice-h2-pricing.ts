@@ -3,12 +3,16 @@
  *
  *   npx tsx scripts/apply-nice-h2-pricing.ts            무엇이 들어갈지만 보여준다 (개발 DB)
  *   npx tsx scripts/apply-nice-h2-pricing.ts --write    실제로 넣는다 (개발 DB)
- *   npx tsx scripts/apply-nice-h2-pricing.ts --env .env.production.local [--write]
+ *   npx tsx scripts/apply-nice-h2-pricing.ts --env .env.prod-db [--write]
  *
  * ★어느 DB 인가★ 기본은 `.env.local`(개발)이고 `--env <파일>` 로 바꾼다. 접속 문자열을
  * 명령줄에 적지 않는다 — 셸 히스토리에 남는다. `.env.local` 을 프로덕션 값으로 바꿔치기
  * 하는 것도 되돌리는 것을 잊으면 다음 작업이 프로덕션을 친다. 파일을 따로 두고 골라 쓴다
  * (`.env*` 는 gitignore 에 있다). 어느 DB 에 붙었는지 첫 줄에 호스트로 찍어준다.
+ *
+ * ★이름을 `.env.production.local` 로 두지 않는다.★ Next 가 프로덕션 모드에서 그 파일을
+ * 자동으로 읽는다 — 로컬에서 `npm run build && npm start` 하는 순간 로컬 서버가 조용히
+ * 프로덕션 DB 에 붙고, 화면으로는 구별이 안 된다. Next 가 안 읽는 이름을 쓴다(`.env.prod-db`).
  *
  * 멱등하다 — 같은 칸(교체유형 × 수전 × 연수 × 유형 × 채널)을 같은 적용 시작으로 덮는
  * 활성 케이스가 이미 있으면 값이 같은지 보고, 같으면 지나가고 다르면 고친다.
@@ -70,7 +74,7 @@ import { loadEnvFile } from '../lib/env-file';
 const envAt = process.argv.indexOf('--env');
 const ENV_FILE = envAt >= 0 ? process.argv[envAt + 1] : '.env.local';
 if (!ENV_FILE || ENV_FILE.startsWith('--')) {
-  throw new Error('--env 뒤에 파일 이름이 없습니다 (예: --env .env.production.local).');
+  throw new Error('--env 뒤에 파일 이름이 없습니다 (예: --env .env.prod-db).');
 }
 if (!existsSync(ENV_FILE)) throw new Error(`${ENV_FILE} 이 없습니다.`);
 loadEnvFile(ENV_FILE);

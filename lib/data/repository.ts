@@ -31,7 +31,7 @@ export interface ProjectRepository {
   /**
    * 정산관리 목록. [한백 전용]
    *
-   * listProjects 와 따로 두는 이유: 이쪽에는 계획액·회수액이 들어 있다.
+   * listProjects 와 따로 두는 이유: 이쪽에는 계획액·수금액이 들어 있다.
    * 같은 경로로 내보내면서 화면에서 가리는 방식은 쓰지 않는다 — 협력사 브라우저에
    * 실려 나간 적이 있다. 관리자가 아니면 빈 목록을 돌려준다.
    */
@@ -404,5 +404,5 @@ export type ProcessPatch = Partial<
 export type PaymentPatch = Partial<Pick<Settlement, 'payNote'>>;
 
 /*
- * 정산 쪽(준공마감 지정·기성 회수 체크)은 뒤로 미뤄 둔다 — 영업이 도는 것이 먼저다.
+ * 정산 쪽(준공마감 지정·기성 수금 체크)은 뒤로 미뤄 둔다 — 영업이 도는 것이 먼저다.
  */

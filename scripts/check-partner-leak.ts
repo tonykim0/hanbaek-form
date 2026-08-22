@@ -23,7 +23,7 @@ import type { Viewer } from '../lib/auth/types';
 const FORBIDDEN = [
   'admin',            // 한백 전용 묶음 자체
   'settlementRule',   // 이름·단계에 기성 금액이 그대로 있다
-  'steps',            // 기성 차수 (트리거·산정방식·회수 상태)
+  'steps',            // 기성 차수 (트리거·산정방식·수금 상태)
   'planAmount',
   'basisLabel',
   'safetyFee',        // 안전관리비 — 원가

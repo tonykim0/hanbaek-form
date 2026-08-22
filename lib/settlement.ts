@@ -190,6 +190,12 @@ export function checkSettlementSteps(steps: SettlementStepRule[], turnkey: numbe
  * 예전에는 현장 상세(SettlementTab)와 기성관리 표(ReceivableBoard)가 각자 들고 있어서
  * 같은 상태가 「회수 완료」와 「회수」로 갈리고 색도 amber-200·amber-100 으로 달랐다.
  *
+ * ★「회수」를 쓰지 않는다★ (한백 확인 2026-08-23)
+ * 이 저장소에서 그 말이 두 뜻으로 쓰이고 있었다 — 여기서는 운영사에게서 돈이 들어온 것이고,
+ * 지급 원장(PAYOUT_KINDS)의 「회수」는 협력사에게 잘못 준 돈을 돌려받는 음수 지급이다.
+ * 방향이 정반대인데 글자가 같으면 어느 쪽 이야기인지 매번 따져야 한다. 들어오는 쪽을
+ * 「수금」으로 바꾼다. 지급 원장 쪽은 그대로 둔다 — 그쪽이 원래 뜻에 맞다.
+ *
  * na 는 배지가 아니다 — 규칙상 없는 것은 빈 값(`<Empty kind="na">`)으로 보인다.
  * 그래서 말투에는 na 가 없다.
  */
@@ -197,7 +203,7 @@ export const STEP_LABEL: Record<StepState, string> = {
   na: '해당없음',
   waiting: '트리거 대기',
   open: '청구 가능',
-  collected: '회수',
+  collected: '수금 완료',
 };
 
 export const STEP_TONE = {
@@ -260,7 +266,6 @@ export function settlementForProject(
   return steps;
 }
 
-/** 회수율 = 회수액 ÷ 계획총액 × 100 */
 /**
  * 협력사 지급 회차 비율 — 1차 70%, 2차 30%.
  *
@@ -401,7 +406,8 @@ export function payoutSideOf(entries: PayoutEntry[], kind: PayoutKind): {
   };
 }
 
-export function recoveryRate(steps: SettlementStep[]): number | null {
+/** 수금률 = 수금액 ÷ 계획총액 × 100 */
+export function collectionRate(steps: SettlementStep[]): number | null {
   const plan = steps.reduce((s, x) => s + (x.planAmount ?? 0), 0);
   if (plan <= 0) return null;
   const got = steps

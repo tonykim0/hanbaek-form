@@ -79,24 +79,3 @@ export function Tile({
     </div>
   );
 }
-
-/** 반대쪽 화면으로 건너가는 줄 — 두 방향의 관계를 잃지 않으려고 둔다 */
-export function CrossLink({
-  href, label, amount, note,
-}: {
-  href: string;
-  label: string;
-  amount: number;
-  note: string;
-}) {
-  return (
-    <Link
-      href={href}
-      className="mt-4 flex flex-wrap items-baseline gap-x-2 gap-y-1 rounded-box border border-slate-200 bg-white px-4 py-3 text-base transition hover:border-brand-300 hover:bg-brand-50/40"
-    >
-      <span className="text-slate-500">{note}</span>
-      <span className="font-black tabular-nums text-slate-900">{won(amount)}원</span>
-      <span className="ml-auto text-small font-bold text-brand-700">{label} →</span>
-    </Link>
-  );
-}

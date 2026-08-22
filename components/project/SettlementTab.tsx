@@ -17,7 +17,7 @@ import type {
   SettlementStep,
 } from '@/types/project';
 import {
-  distributionUnit, entryTypeOf, payoutSideOf, payoutStepsOf, recoveryRate, STEP_LABEL, STEP_TONE,
+  collectionRate, distributionUnit, entryTypeOf, payoutSideOf, payoutStepsOf, STEP_LABEL, STEP_TONE,
   triggerSource, turnkeyUnit,
 } from '@/lib/settlement';
 import type { Visibility } from '@/lib/roles';
@@ -100,7 +100,7 @@ export function ReceivableTab({
    */
   const admin = detail.admin;
   const steps = admin?.steps ?? [];
-  const rate = recoveryRate(steps);
+  const rate = collectionRate(steps);
 
   return (
     <section>
@@ -114,7 +114,7 @@ export function ReceivableTab({
         <div className="flex flex-wrap items-baseline gap-3">
           {rate !== null && (
             <span className="text-tiny font-bold text-slate-500">
-              회수율 <span className="tabular-nums text-slate-800">{rate}%</span>
+              수금률 <span className="tabular-nums text-slate-800">{rate}%</span>
             </span>
           )}
           <span className="text-tiny font-bold text-slate-500">

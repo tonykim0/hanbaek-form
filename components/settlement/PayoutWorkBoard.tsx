@@ -18,14 +18,22 @@
  *
  * ★협력사도 본다.★ 자기 몫 줄만 내려오고(페이지가 가른다, lib/payout-board) 확정
  * 칸은 읽기다 — 이번에 받을 금액과 지급시기를 여기서 확인한다.
+ *
+ * ★지급된 내역 테이블은 걷어냈다(한백 확인 2026-08-23).★ 같은 원장이 세 자리에
+ * 그려지고 있었다 — 지급표의 지급일 칸 · 여기 원장 줄 · /payments 의 월별 원장.
+ * 지급표가 이미 지급일을 품고 있으니 이 화면에서 줄 단위 원장은 잃을 게 없고,
+ * 개별 줄·메모의 정본은 /payments 와 현장 상세 정산 탭이다. 그 자리에는 거래명세서
+ * 배치(지급일 × 지급처) 목록을 둔다 — 지급이 익월 10·25일 배치로 나가고 명세서도
+ * 배치 단위 한 장이라, 「이번 25일에 누구에게 총 얼마」가 송금 준비 그 자체다.
  */
 import { useMemo, useState } from 'react';
+import Link from 'next/link';
 import type { PayoutRow } from '@/types/project';
 import { payoutPrerequisiteBlockersOf, payoutReleaseOf, payoutStepsOf } from '@/lib/settlement';
 import type { PayoutRowInput } from '@/lib/payout-board';
 import { today } from '@/lib/date';
 import { useAction } from '@/lib/use-action';
-import { Blank, Btn, Choice, Empty, Err, FIELD_CELL, Tag } from '@/components/ui';
+import { Badge, Blank, Btn, Choice, Empty, Err, FIELD_CELL, Tag } from '@/components/ui';
 import { Frame, SiteLink, won } from './parts';
 
 /** 지급일 후보 — 트리거 충족일의 익월 10일·25일 (지급 규칙, 한백 확인) */
@@ -119,12 +127,26 @@ export default function PayoutWorkBoard({
     .filter((p) => kindFilter === '전체' || p.kind === kindFilter)
     .filter((p) => stepFilter === '전체' || p.open?.no === (stepFilter === '1차' ? 1 : 2));
 
-  // 지급된 내역도 같은 필터를 탄다 — 지급시기는 명목(1차·2차)과 맞춘다
-  const shownHistory = history
-    .filter((r) => org === null || r.org === org)
-    .filter((r) => kindFilter === '전체' || r.kind === kindFilter)
-    .filter((r) => stepFilter === '전체' || r.label === stepFilter)
-    .sort((a, b) => b.paidAt.localeCompare(a.paidAt));
+  /*
+   * 거래명세서 배치 — 원장을 (지급일 × 지급처)로 묶는다. 명세서가 이 단위 한 장이다.
+   * 구분·지급시기 필터는 태우지 않는다 — 배치를 명목으로 쪼개면 여기 합계가 명세서의
+   * 합계와 어긋난다. 지급처 필터만 탄다(배치가 지급처 단위라 어긋날 것이 없다).
+   */
+  const batches = useMemo(() => {
+    const map = new Map<string, { paidAt: string; org: string | null; count: number; total: number }>();
+    for (const r of history) {
+      if (org !== null && r.org !== org) continue;
+      const key = `${r.paidAt}|${r.org ?? ''}`;
+      const b = map.get(key) ?? { paidAt: r.paidAt, org: r.org, count: 0, total: 0 };
+      b.count += 1;
+      b.total += r.amount;
+      map.set(key, b);
+    }
+    // 내림차순 — 예정(미래 지급일)이 저절로 맨 위에 서고, 그 아래가 최근에 나간 것
+    return [...map.values()].sort(
+      (a, b) => b.paidAt.localeCompare(a.paidAt) || (a.org ?? '').localeCompare(b.org ?? '', 'ko')
+    );
+  }, [history, org]);
 
   return (
     <div>
@@ -213,44 +235,61 @@ export default function PayoutWorkBoard({
         </Frame>
       )}
 
-      {/* 지급된 내역 — 원장에 확정된 지급이 한 줄씩. 위 표는 계획, 여기는 사실이다. */}
+      {/* 거래명세서 — 배치(지급일 × 지급처)가 한 줄. 명세서가 이 단위 한 장이다. */}
       <section className="mt-7">
         <div className="mb-2 flex items-baseline gap-2">
-          <h2 className="text-h3 font-black text-slate-900">지급된 내역</h2>
-          <span className="text-tiny font-bold tabular-nums text-slate-400">{shownHistory.length}건</span>
+          <h2 className="text-h3 font-black text-slate-900">거래명세서</h2>
+          <span className="text-tiny font-bold tabular-nums text-slate-400">{batches.length}건</span>
+          {/* 원장 줄 하나하나(회수·조정·메모)는 나간 돈의 화면이 정본이다 */}
+          <Link
+            href="/payments"
+            className="ml-auto text-small font-bold text-slate-500 transition hover:text-brand-800"
+          >
+            개별 내역은 지급 및 기성관리 →
+          </Link>
         </div>
-        {shownHistory.length === 0 ? (
+        {batches.length === 0 ? (
           <Blank>0건</Blank>
         ) : (
-          <Frame min="760px">
+          <Frame min="640px">
             <thead className="border-b border-slate-100 bg-slate-50 text-tiny font-bold tracking-[0.06em] text-slate-500">
               <tr>
                 <th className="px-3 py-2.5 text-left">지급일</th>
-                <th className="px-3 py-2.5 text-left">현장</th>
                 <th className="px-3 py-2.5 text-left">지급처</th>
-                <th className="px-3 py-2.5 text-left">구분</th>
-                <th className="px-3 py-2.5 text-left">명목</th>
+                <th className="px-3 py-2.5 text-right">건수</th>
                 <th className="px-3 py-2.5 text-right">금액</th>
-                <th className="px-3 py-2.5 text-left">메모</th>
+                <th className="px-3 py-2.5 text-right"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {shownHistory.map((r, i) => (
-                <tr key={`${r.projectId}|${r.kind}|${r.label}|${r.paidAt}|${i}`} className="transition hover:bg-brand-50/40">
-                  <td className="whitespace-nowrap px-3 py-2 tabular-nums text-slate-600">{r.paidAt}</td>
-                  <td className="px-3 py-2">
-                    <SiteLink id={r.projectId} name={r.projectName} tab="settlement" />
+              {batches.map((b) => (
+                <tr key={`${b.paidAt}|${b.org ?? ''}`} className="transition hover:bg-brand-50/40">
+                  <td className="whitespace-nowrap px-3 py-2.5 tabular-nums text-slate-700">
+                    {b.paidAt}
+                    {/* 지급일이 아직 안 온 배치 — 이번에 나갈 돈이다. 오늘 것도 아직 예정으로 본다 */}
+                    {b.paidAt >= today() && (
+                      <span className="ml-1.5"><Badge tone="stage">예정</Badge></span>
+                    )}
                   </td>
-                  <td className="px-3 py-2 text-slate-600">{r.org ?? <Empty kind="miss" />}</td>
-                  <td className="whitespace-nowrap px-3 py-2">
-                    <Tag tone={r.kind === '영업비' ? 'stage' : 'ok'}>{r.kind}</Tag>
+                  <td className="px-3 py-2.5 text-slate-700">
+                    {b.org ?? <Empty kind="miss" label="받는 곳 미지정" />}
                   </td>
-                  <td className="whitespace-nowrap px-3 py-2 text-slate-700">{r.label}</td>
-                  <td className={`whitespace-nowrap px-3 py-2 text-right font-bold tabular-nums ${r.amount < 0 ? 'text-amber-800' : 'text-slate-800'}`}>
-                    {won(r.amount)}
+                  <td className="whitespace-nowrap px-3 py-2.5 text-right tabular-nums text-slate-500">
+                    {b.count}건
                   </td>
-                  <td className="px-3 py-2 text-small text-slate-500">
-                    {r.note ?? <span className="text-slate-300">—</span>}
+                  <td className={`whitespace-nowrap px-3 py-2.5 text-right font-bold tabular-nums ${b.total < 0 ? 'text-amber-800' : 'text-slate-800'}`}>
+                    {won(b.total)}
+                  </td>
+                  <td className="whitespace-nowrap px-3 py-2.5 text-right">
+                    {/* 명세서는 업체 × 지급일 한 장 — 받는 곳이 없으면 만들 장이 없다 */}
+                    {b.org && (
+                      <Link
+                        href={`/payments/statement?org=${encodeURIComponent(b.org)}&date=${b.paidAt}`}
+                        className="text-small font-bold text-brand-700 transition hover:text-brand-900"
+                      >
+                        명세서 →
+                      </Link>
+                    )}
                   </td>
                 </tr>
               ))}

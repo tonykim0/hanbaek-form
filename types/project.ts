@@ -531,7 +531,7 @@ export interface PartnerSettlementView {
 export interface AdminOnlyDetail {
   /** 이 현장에 적용된 정산 규칙 (참조 해소됨) — 이름·단계에 기성 금액이 들어 있다 */
   settlementRule: SettlementRule | null;
-  /** 기성 차수 — 트리거·산정방식·금액·회수 상태 */
+  /** 기성 차수 — 트리거·산정방식·금액·수금 상태 */
   steps: SettlementStep[];
   /** 운영사가 통보하는 준공마감일 */
   cpoCloseDate: string | null;
@@ -569,6 +569,11 @@ export interface PayoutPlanRow {
  * 지급 명목. 두 갈래다 —
  *   지급: 돈이 실제로 움직였다. 회수는 음수로 저장된다(중복지급을 돌려받는 것).
  *   조정: 줘야 할 금액 자체가 바뀐다. 계획(단가×대수)에 더하거나 뺀다.
+ *
+ * ★여기의 「회수」는 기성의 「수금」과 다른 말이다.★ 이쪽은 협력사에게 나간 돈을
+ * 돌려받는 것(음수 지급)이고, 저쪽은 운영사에게서 돈이 들어오는 것이다. 예전에는 둘 다
+ * 「회수」였는데 방향이 정반대라 매번 어느 쪽인지 따져야 했다 — 들어오는 쪽만 「수금」으로
+ * 바꿨다(lib/settlement.ts STEP_LABEL, 2026-08-23). 이쪽 이름은 원래 뜻에 맞으니 그대로 둔다.
  *
  * ★왜 원장인가★ 계획(70/30)만 있던 때는 선금·차액·회수·차감이 전부 비고 문장으로만
  * 남았다 — 노션 정산관리 115행 중 10행이 그랬다. 문장은 합산이 안 되고, 월별 지급명세와
@@ -690,7 +695,7 @@ export interface ProjectSummary {
  * 정산관리 화면이 받는 요약. [한백 전용]
  *
  * ★ProjectSummary 와 합치지 않는다.★ 저 목록은 협력사 브라우저로도 나가는데
- * 여기에는 계획액·회수액이 들어 있다. 한 타입으로 묶으면 「이 화면은 금액을 안 쓴다」는
+ * 여기에는 계획액·수금액이 들어 있다. 한 타입으로 묶으면 「이 화면은 금액을 안 쓴다」는
  * 약속을 타입이 지켜주지 못하고, 언젠가 협력사 화면으로 실려 나간다.
  */
 export interface PayoutMilestones {
@@ -715,7 +720,7 @@ export interface SettlementSummary {
   steps: SettlementStep[];
   /** 계획액 합계 */
   planTotal: number;
-  /** 회수된 금액 합계 */
+  /** 수금된 금액 합계 — 운영사에게서 들어온 돈 */
   collectedTotal: number;
   /** 운영사가 통보한 준공마감일 — 마지막 기성(잔액)의 근거 */
   cpoCloseDate: string | null;

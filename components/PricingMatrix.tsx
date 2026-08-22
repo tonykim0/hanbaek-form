@@ -47,7 +47,6 @@ export interface Prefill {
   consUnit?: number;
   margin?: number;
   steps?: SettlementStepRule[];
-  note?: string;
   supplyItems?: string;
   promo?: PromoStep[] | null;
   promoExtendDeduct?: number | null;
@@ -69,7 +68,7 @@ function prefillOf(r: PricingRule, settle: SettlementRule | null): Prefill {
     channel: (r.channel as string) === '시공만' ? '시공' : r.channel,
     bizYear: r.bizYear,
     salesUnit: r.salesUnit, consUnit: r.consUnit, margin: r.margin,
-    steps: settle?.steps, note: r.note ?? undefined,
+    steps: settle?.steps,
     supplyItems: r.supplyItems ?? undefined,
     promo: r.promo,
     promoExtendDeduct: r.promoExtendDeduct,
@@ -419,14 +418,20 @@ function CaseList({
 
   return (
     <section className={`${PANEL} p-5 sm:p-6`}>
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+      {/* 매트릭스와 같은 모양으로 — 두 구역의 필터가 다르게 생기면 같은 일을 두 번 배운다 */}
+      <div className="mb-4 flex flex-wrap items-center gap-3">
         <h2 className="text-h3 font-black text-slate-900">케이스</h2>
-        <div className="flex flex-wrap gap-1">
-          {(['전체', ...CPO_NAMES] as const).map((c) => (
-            <Choice key={c} on={cpo === c} onClick={() => setCpo(c)}>
-              {c}
-            </Choice>
-          ))}
+        <div className="w-40">
+          <select
+            aria-label="운영사"
+            className={FIELD}
+            value={cpo}
+            onChange={(e) => setCpo(e.target.value as CpoName | '전체')}
+          >
+            {(['전체', ...CPO_NAMES] as const).map((c) => (
+              <option key={c} value={c}>{c}</option>
+            ))}
+          </select>
         </div>
       </div>
 
@@ -525,20 +530,19 @@ function Row({
   const { busy, error, run } = useAction();
   const [editing, setEditing] = useState(false);
   const [startDraft, setStartDraft] = useState(r.startDate);
-  const [noteDraft, setNoteDraft] = useState(r.note ?? '');
   // 기성 차수별 대당 금액 — 이 케이스의 받는 단가에 규칙을 적용한 값
   const stepAmount = settle ? stepUnits(settle.steps, receiveUnitOf(r)) : [];
 
   /*
    * 참조 없는 케이스는 「수정」으로 폼을 통째로 연다 — 이 빠른 칸은 참조된 케이스용이다.
-   * 참조되면 금액·축이 소급이라 못 고치고, 적용 시작·비고만 여기서 고친다
+   * 참조되면 금액·축이 소급이라 못 고치고, 적용 시작만 여기서 고친다
    * (지급액 계산에 안 쓰인다. 시드가 「2026년 하반기」처럼 대략만 아는 값을 넣는 일이 실제로 있다).
    */
   async function saveMeta() {
     const ok = await run({
       url: '/api/pricing',
       method: 'PATCH',
-      body: { id: r.id, startDate: startDraft, note: noteDraft.trim() || null },
+      body: { id: r.id, startDate: startDraft },
       fail: '고치지 못했습니다.',
     });
     if (ok) setEditing(false);
@@ -562,12 +566,6 @@ function Row({
               placeholder="2026년 7월 21일"
               className={`${FIELD_CELL} max-w-[150px]`}
             />
-            <input
-              value={noteDraft}
-              onChange={(e) => setNoteDraft(e.target.value)}
-              placeholder="비고"
-              className={`${FIELD_CELL} max-w-[260px]`}
-            />
             <Btn size="sm" busy={busy} busyLabel="저장 중…" onClick={() => void saveMeta()}>
               저장
             </Btn>
@@ -575,7 +573,7 @@ function Row({
               size="sm"
               kind="quiet"
               disabled={busy}
-              onClick={() => { setEditing(false); setStartDraft(r.startDate); setNoteDraft(r.note ?? ''); }}
+              onClick={() => { setEditing(false); setStartDraft(r.startDate); }}
             >
               취소
             </Btn>
@@ -583,9 +581,8 @@ function Row({
         ) : (
           <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-tiny text-slate-400">
             <code className="text-micro">{r.id}</code>
-            {r.note && <span className="break-keep">{r.note}</span>}
             {canEdit && referenced && (
-              <Btn size="sm" kind="quiet" onClick={() => setEditing(true)}>시작·비고 수정</Btn>
+              <Btn size="sm" kind="quiet" onClick={() => setEditing(true)}>적용 시작 수정</Btn>
             )}
           </p>
         )}
@@ -749,7 +746,6 @@ function CaseForm({
           : { trigger: s.trigger, kind: '잔액', value: '' }
     )
   );
-  const [note, setNote] = useState(prefill.note ?? '');
   /*
    * 정책 조건 — 케이스가 「얼마인가」 말고 「어떤 조건인가」를 담는 칸들.
    * 프로모션만 구간 배열이다(6개월 149원 → 6개월 220원처럼 이어진다). 나머지는 한 칸이다.
@@ -845,7 +841,6 @@ function CaseForm({
         salesUnit: sales, consUnit: cons, margin: mg,
         settlementSteps: stepRules,
         supervisionBearer: null, safetyFeeBearer: null,
-        note: note.trim() || null,
         /*
          * 빈 칸은 null 로 보낸다 — 빈 문자열·0 으로 보내면 「없음」이 되어 아직 안 적은 것과
          * 구별이 안 된다(화면 규칙 10번). 프로모션은 구간이 하나도 없으면 null 이다.
@@ -1176,15 +1171,7 @@ function CaseForm({
       </FormSection>
 
       <div className="mt-5 border-t border-slate-100 pt-4">
-        <Field label="비고" hint="금액만으로 설명되지 않는 것">
-          <input
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            className={`${FIELD} max-w-xl`}
-          />
-        </Field>
-
-        <div className="mt-4 flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {/* 막는 것을 단추 이름에 적는다 — 흐린 단추만으로는 왜 안 되는지 알 수 없다 */}
           <Btn
             disabled={Boolean(blocked)}

@@ -192,12 +192,6 @@ export interface SettlementRule {
 export type SettlementRuleChoice = Pick<SettlementRule, 'id' | 'name'>;
 
 /**
- * 단가 규칙 (매트릭스 케이스).
- *
- * ★불변★ 한 번 계약 라인에 지정되면 수정하지 않는다. 조건이 바뀌면 새 행을 추가한다.
- * 그래서 계약 라인은 값을 복사하지 않고 이 케이스를 참조만 한다 — 스냅샷이 필요 없다.
- */
-/**
  * 프로모션 한 구간 — 몇 개월간 얼마(원/kWh)인가. 구간이 이어져 전체 프로모션이 된다.
  * 나이스 10년: 6개월 149원 → 6개월 220원. 7년: 6개월 149원 한 구간.
  */
@@ -207,6 +201,12 @@ export interface PromoStep {
   rate: number;
 }
 
+/**
+ * 단가 규칙 (매트릭스 케이스).
+ *
+ * ★불변★ 한 번 계약 라인에 지정되면 수정하지 않는다. 조건이 바뀌면 새 행을 추가한다.
+ * 그래서 계약 라인은 값을 복사하지 않고 이 케이스를 참조만 한다 — 스냅샷이 필요 없다.
+ */
 export interface PricingRule {
   id: string;
   caseName: string;
@@ -240,7 +240,9 @@ export interface PricingRule {
   promo: PromoStep[] | null;
   /**
    * 프로모션 기간을 1개월 늘릴 때 영업비에서 떼는 금액(대당).
-   * ★금액이다 — 협력사에게 보이지 않는다★ (PricingRuleView 가 가린다).
+   *
+   * 금액이지만 협력사에게 가리지 않는다(한백 확인 2026-08-22) — 마진·원가와 달리 이것은
+   * 영업사가 프로모션을 더 붙일지 판단하는 데 필요한 조건이다. 자기 영업비에서 나가는 돈이다.
    */
   promoExtendDeduct: number | null;
   /** 충전요금 (원/kWh) — 프로모션이 끝난 뒤의 정상 요금 */
@@ -320,15 +322,10 @@ export interface ContractLine {
  *
  * 타입이 nullable 이므로 새 화면을 만들 때도 「없을 수 있다」를 강제로 다루게 된다.
  */
-export type PricingRuleView = Omit<
-  PricingRule,
-  'salesUnit' | 'consUnit' | 'margin' | 'promoExtendDeduct'
-> & {
+export type PricingRuleView = Omit<PricingRule, 'salesUnit' | 'consUnit' | 'margin'> & {
   salesUnit: number | null;
   consUnit: number | null;
   margin: number | null;
-  /* 프로모션 연장 차감도 금액이다 — 여기 두면 조립(assemble)이 가리는 것을 잊을 수 없다 */
-  promoExtendDeduct: number | null;
 };
 
 /** 화면이 받는 조립된 라인 — 참조가 풀려 있다 */

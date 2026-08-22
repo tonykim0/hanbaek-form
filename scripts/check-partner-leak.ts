@@ -74,14 +74,13 @@ async function main() {
        * 그러면 새 금액 칸을 더한 사람이 assemble 에서 가리는 것을 잊어도 아무도 모른다.
        * 그 자리를 여기서 값으로 확인한다.
        *
-       * margin·promoExtendDeduct 는 원가를 보는 사람만(vis.cost) 본다. salesUnit·consUnit 은
+       * margin 은 원가를 보는 사람만(vis.cost) 본다. salesUnit·consUnit 은
        * 자기 쪽만 보므로 role 에 따라 갈린다 — 영업사는 시공비가, 시공사는 영업비가 null 이다.
        */
       for (const l of detail.lines) {
         if (!l.rule) continue;
         const hidden: [string, unknown][] = [
           ['margin', l.rule.margin],
-          ['promoExtendDeduct', l.rule.promoExtendDeduct],
           [role === 'sales' ? 'consUnit' : 'salesUnit', role === 'sales' ? l.rule.consUnit : l.rule.salesUnit],
         ];
         for (const [key, v] of hidden) {

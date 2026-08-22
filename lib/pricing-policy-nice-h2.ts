@@ -175,10 +175,6 @@ function ruleOf(row: PolicyRow): NewPricingRule {
   // 화면(PricingMatrix)이 만드는 라벨과 같은 꼴로 — 같은 케이스가 두 얼굴로 뜨지 않게
   const caseName =
     `나이스인프라 (${NICE_H2_START}) | 공동주택 | ${row.term}년 ${row.replType} | ${row.powerType}`;
-  const feeText = row.feeSales > 0
-    ? `영업수수료 ${won(row.feeSales)}천원 + 공사수수료 ${won(row.feeCons)}천원`
-    : `공사수수료 ${won(row.feeCons)}천원(영업수수료 없음)`;
-
   /** 보조사업인가 — 투자사업은 지급자재의 미지급품목과 기타지원이 다르다 */
   const sub = row.replType === '환경부 신규';
 
@@ -207,11 +203,11 @@ function ruleOf(row: PolicyRow): NewPricingRule {
     installTerms: row.extra ? `${INSTALL_BASE} · ${row.extra}` : INSTALL_BASE,
     otherSupport: sub ? SUPPORT_SUB : SUPPORT_INV,
     /*
-     * 비고는 돈의 유래만 적는다 — 조건은 이제 칸이 있다. 둘 다 적으면 한쪽만 고쳐져 갈린다.
+     * 비고는 비운다 — 화면에서 걷어낸 칸이다(2026-08-22). 「영업수수료 200천원 + 공사수수료
+     * 2,400천원」 같은 돈의 유래는 이 파일 위쪽 주석이 정본이다. 화면에 안 보이는 자리에
+     * 같은 말을 또 두면, 정책이 바뀔 때 한쪽만 고쳐져 어느 것이 맞는지 알 수 없게 된다.
      */
-    note:
-      `26년 하반기 정책(2026-08-05 배포, 8/1 접수건~) — ${feeText}. ` +
-      `선금은 공사수수료의 50%. 마진 20만·시공비 100만 고정, 나머지가 영업비.`,
+    note: null,
     settlementSteps,
   };
 }

@@ -14,6 +14,9 @@
  *
  * 턴키 = salesUnit + consUnit + margin, 배포가 = salesUnit + consUnit — 28행 전부 검산 완료.
  * 기성 금액은 여기 없다. defaultSettlementRuleId 가 가리키는 규칙이 턴키에서 유도한다.
+ *
+ * 2026-08-22: 나이스 (하반기) 7년·10년 두 행을 걷어냈다 — 8월 1일 정책으로 갈리고
+ * 7월 접수건이 없어 쓸 자리가 없다(DB 에서도 지웠다). 시드에 남겨 두면 다시 심을 때 되살아난다.
  */
 import type { PricingRule } from '@/types/project';
 
@@ -72,19 +75,6 @@ const RULES: SeedRule[] = [
     defaultSettlementRuleId: "pl-2step",
     supervisionBearer: "영업비 차감", safetyFeeBearer: "한백 부담",
     note: "모자분리 공동주택 7년 신규 (배포가 190만)",
-    active: true,
-  },
-  {
-    id: "nice-h2-y7-mother-new-apt",
-    caseName: "나이스인프라 (하반기) | 공동주택 | 7년 신규 | 모자분리",
-    cpo: "나이스인프라", bizType: "환경부", powerType: "모자분리",
-    termYears: [7], bldgTypes: ["공동주택"], replType: "환경부 신규",
-    bizYear: 2026, startDate: "2026년 7월 1일",
-    channel: "턴키",
-    salesUnit: 1100000, consUnit: 900000, margin: 200000,
-    defaultSettlementRuleId: "nice-2step",
-    supervisionBearer: "운영사", safetyFeeBearer: "한백 대납(회수)",
-    note: null,
     active: true,
   },
   {
@@ -266,19 +256,6 @@ const RULES: SeedRule[] = [
     defaultSettlementRuleId: "nice-2step",
     supervisionBearer: "운영사", safetyFeeBearer: "한백 대납(회수)",
     note: "신규 모자분리 7년 지하. 배포가 195만",
-    active: true,
-  },
-  {
-    id: "nice-h2-y10-mother-new-apt",
-    caseName: "나이스인프라 (하반기) | 공동주택 | 10년 신규 | 모자분리",
-    cpo: "나이스인프라", bizType: "환경부", powerType: "모자분리",
-    termYears: [10], bldgTypes: ["공동주택"], replType: "환경부 신규",
-    bizYear: 2026, startDate: "2026년 7월 1일",
-    channel: "턴키",
-    salesUnit: 1300000, consUnit: 900000, margin: 200000,
-    defaultSettlementRuleId: "nice-2step",
-    supervisionBearer: "운영사", safetyFeeBearer: "한백 대납(회수)",
-    note: null,
     active: true,
   },
   {

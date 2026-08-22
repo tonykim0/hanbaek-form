@@ -451,13 +451,11 @@ export function redactForViewer(detail: ProjectDetail, vis: Visibility): Project
         consUnit: vis.cons ? l.rule.consUnit : null,
         margin: vis.cost ? l.rule.margin : null,
         /*
-         * 프로모션 연장 차감도 금액이다 — 케이스의 다른 정책 칸(지급자재·충전요금·설치조건·
-         * 기타지원)은 협력사도 알아야 하는 조건이지만, 이것은 우리가 얼마를 떼이는지다.
-         * ★타입이 안 잡아준다★ — number 는 number|null 에 대입되므로 이 줄을 빼먹어도
-         * 컴파일이 통과한다. 새 금액 칸을 더할 때는 여기도 같이 봐야 하고,
-         * `npm run check:leak` 이 그것을 기계적으로 확인한다.
+         * 프로모션 연장 차감은 가리지 않는다(한백 확인 2026-08-22) — 협력사도 봐야 하는
+         * 조건이다. 새 금액 칸을 더할 때 가려야 하는 것이면 여기 한 줄이 필요하고,
+         * 타입은 그것을 안 잡아준다(number 는 number|null 에 대입된다) —
+         * `npm run check:leak` 의 값 검사가 잡는다.
          */
-        promoExtendDeduct: vis.cost ? l.rule.promoExtendDeduct : null,
       },
     })),
   };

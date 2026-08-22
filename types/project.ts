@@ -251,6 +251,10 @@ export interface PricingRule {
   installTerms: string | null;
   /** 기타지원 — 한전불입금·전기안전점검 수수료·열화상처럼 운영사가 대주는 것 */
   otherSupport: string | null;
+  /** 병행 설치 — 다른 운영사 충전기와 같은 현장에 함께 설 수 있는가 (나이스: 단독이면 일부, 혼합 불가) */
+  coexistTerms: string | null;
+  /** 그 밖의 조건 — 교체공사 범위·계약 전 확인사항처럼 위 칸 어디에도 안 드는 것 */
+  miscTerms: string | null;
   /** 이 케이스에 통상 붙는 정산 규칙 — 제안값. 실제 적용은 현장(Project)에 둔다. */
   defaultSettlementRuleId: string;
   supervisionBearer: string | null;

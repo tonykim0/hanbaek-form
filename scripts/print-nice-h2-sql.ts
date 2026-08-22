@@ -32,6 +32,8 @@ for (const r of niceH2Rules()) {
   charge_rate         = ${n(r.chargeRate)},
   install_terms       = ${q(r.installTerms)},
   other_support       = ${q(r.otherSupport)},
+  coexist_terms       = ${q(r.coexistTerms)},
+  misc_terms          = ${q(r.miscTerms)},
   note                = ${q(r.note)}
 where id = '${id}';\n`);
 }

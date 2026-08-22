@@ -109,6 +109,8 @@ export const pricingRules = pgTable('pricing_rules', {
   chargeRate: integer('charge_rate'),
   installTerms: text('install_terms'),
   otherSupport: text('other_support'),
+  coexistTerms: text('coexist_terms'),
+  miscTerms: text('misc_terms'),
   /** 이 케이스에 통상 붙는 정산 규칙 — 제안값. 실제 적용은 현장에 둔다. */
   defaultSettlementRuleId: text('default_settlement_rule_id').references(() => settlementRules.id),
   supervisionBearer: text('supervision_bearer'),

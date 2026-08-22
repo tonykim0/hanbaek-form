@@ -33,6 +33,8 @@ const BLANK_POLICY = {
   chargeRate: null,
   installTerms: null,
   otherSupport: null,
+  coexistTerms: null,
+  miscTerms: null,
 } as const;
 
 type SeedRule = Omit<PricingRule, keyof typeof BLANK_POLICY>;

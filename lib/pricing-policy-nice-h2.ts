@@ -73,8 +73,8 @@ interface PolicyRow {
   feeSales: number;
   /** 공사 수수료, 천원 — 10년 가산(100)을 더한 값 */
   feeCons: number;
-  /** 설치조건에 덧붙일 행별 조건 — 없으면 빈 문자열 */
-  extra: string;
+  /** 기타 칸에 들어갈 행별 조건 — 없으면 null */
+  misc: string | null;
 }
 
 /*
@@ -114,51 +114,66 @@ const SUPPORT =
   '열화상 3면당 1대 무상 (옥내·지하 한정)'
   + ' · 전기안전점검 수수료는 한백 수령 — 하도급 미지급(턴키금액 포함)';
 /*
+ * 설치조건은 주차면 비율만 적는다(한백 확인 2026-08-23) — 병행은 제 칸(coexistTerms)이 있다.
  * 감리비는 적지 않는다 — 한전불입이 10기까지라 감리 대상이 아니고, 지원할 일도 없다
  * (한백 확인 2026-08-22). 「미지원」이라고 적으면 우리가 부담한다는 뜻으로 읽힌다.
+ * 나이스 케이스는 전부 공동주택이라 「공동주택 외」 비율을 칸으로 가를 자리가 없다 —
+ * 그쪽은 사전 협의 대상이라 케이스 자체가 없고, 협의되면 그때 케이스와 함께 갈린다.
  */
-const INSTALL_BASE =
-  '공동주택 주차면 5% · 공동주택 외(주거형 오피스텔 · 지식산업센터 등) 주차면 2%'
-  + ' · 나이스 단독은 일부 병행 가능(사전 협의) · 타사 혼합은 병행 불가';
+const INSTALL =
+  '공동주택 주차면 5% · 공동주택 외(주거형 오피스텔 · 지식산업센터 등) 주차면 2%';
+const COEXIST = '나이스 단독은 일부 병행 가능(사전 협의) · 타사 혼합은 병행 불가';
+
+/*
+ * 교체 관련 조건은 전부 「자체투자 (제자리교체)」 케이스의 기타 칸에 모은다 —
+ * 정책서 2쪽(투자사업)의 「계약 전 중요 확인 사항」과 수수료 표 비고에서 온 것들이고,
+ * 셋 다 기존 충전기를 걷어내는 현장에서만 생기는 일이다(한백 확인 2026-08-23).
+ * 신규위치는 교체가 아니라 새 자리 설치라 해당 없다.
+ */
+const REPLACE_MISC =
+  '교체공사는 노후설비에 따른 일부 재시공 필수 — 분전함~충전기 케이블·배관 신설,'
+  + ' 차단기·튜브 교체, 도색(레터링). 배관이 후강전선관·덕트면 재사용 가능'
+  + ' · 교체 전 입주민 의향조사(민원 사전 차단)'
+  + ' · 타CPO 교체는 계약종료 확인 — 해지 내용증명·소유권, 보조금 의무운영 5년 경과';
 
 const ROWS: PolicyRow[] = [
   // 보조사업 — 수수료(분리) 표. 교체는 논외(자체투자로만 한다)
   {
     replType: '환경부 신규', powerType: '모자분리', term: 7,
     feeSales: 200, feeCons: 2400,
-    extra: '',
+    misc: null,
   },
   {
     replType: '환경부 신규', powerType: '모자분리', term: 10,
     feeSales: 200, feeCons: 2400 + 100,
-    extra: '',
+    misc: null,
   },
   {
     replType: '환경부 신규', powerType: '한전불입', term: 10,
     feeSales: 200, feeCons: 2200,
     // 10년 계약만 있고 기수 상한이 붙는다 — 이 상한 때문에 감리 대상도 아니다
-    extra: '한전불입금 지원은 10기 이내',
+    misc: '한전불입금 지원은 10기 이내',
   },
   // 투자사업 — 수수료(턴키) 표. 영업 열이 비어 총액이 공사뿐이다. 한전수전은 불가
   {
     replType: '자체투자 (제자리교체)', powerType: '모자분리', term: 7,
     feeSales: 0, feeCons: 2000,
-    extra: '교체공사는 노후설비에 따른 일부 재시공 필수 — 분전함~충전기 케이블·배관 신설, 차단기·튜브 교체, 도색(레터링). 배관이 후강전선관·덕트면 재사용 가능',
+    misc: REPLACE_MISC,
   },
   {
     replType: '자체투자 (제자리교체)', powerType: '모자분리', term: 10,
     feeSales: 0, feeCons: 2000 + 100,
-    extra: '교체공사는 노후설비에 따른 일부 재시공 필수 — 분전함~충전기 케이블·배관 신설, 차단기·튜브 교체, 도색(레터링). 배관이 후강전선관·덕트면 재사용 가능',
+    misc: REPLACE_MISC,
   },
   {
     replType: '자체투자 (신규위치)', powerType: '모자분리', term: 7,
     feeSales: 0, feeCons: 2000,
-    extra: '교체 전 입주민 의향조사 필요(민원 사전 차단). 타CPO 교체는 계약종료 확인 필수 — 해지 내용증명·소유권, 보조금 의무운영 5년 경과',
+    misc: null,
   },
   {
     replType: '자체투자 (신규위치)', powerType: '모자분리', term: 10,
     feeSales: 0, feeCons: 2000 + 100,
-    extra: '교체 전 입주민 의향조사 필요(민원 사전 차단). 타CPO 교체는 계약종료 확인 필수 — 해지 내용증명·소유권, 보조금 의무운영 5년 경과',
+    misc: null,
   },
 ];
 
@@ -204,8 +219,10 @@ function ruleOf(row: PolicyRow): NewPricingRule {
     // 연장 차감 단가는 정책서에 없다 — 아직 정해진 값이 없어 미지정으로 둔다(한백 확인 2026-08-22)
     promoExtendDeduct: null,
     chargeRate: CHARGE_RATE,
-    installTerms: row.extra ? `${INSTALL_BASE} · ${row.extra}` : INSTALL_BASE,
+    installTerms: INSTALL,
     otherSupport: SUPPORT,
+    coexistTerms: COEXIST,
+    miscTerms: row.misc,
     /*
      * 비고는 비운다 — 화면에서 걷어낸 칸이다(2026-08-22). 「영업수수료 200천원 + 공사수수료
      * 2,400천원」 같은 돈의 유래는 이 파일 위쪽 주석이 정본이다. 화면에 안 보이는 자리에
@@ -309,7 +326,9 @@ export async function applyNiceH2(
         && dup.promoExtendDeduct === rule.promoExtendDeduct
         && dup.chargeRate === rule.chargeRate
         && dup.installTerms === rule.installTerms
-        && dup.otherSupport === rule.otherSupport;
+        && dup.otherSupport === rule.otherSupport
+        && dup.coexistTerms === rule.coexistTerms
+        && dup.miscTerms === rule.miscTerms;
       const same = sameMoney
         && samePolicy
         && stepsKeyById.get(dup.defaultSettlementRuleId) === settlementStepsKeyOf(rule.settlementSteps)

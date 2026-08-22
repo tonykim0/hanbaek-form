@@ -53,6 +53,8 @@ export interface Prefill {
   chargeRate?: number | null;
   installTerms?: string;
   otherSupport?: string;
+  coexistTerms?: string;
+  miscTerms?: string;
   /**
    * 개정일 때 원 케이스의 startKey — 새 시작이 이보다 늦어야 저장된다.
    * 이르거나 같으면 매트릭스가 옛 케이스를 최신으로 집어 개정이 안 보이는 상태가 된다.
@@ -75,6 +77,8 @@ function prefillOf(r: PricingRule, settle: SettlementRule | null): Prefill {
     chargeRate: r.chargeRate,
     installTerms: r.installTerms ?? undefined,
     otherSupport: r.otherSupport ?? undefined,
+    coexistTerms: r.coexistTerms ?? undefined,
+    miscTerms: r.miscTerms ?? undefined,
   };
 }
 
@@ -305,7 +309,9 @@ function Grid({
     },
     { label: '지급자재', of: (r) => r.supplyItems },
     { label: '설치조건', of: (r) => r.installTerms },
+    { label: '병행', of: (r) => r.coexistTerms },
     { label: '기타지원', of: (r) => r.otherSupport },
+    { label: '기타', of: (r) => r.miscTerms },
   ];
 
   /** 한 칸(연수 × 유형)에 지금 적용 중인 케이스들 — 값 칸에 숫자가 뜨는 그 케이스들이다 */
@@ -317,7 +323,8 @@ function Grid({
   /** 칸 하나의 정책 값 — 케이스마다 다르면 둘 다 적는다. 아무 케이스도 없으면 null */
   const policyAt = (term: number, bldg: BuildingType, of: (r: PricingRule) => string | null) => {
     const vals = [...new Set(casesAt(term, bldg).map(of).filter((v): v is string => Boolean(v)))];
-    return vals.length === 0 ? null : vals.join(' / ');
+    // 값이 여럿이면(케이스마다 갈리면) 줄로 가른다 — ' / ' 로 이으면 긴 글이 한 덩어리가 된다
+    return vals.length === 0 ? null : vals.join('\n');
   };
 
   /*
@@ -403,7 +410,9 @@ function Grid({
               {gridTerms.flatMap((t) =>
                 BUILDING_TYPES.map((b) => (
                   <th key={`${t}-${b}`} className={`px-3 pb-2 text-right font-semibold ${b === '공동주택' ? 'border-l border-slate-100' : ''}`}>
-                    {b === '공동주택' ? '공동' : '상업'}
+                    {/* 「상업」이 아니다 — 이 축은 공동주택이 아닌 전부다(주거형 오피스텔·지식산업센터 등).
+                        무엇이 드는지는 아래 설치조건 행이 말한다 (한백 확인 2026-08-23) */}
+                    {b === '공동주택' ? '공동' : '공동 외'}
                   </th>
                 ))
               )}
@@ -474,7 +483,7 @@ function Grid({
                   <td
                     key={i}
                     colSpan={c.span}
-                    className={`break-keep px-3 py-2 text-tiny ${i === 0 ? '' : 'border-l border-slate-100'} ${
+                    className={`whitespace-pre-line break-keep px-3 py-2 text-tiny ${i === 0 ? '' : 'border-l border-slate-100'} ${
                       c.span >= 4 ? 'text-left' : c.span > 1 ? 'text-center' : 'text-right'
                     }`}
                   >
@@ -879,6 +888,8 @@ function CaseForm({
   const [chargeRate, setChargeRate] = useState(money(prefill.chargeRate ?? undefined));
   const [installTerms, setInstallTerms] = useState(prefill.installTerms ?? '');
   const [otherSupport, setOtherSupport] = useState(prefill.otherSupport ?? '');
+  const [coexistTerms, setCoexistTerms] = useState(prefill.coexistTerms ?? '');
+  const [miscTerms, setMiscTerms] = useState(prefill.miscTerms ?? '');
 
   /*
    * 목록의 수정·개정, 그리드 칸에서 열리면 폼이 화면 밖(맨 위)에 있다 — 눌렀는데 아무 일도
@@ -971,6 +982,8 @@ function CaseForm({
         chargeRate: chargeRate.trim() === '' ? null : num(chargeRate),
         installTerms: installTerms.trim() || null,
         otherSupport: otherSupport.trim() || null,
+        coexistTerms: coexistTerms.trim() || null,
+        miscTerms: miscTerms.trim() || null,
       },
       fail: editId ? '고치지 못했습니다.' : '넣지 못했습니다.',
     });
@@ -1270,11 +1283,19 @@ function CaseForm({
             </div>
           </div>
 
-          <Field label="설치조건" hint="할 수 있는가를 정하는 것 — 비율 · 내구연한 · 기수 산정">
+          <Field label="설치조건" hint="할 수 있는가를 정하는 것 — 주차면 비율 · 내구연한 · 기수 산정">
             <textarea
               value={installTerms}
               onChange={(e) => setInstallTerms(e.target.value)}
-              rows={3}
+              rows={2}
+              className={FIELD}
+            />
+          </Field>
+
+          <Field label="병행" hint="다른 운영사와 같은 현장에 함께 설 수 있는가">
+            <input
+              value={coexistTerms}
+              onChange={(e) => setCoexistTerms(e.target.value)}
               className={FIELD}
             />
           </Field>
@@ -1283,7 +1304,16 @@ function CaseForm({
             <textarea
               value={otherSupport}
               onChange={(e) => setOtherSupport(e.target.value)}
-              rows={3}
+              rows={2}
+              className={FIELD}
+            />
+          </Field>
+
+          <Field label="기타" hint="위 어디에도 안 드는 조건 — 교체공사 범위 · 계약 전 확인사항">
+            <textarea
+              value={miscTerms}
+              onChange={(e) => setMiscTerms(e.target.value)}
+              rows={2}
               className={FIELD}
             />
           </Field>

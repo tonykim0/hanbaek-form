@@ -35,7 +35,16 @@ for (const r of niceH2Rules()) {
   note                = ${q(r.note)}
 where id = '${id}';\n`);
 }
+/*
+ * 옛 케이스의 비고 값 — 화면에서 비고를 걷어냈으므로(2026-08-22) 남겨 두면 아무도 못 보는
+ * 자리에 글이 쌓인다. 한백 지시로 비운다. 되짚을 근거는 doc/PRICING_MATRIX.md 와
+ * lib/data/seed/pricing-rules.ts 에 있다.
+ */
+console.log('-- 화면에서 걷어낸 칸이라 옛 케이스의 비고도 비운다 (한백 지시 2026-08-22)');
+console.log('update pricing_rules set note = null where note is not null;\n');
+
 console.log('commit;\n');
-console.log(`-- 확인: 7 이 나와야 합니다
+console.log(`-- 확인: 위는 7, 아래는 0 이 나와야 합니다
 select count(*) from pricing_rules
-where cpo = '나이스인프라' and start_date = '2026년 8월 1일' and charge_rate = 295;`);
+where cpo = '나이스인프라' and start_date = '2026년 8월 1일' and charge_rate = 295;
+select count(*) from pricing_rules where note is not null;`);

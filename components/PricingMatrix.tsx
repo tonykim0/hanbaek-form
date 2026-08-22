@@ -251,16 +251,22 @@ function Grid({
 
   /* 턴키 채널만 격자에 편다 — 영업·시공 채널은 드물어 목록에서 본다. 있으면 아래에 개수로 보인다 */
   const mine = rules.filter((r) => r.cpo === cpo && r.channel === '턴키');
+
+  /*
+   * 연수 열은 그 운영사의 케이스에서 유도한다 — 5·7·10년을 늘 펴 두면 5년 정책이 있는 곳은
+   * 에버온뿐이라(한백 확인 2026-08-22) 나머지 넷은 늘 빈 열 둘을 끌고 다닌다.
+   * 그 빈 칸은 「케이스가 없다」가 아니라 「그 운영사에 없는 계약기간」이고, 둘은 다른 말이다.
+   * 케이스가 아직 없는 운영사는 7·10년으로 편다 — 격자의 빈 칸이 케이스를 만드는 입구다.
+   */
+  const gridTerms = (() => {
+    const found = [...new Set(mine.flatMap((r) => r.termYears))].sort((a, b) => a - b);
+    return found.length > 0 ? found : [7, 10];
+  })();
   const sideCount = rules.filter((r) => r.cpo === cpo && r.channel !== '턴키').length;
 
   /* 시기 탭은 전 운영사의 케이스에서 뽑는다 — 운영사를 바꿔도 탭이 그대로라 길을 잃지 않는다 */
   const halves = [...new Set(rules.filter((r) => r.channel === '턴키').map(halfKeyOf))].sort();
   const half = halfPick && halves.includes(halfPick) ? halfPick : halves[halves.length - 1] ?? null;
-
-  /* 고른 시기에 적용 중인 케이스 — 정책 조건 요약이 이것을 묶는다 */
-  const inHalf = half
-    ? mine.filter((r) => startKey(r) <= halfEndKey(half))
-    : [];
 
   /** 칸에서 이 시기에 적용 중인 케이스 — 그 반기까지 시작된 것 중 최신. 이전 반기 것이면 이월이다 */
   const at = (repl: ReplType, power: (typeof POWER_TYPES)[number], term: number, bldg: BuildingType) => {
@@ -275,6 +281,67 @@ function Grid({
       .sort((a, b) => startKey(b).localeCompare(startKey(a)));
     const now = hits[0] ?? null;
     return { now, carried: now !== null && halfKeyOf(now) !== half };
+  };
+
+  /*
+   * ── 정책 조건 행 ──────────────────────────────────────────────────────
+   * 단가 아래에 조건을 같은 표의 행으로 잇는다 — 정책서가 그 꼴이고(구분 | 기준),
+   * 조건이 연수·건축물유형으로 갈리는 것도 여기서 그대로 보인다(주차면 5% vs 2%).
+   *
+   * 한 칸의 값은 그 칸에 지금 적용 중인 케이스들에서 모은다 — 값이 서로 다르면 둘 다 적는다.
+   * 감추면 「이 축의 조건이 갈린다」는 사실이 사라진다.
+   */
+  const POLICY_ROWS: { label: string; of: (r: PricingRule) => string | null }[] = [
+    { label: '충전요금', of: (r) => (r.chargeRate === null ? null : `${won(r.chargeRate)}원`) },
+    {
+      label: '프로모션',
+      of: (r) => (r.promo === null ? null
+        : r.promo.length === 0 ? '없음'
+          : r.promo.map((x) => `${x.months}개월 ${won(x.rate)}원`).join(' → ')),
+    },
+    {
+      label: '연장 차감',
+      of: (r) => (r.promoExtendDeduct === null ? null : `${won(r.promoExtendDeduct)}원/개월`),
+    },
+    { label: '지급자재', of: (r) => r.supplyItems },
+    { label: '설치조건', of: (r) => r.installTerms },
+    { label: '기타지원', of: (r) => r.otherSupport },
+  ];
+
+  /** 한 칸(연수 × 유형)에 지금 적용 중인 케이스들 — 값 칸에 숫자가 뜨는 그 케이스들이다 */
+  const casesAt = (term: number, bldg: BuildingType) =>
+    REPL_TYPES.flatMap((repl) =>
+      POWER_TYPES.map((power) => at(repl, power, term, bldg).now)
+    ).filter((r): r is PricingRule => r !== null);
+
+  /** 칸 하나의 정책 값 — 케이스마다 다르면 둘 다 적는다. 아무 케이스도 없으면 null */
+  const policyAt = (term: number, bldg: BuildingType, of: (r: PricingRule) => string | null) => {
+    const vals = [...new Set(casesAt(term, bldg).map(of).filter((v): v is string => Boolean(v)))];
+    return vals.length === 0 ? null : vals.join(' / ');
+  };
+
+  /*
+   * 값이 같은 옆칸을 하나로 묶는다 — 안 묶으면 「스탠드폴 + 가림막」이 여섯 번 적힌다.
+   * 정책서도 같은 값은 셀을 병합해 두었고, 병합된 폭이 곧 「이 조건이 어디까지 같은가」다.
+   *
+   * ★값이 한 가지뿐이면 전 칸을 한 칸으로 묶는다.★ 열이 여섯이라 칸 하나가 100px 남짓인데,
+   * 설치조건 같은 긴 글이 그 폭에 들어가면 한 행이 열 줄이 된다. 조건은 대개 축과 무관하게
+   * 같은 값이고(빈 칸은 그 축에 케이스가 없다는 뜻일 뿐이다), 그럴 때 쪼개 봤자 읽히지 않는다.
+   * 실제로 갈리는 조건(연수마다 다른 프로모션)만 칸이 쪼개진다.
+   */
+  const spansOf = (of: (r: PricingRule) => string | null) => {
+    const cells = gridTerms.flatMap((t) => BUILDING_TYPES.map((b) => policyAt(t, b, of)));
+    const distinct = [...new Set(cells.filter((v): v is string => v !== null))];
+    if (distinct.length <= 1) {
+      return [{ value: distinct[0] ?? null, span: cells.length }];
+    }
+    const out: { value: string | null; span: number }[] = [];
+    for (const v of cells) {
+      const last = out[out.length - 1];
+      if (last && last.value === v) last.span += 1;
+      else out.push({ value: v, span: 1 });
+    }
+    return out;
   };
 
   return (
@@ -321,19 +388,19 @@ function Grid({
         <table className="w-full min-w-[860px] table-fixed text-base">
           <colgroup>
             <col className="w-56" />
-            {TERMS.flatMap((t) =>
+            {gridTerms.flatMap((t) =>
               BUILDING_TYPES.map((b) => <col key={`${t}-${b}`} />)
             )}
           </colgroup>
           <thead className="border-b border-slate-200 bg-slate-50 text-tiny font-bold tracking-[0.06em] text-slate-500">
             <tr>
               <th className="px-3 py-2.5 text-left" rowSpan={2}>교체유형 · 수전</th>
-              {TERMS.map((t) => (
+              {gridTerms.map((t) => (
                 <th key={t} colSpan={2} className="border-l border-slate-100 px-3 pt-2 text-center">{t}년</th>
               ))}
             </tr>
             <tr>
-              {TERMS.flatMap((t) =>
+              {gridTerms.flatMap((t) =>
                 BUILDING_TYPES.map((b) => (
                   <th key={`${t}-${b}`} className={`px-3 pb-2 text-right font-semibold ${b === '공동주택' ? 'border-l border-slate-100' : ''}`}>
                     {b === '공동주택' ? '공동' : '상업'}
@@ -351,7 +418,7 @@ function Grid({
                     <span className="font-bold text-slate-700">{repl}</span>
                     <span className="ml-1.5 text-tiny text-slate-400">{power}</span>
                   </td>
-                  {TERMS.flatMap((term) =>
+                  {gridTerms.flatMap((term) =>
                     BUILDING_TYPES.map((bldg) => {
                       const { now, carried } = at(repl, power, term, bldg);
                       return (
@@ -395,6 +462,30 @@ function Grid({
               ))
             )}
           </tbody>
+
+          {/* 단가와 조건을 한 표로 잇는다 — 굵은 선 한 겹으로만 가른다(상자를 겹치지 않는다) */}
+          <tbody className="divide-y divide-slate-100 border-t-2 border-slate-200">
+            {POLICY_ROWS.map((row) => (
+              <tr key={row.label} className="align-top">
+                <td className="px-3 py-2">
+                  <span className="text-tiny font-bold text-slate-500">{row.label}</span>
+                </td>
+                {spansOf(row.of).map((c, i) => (
+                  <td
+                    key={i}
+                    colSpan={c.span}
+                    className={`break-keep px-3 py-2 text-tiny ${i === 0 ? '' : 'border-l border-slate-100'} ${
+                      c.span >= 4 ? 'text-left' : c.span > 1 ? 'text-center' : 'text-right'
+                    }`}
+                  >
+                    {c.value === null
+                      ? <Empty kind="wait" />
+                      : <span className="text-slate-700">{c.value}</span>}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
         </table>
       </div>
 
@@ -402,53 +493,7 @@ function Grid({
         <span>칸 값은 고른 시기에 적용 중인 받는 단가 · 연한 값은 이전 시기 단가의 이월</span>
         {sideCount > 0 && <span>영업·시공 채널 케이스 {sideCount}건은 아래 목록에</span>}
       </p>
-
-      <PolicySummary rules={inHalf} />
     </section>
-  );
-}
-
-/*
- * 매트릭스가 보고 있는 운영사·시기의 정책 조건.
- *
- * ★왜 칸마다 두지 않는가★ 격자 한 칸은 연수 × 건축물유형이고 값이 대당 단가 하나다.
- * 거기에 조건 여섯 줄을 넣으면 36칸에 같은 말이 서른여섯 번 적힌다 — 조건은 대개 운영사·
- * 시기가 정하고, 갈리는 것은 프로모션(연수) 정도다. 그래서 갈리는 만큼만 묶어 표 아래 둔다.
- *
- * 케이스가 서로 다른 값을 들고 있으면 묶음이 여럿 뜬다 — 그것이 「이 운영사 조건이 축마다
- * 다르다」는 사실이고, 감출 것이 아니다.
- */
-function PolicySummary({ rules }: { rules: PricingRule[] }) {
-  const groups = new Map<string, { rules: PricingRule[]; sample: PricingRule }>();
-  for (const r of rules) {
-    const key = JSON.stringify([
-      r.supplyItems, r.promo, r.promoExtendDeduct, r.chargeRate, r.installTerms, r.otherSupport,
-    ]);
-    const hit = groups.get(key);
-    if (hit) hit.rules.push(r);
-    else groups.set(key, { rules: [r], sample: r });
-  }
-  if (groups.size === 0) return null;
-
-  return (
-    <div className="mt-4 border-t border-slate-100 pt-4">
-      <p className="mb-2.5 text-tiny font-bold tracking-[0.04em] text-slate-500">정책 조건</p>
-      <div className="flex flex-col gap-3">
-        {[...groups.values()].map(({ rules: rs, sample }) => (
-          <div key={sample.id} className="flex flex-col gap-1">
-            {/* 어느 축의 조건인지 — 묶음이 하나면 굳이 적지 않는다(같은 말이 두 번이 된다) */}
-            {groups.size > 1 && (
-              <p className="flex flex-wrap gap-1">
-                {[...new Set(rs.map((r) => `${r.termYears.join('·')}년 ${r.replType}`))].map((t) => (
-                  <Tag key={t}>{t}</Tag>
-                ))}
-              </p>
-            )}
-            <PolicyCell r={sample} wide />
-          </div>
-        ))}
-      </div>
-    </div>
   );
 }
 
@@ -529,10 +574,10 @@ function CaseList({
  * 설치조건·기타지원)은 길어서 두 줄로 자른다 — 전문은 「수정」·「개정」 폼에 있다.
  * 자르는 것과 비어 있는 것을 가른다: 빈 칸은 「미지정」이라고 적는다(화면 규칙 6·10번).
  */
-function PolicyCell({ r, wide = false }: { r: PricingRule; wide?: boolean }) {
+function PolicyCell({ r }: { r: PricingRule }) {
   const promo = r.promo;
   return (
-    <div className={`flex flex-col gap-1 text-tiny text-slate-600 ${wide ? 'w-full' : 'w-64'}`}>
+    <div className="flex w-64 flex-col gap-1 text-tiny text-slate-600">
       <p className="whitespace-nowrap">
         <span className="font-bold text-slate-400">충전</span>{' '}
         {r.chargeRate === null ? <Empty kind="miss" /> : <span className="font-bold tabular-nums text-slate-800">{won(r.chargeRate)}원</span>}
@@ -560,7 +605,7 @@ function PolicyCell({ r, wide = false }: { r: PricingRule; wide?: boolean }) {
         ['설치조건', r.installTerms],
         ['기타지원', r.otherSupport],
       ] as const).map(([label, v]) => (
-        <p key={label} className={wide ? 'break-keep' : 'line-clamp-2'}>
+        <p key={label} className="line-clamp-2">
           <span className="font-bold text-slate-400">{label}</span>{' '}
           {v ? <span className="text-slate-700">{v}</span> : <Empty kind="miss" />}
         </p>

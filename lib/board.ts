@@ -24,6 +24,19 @@ export type BoardColumn = '계약접수' | '계약검토' | '계약보완' | Pro
 /** 칸을 묶는 띠 — 11칸이 한 줄로 늘어서면 눈이 구역을 못 찾는다 */
 export type BoardBand = '계약' | '시공' | '멈춤';
 
+/**
+ * 띠의 말투 — 배지 색은 부품(components/ui)의 Tone 이름으로 부른다.
+ *
+ * 여기 한 곳에 두는 이유: 같은 띠 색을 보드·표·현장 상세가 각자 적고 있었고,
+ * 현장 상세만 생클래스(bg-slate-800)여서 뜻이 아니라 색으로 굳어 있었다.
+ * 색을 바꿀 일이 생기면 여기만 고친다.
+ */
+export const BAND_TONE = {
+  계약: 'stage',
+  시공: 'ok',
+  멈춤: 'hold',
+} as const satisfies Record<BoardBand, string>;
+
 export interface BoardColumnDef {
   key: BoardColumn;
   label: string;

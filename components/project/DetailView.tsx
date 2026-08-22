@@ -19,9 +19,9 @@ import type { ContractState, ProjectDetail, SettlementRuleChoice } from '@/types
 import { useAction } from '@/lib/use-action';
 import { today } from '@/lib/date';
 import { DatePicker } from '@/components/DatePicker';
-import { Btn, Empty, Err, FIELD, Val } from '@/components/ui';
+import { Badge, Btn, Empty, Err, FIELD, Tag, type Tone, Val } from '@/components/ui';
 import { buildDocContext, evaluateDocs, isPartyInferred, PROCESS_DOCS } from '@/lib/doc-rules';
-import { bandOfColumn, boardColumnOf, type BoardBand } from '@/lib/board';
+import { BAND_TONE, bandOfColumn, boardColumnOf } from '@/lib/board';
 import type { ProcessEdit } from '@/lib/process';
 import type { Visibility } from '@/lib/roles';
 import type { RuleOptions } from '@/lib/pricing-match';
@@ -278,24 +278,24 @@ function SiteHeader({
   const terms = [...new Set(lines.map((l) => l.termYears))];
 
   /** 이 현장을 지금 세우고 있는 것 */
-  const blockers: Array<{ label: string; tone: string }> = [];
+  const blockers: Array<{ label: string; tone: Tone }> = [];
   if (project.holdState) {
     blockers.push({
       label: `${project.holdState}${project.holdNote ? ` — ${project.holdNote}` : ''}`,
-      tone: 'bg-slate-800 text-white',
+      tone: 'hold',
     });
   }
   if (contract.rejected > 0) {
-    blockers.push({ label: `반려 ${contract.rejected}건`, tone: 'bg-red-100 text-red-800' });
+    blockers.push({ label: `반려 ${contract.rejected}건`, tone: 'stop' });
   }
   if (stage === 'intake' && !contract.docsFilled) {
-    blockers.push({ label: '필수 서류 미충족', tone: 'bg-amber-100 text-amber-900' });
+    blockers.push({ label: '필수 서류 미충족', tone: 'warn' });
   }
   // 단가 미지정은 머리말에 안 띄운다(한백 확인) — 정산 탭의 지정 자리가 그 말을 한다
   if (stalledDays >= 14) {
     blockers.push({
       label: `${stalledDays}일째 그대로`,
-      tone: stalledDays >= 30 ? 'bg-red-100 text-red-800' : 'bg-amber-100 text-amber-900',
+      tone: stalledDays >= 30 ? 'stop' : 'warn',
     });
   }
 
@@ -313,11 +313,9 @@ function SiteHeader({
         * 이 화면에서 가장 먼저 알아야 하는 것이 「지금 어느 칸에 있나」다.
         */}
       <div className="flex flex-wrap items-center gap-2">
-        <span
-          className={`inline-flex rounded-full px-3 py-1 text-base font-black ${BAND_TONE[band]}`}
-          title="보드에서 이 현장이 서는 칸"
-        >
-          {column}
+        {/* 이 화면에서 가장 먼저 읽는 값이라 큰 배지다 — 크기도 부품이 쥔다 */}
+        <span title="보드에서 이 현장이 서는 칸">
+          <Badge tone={BAND_TONE[band]} size="lg">{column}</Badge>
         </span>
         {/* 멈춤·재개는 한백만 — 여는 자리는 글자만이고 사유를 적어야 확정된다 */}
         {canReview && <StopControl projectId={project.id} held={project.holdState} />}
@@ -392,9 +390,7 @@ function SiteHeader({
       {blockers.length > 0 && (
         <div className="mt-3 flex flex-wrap gap-1.5">
           {blockers.map((b) => (
-            <span key={b.label} className={`rounded-full px-2.5 py-1 text-tiny font-bold ${b.tone}`}>
-              {b.label}
-            </span>
+            <Tag key={b.label} tone={b.tone}>{b.label}</Tag>
           ))}
         </div>
       )}
@@ -407,13 +403,6 @@ function SiteHeader({
     </div>
   );
 }
-
-/** 띠별 색 — 보드의 띠 색과 맞춘다 */
-const BAND_TONE: Record<BoardBand, string> = {
-  계약: 'bg-sky-100 text-sky-900',
-  시공: 'bg-brand-100 text-brand-900',
-  멈춤: 'bg-slate-800 text-white',
-};
 
 /**
  * 승인 흐름 두 줄 — 머리말 3·4줄이다 (한백 확인 2026-08-21).

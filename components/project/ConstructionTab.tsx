@@ -25,7 +25,7 @@ import { DocDelete, DocFileActions, DocUpload, DownloadAll } from '@/components/
 import { DatePicker } from '@/components/DatePicker';
 import { today } from '@/lib/date';
 import { useAction } from '@/lib/use-action';
-import { Btn, FIELD, Note } from '@/components/ui';
+import { Badge, Btn, FIELD, Note } from '@/components/ui';
 
 /** 고칠 수 있는 날짜 칸 — 이름은 서버(ProcessPatch)와 같아야 한다 */
 type DateField =
@@ -310,17 +310,9 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
               {/* 구간 머리 — 무엇을 보고 있고, 그 구간으로 옮길 수 있으면 단추가 여기 선다 */}
               <div className="flex flex-wrap items-center gap-2">
                 <h3 className="text-base font-black text-slate-900">{selected}</h3>
-                <span
-                  className={`rounded-full px-2 py-0.5 text-micro font-bold ${
-                    selState === 'current'
-                      ? 'bg-brand-100 text-brand-900'
-                      : selState === 'past'
-                        ? 'bg-slate-100 text-slate-500'
-                        : 'border border-slate-200 bg-white text-slate-400'
-                  }`}
-                >
+                <Badge tone={selState === 'current' ? 'ok' : 'mute'}>
                   {selState === 'current' ? '지금 구간' : selState === 'past' ? '지난 구간' : '오지 않은 구간'}
-                </span>
+                </Badge>
                 {edit === 'all' && selState !== 'current' && (
                   selEntry.ok ? (
                     <button
@@ -566,14 +558,9 @@ function DateRow({
         </span>
       )}
       <span className="flex-1" />
+      {/* 날짜가 들어오면 기성 트리거가 열린다 — 사람이 봐야 하는 것이라 노랑이다 */}
       {m.trigger && (
-        <span
-          className={`rounded-full px-2.5 py-0.5 text-tiny font-bold ${
-            m.value ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-500'
-          }`}
-        >
-          {m.trigger} 트리거
-        </span>
+        <Badge tone={m.value ? 'warn' : 'mute'}>{m.trigger} 트리거</Badge>
       )}
     </div>
   );

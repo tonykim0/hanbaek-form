@@ -19,10 +19,10 @@ import Link from 'next/link';
 import type { ProcessStatus, ProjectSummary } from '@/types/project';
 import { PROCESS_STATUSES } from '@/types/project';
 import {
-  bandOfColumn, BOARD_COLUMNS, boardColumnOf, type BoardBand, type BoardColumn,
+  BAND_TONE, bandOfColumn, BOARD_COLUMNS, boardColumnOf, type BoardColumn,
 } from '@/lib/board';
 import type { AttrFilters, AttrKey } from '@/lib/project-filter';
-import { Badge, Blank, Tag, type Tone } from '@/components/ui';
+import { Badge, Blank, Tag } from '@/components/ui';
 
 type SortKey = 'name' | 'stage' | 'qty' | 'term' | 'created';
 
@@ -83,14 +83,6 @@ function termsOf(p: ProjectSummary): string {
   return years.length === 0 ? '—' : years.map((y) => `${y}년`).join(' · ');
 }
 const maxTermOf = (p: ProjectSummary) => Math.max(0, ...p.lines.map((l) => l.termYears));
-
-/** 단계 배지 색 — 보드의 띠 색과 맞춘다 */
-/** 띠 색은 뜻이다 — 부품(components/ui)의 말투 이름으로 부른다. 여기서 색을 적지 않는다 */
-const BAND_TONE: Record<BoardBand, Tone> = {
-  계약: 'stage',
-  시공: 'ok',
-  멈춤: 'hold',
-};
 
 export default function ProjectTable({
   projects, canMove, onMove, busyId, filters, options, onFilter, tab,
@@ -281,16 +273,8 @@ export default function ProjectTable({
                     </span>
                     <div className="mt-0.5 flex flex-wrap items-center gap-1">
                       {p.addr && <span className="text-tiny text-slate-400">{p.addr}</span>}
-                      {p.rejectedDocs > 0 && (
-                        <span className="rounded-full bg-red-100 px-1.5 py-0.5 text-micro font-bold text-red-800">
-                          반려 {p.rejectedDocs}
-                        </span>
-                      )}
-                      {!p.priced && (
-                        <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-micro font-bold text-slate-500">
-                          단가 미지정
-                        </span>
-                      )}
+                      {p.rejectedDocs > 0 && <Tag tone="stop">반려 {p.rejectedDocs}</Tag>}
+                      {!p.priced && <Tag>단가 미지정</Tag>}
                     </div>
                   </td>
                   {show('stage') && (

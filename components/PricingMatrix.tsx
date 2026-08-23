@@ -1082,10 +1082,17 @@ function CaseForm({
   const bizType = bizTypeOfRepl(replType);
 
   /*
-   * 운영사·사업구분이 바뀌면 그쪽의 기성 모양을 얹는다. 첫 렌더는 건너뛴다 —
-   * 수정·개정 프리필의 차수 금액(운영사 모양과 같은 꼴, 금액만 다름)을 덮으면 안 된다.
+   * 운영사·사업구분이 바뀌면 그쪽의 기성 모양을 얹는다. 프리필에 차수가 실려 온 폼
+   * (수정·개정)만 첫 렌더를 건너뛴다 — 원 케이스의 차수 금액을 덮으면 안 된다.
+   * ★차수 없이 축만 온 폼(매트릭스 빈 칸·막힌 라인)은 건너뛰면 안 된다★ — 운영사가
+   * 프리필에 있어서 「바뀐 게 없다」로 걸리고, 그 운영사에 모양이 있는데도 기성이
+   * 빈 채로 열렸다(2026-08-23 실사고: 빈 칸에서 연 폼만 옛 화면처럼 보였다).
    */
-  const shapeSeen = useRef(`${prefill.cpo ?? ''}|${prefill.replType ? bizTypeOfRepl(prefill.replType) : ''}`);
+  const shapeSeen = useRef(
+    prefill.steps?.length
+      ? `${prefill.cpo ?? ''}|${prefill.replType ? bizTypeOfRepl(prefill.replType) : ''}`
+      : ''
+  );
   useEffect(() => {
     const now = `${cpo}|${bizType}`;
     if (shapeSeen.current === now) return;

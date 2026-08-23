@@ -5,9 +5,12 @@
  * 단계(stage)가 저장값이 아니라 유도값인 것과 같은 원칙: 상태가 바뀌면 할 일도
  * 저절로 맞고, 읽음 처리·묵은 알림 청소 같은 상태 관리가 아예 없다.
  *
- * 현장의 공 차례에 더해, 협력사에게는 가확정 배치가 「세금계산서 발행」으로 뜬다 —
- * 가확정 뒤 1~2일 회전을 지키는 신호가 이것이다(한백 확인 2026-08-23). 배치가
- * 확정되거나 지급일이 지나면 저절로 사라진다(같은 유도 원칙).
+ * 현장의 공 차례에 더해 배치의 할 일이 둘 얹힌다:
+ *   협력사   가확정 배치 → 「세금계산서 발행」 — 가확정 뒤 1~2일 회전을 지키는 신호다
+ *            (한백 확인 2026-08-23). 확정되거나 지급일이 지나면 저절로 사라진다.
+ *   관리자   확정 누락 배치 → 「확정 누락」 — 확정은 지급의 전제인데(한백 확정 2026-08-24)
+ *            건너뛴 채 지급일이 지난 것이다. 이 상태를 만든 이유가 「조용히 놓친 것을
+ *            찾기」인데, 할 일에 안 얹으면 /statements 를 열어 본 사람만 안다.
  *
  * 협력사는 자기 것만 본다 — listProjects·listPayouts 가 viewer 로 이미 거른다.
  */
@@ -15,7 +18,7 @@ import { NextResponse } from 'next/server';
 import { actorOf, getSessionUser, viewerOf } from '@/lib/auth/session';
 import { getRepository } from '@/lib/data';
 import { boardColumnOf } from '@/lib/board';
-import { batchesOf, batchStateOf } from '@/lib/payout-board';
+import { batchesOf, batchKey, batchStateOf } from '@/lib/payout-board';
 import { isHanbaek, type Role } from '@/lib/roles';
 import { won } from '@/lib/format';
 import type { Court } from '@/types/project';
@@ -50,10 +53,13 @@ export async function GET() {
    * 현장 목록을 기다렸다 배치를 읽으면 걸리는 시간이 그대로 더해진다.
    */
   const wantsInvoices = !isHanbaek(session.role) && session.org !== null;
+  // 확정 누락은 관리자의 할 일이다 — 열람 전용은 여기서도 빈 목록(처리할 수 없는 배지를 만들지 않는다)
+  const wantsMissed = session.role === 'admin';
+  const wantsBatches = wantsInvoices || wantsMissed;
   const [projects, history, finals] = await Promise.all([
     getRepository().listProjects(viewerOf(session)),
-    wantsInvoices ? getRepository().listPayouts(viewerOf(session)) : [],
-    wantsInvoices ? getRepository().listBatchFinals(actorOf(session)) : [],
+    wantsBatches ? getRepository().listPayouts(viewerOf(session)) : [],
+    wantsBatches ? getRepository().listBatchFinals(actorOf(session)) : [],
   ]);
 
   const items = projects
@@ -74,18 +80,32 @@ export async function GET() {
    * 정본(lib/payout-board)이다 — 두 벌이면 발행하라는 신호가 서로 어긋난다.
    * 하루 이틀의 일이라 맨 위에, 지급일이 급한 것부터.
    */
-  const invoices = batchesOf(history, finals)
+  const batches = batchesOf(history, finals);
+  const invoices = !wantsInvoices ? [] : batches
     .filter((b) => b.org && batchStateOf(b) === '가확정')
     .sort((a, b) => a.paidAt.localeCompare(b.paidAt))
     .map((b) => ({
-      id: `invoice|${b.paidAt}|${b.kind}`,
+      /* 열쇠에 지급처까지 — 협력사는 지급처가 하나라 안 겹쳤지만, 열쇠는 배치의 세 축 그대로가 맞다 */
+      id: `invoice|${batchKey(b.paidAt, b.org, b.kind)}`,
       href: '/statements',
       name: `세금계산서 발행 — ${b.kind}`,
       what: `공급가액 ${won(b.total)}원 · 지급일 ${b.paidAt}`,
       stalledDays: 0,
     }));
 
-  return NextResponse.json({ items: [...invoices, ...items] });
+  /* 오래 놓친 것이 위로 — 지급일이 이른 순 */
+  const missed = !wantsMissed ? [] : batches
+    .filter((b) => b.org && batchStateOf(b) === '확정 누락')
+    .sort((a, b) => a.paidAt.localeCompare(b.paidAt))
+    .map((b) => ({
+      id: `missed|${batchKey(b.paidAt, b.org, b.kind)}`,
+      href: '/statements',
+      name: `확정 누락 — ${b.org} ${b.kind}`,
+      what: `공급가액 ${won(b.total)}원 · 지급일 ${b.paidAt} 지남`,
+      stalledDays: 0,
+    }));
+
+  return NextResponse.json({ items: [...missed, ...invoices, ...items] });
 }
 
 /** 그 현장에서 지금 할 일 — 보드 칸 판정을 그대로 쓴다(다시 계산하지 않는다) */

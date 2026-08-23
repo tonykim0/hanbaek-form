@@ -232,7 +232,8 @@ function TodoCell({
   // 협력사 — 가확정이면 이 합계로 계산서를 발행한다. 그것이 이 화면에 오는 이유다.
   if (!seesAll) {
     return state === '가확정' ? (
-      <span className="text-small font-bold text-amber-700">세금계산서 발행 — 위 합계로</span>
+      /* 「위 합계」가 아니다 — 합계(공급가액)는 같은 줄 왼쪽 칸에 있다 */
+      <span className="text-small font-bold text-amber-700">세금계산서 발행 — 공급가액대로</span>
     ) : (
       <span className="text-small text-slate-300">—</span>
     );

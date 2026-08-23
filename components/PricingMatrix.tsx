@@ -1145,57 +1145,33 @@ function CaseForm({
     });
   }
 
+  /*
+   * 폼이 무엇을 하는 중인가 — 여는 자리가 넷이라 제목이 이것을 말해야 한다.
+   * 수정 = 참조 없는 케이스를 자리에서 고침(PUT) · 개정 = 케이스를 눌러 열었고 새 적용
+   * 시작으로 새 케이스를 만듦(after 가 실려 온다) · 새 = 빈 폼 또는 빈 칸에서 축만 받음.
+   * 셋 다 「새 케이스」로 떠서 케이스를 눌렀는데 왜 새 케이스냐는 혼란이 실제로 있었다
+   * (2026-08-23 한백 지적).
+   */
+  const mode: '수정' | '개정' | '새 케이스' = editId ? '수정' : prefill.after ? '개정' : '새 케이스';
+
   return (
     <section ref={boxRef} className={`${PANEL} scroll-mt-4 p-5 sm:p-6`}>
-      <h2 className="mb-4 flex items-baseline gap-2 text-h3 font-black text-slate-900">
-        {editId ? '케이스 수정' : '새 케이스'}
+      <h2 className="mb-4 flex flex-wrap items-baseline gap-2 text-h3 font-black text-slate-900">
+        {mode === '수정' ? '케이스 수정' : mode === '개정' ? '케이스 개정' : '새 케이스'}
         {editId && <code className="text-micro font-normal text-slate-400">{editId}</code>}
+        {mode === '개정' && (
+          <span className="text-tiny font-semibold text-slate-500">
+            새 적용 시작으로 저장 — 옛 케이스는 그 시기까지의 단가로 그대로 남는다
+          </span>
+        )}
       </h2>
 
-      {/* ① 언제의 단가인가 — 매트릭스의 시기 탭과 같은 축이다 */}
-      <FormSection first title="시기" hint="어느 반기 매트릭스의 값인가">
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <Field label="연도" hint={startDay ? '시작일이 정한다' : undefined}>
-            <input
-              value={year}
-              disabled={Boolean(startDay)}
-              onChange={(e) => setYear(Number(e.target.value.replace(/[^0-9]/g, '')) || 0)}
-              className={`${FIELD} tabular-nums disabled:bg-slate-50 disabled:text-slate-400`}
-            />
-          </Field>
-          <Field label="반기" hint={startDay ? '시작일이 정한다' : undefined}>
-            <div className={`flex flex-wrap gap-1.5 ${startDay ? 'pointer-events-none opacity-50' : ''}`}>
-              {(['상', '하'] as const).map((h) => (
-                <Choice key={h} on={half === h} onClick={() => setHalf(h)}>{h}반기</Choice>
-              ))}
-            </div>
-          </Field>
-          <Field label="시작일" hint="아는 날짜가 있으면 — 개정은 이 날짜부터다">
-            <input
-              type="date"
-              value={startDay}
-              onChange={(e) => pickStartDay(e.target.value)}
-              className={FIELD}
-            />
-          </Field>
-        </div>
-      </FormSection>
-
-      {/* ② 누구의 어떤 계약인가 */}
-      <FormSection title="운영사·채널">
+      {/* ① 어느 계약의 단가인가 — 접수된 라인이 이 여섯 축으로 케이스를 찾는다 */}
+      <FormSection first title="계약 축" hint="접수된 라인이 이 축으로 케이스를 찾는다">
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <Field label="운영사">
             <select value={cpo} onChange={(e) => setCpo(e.target.value as CpoName)} className={FIELD}>
               {CPO_NAMES.map((c) => <option key={c} value={c}>{c}</option>)}
-            </select>
-          </Field>
-          <Field label="채널" hint="한백이 맡는 범위 — 한쪽만 맡으면 그쪽 단가만 산다">
-            <select
-              value={channel}
-              onChange={(e) => setChannel(e.target.value as Channel)}
-              className={FIELD}
-            >
-              {CHANNELS.map((c) => <option key={c} value={c}>{c}</option>)}
             </select>
           </Field>
           <Field label="교체유형" hint={`사업구분 ${bizType}`}>
@@ -1207,12 +1183,6 @@ function CaseForm({
               {REPL_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
             </select>
           </Field>
-        </div>
-      </FormSection>
-
-      {/* ③ 어떤 현장에 맞는 단가인가 — 접수된 라인이 이 축으로 케이스를 찾는다 */}
-      <FormSection title="현장 조건" hint="접수된 라인이 이 축으로 케이스를 찾는다">
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <Field label="수전방식">
             <select
               value={powerType}
@@ -1239,10 +1209,48 @@ function CaseForm({
               onToggle={(v) => setBldgs((p) => (p.includes(v) ? p.filter((x) => x !== v) : [...p, v]))}
             />
           </Field>
+          <Field label="채널" hint="한백이 맡는 범위 — 한쪽만 맡으면 그쪽 단가만 산다">
+            <select
+              value={channel}
+              onChange={(e) => setChannel(e.target.value as Channel)}
+              className={FIELD}
+            >
+              {CHANNELS.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </Field>
         </div>
       </FormSection>
 
-      {/* ④ 돈 — 흐름 순서: 받는 단가 → 마진 → 지급 단가 → 영업·시공 나눔. 전부 대당이다 */}
+      {/* ② 언제부터의 단가인가 — 매트릭스의 시기 탭이 이 값으로 갈린다 */}
+      <FormSection title="적용 시작" hint="이 날부터 이 단가다 — 날짜를 모르면 반기까지만">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <Field label="시작일" hint="아는 날짜가 있으면 — 개정은 이 날짜부터다">
+            <input
+              type="date"
+              value={startDay}
+              onChange={(e) => pickStartDay(e.target.value)}
+              className={FIELD}
+            />
+          </Field>
+          <Field label="연도" hint={startDay ? '시작일이 정한다' : undefined}>
+            <input
+              value={year}
+              disabled={Boolean(startDay)}
+              onChange={(e) => setYear(Number(e.target.value.replace(/[^0-9]/g, '')) || 0)}
+              className={`${FIELD} tabular-nums disabled:bg-slate-50 disabled:text-slate-400`}
+            />
+          </Field>
+          <Field label="반기" hint={startDay ? '시작일이 정한다' : undefined}>
+            <div className={`flex flex-wrap gap-1.5 ${startDay ? 'pointer-events-none opacity-50' : ''}`}>
+              {(['상', '하'] as const).map((h) => (
+                <Choice key={h} on={half === h} onClick={() => setHalf(h)}>{h}반기</Choice>
+              ))}
+            </div>
+          </Field>
+        </div>
+      </FormSection>
+
+      {/* ③ 돈 — 흐름 순서: 받는 단가 → 마진 → 지급 단가 → 영업·시공 나눔. 전부 대당이다 */}
       <FormSection title="돈" hint="대당 — 받는 단가에서 마진을 떼면 지급 단가, 그것을 영업·시공으로 나눈다">
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
           <Field label="받는 단가" hint="운영사가 대당 주는 총액">
@@ -1279,7 +1287,7 @@ function CaseForm({
         )}
       </FormSection>
 
-      {/* ⑤ 기성 단계 — 받는 단가를 운영사에게 받는 차수. 현장 기성 탭·운영사 기성관리에 이대로 선다 */}
+      {/* ④ 기성 단계 — 받는 단가를 운영사에게 받는 차수. 현장 기성 탭·운영사 기성관리에 이대로 선다 */}
       <FormSection title="기성 단계" hint="받는 단가를 어느 시점에 얼마씩 받는가 — 합이 받는 단가와 같아야 한다">
         {steps.length === 0 ? (
           <Tag tone="warn">기성 미정 — 이 케이스로 지정된 현장은 기성이 계산되지 않음</Tag>
@@ -1335,16 +1343,20 @@ function CaseForm({
         </div>
       </FormSection>
 
-      <FormSection title="정책 조건" hint="운영사 정책이 정하는 것 — 비워 두면 「미지정」">
+      {/* ⑤ 요금 — 정상 요금이 먼저, 그 요금을 깎는 프로모션과 연장이 그 아래로 */}
+      <FormSection title="요금·프로모션" hint="현장에 안내되는 충전요금 조건 — 비워 두면 「미지정」">
         <div className="flex flex-col gap-4">
-          <Field label="지급자재" hint="운영사가 대주는 품목 · 미지급품목도 같이">
-            <input
-              value={supplyItems}
-              onChange={(e) => setSupplyItems(e.target.value)}
-              placeholder="충전기 / 열화상카메라(POE허브 포함) / 스탠드폴 / 가림막"
-              className={FIELD}
-            />
-          </Field>
+          <div className="w-44">
+            <Field label="충전요금" hint="원/kWh · 프로모션이 끝난 뒤의 정상 요금">
+              <input
+                value={chargeRate}
+                onChange={(e) => setChargeRate(e.target.value)}
+                inputMode="numeric"
+                placeholder="292"
+                className={`${FIELD} text-right tabular-nums`}
+              />
+            </Field>
+          </div>
 
           {/*
             프로모션은 구간이 이어진다 — 「6개월 149원 → 6개월 220원」. 한 쌍만 두면
@@ -1353,11 +1365,9 @@ function CaseForm({
           <div className="flex flex-col gap-1.5">
             <span className="flex items-baseline gap-2">
               <span className="text-tiny font-bold tracking-[0.04em] text-slate-500">프로모션</span>
-              <span className="text-micro text-slate-400">구간이 순서대로 이어진다</span>
+              <span className="text-micro text-slate-400">할인 구간이 순서대로 이어진다 · 없으면 「미지정」</span>
             </span>
-            {promo.length === 0 ? (
-              <span className="text-tiny text-slate-400">구간 없음 — 넣지 않으면 「미지정」이다</span>
-            ) : (
+            {promo.length > 0 && (
               <div className="flex flex-col gap-2">
                 {promo.map((x, i) => (
                   <div key={i} className="flex flex-wrap items-center gap-2">
@@ -1390,30 +1400,26 @@ function CaseForm({
                 ))}
               </div>
             )}
-            <div className="mt-1">
-              {promo.length < 4 && (
+            {promo.length < 4 && (
+              <div className="mt-1">
                 <Btn size="sm" kind="side" onClick={() => setPromo((p) => [...p, { months: '', rate: '' }])}>
                   구간 추가
                 </Btn>
-              )}
-            </div>
+              </div>
+            )}
           </div>
 
           {/*
-            프로모션 연장 — 프로모션 구간과 같은 모양의 반복 행이다. 예전에는 「1개월
-            연장당 차감액」 숫자 한 칸이었는데, 실제 정책은 늘리는 요금마다 차감액이
-            갈린다(플러그링크: 6개월 149원 20만 · 6개월 249원 10만). 한 칸으로는 그
-            갈림을 적을 자리가 없어 비고 문장으로 새어나갔다 — 프로모션 구간을 배열로
-            둔 것과 같은 이유다.
+            프로모션 연장 — 프로모션 구간과 같은 모양의 반복 행이다. 늘리는 요금마다
+            차감액이 갈려서(플러그링크: 6개월 149원 20만 · 6개월 249원 10만) 숫자 한 칸으로는
+            적을 자리가 없다 — 프로모션 구간을 배열로 둔 것과 같은 이유다.
           */}
           <div className="flex flex-col gap-1.5">
             <span className="flex items-baseline gap-2">
               <span className="text-tiny font-bold tracking-[0.04em] text-slate-500">프로모션 연장</span>
-              <span className="text-micro text-slate-400">고를 수 있는 것을 다 적는다 · 차감은 영업비에서</span>
+              <span className="text-micro text-slate-400">고를 수 있는 연장을 다 적는다 · 차감은 영업비에서</span>
             </span>
-            {promoExtend.length === 0 ? (
-              <span className="text-tiny text-slate-400">연장 없음 — 넣지 않으면 「미지정」이다</span>
-            ) : (
+            {promoExtend.length > 0 && (
               <div className="flex flex-col gap-2">
                 {promoExtend.map((x, i) => (
                   <div key={i} className="flex flex-wrap items-center gap-2">
@@ -1453,8 +1459,8 @@ function CaseForm({
                 ))}
               </div>
             )}
-            <div className="mt-1">
-              {promoExtend.length < 4 && (
+            {promoExtend.length < 4 && (
+              <div className="mt-1">
                 <Btn
                   size="sm"
                   kind="side"
@@ -1462,23 +1468,23 @@ function CaseForm({
                 >
                   연장 추가
                 </Btn>
-              )}
-            </div>
+              </div>
+            )}
           </div>
+        </div>
+      </FormSection>
 
-          <div className="flex flex-wrap gap-4">
-            <div className="w-40">
-              <Field label="충전요금" hint="원/kWh · 프로모션이 끝난 뒤의 정상 요금">
-                <input
-                  value={chargeRate}
-                  onChange={(e) => setChargeRate(e.target.value)}
-                  inputMode="numeric"
-                  placeholder="292"
-                  className={`${FIELD} text-right tabular-nums`}
-                />
-              </Field>
-            </div>
-          </div>
+      {/* ⑥ 지원·조건 — 매트릭스의 지급자재·설치조건·병행·기타지원·기타 행이 이 값 그대로다 */}
+      <FormSection title="지원·조건" hint="매트릭스의 조건 행에 이 값이 그대로 선다 — 비워 두면 「미지정」">
+        <div className="flex flex-col gap-4">
+          <Field label="지급자재" hint="운영사가 대주는 품목 · 미지급품목도 같이">
+            <input
+              value={supplyItems}
+              onChange={(e) => setSupplyItems(e.target.value)}
+              placeholder="충전기 / 열화상카메라(POE허브 포함) / 스탠드폴 / 가림막"
+              className={FIELD}
+            />
+          </Field>
 
           <Field label="설치조건" hint="할 수 있는가를 정하는 것 — 주차면 비율 · 내구연한 · 기수 산정">
             <textarea
@@ -1532,12 +1538,12 @@ function CaseForm({
           <Btn
             disabled={Boolean(blocked)}
             busy={busy}
-            busyLabel={editId ? '고치는 중…' : '넣는 중…'}
+            busyLabel={mode === '수정' ? '고치는 중…' : '넣는 중…'}
             onClick={() => void save()}
           >
             {blocked
-              ? `${blocked} — ${editId ? '고칠' : '넣을'} 수 없음`
-              : editId ? '케이스 고치기' : '케이스 넣기'}
+              ? `${blocked} — ${mode === '수정' ? '고칠' : '넣을'} 수 없음`
+              : mode === '수정' ? '케이스 고치기' : mode === '개정' ? '개정으로 넣기' : '케이스 넣기'}
           </Btn>
           <Btn kind="quiet" disabled={busy} onClick={onDone}>취소</Btn>
           <Err>{error}</Err>
@@ -1553,7 +1559,7 @@ function koDate(iso: string): string {
   return `${y}년 ${m}월 ${d}일`;
 }
 
-/** 폼의 구획 — 시기 → 운영사·채널 → 현장 조건 → 돈 → 기성 순서가 읽히게 약한 선 한 겹으로 가른다 */
+/** 폼의 구획 — 계약 축 → 적용 시작 → 돈 → 기성 → 요금 → 지원·조건 순서가 읽히게 약한 선 한 겹으로 가른다 */
 function FormSection({
   title, hint, first, children,
 }: { title: string; hint?: string; first?: boolean; children: React.ReactNode }) {

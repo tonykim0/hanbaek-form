@@ -6,13 +6,18 @@ import { canWrite } from '@/lib/roles';
 import PartnerDetailsSection from '@/components/PartnerDetailsSection';
 
 export const metadata = {
-  title: '협력사 정보 — 한백 전기차사업관리',
+  title: '사업자 정보 — 한백 전기차사업관리',
   robots: { index: false, follow: false },
 };
 export const dynamic = 'force-dynamic';
 
 /**
- * 협력사 정보 — 협력사가 자기 사업자등록증·정산 계좌를 스스로 적는 자리.
+ * 사업자 정보 — 협력사가 자기 사업자등록증·정산 계좌를 스스로 적는 자리.
+ *
+ * 화면 이름이 「협력사 정보」였다 — 보는 사람이 곧 그 협력사라 자기를 3인칭으로 부르는
+ * 꼴이었고, 한백이 전 업체를 보는 /admin/partners 와 이름이 똑같았다(2026-08-24).
+ * 저장소·도메인에서 부르는 이름(협력사 정보 · partner_details)은 그대로다 — 바꾼 것은
+ * 협력사가 보는 화면의 이름표뿐이다.
  *
  * 한백은 계정설정(/admin/accounts)에서 전 계정을 한 표로 보므로 그리로 보낸다.
  * 남의 것은 저장소(assertSelfOrAdmin)가 막는다 — 이 화면은 자기 한 줄만 내려받는다.
@@ -34,7 +39,7 @@ export default async function SettingsPage() {
   return (
     <>
       <div className="mb-6">
-        <h1 className="text-h1 font-black text-slate-900">협력사 정보</h1>
+        <h1 className="text-h1 font-black text-slate-900">사업자 정보</h1>
         <p className="mt-1.5 text-base text-slate-500">
           사업자등록증 · 정산 계좌 — 지급이 이 계좌로 나갑니다
         </p>

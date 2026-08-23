@@ -95,12 +95,19 @@ const GROUPS: Group[] = [
      */
     label: '정산',
     items: [
-      { href: '/payments', label: '지급 및 기성관리', short: '내역' },
+      // 「지급 및 기성관리」였다 — 이 화면에 기성이 없다(한백 확인 2026-08-24). 기성은 운영사 기성관리다
+      { href: '/payments', label: '지급 내역', short: '내역' },
       // 협력사도 연다(한백 확인) — 자기가 받을 지급의 회차·금액·지급시기를 본다
       { href: '/payouts', label: '협력사 지급관리', short: '지급' },
-      { href: '/receivables', label: '운영사 기성관리', short: '기성', hanbaekOnly: true },
-      // 배치를 만들고 보관하는 작업대 — 협력사도 자기 배치(최종 확인분)를 여기서 본다
+      /*
+       * 거래명세서를 지급관리 바로 밑에 둔다 (한백 요청 2026-08-24) — 지급관리에서 만든
+       * 배치가 여기서 명세서 한 장이 된다. 사이에 운영사 기성관리(받는 쪽)가 끼면
+       * 협력사에게 주는 한 흐름이 두 동으로 갈린다.
+       *
+       * 배치를 만들고 보관하는 작업대다 — 협력사도 자기 배치(최종 확인분)를 여기서 본다.
+       */
       { href: '/statements', label: '협력사 거래명세서', short: '명세' },
+      { href: '/receivables', label: '운영사 기성관리', short: '기성', hanbaekOnly: true },
     ],
   },
   {
@@ -108,7 +115,9 @@ const GROUPS: Group[] = [
     label: '설정',
     partnerOnly: true,
     items: [
-      { href: '/settings', label: '협력사 정보', short: '정보', note: '정산 계좌 · 사업자등록증' },
+      // 「협력사 정보」였다 — 보는 사람이 곧 그 협력사라 3인칭이 어색했고, 관리 묶음의
+      // 「협력사 정보」(한백이 전 업체를 보는 화면)와 이름이 겹쳤다 (한백 확인 2026-08-24)
+      { href: '/settings', label: '사업자 정보', short: '정보', note: '정산 계좌 · 사업자등록증' },
     ],
   },
   {

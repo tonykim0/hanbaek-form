@@ -9,7 +9,7 @@ import { getSessionUser, viewerOf } from '@/lib/auth/session';
 import { isHanbaek } from '@/lib/roles';
 import type { PayoutRow } from '@/types/project';
 
-export const metadata = { title: '지급 및 기성관리 — 한백 전기차사업관리' };
+export const metadata = { title: '지급 내역 — 한백 전기차사업관리' };
 
 /**
  * 지급 내역 — 어디로 어떤 명목으로 월별 얼마를 송금 대상으로 확정했나.
@@ -85,7 +85,7 @@ export default async function PaymentsPage() {
         누르는 곳이 남아 있으면 「눌러야 다른 달이 보인다」로 읽힌다.
       */}
       <header className="flex flex-wrap items-end justify-between gap-4">
-        <h1 className="text-h1 font-black text-slate-900">지급 및 기성관리</h1>
+        <h1 className="text-h1 font-black text-slate-900">지급 내역</h1>
         {rows.length > 0 && (
           <p className="text-small text-slate-500">
             {months.length}개월 · 지급 {rows.length}건{' '}

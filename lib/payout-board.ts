@@ -9,11 +9,13 @@
  * 협력사에게 마진·남의 몫이 안 가는 것은 저장소가 지워서 준다(redactForViewer).
  */
 import type {
-  PayoutEntry, PayoutKind, PayoutMilestones, PayoutPlanRow, ProjectDetail,
+  BatchFinal, PayoutEntry, PayoutKind, PayoutMilestones, PayoutPlanRow, PayoutRow,
+  ProjectDetail, TaxInvoice,
 } from '@/types/project';
 import {
   payoutPrerequisiteBlockersOf, payoutReleaseOf, payoutSideOf, payoutStepsOf,
 } from '@/lib/settlement';
+import { today } from '@/lib/date';
 import type { Visibility } from '@/lib/roles';
 
 /**
@@ -126,4 +128,67 @@ export function payDateChoices(metAt: string): [string, string] {
   const ny = m === 12 ? y + 1 : y;
   const mm = String(m === 12 ? 1 : m + 1).padStart(2, '0');
   return [`${ny}-${mm}-10`, `${ny}-${mm}-25`];
+}
+
+/* ── 배치 — 지급처 × 구분 × 지급일 ──────────────────────────────────────────
+ * 세금계산서 한 장의 단위이자 거래명세서 한 장의 단위다. 묶는 규칙과 상태 판정이
+ * 화면(협력사 거래명세서)과 서버(할 일)에 두 벌 있으면 「발행하라」는 신호가 서로
+ * 어긋난다 — 위의 workOf 를 여기 모은 것과 같은 이유로 정본을 여기 둔다.
+ */
+
+export interface Batch {
+  paidAt: string;
+  org: string | null;
+  kind: PayoutKind;
+  count: number;
+  total: number;
+  finalized: boolean;
+  invoice: TaxInvoice | null;
+}
+
+export type BatchState = '가확정' | '확정' | '지급완료';
+
+/** 배치의 열쇠 — 세 축과 그 순서까지 여기가 정본이다 */
+export const batchKey = (payDate: string, org: string | null, kind: PayoutKind) =>
+  `${payDate}|${org ?? ''}|${kind}`;
+
+/**
+ * 배치의 자리 — 가확정 → 확정 → 지급완료.
+ *
+ * 지급일이 지난 배치는 확정 여부와 무관하게 지급완료다 — 이 시스템에서 원장의 지난
+ * 지급일은 곧 사실이다(/payments 와 같은 해석). 두 단계 확정을 들이기 전에 나간
+ * 배치들이 전부 「발행 요청」으로 보이면 협력사가 옛 지급마다 계산서를 다시 발행하려
+ * 든다. 「가확정」과 그 신호는 지급일 전에만 뜻이 있다.
+ */
+export function batchStateOf(b: { paidAt: string; finalized: boolean }): BatchState {
+  if (b.paidAt < today()) return '지급완료';
+  return b.finalized ? '확정' : '가확정';
+}
+
+/** 원장 줄을 배치로 접는다 — 지급일 내림차순, 같은 날은 지급처·구분순 */
+export function batchesOf(
+  history: PayoutRow[],
+  finals: BatchFinal[],
+  invoices: TaxInvoice[] = []
+): Batch[] {
+  const inv = new Map(invoices.map((i) => [batchKey(i.payDate, i.org, i.kind), i]));
+  const fin = new Set(finals.map((f) => batchKey(f.payDate, f.org, f.kind)));
+  const map = new Map<string, Batch>();
+  for (const r of history) {
+    const key = batchKey(r.paidAt, r.org, r.kind);
+    const b = map.get(key) ?? {
+      paidAt: r.paidAt, org: r.org, kind: r.kind, count: 0, total: 0,
+      finalized: r.org ? fin.has(key) : false,
+      invoice: r.org ? inv.get(key) ?? null : null,
+    };
+    b.count += 1;
+    b.total += r.amount;
+    map.set(key, b);
+  }
+  return [...map.values()].sort(
+    (a, b) =>
+      b.paidAt.localeCompare(a.paidAt)
+      || (a.org ?? '').localeCompare(b.org ?? '', 'ko')
+      || a.kind.localeCompare(b.kind)
+  );
 }

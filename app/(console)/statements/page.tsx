@@ -12,7 +12,9 @@ export const dynamic = 'force-dynamic';
  *
  * 가확정은 협력사 지급관리 표에서 체크로 만든다(한백 확인 2026-08-24 — 전 현장
  * 현황을 보며 추리는 자리가 그쪽이다). 여기는 만들어진 배치를 따라간다: 협력사가
- * 가확정 합계로 세금계산서를 발행하고, 첨부되면 명세서 상세에서 최종 확정한다.
+ * 가확정 합계로 세금계산서를 발행하고(1~2일 회전 — 할 일에 뜬다), 계산서가 오면
+ * 배치 줄에서 바로 첨부·확정한다. 명세서(상세)는 검토·인쇄·예외 처리(빼기·지급일
+ * 변경·해제)의 자리다.
  *
  * ★협력사도 본다★ — 자기 배치만 내려오므로(저장소가 가른다) 「이번 달 가확정분 =
  * 발행할 계산서」와 확정분을 여기서 눈으로 확인한다. 확정 배지는 listBatchFinals 에서
@@ -42,7 +44,13 @@ export default async function StatementsPage() {
         </p>
       </div>
 
-      <StatementsBoard history={history} finals={finals} invoices={invoices} seesAll={seesAll} />
+      <StatementsBoard
+        history={history}
+        finals={finals}
+        invoices={invoices}
+        seesAll={seesAll}
+        canEdit={session.role === 'admin'}
+      />
     </>
   );
 }

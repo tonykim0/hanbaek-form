@@ -19,9 +19,9 @@ import { generateClientTokenFromReadWriteToken } from '@vercel/blob/client';
 import { del } from '@vercel/blob';
 import { getRepository } from '@/lib/data';
 import { adminWrite, BadRequest } from '@/lib/api/write-route';
-import { PAYOUT_KINDS, type PayoutKind } from '@/types/project';
+import { PAYOUT_KINDS, TAX_INVOICE_TYPES, type PayoutKind } from '@/types/project';
 
-const ALLOWED_TYPES = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'];
+const ALLOWED_TYPES = [...TAX_INVOICE_TYPES];
 const MAX_BYTES = 20 * 1024 * 1024;
 const EXT_RE = /^[a-z0-9]{1,5}$/;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;

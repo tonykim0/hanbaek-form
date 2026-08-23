@@ -7,11 +7,12 @@
  * (원장 삭제 → 그 회차는 지급 가능으로 돌아간다) 지급관리 표에서 다시 가확정한다.
  * 반쯤 고친 명세서가 남는 것보다, 원장을 고치고 이 장을 다시 그리는 것이 맞다.
  *
- * ★최종 확정이 여기 있다★ — 세금계산서와 무관하게 한백이 누른다(한백 확인
- * 2026-08-24, 계산서는 검토 없는 보관용 첨부일 뿐이다). 확정되면 배치가 잠긴다
- * (빼기·지급일 변경·취소) — 협력사에게 이 합계가 최종이라고 말한 것이기 때문이다.
- * 계산서 첨부·교체·삭제는 잠기지 않는다. 잠금은 서버가 지킨다(pg-store) —
- * 여기서는 눌리지 않게 감출 뿐이다.
+ * 최종 확정과 첨부는 배치 목록의 줄에도 있다 — 보통 일은 거기서 끝난다. 여기의
+ * 확정 카드는 검토하러 들어왔다가 그 자리에서 누르는 길이고, 해제는 여기뿐이다.
+ * 확정은 세금계산서와 무관하게 한백이 누른다(한백 확인 2026-08-24, 계산서는 검토
+ * 없는 보관용 첨부일 뿐이다). 확정되면 배치가 잠긴다(빼기·지급일 변경·취소) —
+ * 협력사에게 이 합계가 최종이라고 말한 것이기 때문이다. 계산서 첨부·교체·삭제는
+ * 잠기지 않는다. 잠금은 서버가 지킨다(pg-store) — 여기서는 눌리지 않게 감출 뿐이다.
  *
  * ★부가세 줄★ 원장 금액은 공급가액이다(한백 확인 2026-08-23). 부가세·합계는 참고로
  * 적는다 — 실제 송금액은 합계다.
@@ -21,10 +22,11 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { PayoutKind, PayoutRow, TaxInvoice } from '@/types/project';
-import { today } from '@/lib/date';
+import { batchStateOf } from '@/lib/payout-board';
 import { useAction } from '@/lib/use-action';
 import { Badge, Btn, Err, FIELD_CELL, Saved } from '@/components/ui';
 import { won } from './parts';
+import { useFinalizeBatch, useTaxInvoiceUpload } from './use-batch';
 
 export default function StatementView({
   rows, org, date, kind, invoice, finalized, canEdit,
@@ -43,6 +45,8 @@ export default function StatementView({
 }) {
   const supply = rows.reduce((n, r) => n + r.amount, 0);
   const vat = Math.round(supply * 0.1);
+  // 상태 판정은 배치 목록과 같은 정본(lib/payout-board)이다
+  const state = batchStateOf({ paidAt: date, finalized });
   // 잠긴 배치에는 빼기 열 자체가 없다 — 눌리지 않는 단추를 늘어놓지 않는다
   const canRemove = canEdit && !finalized;
 
@@ -55,13 +59,9 @@ export default function StatementView({
             {/* 종이에는 배지를 찍지 않는다 — 상태는 화면의 것이다 */}
             {canEdit && (
               <span className="print:hidden">
-                {date < today() ? (
-                  <Badge tone="mute">지급완료</Badge>
-                ) : finalized ? (
-                  <Badge tone="ok">확정</Badge>
-                ) : (
-                  <Badge tone="warn">가확정</Badge>
-                )}
+                <Badge tone={state === '확정' ? 'ok' : state === '가확정' ? 'warn' : 'mute'}>
+                  {state}
+                </Badge>
               </span>
             )}
           </h1>
@@ -218,51 +218,9 @@ function InvoiceCard({
   invoice: TaxInvoice | null;
 }) {
   const router = useRouter();
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  // 업로드 흐름은 배치 목록의 줄과 같은 훅이다 — 두 자리가 다른 길로 붙으면 갈린다
+  const { busy, error, inputProps } = useTaxInvoiceUpload(org, kind, date);
   const del = useAction();
-
-  async function upload(file: File) {
-    setBusy(true);
-    setError(null);
-    try {
-      const ext = file.name.split('.').pop()?.toLowerCase() ?? 'pdf';
-      const tokenRes = await fetch('/api/statements/tax-invoice', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ step: 'token', ext }),
-      });
-      const tokenBody = (await tokenRes.json().catch(() => ({}))) as {
-        token?: string; pathname?: string; error?: string;
-      };
-      if (!tokenRes.ok || !tokenBody.token || !tokenBody.pathname) {
-        setError(tokenBody.error ?? '업로드 준비에 실패했습니다.');
-        return;
-      }
-
-      const { put } = await import('@vercel/blob/client');
-      const blob = await put(tokenBody.pathname, file, {
-        access: 'public',
-        token: tokenBody.token,
-      });
-
-      const attach = await fetch('/api/statements/tax-invoice', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ org, kind, payDate: date, blobUrl: blob.url, filename: file.name }),
-      });
-      if (!attach.ok) {
-        const b = (await attach.json().catch(() => ({}))) as { error?: string };
-        setError(b.error ?? '저장에 실패했습니다.');
-        return;
-      }
-      router.refresh();
-    } catch {
-      setError('업로드 중 오류가 났습니다.');
-    } finally {
-      setBusy(false);
-    }
-  }
 
   async function remove() {
     if (!invoice) return;
@@ -285,14 +243,7 @@ function InvoiceCard({
             {org}이(가) {kind} 몫으로 발행한 세금계산서를 이 명세서 옆에 붙여 둡니다
           </span>
           <input
-            type="file"
-            accept="application/pdf,image/jpeg,image/png,image/webp"
-            disabled={busy}
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) void upload(f);
-              e.target.value = '';
-            }}
+            {...inputProps}
             className="block text-small text-slate-600 file:mr-3 file:rounded-ctl file:border file:border-slate-200 file:bg-white file:px-3 file:py-1.5 file:text-small file:font-bold file:text-slate-700"
           />
           {busy && <p className="mt-2 text-small font-bold text-slate-500">올리는 중…</p>}
@@ -315,17 +266,7 @@ function InvoiceCard({
           <div className="flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3">
             <label className="cursor-pointer text-small font-bold text-slate-500 transition hover:text-slate-800">
               파일 교체
-              <input
-                type="file"
-                accept="application/pdf,image/jpeg,image/png,image/webp"
-                disabled={busy}
-                onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (f) void upload(f);
-                  e.target.value = '';
-                }}
-                className="hidden"
-              />
+              <input {...inputProps} className="hidden" />
             </label>
             <span className="ml-auto" />
             <Btn kind="quiet" size="sm" busy={del.busy} onClick={() => void remove()}>
@@ -345,17 +286,8 @@ function InvoiceCard({
  * 확정하면 빼기·지급일 변경·취소가 막힌다 — 협력사에게 이 합계가 최종이라고 말한 것이다.
  */
 function Finalize({ org, kind, date, supply }: { org: string; kind: PayoutKind; date: string; supply: number }) {
-  const router = useRouter();
-  const { busy, error, run } = useAction();
-
-  async function finalize() {
-    const ok = await run({
-      url: '/api/statements/finalize',
-      body: { org, kind, payDate: date },
-      fail: '확정하지 못했습니다.',
-    });
-    if (ok) router.refresh();
-  }
+  // 배치 목록의 줄과 같은 훅이다 — 화면 갱신도 훅이 한다
+  const { busy, error, finalize } = useFinalizeBatch(org, kind, date);
 
   return (
     <section className="rounded-panel border border-slate-200 bg-white p-5">
@@ -380,17 +312,7 @@ function Finalize({ org, kind, date, supply }: { org: string; kind: PayoutKind; 
  * 교체가 다시 열린다 — 협력사가 수정세금계산서를 발행해야 할 수 있으니 말로 알린다.
  */
 function Unfinalize({ org, kind, date }: { org: string; kind: PayoutKind; date: string }) {
-  const router = useRouter();
-  const { busy, error, run } = useAction();
-
-  async function undo() {
-    const ok = await run({
-      url: '/api/statements/finalize',
-      body: { org, kind, payDate: date, undo: true },
-      fail: '해제하지 못했습니다.',
-    });
-    if (ok) router.refresh();
-  }
+  const { busy, error, finalize } = useFinalizeBatch(org, kind, date);
 
   return (
     <section className="rounded-panel border border-slate-200 bg-white p-5">
@@ -400,7 +322,7 @@ function Unfinalize({ org, kind, date }: { org: string; kind: PayoutKind; date: 
         {org}이(가) 계산서를 이미 발행했다면 수정세금계산서가 필요할 수 있습니다.
       </p>
       <div className="flex items-center gap-2">
-        <Btn kind="undo" size="sm" busy={busy} busyLabel="해제 중…" onClick={() => void undo()}>
+        <Btn kind="undo" size="sm" busy={busy} busyLabel="해제 중…" onClick={() => void finalize(true)}>
           확정 해제
         </Btn>
         <Err>{error}</Err>

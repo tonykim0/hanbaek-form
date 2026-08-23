@@ -850,6 +850,14 @@ export interface PayoutRow {
 }
 
 /**
+ * 세금계산서 첨부로 받는 형식 — 서버 검사(tax-invoice 라우트)와 화면의 input accept 가
+ * 같은 목록을 봐야 한 쪽만 고쳐 조용히 걸러지는 파일이 안 생긴다.
+ */
+export const TAX_INVOICE_TYPES = [
+  'application/pdf', 'image/jpeg', 'image/png', 'image/webp',
+] as const;
+
+/**
  * 세금계산서 — 배치(지급처 × 구분 × 지급일)에 붙는다. [한백 전용]
  *
  * 협력사가 발행해 보낸 것을 명세서 옆에 붙여 두는 보관용 첨부다 — 검토·대조·확정과

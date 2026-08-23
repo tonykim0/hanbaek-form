@@ -6,8 +6,10 @@
  *                                 프로덕션 DB 에 적용된 뒤에 새 코드가 나간다
  *
  * ★왜 빌드에서 도는가★
- * 프로덕션 DATABASE_URL 은 Vercel 에서 Sensitive 라 사람도 도구도 값을 되읽을 수 없다 —
- * 밖에서는 프로덕션 DB 에 붙을 길이 없다(CLAUDE.md). 그동안 스키마·데이터 변경을
+ * 프로덕션 DATABASE_URL 은 Vercel 에서 Sensitive 라 값을 되읽을 수 없다 — 로컬에서
+ * 붙는 길은 `.env.prod-db` 하나뿐이고 그것도 이관·백업 같은 예외용이다(CLAUDE.md).
+ * 일상 반영을 사람 손에 두면 코드와 DB 가 두 손으로 나뉘어 순서가 어긋난다 —
+ * 그동안 스키마·데이터 변경을
  * Supabase SQL Editor 에 사람이 붙여넣어 왔는데, 코드와 DB 가 두 손으로 나뉘니 순서가
  * 어긋난다 — 컬럼 없이 코드가 먼저 나가 콘솔 전체가 500 으로 죽었다(2026-08-22 실사고,
  * pricing_rules 정책 칸 6개). 빌드는 접속 문자열이 있는 곳이고, 새 코드가 트래픽을 받기
@@ -47,6 +49,29 @@ async function main() {
 
   const dir = path.join(process.cwd(), 'migrations');
   const files = readdirSync(dir).filter((f) => f.endsWith('.sql')).sort();
+
+  /*
+   * ★번호 중복 가드★ — 이 저장소는 Claude 세션 여러 개가 동시에 작업해서, 두 세션이
+   * 같은 「다음 번호」를 집는 일이 실제로 났다(0011 두 개, 2026-08-24 발견). 번호가
+   * 겹치면 적용 순서가 파일명 문자열 정렬에 달려 우연이 된다 — DB 에 붙기 전에 여기서
+   * 빌드를 죽인다. 이미 프로덕션 원장에 그 이름으로 적용된 두 파일만 예외다(원장의
+   * 키가 파일명이라 이름을 바꾸면 새 파일로 보여 다시 돈다). 그 번호에 세 번째 파일이
+   * 오는 것은 예외가 아니다 — 목록에 없는 파일이 끼면 그대로 거부된다.
+   */
+  const LEGACY_DUP = new Set(['0011_misc-dedup.sql', '0011_pl-charge-rate-promo-extend.sql']);
+  const byNo = new Map<string, string[]>();
+  for (const f of files) {
+    const no = f.split('_')[0];
+    byNo.set(no, [...(byNo.get(no) ?? []), f]);
+  }
+  for (const [no, group] of byNo) {
+    if (group.length > 1 && !group.every((f) => LEGACY_DUP.has(f))) {
+      throw new Error(
+        `마이그레이션 번호 ${no} 가 겹칩니다: ${group.join(', ')} — `
+        + '늦게 만든 파일을 디렉터리의 최대 번호 + 1 로 바꾸세요. 적용된 파일은 건드리지 않습니다.'
+      );
+    }
+  }
 
   const sql = postgres(url, {
     max: 1,

@@ -300,7 +300,11 @@ function StepCells({
         ★한 열에 한 부품이다 (한백 지적 2026-08-25).★ 지급 가능은 각진 Tag, 배치 상태는
         동근 Badge, 대기·1차 뒤는 맨 텍스트 — 셋이 섞여 있었다. 이 칸의 값은 전부
         「그 회차가 지금 있는 자리」 하나라 전부 동근 Badge 다(화면 규칙 11번).
-        트리거 대기는 「대기」로 줄인다 — 무엇의 대기인지는 금액 칸이 말한다(「계약완료 전」).
+
+        ★「1차 뒤」도 「대기」다 (한백 확인 2026-08-25).★ 트리거 전과 1차 미지급을 다른
+        이름으로 갈랐었는데, 보는 사람에게는 둘 다 「아직 못 나간다」일 뿐이고 이유는
+        딴 칸이 이미 말한다 — 트리거는 금액 칸의 「계약완료 전」(주황)이, 1차 미지급은
+        바로 왼쪽 1차 열이. 그래서 대기는 조용한 회색이다: 주황 신호는 이유 쪽에 있다.
         그 밖의 사정(수수료 미정 등)은 상태가 아니라 이유라 배지 밑에 글로 남는다.
       */}
       <td className="whitespace-nowrap px-3 py-2.5 align-top">
@@ -319,7 +323,7 @@ function StepCells({
             <Badge tone="stage">지급 가능</Badge>
           ) : (
             <>
-              <Badge tone="warn">대기</Badge>
+              <Badge tone="mute">대기</Badge>
               {p.blockers
                 .filter((reason) => reason !== `${release.trigger} 대기`)
                 .map((reason) => (
@@ -330,7 +334,7 @@ function StepCells({
             </>
           )
         ) : (
-          <Badge tone="mute">1차 뒤</Badge>
+          <Badge tone="mute">대기</Badge>
         )}
       </td>
 

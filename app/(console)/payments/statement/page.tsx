@@ -89,7 +89,8 @@ export default async function StatementPage({
     : false;
 
   return (
-    <div className="mx-auto max-w-3xl">
+    /* 왼쪽 정렬 — 가운데로 몰면 넓은 화면에서 왼쪽 사이드바와 종이 사이가 벌어져 읽는 눈이 멀리 간다 (한백 요청 2026-08-24) */
+    <div className="max-w-4xl print:max-w-none">
       <div className="mb-5 flex items-center gap-2 print:hidden">
         <Link
           href="/statements"

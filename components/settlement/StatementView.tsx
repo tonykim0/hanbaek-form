@@ -37,6 +37,14 @@ import { Badge, Btn, Empty, Err, FIELD_CELL, Saved } from '@/components/ui';
 import { won } from './parts';
 import { useFinalizeBatch, useTaxInvoiceUpload } from './use-batch';
 
+/**
+ * 줄 하나의 부가세 — 공급가액의 10%.
+ *
+ * 줄마다 반올림한다. 합계에 한 번 곱하면 열이 더해지지 않아서, 종이의 열을 위에서 아래로
+ * 더한 값과 맨 아랫줄이 달라진다. 회수(음수)는 부가세도 음수다.
+ */
+const vatOf = (amount: number) => Math.round(amount * 0.1);
+
 export default function StatementView({
   rows, org, partner, issuedAt, date, kind, invoice, finalized, canEdit,
 }: {
@@ -57,11 +65,17 @@ export default function StatementView({
   canEdit: boolean;
 }) {
   const supply = rows.reduce((n, r) => n + r.amount, 0);
-  const vat = Math.round(supply * 0.1);
+  /*
+   * 부가세는 ★줄값의 합★ 이다 — 합계에 한 번 곱하면 열이 더해지지 않는다.
+   * 종이에 열이 있는데 위에서 아래로 더한 값과 맨 아랫줄이 다르면 그 장을 믿을 수 없다.
+   */
+  const vat = rows.reduce((n, r) => n + vatOf(r.amount), 0);
   // 상태 판정은 배치 목록과 같은 정본(lib/payout-board)이다
   const state = batchStateOf({ paidAt: date, finalized });
   // 잠긴 배치에는 빼기 열 자체가 없다 — 눌리지 않는 단추를 늘어놓지 않는다
   const canRemove = canEdit && !finalized;
+  /* 금액 두 열(공급가액·부가세) 앞의 칸 수 — 합계 줄의 라벨이 여기까지 뻗는다 */
+  const labelSpan = kind === null ? 6 : 5;
 
   return (
     <>
@@ -125,7 +139,11 @@ export default function StatementView({
             이 지급일에 {org}(으)로 나간 지급이 0건입니다
           </p>
         ) : (
-          <table className="mt-4 w-full text-base">
+          /*
+           * 종이에서는 글자를 한 단계 줄인다 — 열이 여덟이라 A4 여백 안쪽(약 186mm)에
+           * 16px 로는 안 들어간다. 화면에서는 그대로 크게 읽는다.
+           */
+          <table className="mt-4 w-full text-base print:text-small">
             <thead className="border-b border-slate-200 text-tiny font-bold tracking-[0.08em] text-slate-500">
               <tr>
                 <th className="py-2 pr-3 text-left">현장</th>
@@ -135,9 +153,14 @@ export default function StatementView({
                   전체)로 들어오면 줄마다 갈리므로 그때만 열을 낸다.
                 */}
                 {kind === null && <th className="px-3 py-2 text-left">구분</th>}
+                {/* 현장 기본정보 — 어느 현장의 무엇에 대한 값인지 이 셋이 말한다 (한백 요청) */}
+                <th className="px-2 py-2 text-right">연수</th>
+                <th className="px-2 py-2 text-left">전력인입</th>
+                <th className="px-2 py-2 text-right">계약대수</th>
                 <th className="px-3 py-2 text-left">명목</th>
-                <th className="px-3 py-2 text-left">메모</th>
-                <th className="py-2 pl-3 text-right">금액</th>
+                {/* 메모 열은 뺐다 (한백 요청 2026-08-24) — 원장 줄의 메모는 지급 내역에서 본다 */}
+                <th className="px-3 py-2 text-right">공급가액</th>
+                <th className="py-2 pl-3 text-right">부가세</th>
                 {canRemove && <th className="w-14 print:hidden"></th>}
               </tr>
             </thead>
@@ -147,31 +170,29 @@ export default function StatementView({
               ))}
             </tbody>
             <tfoot>
+              {/*
+                열이 둘이 되었으니 합계도 그 열에 선다 — 위에서 아래로 더한 값과 맞아야 한다.
+                총 합계는 두 열을 묶어 한 줄로 둔다: 공급가액 칸 아래에 총액을 놓으면
+                무엇의 합인지 어긋난다.
+              */}
               <tr className="border-t-2 border-slate-900">
-                <td colSpan={kind === null ? 4 : 3} className="py-2.5 pr-3 text-right text-base font-black text-slate-900">
-                  공급가액 ({rows.length}건)
+                <td colSpan={labelSpan} className="py-2.5 pr-3 text-right text-base font-black text-slate-900">
+                  합계 ({rows.length}건)
                 </td>
-                <td className="whitespace-nowrap py-2.5 pl-3 text-right text-lead font-black tabular-nums text-slate-900">
+                <td className="whitespace-nowrap px-3 py-2.5 text-right text-base font-black tabular-nums text-slate-900">
                   {won(supply)}
-                  <span className="ml-1 text-tiny font-bold text-slate-400">원</span>
                 </td>
-                {canRemove && <td className="print:hidden" />}
-              </tr>
-              <tr>
-                <td colSpan={kind === null ? 4 : 3} className="py-1 pr-3 text-right text-small font-bold text-slate-500">
-                  부가세 (10%)
-                </td>
-                <td className="whitespace-nowrap py-1 pl-3 text-right text-base font-bold tabular-nums text-slate-700">
+                <td className="whitespace-nowrap py-2.5 pl-3 text-right text-base font-bold tabular-nums text-slate-700">
                   {won(vat)}
-                  <span className="ml-1 text-tiny font-bold text-slate-400">원</span>
                 </td>
                 {canRemove && <td className="print:hidden" />}
               </tr>
               <tr className="border-t border-slate-300">
-                <td colSpan={kind === null ? 4 : 3} className="py-2.5 pr-3 text-right text-base font-black text-slate-900">
-                  합계
+                <td colSpan={labelSpan} className="py-2.5 pr-3 text-right text-base font-black text-slate-900">
+                  총 합계
+                  <span className="ml-1.5 text-tiny font-semibold text-slate-400">공급가액 + 부가세</span>
                 </td>
-                <td className="whitespace-nowrap py-2.5 pl-3 text-right text-lead font-black tabular-nums text-slate-900">
+                <td colSpan={2} className="whitespace-nowrap py-2.5 pl-3 text-right text-lead font-black tabular-nums text-slate-900">
                   {won(supply + vat)}
                   <span className="ml-1 text-tiny font-bold text-slate-400">원</span>
                 </td>
@@ -290,12 +311,22 @@ function ItemRow({
         <span className="ml-1.5 text-tiny font-normal text-slate-400">{r.cpo}</span>
       </td>
       {showKind && <td className="whitespace-nowrap px-3 py-2.5 text-slate-600">{r.kind}</td>}
-      <td className="whitespace-nowrap px-3 py-2.5 text-slate-600">{r.label}</td>
-      <td className="px-3 py-2.5 text-small text-slate-500">
-        {r.note ?? <span className="text-slate-300">—</span>}
+      {/* 현장 기본정보 — 라인이 갈리면 여럿을 그대로 적는다(「7·10년」이 섞였다는 뜻이다) */}
+      <td className="whitespace-nowrap px-2 py-2.5 text-right tabular-nums text-slate-600">
+        {r.site.termYears.length > 0 ? `${r.site.termYears.join('·')}년` : <Empty kind="miss" />}
       </td>
-      <td className={`whitespace-nowrap py-2.5 pl-3 text-right font-bold tabular-nums ${r.amount < 0 ? 'text-amber-800' : 'text-slate-900'}`}>
+      <td className="whitespace-nowrap px-2 py-2.5 text-slate-600">
+        {r.site.powerTypes.length > 0 ? r.site.powerTypes.join('·') : <Empty kind="miss" />}
+      </td>
+      <td className="whitespace-nowrap px-2 py-2.5 text-right tabular-nums text-slate-600">
+        {r.site.qty > 0 ? `${r.site.qty}대` : <Empty kind="miss" />}
+      </td>
+      <td className="whitespace-nowrap px-3 py-2.5 text-slate-600">{r.label}</td>
+      <td className={`whitespace-nowrap px-3 py-2.5 text-right font-bold tabular-nums ${r.amount < 0 ? 'text-amber-800' : 'text-slate-900'}`}>
         {won(r.amount)}
+      </td>
+      <td className={`whitespace-nowrap py-2.5 pl-3 text-right tabular-nums ${r.amount < 0 ? 'text-amber-800' : 'text-slate-700'}`}>
+        {won(vatOf(r.amount))}
       </td>
       {canEdit && (
         <td className="whitespace-nowrap py-2.5 pl-2 text-right print:hidden">

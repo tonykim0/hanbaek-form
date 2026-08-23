@@ -386,10 +386,23 @@ export function payoutRowsOf(r: ProjectRecord, viewer: Viewer, rules: RuleMap, s
   const d = toDetail(r, rules, settles);
   const vis = effectiveVisibility(viewer.role, viewer.org, d.project);
 
+  /*
+   * 현장 기본정보 — 거래명세서가 적는다. 라인 여럿을 합친다: 대수는 더하고,
+   * 연수·전력인입은 갈리면 여럿을 그대로 둔다(섞여 있다는 사실을 지우지 않는다).
+   */
+  const site = {
+    termYears: [...new Set(d.lines.map((l) => l.termYears))].sort((a, b) => a - b),
+    powerTypes: [...new Set(
+      d.lines.map((l) => l.powerType).filter((v): v is '모자분리' | '한전불입' => v !== null)
+    )].sort(),
+    qty: d.lines.reduce((n, l) => n + l.qty, 0),
+  };
+
   const base = {
     projectId: d.project.id,
     projectName: d.project.name,
     cpo: d.project.cpo,
+    site,
   };
   const sides: Array<{ kind: PayoutRow['kind']; org: string | null; show: boolean }> = [
     { kind: '영업비', org: d.project.salesOrg, show: vis.sales },

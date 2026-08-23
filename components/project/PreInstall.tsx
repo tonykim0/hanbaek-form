@@ -19,6 +19,13 @@ import { useAction } from '@/lib/use-action';
 import { Badge, Btn, Choice, Err, FIELD, Tag } from '@/components/ui';
 import { DocReview } from './DocReview';
 import { docState } from './parts';
+import { useShardLoader } from '@/components/ChargerHistoryLookup';
+import {
+  DATA_BASE, lookupChargerHistory, summarize, type LookupResult, type SiteRecord,
+} from '@/lib/charger-history';
+import {
+  lookupSubsidyHistory, SUBSIDY_DATA_BASE, summarizeSubsidy, type SubsidyRecord,
+} from '@/lib/subsidy-history';
 
 export function PreInstall({
   project, docs, byKind, siteName, canReview,
@@ -115,6 +122,36 @@ function Survey({ project }: { project: ProjectDetail['project'] }) {
   const [state, setState] = useState<PreInstallState>(project.preInstall);
   const [note, setNote] = useState(project.preNote ?? '');
 
+  /*
+   * 1차 조사 = /lookup 과 같은 이력 조회 — 실무 순서가 「이력 조회로 1차 확인 → 영업자가
+   * 고객사·현장에서 재확인」이라(한백 확인 2026-08-23), 그 1차를 이 자리에서 현장 주소로
+   * 돌려 초안을 만들어 준다. 자동 저장하지 않는다 — 조회는 초안이고, 저장은 사람이
+   * 재확인을 거쳐 누르는 것이다. 조회 로직·데이터는 /lookup 과 같은 것을 그대로 쓴다.
+   */
+  const loadCharger = useShardLoader<SiteRecord>(DATA_BASE);
+  const loadSubsidy = useShardLoader<SubsidyRecord>(SUBSIDY_DATA_BASE);
+  const [looking, setLooking] = useState(false);
+  const [draft, setDraft] = useState<{ state: PreInstallState; text: string } | null>(null);
+  const [lookErr, setLookErr] = useState<string | null>(null);
+
+  async function firstLook() {
+    if (!project.addr) return;
+    setLooking(true);
+    setLookErr(null);
+    try {
+      const input = { road: project.addr, jibun: '' };
+      const [charger, subsidy] = await Promise.all([
+        lookupChargerHistory(input, loadCharger),
+        lookupSubsidyHistory(input, loadSubsidy),
+      ]);
+      setDraft(draftOf(charger, subsidy));
+    } catch (e) {
+      setLookErr((e as Error).message);
+    } finally {
+      setLooking(false);
+    }
+  }
+
   async function save() {
     const ok = await run({
       url: `/api/projects/${project.id}/preinstall`,
@@ -135,6 +172,33 @@ function Survey({ project }: { project: ProjectDetail['project'] }) {
 
       {editing ? (
         <div className="flex max-w-xl flex-col gap-2.5">
+          <div className="flex flex-wrap items-center gap-2">
+            <Btn
+              size="sm"
+              kind="side"
+              busy={looking}
+              busyLabel="조회 중…"
+              disabled={!project.addr}
+              onClick={() => void firstLook()}
+            >
+              {project.addr ? '주소로 이력 조회 — 1차 확인' : '주소 미지정 — 이력 조회 불가'}
+            </Btn>
+            <Err>{lookErr}</Err>
+          </div>
+          {draft && (
+            <div className="rounded-ctl bg-slate-50 px-3 py-2">
+              <p className="break-keep text-tiny leading-snug text-slate-700">{draft.text}</p>
+              <div className="mt-1.5">
+                <Btn
+                  size="sm"
+                  kind="quiet"
+                  onClick={() => { setState(draft.state); setNote(draft.text); }}
+                >
+                  이 결과를 조사 내역에 채우기 — 현장 확인 후 고친다
+                </Btn>
+              </div>
+            </div>
+          )}
           <div className="flex flex-wrap gap-1.5">
             {(['없음', '있음'] as const).map((v) => (
               <Choice key={v} on={state === v} onClick={() => setState(v)}>기설치 {v}</Choice>
@@ -178,4 +242,45 @@ function Survey({ project }: { project: ProjectDetail['project'] }) {
       )}
     </div>
   );
+}
+
+
+/*
+ * 조회 결과를 조사 내역 초안 한 문장으로 — /lookup 의 요약(summarize)과 같은 숫자를 쓰되,
+ * 저장될 글이므로 표가 아니라 문장이다. 무매칭도 적는다 — 「이력 없음」은 조사 결과다.
+ */
+function draftOf(
+  charger: LookupResult,
+  subsidy: LookupResult<SubsidyRecord>
+): { state: PreInstallState; text: string } {
+  const parts: string[] = [];
+  let found = false;
+
+  if (charger.status === '매칭') {
+    const sum = summarize(charger.record);
+    found = sum.slow + sum.fast > 0;
+    const ops = sum.operators.map((o) => `${o.name} ${o.qty}기`).join(' · ');
+    parts.push(
+      `완속 ${sum.slow}기 · 급속 ${sum.fast}기 (보조금 ${sum.subsidized}기 · 자부담 ${sum.ownFunded}기` +
+      (sum.applyYears.length ? ` · ${sum.applyYears.join('·')}년` : '') + ')' +
+      (ops ? ` — ${ops}` : '')
+    );
+  } else if (charger.status === '시군구불일치') {
+    parts.push('충전소 이력: 같은 주소가 다른 지역에 있음 — 주소 표기 확인 필요');
+  } else {
+    parts.push('충전소 등록 이력 없음');
+  }
+
+  if (subsidy.status === '매칭') {
+    const sum = summarizeSubsidy(subsidy.record);
+    if (sum.units > 0) found = true;
+    parts.push(`보조금 신청 이력 ${sum.count}건 ${sum.units}기${sum.years.length ? ` (${sum.years.join('·')}년)` : ''}`);
+  } else {
+    parts.push('보조금 신청 이력 없음');
+  }
+
+  return {
+    state: found ? '있음' : '없음',
+    text: `[이력 조회 1차] ${parts.join(' / ')} — 현장 재확인 전`,
+  };
 }

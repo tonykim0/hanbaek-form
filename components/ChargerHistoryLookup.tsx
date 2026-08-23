@@ -25,8 +25,8 @@ import {
 
 /* --------------------------------------------------------------- 샤드 읽기 */
 
-/** 샤드 JSON 을 내려받아 화면에 캐시해 둡니다 (같은 샤드 재요청 방지) */
-function useShardLoader<R>(base: string) {
+/** 샤드 JSON 을 내려받아 화면에 캐시해 둡니다 (같은 샤드 재요청 방지) — 기설치 조사(PreInstall)도 쓴다 */
+export function useShardLoader<R>(base: string) {
   const cache = useRef(new Map<string, Promise<Shard<R>>>());
 
   return useCallback(

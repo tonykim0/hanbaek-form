@@ -20,7 +20,7 @@
  */
 import { createContext, Fragment, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  BUILDING_TYPES, bizTypeOfRepl, CHANNELS, CPO_NAMES, REPL_TYPES,
+  BUILDING_TYPES, bizTypeOfRepl, CHANNELS, CPO_NAMES, powerTypesOfRepl, REPL_TYPES,
   type BuildingType, type Channel, type CpoName, type LineAxes, type PricingRule, type ReplType,
   type BizType, type PromoExtendOption, type PromoStep, type SettlementRule, type SettlementStepRule, type Trigger,
 } from '@/types/project';
@@ -382,7 +382,7 @@ function Grid({
   /** 한 칸(연수 × 유형)에 지금 적용 중인 케이스들 — 값 칸에 숫자가 뜨는 그 케이스들이다 */
   const casesAt = (term: number, bldg: BuildingType) =>
     REPL_TYPES.flatMap((repl) =>
-      POWER_TYPES.map((power) => at(repl, power, term, bldg).now)
+      powerTypesOfRepl(repl).map((power) => at(repl, power, term, bldg).now)
     ).filter((r): r is PricingRule => r !== null);
 
   /** 칸 하나의 정책 값 — 케이스마다 다르면 둘 다 적는다. 아무 케이스도 없으면 null */
@@ -519,8 +519,9 @@ function Grid({
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
+            {/* 있을 수 없는 조합(연동 × 한전불입)은 행을 만들지 않는다 — 클릭을 막는 게 아니라 자리가 없다 */}
             {REPL_TYPES.flatMap((repl) =>
-              POWER_TYPES.map((power) => (
+              powerTypesOfRepl(repl).map((power) => (
                 <tr key={`${repl}-${power}`}>
                   {/* 열 너비가 고정이라 줄바꿈을 막지 않는다 — 막으면 「자체투자 (제자리교체)」가 칸을 넘는다 */}
                   <td className="px-3 py-2">
@@ -1244,19 +1245,24 @@ function CaseForm({
           <Field label="교체유형" hint={`사업구분 ${bizType}`}>
             <select
               value={replType}
-              onChange={(e) => setReplType(e.target.value as ReplType)}
+              onChange={(e) => {
+                const next = e.target.value as ReplType;
+                setReplType(next);
+                // 연동으로 바꾸면 한전불입이 설 자리가 없다 — 값이 남으면 검증에서야 걸린다
+                if (!powerTypesOfRepl(next).includes(powerType)) setPowerType(powerTypesOfRepl(next)[0]);
+              }}
               className={FIELD}
             >
               {REPL_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
             </select>
           </Field>
-          <Field label="수전방식">
+          <Field label="수전방식" hint={powerTypesOfRepl(replType).length === 1 ? `${replType}은 모자분리 전제` : undefined}>
             <select
               value={powerType}
               onChange={(e) => setPowerType(e.target.value as (typeof POWER_TYPES)[number])}
               className={FIELD}
             >
-              {POWER_TYPES.map((p) => <option key={p} value={p}>{p}</option>)}
+              {powerTypesOfRepl(replType).map((p) => <option key={p} value={p}>{p}</option>)}
             </select>
           </Field>
           <Field label="계약연수" hint="겸용 케이스는 여럿 고른다">

@@ -59,6 +59,15 @@ export type Channel = '턴키' | '영업' | '시공';
 export const CHANNELS = ['턴키', '영업', '시공'] as const satisfies readonly Channel[];
 export type BizType = '환경부' | '자체투자' | '연동';
 
+/**
+ * 교체유형이 허용하는 수전방식 — 연동은 모자분리 전제다(SK 부속합의서·PL 정책 모두 명시).
+ * 연동 × 한전불입은 있을 수 없는 조합이라 매트릭스에 행을 만들지 않고, 케이스 저장도 막는다 —
+ * 고를 수 있게 두면 그 케이스가 어느 현장에도 안 맞고 왜 안 맞는지 알 수 없다(교체유형 주석과 같은 이유).
+ */
+export function powerTypesOfRepl(repl: ReplType): ReadonlyArray<'한전불입' | '모자분리'> {
+  return repl === '연동' ? ['모자분리'] : ['한전불입', '모자분리'];
+}
+
 /** 교체유형이 사업구분을 정한다 — 따로 고르게 두면 두 값이 어긋난다 */
 export function bizTypeOfRepl(repl: ReplType): BizType {
   return repl === '환경부 신규' ? '환경부' : repl === '연동' ? '연동' : '자체투자';

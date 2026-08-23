@@ -7,7 +7,7 @@
  * ★없는 축은 조건에서 뺀다.★ 현장 정보가 덜 채워졌다고 후보가 0개가 되면 아무것도 못 고른다 —
  * 아는 축으로만 좁히고, 무엇으로 좁혔는지 화면에 적어 사람이 판단하게 한다.
  */
-import { BUILDING_TYPES, bizTypeOfRepl, CHANNELS, CPO_NAMES, REPL_TYPES } from '@/types/project';
+import { BUILDING_TYPES, bizTypeOfRepl, CHANNELS, CPO_NAMES, powerTypesOfRepl, REPL_TYPES } from '@/types/project';
 import type {
   ContractLine, CpoName, NewPricingRule, PricingRule, Project, ReplType,
 } from '@/types/project';
@@ -137,6 +137,10 @@ export function checkPricingRule(r: NewPricingRule): string[] {
   // 교체유형이 사업구분을 정한다 — 두 값이 어긋나면 그 케이스는 어느 현장에도 안 맞는다
   if (REPL_TYPES.includes(r.replType) && bizTypeOfRepl(r.replType) !== r.bizType) {
     bad.push(`${r.replType} 는 사업구분이 ${bizTypeOfRepl(r.replType)} 입니다.`);
+  }
+  // 있을 수 없는 조합 — 연동은 모자분리 전제라 한전불입 케이스가 설 자리가 없다
+  if (REPL_TYPES.includes(r.replType) && !powerTypesOfRepl(r.replType).includes(r.powerType)) {
+    bad.push(`${r.replType} 는 ${powerTypesOfRepl(r.replType).join('·')}만 됩니다.`);
   }
 
   const money = [r.salesUnit, r.consUnit, r.margin];

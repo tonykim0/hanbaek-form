@@ -26,6 +26,7 @@ import {
 } from '@/types/project';
 import { won } from '@/lib/format';
 import { useAction } from '@/lib/use-action';
+import { useBackClose } from '@/lib/use-back-close';
 import { halfEndKey, halfKeyOf, halfLabel, startKey } from '@/lib/pricing-match';
 import { checkSettlementSteps, RECEIVE_TRIGGERS, settlementStepsKeyOf, stepUnits } from '@/lib/settlement';
 import { Badge, Blank, Btn, Choice, Empty, Err, FIELD, FIELD_CELL, PANEL, Tag } from '@/components/ui';
@@ -151,6 +152,12 @@ export default function PricingMatrix({
    * 수정·개정은 케이스 전부를 싣는다. null 이면 닫힘. key 로 다시 마운트해 프리필을 확실히 싣는다.
    */
   const [form, setForm] = useState<FormOpen | null>(null);
+  /*
+   * 케이스 폼은 화면을 통째로 대체하고 맨 위로 스크롤까지 한다 — 사람 눈에는 페이지
+   * 전환이라, 뒤로 가기가 폼을 닫아야 한다. 안 걸면 그 전에 보던 페이지로 튕긴다
+   * (2026-08-23 실사고: 단가표 → 뒤로 가기 → 계정설정).
+   */
+  useBackClose(form !== null, () => setForm(null));
 
   const settleById = useMemo(
     () => new Map(settlementRules.map((s) => [s.id, s])),

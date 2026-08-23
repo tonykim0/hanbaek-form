@@ -27,6 +27,7 @@
  */
 import { useMemo, useState } from 'react';
 import { useAction } from '@/lib/use-action';
+import { useBackClose } from '@/lib/use-back-close';
 import { PASSWORD_MIN_LEN, type AccountView } from '@/lib/auth/types';
 import { isHanbaek, type Role } from '@/lib/roles';
 import { Badge, Btn, Choice, Empty, Err, FIELD, FIELD_CELL, Note, PANEL, Saved } from '@/components/ui';
@@ -64,6 +65,8 @@ export default function AccountAdmin({
   dbReady: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  // 새 계정 폼도 화면 윗부분을 대체하는 전환이다 — 뒤로 가기가 폼을 닫는다 (케이스 폼과 같은 이유)
+  useBackClose(open, () => setOpen(false));
   const [done, setDone] = useState<string | null>(null);
   const [q, setQ] = useState('');
   const [filter, setFilter] = useState<Role | 'all'>('all');

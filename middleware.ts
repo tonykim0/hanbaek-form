@@ -43,6 +43,7 @@ const PORTAL_HOSTS = hostList(process.env.PORTAL_HOSTS, ['hanbaek-form.vercel.ap
  * 포털 주소에서는 이 목록이 통째로 404 다.
  */
 const CONSOLE_PATHS = [
+  '/todos',
   '/dashboard',
   '/projects',
   '/construction',

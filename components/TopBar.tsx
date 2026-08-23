@@ -175,15 +175,14 @@ export default function TopBar({ role }: { role: Role }) {
                     ));
                   })()}
                 </ul>
-                {todos.length > SHOW_MAX && (
-                  <Link
-                    href="/projects"
-                    onClick={() => setOpen(false)}
-                    className="block border-t border-slate-100 px-3 py-2 text-tiny font-bold text-brand-700 hover:bg-slate-50"
-                  >
-                    {todos.length - SHOW_MAX}건 더 — 현장 보드에서 보기
-                  </Link>
-                )}
+                {/* 바닥은 언제나 대시보드로 — 드롭다운은 훑는 자리고 저기가 작업대다 */}
+                <Link
+                  href="/todos"
+                  onClick={() => setOpen(false)}
+                  className="block border-t border-slate-100 px-3 py-2 text-tiny font-bold text-brand-700 hover:bg-slate-50"
+                >
+                  {todos.length > SHOW_MAX ? `${todos.length - SHOW_MAX}건 더 — ` : ''}할 일 전체 보기 →
+                </Link>
               </>
             )}
           </div>

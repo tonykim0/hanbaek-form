@@ -37,10 +37,18 @@ interface Todo {
   href: string;
   name: string;
   what: string;
+  /** 어느 국면의 일인가 — 목록을 이것으로 묶는다. 판정은 서버(bandOfColumn)가 한다 */
+  group: '계약' | '시공' | '정산';
   stalledDays: number;
 }
 
 const SHOW_MAX = 8;
+
+/*
+ * 묶음 순서 — 정산이 맨 위다. 배치 일(계산서 발행·확정 누락)은 1~2일 회전이라
+ * 계약·시공의 정체보다 먼저 눈에 걸려야 한다(서버가 맨 위에 두던 것과 같은 판단).
+ */
+const GROUPS = ['정산', '계약', '시공'] as const;
 
 export default function TopBar({ role }: { role: Role }) {
   const pathname = usePathname();
@@ -123,28 +131,49 @@ export default function TopBar({ role }: { role: Role }) {
               </p>
             ) : (
               <>
+                {/*
+                  국면(정산·계약·시공)으로 묶는다 (한백 요청 2026-08-25) — 한 줄 목록은
+                  계약 반려와 계산서 발행이 같은 무게로 늘어서서, 줄마다 어느 일인지
+                  다시 읽어야 했다. 머리글은 사이드바 묶음 제목과 같은 모양이다.
+                  자르기(SHOW_MAX)는 전체 기준 — 묶음마다 자르면 몇 건이 잘렸는지 셈이 안 맞는다.
+                */}
                 <ul className="max-h-96 overflow-y-auto">
-                  {todos.slice(0, SHOW_MAX).map((t) => (
-                    <li key={t.id}>
-                      <Link
-                        href={t.href}
-                        onClick={() => setOpen(false)}
-                        className="block px-3 py-2 transition hover:bg-slate-50"
-                      >
-                        <span className="block truncate text-small font-bold text-slate-900">
-                          {t.name}
-                        </span>
-                        <span className="block text-tiny text-slate-500">
-                          {t.what}
-                          {t.stalledDays > 0 && (
-                            <span className={t.stalledDays >= 7 ? 'font-bold text-red-600' : ''}>
-                              {' '}· {t.stalledDays}일 정체
-                            </span>
-                          )}
-                        </span>
-                      </Link>
-                    </li>
-                  ))}
+                  {(() => {
+                    const visible = todos.slice(0, SHOW_MAX);
+                    return GROUPS.filter((g) => visible.some((t) => t.group === g)).map((g) => (
+                      <li key={g}>
+                        <p className="border-b border-slate-100 bg-slate-50/70 px-3 py-1 text-micro font-bold tracking-[0.12em] text-slate-400">
+                          {g}
+                          <span className="ml-1.5 tabular-nums">
+                            {todos.filter((t) => t.group === g).length}
+                          </span>
+                        </p>
+                        <ul>
+                          {visible.filter((t) => t.group === g).map((t) => (
+                            <li key={t.id}>
+                              <Link
+                                href={t.href}
+                                onClick={() => setOpen(false)}
+                                className="block px-3 py-2 transition hover:bg-slate-50"
+                              >
+                                <span className="block truncate text-small font-bold text-slate-900">
+                                  {t.name}
+                                </span>
+                                <span className="block text-tiny text-slate-500">
+                                  {t.what}
+                                  {t.stalledDays > 0 && (
+                                    <span className={t.stalledDays >= 7 ? 'font-bold text-red-600' : ''}>
+                                      {' '}· {t.stalledDays}일 정체
+                                    </span>
+                                  )}
+                                </span>
+                              </Link>
+                            </li>
+                          ))}
+                        </ul>
+                      </li>
+                    ));
+                  })()}
                 </ul>
                 {todos.length > SHOW_MAX && (
                   <Link

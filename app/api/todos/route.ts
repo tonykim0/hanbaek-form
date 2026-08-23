@@ -17,7 +17,7 @@
 import { NextResponse } from 'next/server';
 import { actorOf, getSessionUser, viewerOf } from '@/lib/auth/session';
 import { getRepository } from '@/lib/data';
-import { boardColumnOf } from '@/lib/board';
+import { bandOfColumn, boardColumnOf } from '@/lib/board';
 import { batchesOf, batchKey, batchStateOf } from '@/lib/payout-board';
 import { isHanbaek, type Role } from '@/lib/roles';
 import { won } from '@/lib/format';
@@ -65,13 +65,23 @@ export async function GET() {
   const items = projects
     // 멈춘 현장은 누구 차례도 아니다 — 보류 칸과 같은 판정
     .filter((p) => !p.holdState && mine.includes(p.court))
-    .map((p) => ({
-      id: p.id,
-      href: `/projects/${p.id}`,
-      name: p.name,
-      what: whatOf(p),
-      stalledDays: p.stalledDays,
-    }))
+    .map((p) => {
+      const column = boardColumnOf(p);
+      return {
+        id: p.id,
+        href: `/projects/${p.id}`,
+        name: p.name,
+        what: whatOf(column, p),
+        /*
+         * 어느 국면의 일인가 — 계약·시공은 보드 띠(bandOfColumn) 그대로다. 멈춤 띠는
+         * 위에서 걸렀으니 여기 안 온다. 배치 할 일은 정산이다. 상단 바가 이것으로 묶는다
+         * (한백 요청 2026-08-25) — 국면이 섞인 한 줄 목록은 계약 반려와 계산서 발행이
+         * 같은 무게로 늘어서서, 「지금 어느 일을 보고 있나」를 줄마다 다시 읽어야 했다.
+         */
+        group: bandOfColumn(column) as '계약' | '시공',
+        stalledDays: p.stalledDays,
+      };
+    })
     // 오래 멈춘 것이 위로 — 정체일이 곧 급한 순서다
     .sort((a, b) => b.stalledDays - a.stalledDays);
 
@@ -90,6 +100,7 @@ export async function GET() {
       href: '/statements',
       name: `세금계산서 발행 — ${b.kind}`,
       what: `공급가액 ${won(b.total)}원 · 지급일 ${b.paidAt}`,
+      group: '정산' as const,
       stalledDays: 0,
     }));
 
@@ -102,21 +113,18 @@ export async function GET() {
       href: '/statements',
       name: `확정 누락 — ${b.org} ${b.kind}`,
       what: `공급가액 ${won(b.total)}원 · 지급일 ${b.paidAt} 지남`,
+      group: '정산' as const,
       stalledDays: 0,
     }));
 
   return NextResponse.json({ items: [...missed, ...invoices, ...items] });
 }
 
-/** 그 현장에서 지금 할 일 — 보드 칸 판정을 그대로 쓴다(다시 계산하지 않는다) */
-function whatOf(p: {
-  stage: Parameters<typeof boardColumnOf>[0]['stage'];
-  status: Parameters<typeof boardColumnOf>[0]['status'];
-  holdState: Parameters<typeof boardColumnOf>[0]['holdState'];
+/** 그 현장에서 지금 할 일 — 보드 칸 판정을 그대로 쓴다(부르는 쪽이 한 번 계산해 넘긴다) */
+function whatOf(column: ReturnType<typeof boardColumnOf>, p: {
   rejectedDocs: number;
   docsFilled: boolean;
 }): string {
-  const column = boardColumnOf(p);
   if (column === '계약보완') return `반려 ${p.rejectedDocs}건 보완`;
   if (column === '계약접수') return '필수 서류 제출';
   if (column === '계약검토') return '검수 · 계약 확인';

@@ -262,12 +262,23 @@ function StepCells({
 
   return (
     <>
-      {/* 금액 — 밑에 지급시기(트리거)가 늘 붙는다 */}
+      {/*
+        금액 — 밑에 트리거의 지금 사실이 붙는다 (한백 요청 2026-08-25).
+        「지급시기 계약완료」라고 규칙만 적어 두면 그 계약완료가 됐는지 안 됐는지를
+        딴 데서 찾아야 했다. 됐으면 날짜(그날이 곧 증거다), 아직이면 「전」 —
+        상태 열의 「대기」는 회차의 자리고, 이것은 트리거의 사실이라 겹치지 않는다.
+      */}
       <td className="whitespace-nowrap border-l border-slate-100 px-3 py-2.5 text-right align-top">
         <p className={`font-black tabular-nums ${done ? 'text-slate-400' : 'text-slate-900'}`}>
           {won(amount)}
         </p>
-        <p className="text-micro text-slate-400">지급시기 {release.trigger}</p>
+        {release.metAt ? (
+          <p className="text-micro tabular-nums text-slate-400">
+            {release.trigger} {release.metAt.slice(5)}
+          </p>
+        ) : (
+          <p className="text-micro font-bold text-amber-700">{release.trigger} 전</p>
+        )}
       </td>
 
       {/* 지급일 — 배치에 실렸으면 그 날짜, 지급 가능이면 규칙(익월 10·25일)을 예정으로 */}

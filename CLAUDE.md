@@ -63,9 +63,14 @@
   어디 붙었는지 가리는 법: 개발 DB 의 `pricing_rules` 는 41행이다(2026-08-22 기준).
 - ★**프로덕션 DATABASE_URL 은 Vercel 에서 Sensitive 다 — 값을 되읽을 수 없다.**★
   `vercel env pull`·`vercel env run` 으로도 안 나온다(`env run` 은 `.env.local` 을 덧씌운다).
-  밖에서 프로덕션 DB 에 붙을 길이 없다 — 그래서 반영은 위의 **마이그레이션**으로 한다.
-  접속 문자열이 있는 곳(빌드)이 대신 돌아 주므로, 사람이 SQL Editor 에 붙여넣던 절차와
-  「어느 프로젝트에 돌렸나」 사고(위 ref 항목)가 같이 사라진다.
+  **로컬에서 붙는 길은 `.env.prod-db`(비추적, `DIRECT_URL` 하나) 뿐이다** — 스크립트는
+  `--env .env.prod-db` 로 받는다(`scripts/apply-nice-h2-pricing.ts` 의 방식). 값이 낡으면
+  (Supabase 비밀번호 rotate — 2026-08-23 실제로 겪음) Supabase 대시보드의 프로덕션
+  프로젝트에서 Session pooler 접속 문자열을 다시 받아 그 파일만 고친다.
+  일상 스키마·데이터 반영은 그래도 **마이그레이션**이 기본이다 — 접속 문자열이 있는
+  곳(빌드)이 대신 돌아 주므로, 사람이 SQL Editor 에 붙여넣던 절차와
+  「어느 프로젝트에 돌렸나」 사고(위 ref 항목)가 같이 사라진다. `.env.prod-db` 는
+  이관·백업처럼 마이그레이션으로 못 하는 일에만 쓴다.
   예외 하나: `login_attempts` 는 `lib/auth/throttle.ts` 가 처음 쓸 때 스스로 만든다.
   로그인을 막지 않는 부속물이라서 둔 예외고, 다른 표에 이 방식을 늘리지 않는다.
 - **프로덕션이 왜 그러는지는 런타임 로그로 본다** — `npx vercel logs --environment production

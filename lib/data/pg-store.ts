@@ -1162,6 +1162,52 @@ export const pgRepository: ProjectRepository = {
     }));
   },
 
+  async cancelPayoutBatch(org, kind, payDate, actor): Promise<{ canceled: number }> {
+    assertAdmin(actor, '가확정 취소');
+    const db = getDb();
+    return db.transaction(async (tx) => {
+      /*
+       * 확정됐거나 계산서가 이미 붙은 배치는 통째로 못 무른다 — 협력사가 발행했거나
+       * 발행 직전이라는 뜻이다. 계산서를 먼저 지우게 해서 「첨부가 조용히 고아가 되는」
+       * 길을 막는다. 잠금 해제 → 계산서 삭제 → 취소 순서가 되돌리는 길이다.
+       */
+      const [inv] = await tx
+        .select({ id: taxInvoices.id, finalizedAt: taxInvoices.finalizedAt })
+        .from(taxInvoices)
+        .where(and(eq(taxInvoices.org, org), eq(taxInvoices.kind, kind), eq(taxInvoices.payDate, payDate)))
+        .limit(1);
+      if (inv?.finalizedAt) throw new Error('최종 확정된 배치입니다 — 먼저 확정을 해제하세요.');
+      if (inv) throw new Error('세금계산서가 붙어 있습니다 — 먼저 계산서를 지우세요.');
+
+      const rows = await tx
+        .select({
+          id: payoutEntries.id, projectId: payoutEntries.projectId,
+          kind: payoutEntries.kind, category: payoutEntries.category, amount: payoutEntries.amount,
+          salesOrg: projects.salesOrg, gcOrg: projects.gcOrg,
+        })
+        .from(payoutEntries)
+        .innerJoin(projects, eq(payoutEntries.projectId, projects.id))
+        .where(eq(payoutEntries.at, payDate));
+      const mine = rows.filter(
+        (r) =>
+          entryTypeOf(r.category as PayoutCategory) === '지급' &&
+          r.kind === kind &&
+          (r.kind === '영업비' ? r.salesOrg : r.gcOrg) === org
+      );
+      if (mine.length === 0) throw new Error('그 지급일에 이 배치로 나간 지급이 없습니다.');
+
+      await tx.delete(payoutEntries).where(inArray(payoutEntries.id, mine.map((r) => r.id)));
+      // 무엇을 물렀는지 통째로 남긴다 — 회차들이 지급 가능으로 돌아간다
+      await writeAudit(tx, {
+        projectId: null, actor, action: `가확정 취소 — ${org} ${kind} ${payDate}`,
+        field: 'batch',
+        oldValue: mine.map((r) => `${r.projectId} ${r.category} ${r.amount}원`).join(' · '),
+        newValue: null,
+      });
+      return { canceled: mine.length };
+    });
+  },
+
   async finalizeBatch(org, kind, payDate, undo, actor): Promise<void> {
     assertAdmin(actor, '배치 최종 확정');
     const db = getDb();

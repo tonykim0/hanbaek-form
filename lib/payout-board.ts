@@ -33,8 +33,8 @@ export function payoutsOfDetail(d: ProjectDetail, vis: Visibility): PayoutRowInp
     installCompletedAt: d.process.installConfirmedAt,
     openedAt: d.process.openDoneAt,
   };
-  const stepAt = (kind: PayoutKind, cat: '1차' | '2차') =>
-    d.payoutEntries.find((e: PayoutEntry) => e.kind === kind && e.category === cat)?.at ?? null;
+  const stepEntry = (kind: PayoutKind, cat: '1차' | '2차') =>
+    d.payoutEntries.find((e: PayoutEntry) => e.kind === kind && e.category === cat) ?? null;
 
   const build = (kind: PayoutKind): PayoutRowInput => {
     const side = payoutSideOf(d.payoutEntries, kind);
@@ -54,8 +54,10 @@ export function payoutsOfDetail(d: ProjectDetail, vis: Visibility): PayoutRowInp
       unpriced: d.lines.filter((l) => unit(l) === null).length,
       milestones,
       feeMissing: kind === '영업비' ? d.contract.feeMissing : [],
-      step1At: stepAt(kind, '1차'),
-      step2At: stepAt(kind, '2차'),
+      step1At: stepEntry(kind, '1차')?.at ?? null,
+      step2At: stepEntry(kind, '2차')?.at ?? null,
+      step1EntryId: stepEntry(kind, '1차')?.id ?? null,
+      step2EntryId: stepEntry(kind, '2차')?.id ?? null,
     };
   };
 

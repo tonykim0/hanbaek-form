@@ -184,9 +184,9 @@ export default function PayoutWorkBoard({
                   ))}
                 </td>
                 <StepAmountCell p={p} no={1} />
-                <StepPayCell p={p} no={1} finalizedBatches={finalizedBatches} />
+                <StepPayCell p={p} no={1} finalizedBatches={finalizedBatches} canConfirm={canConfirm} />
                 <StepAmountCell p={p} no={2} />
-                <StepPayCell p={p} no={2} finalizedBatches={finalizedBatches} />
+                <StepPayCell p={p} no={2} finalizedBatches={finalizedBatches} canConfirm={canConfirm} />
               </tr>
             ))}
           </tbody>
@@ -227,18 +227,21 @@ function StepAmountCell({ p, no }: { p: PayoutWork; no: 1 | 2 }) {
  * 어느 줄이 계산서를 기다리는 중인지 여기서 읽힌다.
  */
 function StepPayCell({
-  p, no, finalizedBatches,
+  p, no, finalizedBatches, canConfirm,
 }: {
   p: PayoutWork;
   no: 1 | 2;
   finalizedBatches: Set<string>;
+  canConfirm: boolean;
 }) {
   if (p.due <= 0) {
     return <td className="px-3 py-2.5 text-right align-top text-slate-300">—</td>;
   }
   const done = no === 1 ? p.step1Done : p.step2Done;
   const at = no === 1 ? p.step1At : p.step2At;
+  const entryId = no === 1 ? p.step1EntryId : p.step2EntryId;
   const release = payoutReleaseOf(p.kind, no, p.milestones);
+  const finalized = at !== null && finalizedBatches.has(`${p.org}|${p.kind}|${at}`);
 
   return (
     <td className="whitespace-nowrap px-3 py-2.5 text-right align-top">
@@ -248,14 +251,17 @@ function StepPayCell({
           {/* 지급일이 지난 것은 상태가 아니라 사실이다 — 날짜만 남긴다 */}
           {at && at >= today() && (
             <p className="mb-0.5">
-              {finalizedBatches.has(`${p.org}|${p.kind}|${at}`) ? (
-                <Badge tone="ok">확정</Badge>
-              ) : (
-                <Badge tone="warn">가확정</Badge>
-              )}
+              {finalized ? <Badge tone="ok">확정</Badge> : <Badge tone="warn">가확정</Badge>}
             </p>
           )}
           <p className="text-small font-bold tabular-nums text-brand-800">{at ?? '지급됨'}</p>
+          {/*
+            * 가확정 무르기 — 그 자리에서(한백 확인 2026-08-24). 회차가 지급 가능으로
+            * 돌아가 다시 체크할 수 있다. 확정된 것은 명세서에서 해제부터라 여기 없다.
+            */}
+          {canConfirm && !finalized && at && at >= today() && entryId && (
+            <StepCancel p={p} entryId={entryId} />
+          )}
         </>
       ) : p.open?.no === no ? (
         p.state === '지급 가능' ? (
@@ -281,6 +287,31 @@ function StepPayCell({
         <p className="text-micro font-bold text-slate-300">1차 뒤</p>
       )}
     </td>
+  );
+}
+
+/** 가확정 취소 한 칸 — 원장에서 그 회차를 지워 지급 가능으로 되돌린다 */
+function StepCancel({ p, entryId }: { p: PayoutWork; entryId: string }) {
+  const router = useRouter();
+  const { busy, error, run } = useAction();
+
+  async function cancel() {
+    const ok = await run({
+      url: `/api/projects/${p.projectId}/payouts`,
+      method: 'DELETE',
+      body: { entryId },
+      fail: '취소하지 못했습니다.',
+    });
+    if (ok) router.refresh();
+  }
+
+  return (
+    <p className="mt-0.5">
+      <Btn kind="quiet" size="sm" busy={busy} onClick={() => void cancel()}>
+        취소
+      </Btn>
+      <Err className="block">{error}</Err>
+    </p>
   );
 }
 

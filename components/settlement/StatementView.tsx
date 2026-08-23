@@ -440,6 +440,41 @@ function MoveBatch({ org, kind, date }: { org: string; kind: PayoutKind; date: s
       <p className="mt-2 text-tiny text-slate-400">
         이 지급일의 {org} {kind} 지급 전부와 세금계산서가 함께 옮겨집니다
       </p>
+
+      {/*
+        * 배치 통째 무르기 — 줄 단위 취소(지급관리 표·위 빼기)와 달리 배치 전체가
+        * 지급 가능으로 돌아간다. 되돌릴 수 있는 일이라 빨강이 아니다(규칙 12) —
+        * 다시 체크해 가확정하면 그대로다. 계산서가 붙어 있으면 서버가 거부한다.
+        */}
+      <div className="mt-3 flex items-center gap-2 border-t border-slate-100 pt-3">
+        <CancelBatch org={org} kind={kind} date={date} />
+      </div>
     </section>
+  );
+}
+
+/** 가확정 취소 — 배치의 지급 줄 전부를 물러 지급 가능으로 되돌린다 */
+function CancelBatch({ org, kind, date }: { org: string; kind: PayoutKind; date: string }) {
+  const router = useRouter();
+  const { busy, error, run } = useAction();
+
+  async function cancel() {
+    const ok = await run({
+      url: '/api/statements/batch',
+      method: 'DELETE',
+      body: { org, kind, payDate: date },
+      fail: '취소하지 못했습니다.',
+    });
+    // 배치가 사라졌으니 목록으로 — 이 주소는 빈 명세서다
+    if (ok) router.push('/statements');
+  }
+
+  return (
+    <>
+      <Btn kind="quiet" size="sm" busy={busy} busyLabel="취소 중…" onClick={() => void cancel()}>
+        가확정 취소 — 배치 전체를 무른다
+      </Btn>
+      <Err>{error}</Err>
+    </>
   );
 }

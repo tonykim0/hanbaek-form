@@ -598,6 +598,9 @@ export interface PayoutPlanRow {
   /** 회차 지급 기록의 지급일 — 원장에서 유도 */
   step1At: string | null;
   step2At: string | null;
+  /** 회차 원장 항목 id — 표에서 가확정을 취소(원장 삭제)할 때 가리킨다 */
+  step1EntryId: string | null;
+  step2EntryId: string | null;
 }
 
 // ── 하도급사 지급 원장 ───────────────────────────────────────────

@@ -355,6 +355,15 @@ export interface ProjectRepository {
   finalizeBatch(org: string, kind: PayoutKind, payDate: string, undo: boolean, actor: Actor): Promise<void>;
 
   /**
+   * 배치 가확정 취소 — 그 배치의 지급 줄 전부를 원장에서 지운다. [한백 전용]
+   * 회차들은 지급 가능으로 돌아가 지급관리 표에서 다시 체크할 수 있다.
+   * 확정됐거나 계산서가 붙어 있으면 거부한다(해제·삭제부터). 전부 되거나 전부 안 된다.
+   */
+  cancelPayoutBatch(
+    org: string, kind: PayoutKind, payDate: string, actor: Actor
+  ): Promise<{ canceled: number }>;
+
+  /**
    * 세금계산서 저장 — 배치 하나에 한 장(같은 배치에 다시 올리면 교체). [한백 전용]
    * 금액(공급가액·세액·합계)은 AI 판독이 검산을 통과했을 때만 실려 온다.
    */

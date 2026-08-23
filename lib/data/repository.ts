@@ -330,11 +330,14 @@ export interface ProjectRepository {
   /**
    * 배치의 지급일을 옮긴다. [한백 전용]
    *
-   * 배치 = 그 지급일에 그 지급처로 나간 지급 타입 원장 줄 전부. 세금계산서가
+   * 배치 = 그 지급일에 그 지급처로 나간 그 구분(영업비/시공비)의 지급 줄 전부 —
+   * 영업·시공은 계산서를 따로 끊으므로 배치도 구분으로 갈린다(한백 확인 2026-08-24). 세금계산서가
    * (지급처 × 지급일) 키로 붙어 있으므로 같은 트랜잭션에서 함께 옮긴다 —
    * 따로 옮기면 첨부가 옛 날짜에 고아로 남는다.
    */
-  movePayoutBatch(org: string, from: string, to: string, actor: Actor): Promise<{ moved: number }>;
+  movePayoutBatch(
+    org: string, kind: PayoutKind, from: string, to: string, actor: Actor
+  ): Promise<{ moved: number }>;
 
   /**
    * 세금계산서 목록 — 배치 목록에 첨부·확정 상태를 붙이는 데 쓴다.
@@ -349,7 +352,7 @@ export interface ProjectRepository {
    * 첨부가 전제라 확정 시각은 세금계산서 행에 산다. 확정되면 배치가 잠긴다 —
    * 항목 빼기·지급일 변경·계산서 교체·삭제 전부 해제 후에만 된다(화면 규칙 7번).
    */
-  finalizeBatch(org: string, payDate: string, undo: boolean, actor: Actor): Promise<void>;
+  finalizeBatch(org: string, kind: PayoutKind, payDate: string, undo: boolean, actor: Actor): Promise<void>;
 
   /**
    * 세금계산서 저장 — 배치 하나에 한 장(같은 배치에 다시 올리면 교체). [한백 전용]

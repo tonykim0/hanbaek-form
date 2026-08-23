@@ -7,14 +7,20 @@
  */
 import { getRepository } from '@/lib/data';
 import { adminWrite, BadRequest } from '@/lib/api/write-route';
+import { PAYOUT_KINDS, type PayoutKind } from '@/types/project';
 
 export const POST = adminWrite<
   Record<string, never>,
-  { org?: unknown; payDate?: unknown; undo?: unknown }
+  { org?: unknown; kind?: unknown; payDate?: unknown; undo?: unknown }
 >('한백 관리자만 배치를 확정할 수 있습니다.', async ({ body, actor }) => {
   if (typeof body?.org !== 'string' || !body.org.trim()) throw new BadRequest('지급처가 없습니다.');
+  if (!PAYOUT_KINDS.includes(body.kind as PayoutKind)) {
+    throw new BadRequest('구분(영업비/시공비)이 없습니다.');
+  }
   if (typeof body.payDate !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(body.payDate)) {
     throw new BadRequest('지급일이 올바르지 않습니다.');
   }
-  await getRepository().finalizeBatch(body.org.trim(), body.payDate, body.undo === true, actor);
+  await getRepository().finalizeBatch(
+    body.org.trim(), body.kind as PayoutKind, body.payDate, body.undo === true, actor
+  );
 });

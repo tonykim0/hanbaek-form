@@ -964,10 +964,14 @@ export const pgRepository: ProjectRepository = {
           const [inv] = await tx
             .select({ finalizedAt: taxInvoices.finalizedAt })
             .from(taxInvoices)
-            .where(and(eq(taxInvoices.org, org), eq(taxInvoices.payDate, at)))
+            .where(and(
+              eq(taxInvoices.org, org),
+              eq(taxInvoices.kind, item.kind),
+              eq(taxInvoices.payDate, at),
+            ))
             .limit(1);
           if (inv?.finalizedAt) {
-            throw new Error(`${name} ${item.kind} — ${at} ${org} 배치는 최종 확정돼 잠겨 있습니다.`);
+            throw new Error(`${name} ${item.kind} — ${at} ${org} ${item.kind} 배치는 최종 확정돼 잠겨 있습니다.`);
           }
         }
 
@@ -1060,7 +1064,11 @@ export const pgRepository: ProjectRepository = {
           const [inv] = await tx
             .select({ finalizedAt: taxInvoices.finalizedAt })
             .from(taxInvoices)
-            .where(and(eq(taxInvoices.org, org), eq(taxInvoices.payDate, row.at)))
+            .where(and(
+              eq(taxInvoices.org, org),
+              eq(taxInvoices.kind, row.kind),
+              eq(taxInvoices.payDate, row.at),
+            ))
             .limit(1);
           if (inv?.finalizedAt) {
             throw new Error('최종 확정된 배치의 지급입니다 — 빼려면 먼저 확정을 해제하세요.');
@@ -1078,7 +1086,7 @@ export const pgRepository: ProjectRepository = {
     });
   },
 
-  async movePayoutBatch(org, from, to, actor): Promise<{ moved: number }> {
+  async movePayoutBatch(org, kind, from, to, actor): Promise<{ moved: number }> {
     assertAdmin(actor, '배치 지급일 변경');
     if (!/^\d{4}-\d{2}-\d{2}$/.test(to)) throw new Error('지급일은 YYYY-MM-DD 형식이어야 합니다.');
     if (from === to) throw new Error('같은 지급일입니다.');
@@ -1102,6 +1110,7 @@ export const pgRepository: ProjectRepository = {
       const mine = rows.filter(
         (r) =>
           entryTypeOf(r.category as PayoutCategory) === '지급' &&
+          r.kind === kind &&
           (r.kind === '영업비' ? r.salesOrg : r.gcOrg) === org
       );
       if (mine.length === 0) throw new Error('그 지급일에 이 지급처로 나간 지급이 없습니다.');
@@ -1109,7 +1118,7 @@ export const pgRepository: ProjectRepository = {
       const [inv] = await tx
         .select({ finalizedAt: taxInvoices.finalizedAt })
         .from(taxInvoices)
-        .where(and(eq(taxInvoices.org, org), eq(taxInvoices.payDate, from)))
+        .where(and(eq(taxInvoices.org, org), eq(taxInvoices.kind, kind), eq(taxInvoices.payDate, from)))
         .limit(1);
       if (inv?.finalizedAt) {
         throw new Error('최종 확정된 배치입니다 — 옮기려면 먼저 확정을 해제하세요.');
@@ -1124,10 +1133,10 @@ export const pgRepository: ProjectRepository = {
       await tx
         .update(taxInvoices)
         .set({ payDate: to })
-        .where(and(eq(taxInvoices.org, org), eq(taxInvoices.payDate, from)));
+        .where(and(eq(taxInvoices.org, org), eq(taxInvoices.kind, kind), eq(taxInvoices.payDate, from)));
 
       await writeAudit(tx, {
-        projectId: null, actor, action: `배치 지급일 변경 — ${org}`,
+        projectId: null, actor, action: `배치 지급일 변경 — ${org} ${kind}`,
         field: 'payDate', oldValue: from, newValue: `${to} (${mine.length}건)`,
       });
       return { moved: mine.length };
@@ -1146,20 +1155,21 @@ export const pgRepository: ProjectRepository = {
         ? await getDb().select().from(taxInvoices).where(eq(taxInvoices.org, actor.org))
         : [];
     return rows.map((r) => ({
-      id: r.id, org: r.org, payDate: r.payDate, blobUrl: r.blobUrl, filename: r.filename,
+      id: r.id, org: r.org, kind: r.kind as PayoutKind, payDate: r.payDate,
+      blobUrl: r.blobUrl, filename: r.filename,
       supplyAmount: r.supplyAmount, taxAmount: r.taxAmount, totalAmount: r.totalAmount,
       uploadedAt: r.uploadedAt, finalizedAt: r.finalizedAt,
     }));
   },
 
-  async finalizeBatch(org, payDate, undo, actor): Promise<void> {
+  async finalizeBatch(org, kind, payDate, undo, actor): Promise<void> {
     assertAdmin(actor, '배치 최종 확정');
     const db = getDb();
     await db.transaction(async (tx) => {
       const [row] = await tx
         .select()
         .from(taxInvoices)
-        .where(and(eq(taxInvoices.org, org), eq(taxInvoices.payDate, payDate)))
+        .where(and(eq(taxInvoices.org, org), eq(taxInvoices.kind, kind), eq(taxInvoices.payDate, payDate)))
         .limit(1);
       // 첨부가 확정의 전제다(한백 확인 2026-08-24) — 계산서 없이 확정할 길을 두지 않는다
       if (!row) throw new Error('세금계산서를 먼저 첨부해야 최종 확정할 수 있습니다.');
@@ -1172,7 +1182,7 @@ export const pgRepository: ProjectRepository = {
         .where(eq(taxInvoices.id, row.id));
       await writeAudit(tx, {
         projectId: null, actor,
-        action: `배치 ${undo ? '확정 해제' : '최종 확정'} — ${org} ${payDate}`,
+        action: `배치 ${undo ? '확정 해제' : '최종 확정'} — ${org} ${kind} ${payDate}`,
         field: 'finalizedAt', oldValue: row.finalizedAt, newValue: undo ? null : today(),
       });
     });
@@ -1190,7 +1200,11 @@ export const pgRepository: ProjectRepository = {
       const [prev] = await tx
         .select()
         .from(taxInvoices)
-        .where(and(eq(taxInvoices.org, input.org), eq(taxInvoices.payDate, input.payDate)))
+        .where(and(
+          eq(taxInvoices.org, input.org),
+          eq(taxInvoices.kind, input.kind),
+          eq(taxInvoices.payDate, input.payDate),
+        ))
         .limit(1);
       if (prev?.finalizedAt) {
         throw new Error('최종 확정된 배치입니다 — 계산서를 바꾸려면 먼저 확정을 해제하세요.');
@@ -1198,13 +1212,13 @@ export const pgRepository: ProjectRepository = {
       if (prev) await tx.delete(taxInvoices).where(eq(taxInvoices.id, prev.id));
 
       await tx.insert(taxInvoices).values({
-        id, org: input.org, payDate: input.payDate,
+        id, org: input.org, kind: input.kind, payDate: input.payDate,
         blobUrl: input.blobUrl, filename: input.filename,
         supplyAmount: input.supplyAmount, taxAmount: input.taxAmount, totalAmount: input.totalAmount,
         uploadedAt: today(),
       });
       await writeAudit(tx, {
-        projectId: null, actor, action: `세금계산서 ${prev ? '교체' : '저장'} — ${input.org} ${input.payDate}`,
+        projectId: null, actor, action: `세금계산서 ${prev ? '교체' : '저장'} — ${input.org} ${input.kind} ${input.payDate}`,
         field: 'file', oldValue: prev?.filename ?? null,
         newValue: `${input.filename}${input.supplyAmount !== null ? ` · 공급가액 ${input.supplyAmount}원` : ' · 금액 미확인'}`,
       });

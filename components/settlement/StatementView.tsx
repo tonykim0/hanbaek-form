@@ -19,21 +19,23 @@
  */
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import type { PayoutRow, TaxInvoice } from '@/types/project';
+import type { PayoutKind, PayoutRow, TaxInvoice } from '@/types/project';
 import { today } from '@/lib/date';
 import { useAction } from '@/lib/use-action';
 import { Badge, Btn, Err, FIELD_CELL, Saved } from '@/components/ui';
 import { won } from './parts';
 
 export default function StatementView({
-  rows, org, date, invoice, canEdit,
+  rows, org, date, kind, invoice, canEdit,
 }: {
   rows: PayoutRow[];
   org: string;
   date: string;
+  /** 배치의 구분 — null 이면 그 지급일 전체를 읽기로만 본다(옛 링크) */
+  kind: PayoutKind | null;
   /** 이 배치의 세금계산서 — 한백의 눈일 때만 내려온다(협력사는 null) */
   invoice: TaxInvoice | null;
-  /** 항목 빼기·지급일 변경·세금계산서 관리 — 관리자만 */
+  /** 항목 빼기·지급일 변경·세금계산서 관리 — 관리자만, 배치(kind 있음)일 때만 */
   canEdit: boolean;
 }) {
   const supply = rows.reduce((n, r) => n + r.amount, 0);
@@ -66,6 +68,12 @@ export default function StatementView({
               <span className="font-bold text-slate-400">지급일</span>{' '}
               <span className="font-bold tabular-nums text-slate-900">{date}</span>
             </p>
+            {kind && (
+              <p>
+                <span className="font-bold text-slate-400">구분</span>{' '}
+                <span className="font-bold text-slate-900">{kind}</span>
+              </p>
+            )}
             <p>
               <span className="font-bold text-slate-400">공급자</span>{' '}
               <span className="font-bold text-slate-900">한백</span>
@@ -133,10 +141,14 @@ export default function StatementView({
         )}
       </section>
 
-      {canEdit && rows.length > 0 && (
+      {canEdit && kind && rows.length > 0 && (
         <div className="mt-5 grid gap-4 print:hidden lg:grid-cols-2">
-          <InvoiceCard org={org} date={date} invoice={invoice} statementSupply={supply} />
-          {finalized ? <Unfinalize org={org} date={date} /> : <MoveBatch org={org} date={date} />}
+          <InvoiceCard org={org} kind={kind} date={date} invoice={invoice} statementSupply={supply} />
+          {finalized ? (
+            <Unfinalize org={org} kind={kind} date={date} />
+          ) : (
+            <MoveBatch org={org} kind={kind} date={date} />
+          )}
         </div>
       )}
     </>
@@ -190,9 +202,10 @@ function ItemRow({ r, canEdit }: { r: PayoutRow; canEdit: boolean }) {
  * 협력사가 발행해 보낸 것을 붙여 두는 보관함이고, 배치 하나에 한 장이다.
  */
 function InvoiceCard({
-  org, date, invoice, statementSupply,
+  org, kind, date, invoice, statementSupply,
 }: {
   org: string;
+  kind: PayoutKind;
   date: string;
   invoice: TaxInvoice | null;
   /** 명세서 합계 — 최종 확정 버튼 옆에 적어, 계산서와 눈으로 대조하고 누르게 한다 */
@@ -208,7 +221,7 @@ function InvoiceCard({
   async function finalize(undo: boolean) {
     const ok = await fin.run({
       url: '/api/statements/finalize',
-      body: { org, payDate: date, undo },
+      body: { org, kind, payDate: date, undo },
       fail: undo ? '해제하지 못했습니다.' : '확정하지 못했습니다.',
     });
     if (ok) router.refresh();
@@ -241,7 +254,7 @@ function InvoiceCard({
       const attach = await fetch('/api/statements/tax-invoice', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ org, payDate: date, blobUrl: blob.url, filename: file.name }),
+        body: JSON.stringify({ org, kind, payDate: date, blobUrl: blob.url, filename: file.name }),
       });
       if (!attach.ok) {
         const b = (await attach.json().catch(() => ({}))) as { error?: string };
@@ -274,7 +287,7 @@ function InvoiceCard({
       {!invoice ? (
         <label className="block">
           <span className="mb-2 block text-small text-slate-500">
-            {org}이(가) 발행한 세금계산서를 이 명세서 옆에 붙여 둡니다
+            {org}이(가) {kind} 몫으로 발행한 세금계산서를 이 명세서 옆에 붙여 둡니다
           </span>
           <input
             type="file"
@@ -357,14 +370,14 @@ function InvoiceCard({
  * 넣는 자리를 만들면 되돌리는 자리도 만든다(규칙 7). 해제하면 빼기·지급일 변경·계산서
  * 교체가 다시 열린다 — 협력사가 수정세금계산서를 발행해야 할 수 있으니 말로 알린다.
  */
-function Unfinalize({ org, date }: { org: string; date: string }) {
+function Unfinalize({ org, kind, date }: { org: string; kind: PayoutKind; date: string }) {
   const router = useRouter();
   const { busy, error, run } = useAction();
 
   async function undo() {
     const ok = await run({
       url: '/api/statements/finalize',
-      body: { org, payDate: date, undo: true },
+      body: { org, kind, payDate: date, undo: true },
       fail: '해제하지 못했습니다.',
     });
     if (ok) router.refresh();
@@ -388,7 +401,7 @@ function Unfinalize({ org, date }: { org: string; date: string }) {
 }
 
 /** 지급일 변경 — 배치의 지급 줄 전부와 세금계산서가 같이 옮겨진다 */
-function MoveBatch({ org, date }: { org: string; date: string }) {
+function MoveBatch({ org, kind, date }: { org: string; kind: PayoutKind; date: string }) {
   const router = useRouter();
   const { busy, error, run } = useAction();
   const [to, setTo] = useState(date);
@@ -399,13 +412,13 @@ function MoveBatch({ org, date }: { org: string; date: string }) {
     const ok = await run({
       url: '/api/statements/batch',
       method: 'PATCH',
-      body: { org, from: date, to },
+      body: { org, kind, from: date, to },
       fail: '옮기지 못했습니다.',
     });
     if (!ok) return;
     setMoved(true);
     // 배치 키가 날짜라 주소도 새 날짜로 — 옛 주소는 빈 명세서가 된다
-    router.replace(`/payments/statement?org=${encodeURIComponent(org)}&date=${to}`);
+    router.replace(`/payments/statement?org=${encodeURIComponent(org)}&date=${to}&kind=${encodeURIComponent(kind)}`);
   }
 
   return (
@@ -425,7 +438,7 @@ function MoveBatch({ org, date }: { org: string; date: string }) {
         <Err>{error}</Err>
       </form>
       <p className="mt-2 text-tiny text-slate-400">
-        이 지급일의 {org} 지급 전부와 세금계산서가 함께 옮겨집니다
+        이 지급일의 {org} {kind} 지급 전부와 세금계산서가 함께 옮겨집니다
       </p>
     </section>
   );

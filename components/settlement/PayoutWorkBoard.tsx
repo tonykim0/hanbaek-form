@@ -26,11 +26,12 @@
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import type { TaxInvoice } from '@/types/project';
 import { payoutReleaseOf } from '@/lib/settlement';
 import { payDateChoices, workOf, type PayoutRowInput, type PayoutWork } from '@/lib/payout-board';
 import { today } from '@/lib/date';
 import { useAction } from '@/lib/use-action';
-import { Blank, Btn, Choice, Empty, Err, FIELD_CELL, Tag } from '@/components/ui';
+import { Badge, Blank, Btn, Choice, Empty, Err, FIELD_CELL, Tag } from '@/components/ui';
 import { Frame, SiteLink, won } from './parts';
 
 const dayLabel = (d: string) => `${Number(d.slice(5, 7))}월 ${Number(d.slice(8))}일`;
@@ -46,9 +47,11 @@ type KindFilter = (typeof KIND_FILTERS)[number];
 type StepFilter = (typeof STEP_FILTERS)[number];
 
 export default function PayoutWorkBoard({
-  rows, canConfirm,
+  rows, invoices, canConfirm,
 }: {
   rows: PayoutRowInput[];
+  /** 배치의 확정 상태 — (지급처×구분×지급일)의 세금계산서 행. 지급 칸 배지가 본다. */
+  invoices: TaxInvoice[];
   /** 지급일을 골라 확정할 수 있는가 — 한백만. 협력사는 같은 표를 읽기만 한다. */
   canConfirm: boolean;
 }) {
@@ -58,6 +61,11 @@ export default function PayoutWorkBoard({
   const [picked, setPicked] = useState<Set<string>>(new Set());
 
   const work = useMemo(() => rows.map(workOf), [rows]);
+  // 배치 확정 여부 — 지급 칸이 「가확정」과 「확정」을 가르는 데 쓴다
+  const finalizedBatches = useMemo(
+    () => new Set(invoices.filter((i) => i.finalizedAt).map((i) => `${i.org}|${i.kind}|${i.payDate}`)),
+    [invoices]
+  );
   const orgs = useMemo(
     () => [...new Set(work.map((p) => p.org).filter(Boolean) as string[])]
       .sort((a, b) => a.localeCompare(b, 'ko')),
@@ -176,9 +184,9 @@ export default function PayoutWorkBoard({
                   ))}
                 </td>
                 <StepAmountCell p={p} no={1} />
-                <StepPayCell p={p} no={1} canConfirm={canConfirm} />
+                <StepPayCell p={p} no={1} finalizedBatches={finalizedBatches} />
                 <StepAmountCell p={p} no={2} />
-                <StepPayCell p={p} no={2} canConfirm={canConfirm} />
+                <StepPayCell p={p} no={2} finalizedBatches={finalizedBatches} />
               </tr>
             ))}
           </tbody>
@@ -213,10 +221,18 @@ function StepAmountCell({ p, no }: { p: PayoutWork; no: 1 | 2 }) {
 }
 
 /**
- * 회차 지급 한 칸 — 나갔으면 지급일, 차례면 지급일을 골라 확정(한백) 또는
- * 「지급 예정」(협력사), 조건이 안 찼으면 그 사정, 아직이면 「1차 뒤」.
+ * 회차 지급 한 칸 — 아직이면 「1차 뒤」, 조건 대기면 그 사정, 차례가 왔으면 「지급 가능」,
+ * 배치에 실렸으면 지급일 위에 그 배치의 자리(가확정 → 확정 → 지급일 경과 시 날짜만).
+ * 가확정을 이 표에서도 보이게 한다(한백 확인 2026-08-24) — 배치 화면까지 안 가도
+ * 어느 줄이 계산서를 기다리는 중인지 여기서 읽힌다.
  */
-function StepPayCell({ p, no, canConfirm }: { p: PayoutWork; no: 1 | 2; canConfirm: boolean }) {
+function StepPayCell({
+  p, no, finalizedBatches,
+}: {
+  p: PayoutWork;
+  no: 1 | 2;
+  finalizedBatches: Set<string>;
+}) {
   if (p.due <= 0) {
     return <td className="px-3 py-2.5 text-right align-top text-slate-300">—</td>;
   }
@@ -227,8 +243,20 @@ function StepPayCell({ p, no, canConfirm }: { p: PayoutWork; no: 1 | 2; canConfi
   return (
     <td className="whitespace-nowrap px-3 py-2.5 text-right align-top">
       {done ? (
-        // 가확정해도 줄은 안 없어진다(한백 확인) — 지급 칸이 지급일로 굳어 기록으로 남는다
-        <p className="text-small font-bold tabular-nums text-brand-800">{at ?? '지급됨'}</p>
+        // 배치에 실려도 줄은 안 없어진다(한백 확인) — 지급 칸이 지급일로 굳어 기록으로 남는다
+        <>
+          {/* 지급일이 지난 것은 상태가 아니라 사실이다 — 날짜만 남긴다 */}
+          {at && at >= today() && (
+            <p className="mb-0.5">
+              {finalizedBatches.has(`${p.org}|${p.kind}|${at}`) ? (
+                <Badge tone="ok">확정</Badge>
+              ) : (
+                <Badge tone="warn">가확정</Badge>
+              )}
+            </p>
+          )}
+          <p className="text-small font-bold tabular-nums text-brand-800">{at ?? '지급됨'}</p>
+        </>
       ) : p.open?.no === no ? (
         p.state === '지급 가능' ? (
           <>

@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 import { getRepository } from '@/lib/data';
-import { getSessionUser, viewerOf } from '@/lib/auth/session';
+import { actorOf, getSessionUser, viewerOf } from '@/lib/auth/session';
 import PayoutWorkBoard from '@/components/settlement/PayoutWorkBoard';
 import { isHanbaek } from '@/lib/roles';
 
@@ -33,7 +33,12 @@ export default async function PayoutsPage() {
    * 300초 런타임 타임아웃으로 죽었다(2026-08-21). 조립은 저장소가 하고, 협력사에게
    * 마진·기성이 안 가는 것도 저장소가 지운다 — 화면은 그릴 것만 받는다.
    */
-  const { plans } = await getRepository().listPayoutOverview(viewerOf(session));
+  const [{ plans }, invoices] = await Promise.all([
+    getRepository().listPayoutOverview(viewerOf(session)),
+    // 배치의 가확정/확정 상태가 세금계산서 행에 실려 있다 — 지급 칸의 배지가 이걸 본다.
+    // 협력사는 자기 지급처 것만 받는다(저장소가 가른다).
+    getRepository().listTaxInvoices(actorOf(session)),
+  ]);
 
   const siteCount = new Set(plans.map((r) => r.projectId)).size;
 
@@ -46,7 +51,7 @@ export default async function PayoutsPage() {
         </p>
       </div>
 
-      <PayoutWorkBoard rows={plans} canConfirm={canConfirm} />
+      <PayoutWorkBoard rows={plans} invoices={invoices} canConfirm={canConfirm} />
     </>
   );
 }

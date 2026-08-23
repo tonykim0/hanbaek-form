@@ -847,7 +847,7 @@ export interface PayoutRow {
 }
 
 /**
- * 세금계산서 — 배치(지급처 × 지급일)에 붙는다. [한백 전용]
+ * 세금계산서 — 배치(지급처 × 구분 × 지급일)에 붙는다. [한백 전용]
  *
  * 협력사가 발행해 보낸 것을 한백이 보관하고, 거래명세서 합계(공급가액)와 대조한다.
  * 금액은 올린 PDF 에서 AI 가 읽되(lib/tax-invoice.ts) 공급가액+세액=합계 검산을
@@ -858,6 +858,8 @@ export interface TaxInvoice {
   id: string;
   /** 발행한 협력사 — 배치의 지급처와 같은 문자열 */
   org: string;
+  /** 영업비 | 시공비 — 영업·시공은 계산서를 따로 끊는다. 배치도 이 축으로 갈린다. */
+  kind: PayoutKind;
   /** 배치의 지급일 (YYYY-MM-DD) */
   payDate: string;
   blobUrl: string;

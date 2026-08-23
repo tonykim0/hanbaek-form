@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { getRepository } from '@/lib/data';
 import { actorOf, getSessionUser, viewerOf } from '@/lib/auth/session';
 import { isHanbaek } from '@/lib/roles';
+import { PAYOUT_KINDS } from '@/types/project';
 import PrintButton from '@/components/settlement/PrintButton';
 import StatementView from '@/components/settlement/StatementView';
 
@@ -11,7 +12,12 @@ export const metadata = { title: '거래명세서 — 한백 전기차사업관�
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 /**
- * 거래명세서 — 업체 × 지급일(배치) 한 장.
+ * 거래명세서 — 업체 × 구분 × 지급일(배치) 한 장.
+ *
+ * kind(영업비/시공비)가 주소에 있으면 그 배치다 — 편집·세금계산서·확정이 그 단위로
+ * 돈다(영업·시공은 계산서를 따로 끊는다, 한백 확인 2026-08-24). kind 없이 오면
+ * (지급 및 기성관리의 옛 링크) 그 지급일의 전체를 읽기로만 보여준다 — 배치 단위가
+ * 아니라서 고칠 수도, 계산서를 붙일 수도 없다.
  *
  * 지급은 매월 1~2회 배치로 나간다. 배치 하나에 나간 원장 줄들이 이 한 장이 된다 —
  * 줄을 손으로 다시 적지 않는다. 원장이 틀렸으면 원장을 고치고 이 장은 다시 뽑는다.
@@ -28,7 +34,7 @@ const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 export default async function StatementPage({
   searchParams,
 }: {
-  searchParams: { org?: string; date?: string };
+  searchParams: { org?: string; date?: string; kind?: string };
 }) {
   const session = await getSessionUser();
   if (!session) redirect('/login?next=/payments');
@@ -41,14 +47,16 @@ export default async function StatementPage({
   const org = seesAll ? searchParams.org ?? '' : session.org ?? '';
   if (!org) redirect('/payments');
 
+  const kind = PAYOUT_KINDS.find((k) => k === searchParams.kind) ?? null;
+
   const rows = (await getRepository().listPayouts(viewerOf(session)))
-    .filter((r) => r.paidAt === date && r.org === org)
+    .filter((r) => r.paidAt === date && r.org === org && (kind === null || r.kind === kind))
     .sort((a, b) => a.projectName.localeCompare(b.projectName, 'ko') || a.kind.localeCompare(b.kind));
 
   // 세금계산서는 한백의 눈만 — 협력사 화면에는 섹션 자체가 없다
-  const invoice = seesAll
+  const invoice = seesAll && kind
     ? (await getRepository().listTaxInvoices(actorOf(session))).find(
-        (i) => i.org === org && i.payDate === date
+        (i) => i.org === org && i.kind === kind && i.payDate === date
       ) ?? null
     : null;
 
@@ -69,8 +77,9 @@ export default async function StatementPage({
         rows={rows}
         org={org}
         date={date}
+        kind={kind}
         invoice={invoice}
-        canEdit={session.role === 'admin'}
+        canEdit={session.role === 'admin' && kind !== null}
       />
     </div>
   );

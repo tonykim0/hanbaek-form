@@ -325,14 +325,16 @@ export const payoutEntries = pgTable('payout_entries', {
 
 // ── 세금계산서 ─────────────────────────────────────────────────
 /**
- * 배치(지급처 × 지급일)마다 한 장. [한백 전용]
- * 현장이 아니라 배치에 붙는다 — 협력사는 한 지급일에 여러 현장 몫을 묶어 한 장으로
- * 발행하므로 project_id 가 없다. 배치의 지급일을 옮기면 이 행의 pay_date 도 같이
+ * 배치(지급처 × 구분 × 지급일)마다 한 장. [한백 전용]
+ * 현장이 아니라 배치에 붙는다 — 협력사는 한 지급일에 여러 현장 몫을 묶되 영업비와
+ * 시공비는 따로 발행한다(한백 확인 2026-08-24). 그래서 project_id 가 없고 kind 가 있다. 배치의 지급일을 옮기면 이 행의 pay_date 도 같이
  * 옮긴다(pg-store movePayoutBatch) — 키가 갈라지면 첨부가 고아가 된다.
  */
 export const taxInvoices = pgTable('tax_invoices', {
   id: text('id').primaryKey(),
   org: text('org').notNull(),
+  /** 영업비 | 시공비 — 영업·시공은 계산서를 따로 끊는다(한백 확인 2026-08-24) */
+  kind: text('kind').notNull(),
   payDate: text('pay_date').notNull(),
   blobUrl: text('blob_url').notNull(),
   filename: text('filename').notNull(),
@@ -348,8 +350,8 @@ export const taxInvoices = pgTable('tax_invoices', {
    */
   finalizedAt: text('finalized_at'),
 }, (t) => ({
-  // 배치 하나에 한 장 — 다시 올리면 교체다
-  byBatch: uniqueIndex('tax_invoices_batch_idx').on(t.org, t.payDate),
+  // 배치(지급처 × 구분 × 지급일) 하나에 한 장 — 다시 올리면 교체다
+  byBatch: uniqueIndex('tax_invoices_batch_kind_idx').on(t.org, t.payDate, t.kind),
 }));
 
 // ── 감사 로그 ───────────────────────────────────────────────────

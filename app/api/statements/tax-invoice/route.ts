@@ -1,9 +1,11 @@
 /**
  * 세금계산서 — 올리고 · 지운다. [한백 전용]
  *
- *   POST { step:'token', ext }                업로드 토큰 (브라우저가 Blob 에 직접 올린다)
- *   POST { org, payDate, blobUrl, filename }  올린 파일을 배치에 붙인다
- *   DELETE { id }                             삭제 (Blob 파일도 지운다)
+ *   POST { step:'token', ext }                       업로드 토큰 (브라우저가 Blob 에 직접 올린다)
+ *   POST { org, kind, payDate, blobUrl, filename }   올린 파일을 배치에 붙인다
+ *   DELETE { id }                                    삭제 (Blob 파일도 지운다)
+ *
+ * 배치와 계산서는 (지급처 × 구분 × 지급일) 단위다 — 영업·시공은 따로 발행한다.
  *
  * 명세서 기록 옆의 첨부일 뿐이다 — 금액 판독·대조는 걷어냈다(한백 확인 2026-08-23).
  * 되살릴 일이 생기면 3f2ad9c 의 lib/tax-invoice.ts(검산 게이트 포함)를 가져온다.
@@ -17,6 +19,7 @@ import { generateClientTokenFromReadWriteToken } from '@vercel/blob/client';
 import { del } from '@vercel/blob';
 import { getRepository } from '@/lib/data';
 import { adminWrite, BadRequest } from '@/lib/api/write-route';
+import { PAYOUT_KINDS, type PayoutKind } from '@/types/project';
 
 const ALLOWED_TYPES = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'];
 const MAX_BYTES = 20 * 1024 * 1024;
@@ -27,6 +30,7 @@ type Body = {
   step?: unknown;
   ext?: unknown;
   org?: unknown;
+  kind?: unknown;
   payDate?: unknown;
   blobUrl?: unknown;
   filename?: unknown;
@@ -53,6 +57,9 @@ export const POST = adminWrite<Record<string, never>, Body>(
     }
 
     if (typeof body.org !== 'string' || !body.org.trim()) throw new BadRequest('지급처가 없습니다.');
+    if (!PAYOUT_KINDS.includes(body.kind as PayoutKind)) {
+      throw new BadRequest('구분(영업비/시공비)이 없습니다.');
+    }
     if (typeof body.payDate !== 'string' || !DATE_RE.test(body.payDate)) {
       throw new BadRequest('지급일이 올바르지 않습니다.');
     }
@@ -66,6 +73,7 @@ export const POST = adminWrite<Record<string, never>, Body>(
     const { id, replacedBlobUrl } = await getRepository().saveTaxInvoice(
       {
         org: body.org.trim(),
+        kind: body.kind as PayoutKind,
         payDate: body.payDate,
         blobUrl: body.blobUrl,
         filename,

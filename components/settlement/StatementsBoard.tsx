@@ -3,7 +3,8 @@
 /**
  * 협력사 거래명세서 — 배치 목록.
  *
- * 배치 = (지급처 × 지급일). 가확정은 협력사 지급관리 표에서 체크로 만들고(그쪽이
+ * 배치 = (지급처 × 구분 × 지급일) — 영업비와 시공비는 세금계산서를 따로 끊으므로
+ * 배치도 그 축으로 갈린다(한백 확인 2026-08-24). 가확정은 협력사 지급관리 표에서 체크로 만들고(그쪽이
  * 전 현장 현황을 보는 자리다), 여기는 만들어진 배치의 상태를 따라간다:
  *
  *   가확정   협력사가 이 합계로 세금계산서를 발행하는 단계 — 협력사 화면에는
@@ -16,14 +17,15 @@
  */
 import { useMemo } from 'react';
 import Link from 'next/link';
-import type { PayoutRow, TaxInvoice } from '@/types/project';
+import type { PayoutKind, PayoutRow, TaxInvoice } from '@/types/project';
 import { today } from '@/lib/date';
-import { Badge, Blank, Empty } from '@/components/ui';
+import { Badge, Blank, Empty, Tag } from '@/components/ui';
 import { Frame, won } from './parts';
 
 interface Batch {
   paidAt: string;
   org: string | null;
+  kind: PayoutKind;
   count: number;
   total: number;
   invoice: TaxInvoice | null;
@@ -51,20 +53,23 @@ export default function StatementsBoard({
   seesAll: boolean;
 }) {
   const batches = useMemo<Batch[]>(() => {
-    const inv = new Map(invoices.map((i) => [`${i.payDate}|${i.org}`, i]));
+    const inv = new Map(invoices.map((i) => [`${i.payDate}|${i.org}|${i.kind}`, i]));
     const map = new Map<string, Batch>();
     for (const r of history) {
-      const key = `${r.paidAt}|${r.org ?? ''}`;
+      const key = `${r.paidAt}|${r.org ?? ''}|${r.kind}`;
       const b = map.get(key) ?? {
-        paidAt: r.paidAt, org: r.org, count: 0, total: 0,
-        invoice: r.org ? inv.get(`${r.paidAt}|${r.org}`) ?? null : null,
+        paidAt: r.paidAt, org: r.org, kind: r.kind, count: 0, total: 0,
+        invoice: r.org ? inv.get(`${r.paidAt}|${r.org}|${r.kind}`) ?? null : null,
       };
       b.count += 1;
       b.total += r.amount;
       map.set(key, b);
     }
     return [...map.values()].sort(
-      (a, b) => b.paidAt.localeCompare(a.paidAt) || (a.org ?? '').localeCompare(b.org ?? '', 'ko')
+      (a, b) =>
+        b.paidAt.localeCompare(a.paidAt)
+        || (a.org ?? '').localeCompare(b.org ?? '', 'ko')
+        || a.kind.localeCompare(b.kind)
     );
   }, [history, invoices]);
 
@@ -90,6 +95,7 @@ export default function StatementsBoard({
             <tr>
               <th className="px-3 py-2.5 text-left">지급일</th>
               <th className="px-3 py-2.5 text-left">지급처</th>
+              <th className="px-3 py-2.5 text-left">구분</th>
               <th className="px-3 py-2.5 text-right">건수</th>
               <th className="px-3 py-2.5 text-right">공급가액</th>
               <th className="px-3 py-2.5 text-left">상태</th>
@@ -99,7 +105,7 @@ export default function StatementsBoard({
           </thead>
           <tbody className="divide-y divide-slate-100">
             {batches.map((b) => (
-              <BatchRow key={`${b.paidAt}|${b.org ?? ''}`} b={b} seesAll={seesAll} />
+              <BatchRow key={`${b.paidAt}|${b.org ?? ''}|${b.kind}`} b={b} seesAll={seesAll} />
             ))}
           </tbody>
         </Frame>
@@ -115,6 +121,9 @@ function BatchRow({ b, seesAll }: { b: Batch; seesAll: boolean }) {
       <td className="whitespace-nowrap px-3 py-2.5 tabular-nums text-slate-700">{b.paidAt}</td>
       <td className="px-3 py-2.5 text-slate-700">
         {b.org ?? <Empty kind="miss" label="받는 곳 미지정" />}
+      </td>
+      <td className="whitespace-nowrap px-3 py-2.5">
+        <Tag tone={b.kind === '영업비' ? 'stage' : 'ok'}>{b.kind}</Tag>
       </td>
       <td className="whitespace-nowrap px-3 py-2.5 text-right tabular-nums text-slate-500">{b.count}건</td>
       <td className={`whitespace-nowrap px-3 py-2.5 text-right font-bold tabular-nums ${b.total < 0 ? 'text-amber-800' : 'text-slate-800'}`}>
@@ -152,7 +161,7 @@ function BatchRow({ b, seesAll }: { b: Batch; seesAll: boolean }) {
       <td className="whitespace-nowrap px-3 py-2.5 text-right">
         {b.org && (
           <Link
-            href={`/payments/statement?org=${encodeURIComponent(b.org)}&date=${b.paidAt}`}
+            href={`/payments/statement?org=${encodeURIComponent(b.org)}&date=${b.paidAt}&kind=${encodeURIComponent(b.kind)}`}
             className="text-small font-bold text-brand-700 transition hover:text-brand-900"
           >
             명세서 →

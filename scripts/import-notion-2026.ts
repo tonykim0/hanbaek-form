@@ -158,6 +158,14 @@ function transform(page: NotionPage): Row | { skip: string } {
   const lastTouched = page.last_edited_time.slice(0, 10);
 
   const preNote = txt(p, '기설치 현황 조사');
+  /*
+   * 조사 노트가 「기설치 (이력) 없음」 단정이면 결과가 없음이다 — 텍스트 유무로만
+   * 가르면 「없음」 조사 36건이 있음으로 뒤집힌다(2026-08-24 실사고, UPDATE 로 정정).
+   * 장비는 있는데 보조금 이력만 없는 노트(…이력 없음 → 증빙 필요)는 있음이 맞다 —
+   * 그런 노트는 단정 문장 하나가 아니라서 이 패턴에 안 걸린다.
+   */
+  const noneSurvey = preNote !== null
+    && /^기설치\s*(이력\s*)?없음\.?$/.test(preNote.replace(/\s+/g, ' ').trim());
   const queueNo = num(p, '대기번호');
 
   return {
@@ -177,7 +185,7 @@ function transform(page: NotionPage): Row | { skip: string } {
     bizType: biz,
     // 대기번호는 환경부 사업에만 뜻이 있다 — 콘솔이 자체투자의 값을 거부한다
     envQueueNo: biz === '환경부' && queueNo != null ? String(queueNo) : null,
-    preInstall: preNote ? '있음' : '없음',
+    preInstall: preNote && !noneSurvey ? '있음' : '없음',
     preChecked: chk(p, '기설치 확인여부'),
     preNote,
     note: txt(p, '현재상황'),

@@ -22,7 +22,7 @@ import { createContext, Fragment, useContext, useEffect, useMemo, useRef, useSta
 import {
   BUILDING_TYPES, bizTypeOfRepl, CHANNELS, CPO_NAMES, REPL_TYPES,
   type BuildingType, type Channel, type CpoName, type LineAxes, type PricingRule, type ReplType,
-  type PromoExtendOption, type PromoStep, type SettlementRule, type SettlementStepRule, type Trigger,
+  type BizType, type PromoExtendOption, type PromoStep, type SettlementRule, type SettlementStepRule, type Trigger,
 } from '@/types/project';
 import { won } from '@/lib/format';
 import { useAction } from '@/lib/use-action';
@@ -159,6 +159,29 @@ export default function PricingMatrix({
   const referenced = useMemo(() => new Set(referencedIds), [referencedIds]);
 
   const live = rules.filter((r) => r.active);
+
+  /*
+   * 운영사의 기성 모양 — 케이스별 설정이 아니다(한백 확인 2026-08-23). 한 운영사의 기성은
+   * 트리거 모양이 동일하고 차수 금액만 케이스마다 다르다. 마스터 표가 따로 없으므로
+   * 그 운영사(같은 사업구분)의 활성 케이스들이 쓰는 규칙 중 최다를 그 운영사의 모양으로
+   * 본다 — 사업구분까지 보는 이유: 보조와 자체투자는 실제로 모양이 갈린다(HEC 40/60% vs
+   * 착공 70만, 자투 일시금 등).
+   */
+  function stepShapeOf(cpo: CpoName, bizType: BizType): SettlementRule | null {
+    const count = new Map<string, { rule: SettlementRule; n: number }>();
+    for (const r of live) {
+      if (r.cpo !== cpo || r.bizType !== bizType || !r.defaultSettlementRuleId) continue;
+      const rule = settleById.get(r.defaultSettlementRuleId);
+      if (!rule) continue;
+      const key = settlementStepsKeyOf(rule.steps);
+      const hit = count.get(key);
+      if (hit) hit.n += 1;
+      else count.set(key, { rule, n: 1 });
+    }
+    let best: { rule: SettlementRule; n: number } | null = null;
+    for (const c of count.values()) if (!best || c.n > best.n) best = c;
+    return best?.rule ?? null;
+  }
   const stopped = rules.length - live.length;
 
   return (
@@ -187,7 +210,7 @@ export default function PricingMatrix({
           key={JSON.stringify(form)}
           prefill={form.prefill}
           editId={form.editId}
-          settlementRules={settlementRules}
+          stepShapeOf={stepShapeOf}
           onDone={() => setForm(null)}
         />
       )}
@@ -950,13 +973,13 @@ interface StepDraft {
 }
 
 function CaseForm({
-  prefill, editId, settlementRules, onDone,
+  prefill, editId, stepShapeOf, onDone,
 }: {
   prefill: Prefill;
   /** 있으면 이 케이스를 자리에서 고친다(PUT) — 참조 없는 케이스만. 없으면 새 케이스(POST)다 */
   editId?: string;
-  /** 쌓여 있는 정산 규칙 — 기성 단계를 규칙에서 불러오는 셀렉트가 쓴다 */
-  settlementRules: SettlementRule[];
+  /** 운영사(+사업구분)의 기성 모양 — 케이스별 설정이 아니라 여기서 온다 */
+  stepShapeOf: (cpo: CpoName, bizType: BizType) => SettlementRule | null;
   onDone: () => void;
 }) {
   const { busy, error, run } = useAction();
@@ -1038,6 +1061,13 @@ function CaseForm({
    */
   const [showRates, setShowRates] = useState(!prefill.after);
   const [showTerms, setShowTerms] = useState(!prefill.after);
+  /*
+   * ★기성 모양은 케이스별 설정이 아니다★ (한백 확인 2026-08-23) — 한 운영사의 기성은
+   * 트리거 모양이 동일하고, 차수 금액만 케이스마다 다르다. 그래서 모양(트리거·방식·
+   * 차수 수)은 잠가 두고 고정액 칸만 연다. 운영사·교체유형을 바꾸면 그 운영사의 모양을
+   * 다시 얹는다. 모양 자체가 새로운 경우(새 운영사·정책 구조 변경)만 「단계 직접 정의」로 푼다.
+   */
+  const [stepsLocked, setStepsLocked] = useState(true);
 
   /*
    * 목록의 수정·개정, 그리드 칸에서 열리면 폼이 화면 밖(맨 위)에 있다 — 눌렀는데 아무 일도
@@ -1050,6 +1080,25 @@ function CaseForm({
 
   /* 사업구분은 고르게 두지 않는다 — 교체유형이 정한다(bizTypeOfRepl). 두 값을 따로 고르면 어긋난다 */
   const bizType = bizTypeOfRepl(replType);
+
+  /*
+   * 운영사·사업구분이 바뀌면 그쪽의 기성 모양을 얹는다. 첫 렌더는 건너뛴다 —
+   * 수정·개정 프리필의 차수 금액(운영사 모양과 같은 꼴, 금액만 다름)을 덮으면 안 된다.
+   */
+  const shapeSeen = useRef(`${prefill.cpo ?? ''}|${prefill.replType ? bizTypeOfRepl(prefill.replType) : ''}`);
+  useEffect(() => {
+    const now = `${cpo}|${bizType}`;
+    if (shapeSeen.current === now) return;
+    shapeSeen.current = now;
+    if (!stepsLocked) return;
+    const shape = stepShapeOf(cpo, bizType);
+    setSteps(!shape ? [] : shape.steps.map((x) =>
+      x.basis.kind === '고정' ? { trigger: x.trigger, kind: '고정' as const, value: '' }
+        : x.basis.kind === '비율' ? { trigger: x.trigger, kind: '비율' as const, value: String(Math.round(x.basis.ratio * 100)) }
+          : { trigger: x.trigger, kind: '잔액' as const, value: '' }
+    ));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cpo, bizType, stepsLocked]);
 
   const startDate = startDay ? koDate(startDay) : `${year}년 ${half}반기`;
 
@@ -1091,25 +1140,6 @@ function CaseForm({
   const promoBad = promoSteps?.some((x) => x.months <= 0)
     ? '프로모션 구간의 기간을 적어주세요'
     : null;
-
-  /*
-   * 기성은 운영사마다 정해진 규칙 몇 가지를 돌려쓴다 — 차수를 매번 수기로 짜는 것은
-   * 과했다(한백 지적 2026-08-23). 규칙 셀렉트에서 고르면 단계가 통째로 채워지고,
-   * 손으로 고친 단계가 어느 규칙과 같은 모양이면 셀렉트가 그 규칙을 가리킨다
-   * (같은 모양 판정은 저장소와 같은 잣대 — settlementStepsKeyOf).
-   */
-  const liveRules = settlementRules.filter((r) => r.active);
-  const stepsKey = settlementStepsKeyOf(stepRules);
-  const matchedRuleId = liveRules.find((r) => settlementStepsKeyOf(r.steps) === stepsKey)?.id ?? '';
-  function loadRule(id: string) {
-    const rule = liveRules.find((r) => r.id === id);
-    if (!rule) return;
-    setSteps(rule.steps.map((x) =>
-      x.basis.kind === '고정' ? { trigger: x.trigger, kind: '고정' as const, value: String(x.basis.unit) }
-        : x.basis.kind === '비율' ? { trigger: x.trigger, kind: '비율' as const, value: String(Math.round(x.basis.ratio * 100)) }
-          : { trigger: x.trigger, kind: '잔액' as const, value: '' }
-    ));
-  }
 
   const stepBad = checkSettlementSteps(stepRules, receive);
   const stepAmount = receive > 0 ? stepUnits(stepRules, receive) : [];
@@ -1318,43 +1348,52 @@ function CaseForm({
       </FormSection>
 
       {/* ④ 기성 단계 — 받는 단가를 운영사에게 받는 차수. 현장 기성 탭·운영사 기성관리에 이대로 선다 */}
-      <FormSection title="기성 단계" hint="받는 단가를 어느 시점에 얼마씩 받는가 — 합이 받는 단가와 같아야 한다">
-        <div className="mb-3 max-w-md">
-          <Field label="규칙에서 불러오기" hint="운영사마다 돌려쓰는 규칙 — 고르면 아래 차수가 채워진다">
-            <select
-              value={matchedRuleId}
-              onChange={(e) => loadRule(e.target.value)}
-              className={FIELD}
-            >
-              <option value="">직접 정의…</option>
-              {liveRules.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
-            </select>
-          </Field>
-        </div>
+      <FormSection
+        title="기성 단계"
+        hint={stepsLocked
+          ? '단계는 운영사가 정한다 — 케이스마다 다른 것은 차수 금액뿐'
+          : '받는 단가를 어느 시점에 얼마씩 받는가 — 합이 받는 단가와 같아야 한다'}
+      >
         {steps.length === 0 ? (
-          <Tag tone="warn">기성 미정 — 이 케이스로 지정된 현장은 기성이 계산되지 않음</Tag>
+          <Tag tone="warn">
+            {stepsLocked
+              ? '이 운영사·사업구분의 기성 모양이 아직 없음 — 첫 케이스면 단계를 직접 정의'
+              : '기성 미정 — 이 케이스로 지정된 현장은 기성이 계산되지 않음'}
+          </Tag>
         ) : (
           <div className="flex max-w-2xl flex-col gap-2">
             {steps.map((s, i) => (
               <div key={i} className="flex flex-wrap items-center gap-2">
                 <span className="w-8 shrink-0 text-tiny font-bold text-slate-400">{i + 1}차</span>
-                <select
-                  value={s.trigger}
-                  onChange={(e) => setStep(i, { trigger: e.target.value as Trigger })}
-                  className={FIELD_CELL}
-                >
-                  {RECEIVE_TRIGGERS.map((t) => <option key={t} value={t}>{t}</option>)}
-                </select>
-                <select
-                  value={s.kind}
-                  onChange={(e) => setStep(i, { kind: e.target.value as StepDraft['kind'] })}
-                  className={FIELD_CELL}
-                >
-                  <option value="고정">고정액</option>
-                  <option value="비율">비율</option>
-                  <option value="잔액">잔액</option>
-                </select>
-                {s.kind !== '잔액' && (
+                {stepsLocked ? (
+                  /* 모양은 운영사 것 — 트리거·방식은 글자로 굳히고 고정액만 연다 (화면 규칙 4번) */
+                  <span className="font-bold text-slate-700">
+                    {s.trigger}
+                    <span className="ml-1.5 text-tiny font-semibold text-slate-400">
+                      {s.kind === '고정' ? '고정액' : s.kind === '비율' ? `${s.value}%` : '잔액'}
+                    </span>
+                  </span>
+                ) : (
+                  <>
+                    <select
+                      value={s.trigger}
+                      onChange={(e) => setStep(i, { trigger: e.target.value as Trigger })}
+                      className={FIELD_CELL}
+                    >
+                      {RECEIVE_TRIGGERS.map((t) => <option key={t} value={t}>{t}</option>)}
+                    </select>
+                    <select
+                      value={s.kind}
+                      onChange={(e) => setStep(i, { kind: e.target.value as StepDraft['kind'] })}
+                      className={FIELD_CELL}
+                    >
+                      <option value="고정">고정액</option>
+                      <option value="비율">비율</option>
+                      <option value="잔액">잔액</option>
+                    </select>
+                  </>
+                )}
+                {s.kind === '고정' && (
                   <span className="flex items-baseline gap-1">
                     <input
                       value={s.value}
@@ -1363,22 +1402,42 @@ function CaseForm({
                       placeholder="0"
                       className={`${FIELD_CELL} w-28 text-right tabular-nums`}
                     />
-                    <span className="shrink-0 text-micro text-slate-400">{s.kind === '고정' ? '원' : '%'}</span>
+                    <span className="shrink-0 text-micro text-slate-400">원</span>
+                  </span>
+                )}
+                {!stepsLocked && s.kind === '비율' && (
+                  <span className="flex items-baseline gap-1">
+                    <input
+                      value={s.value}
+                      onChange={(e) => setStep(i, { value: e.target.value })}
+                      inputMode="numeric"
+                      placeholder="0"
+                      className={`${FIELD_CELL} w-20 text-right tabular-nums`}
+                    />
+                    <span className="shrink-0 text-micro text-slate-400">%</span>
                   </span>
                 )}
                 <span className="ml-auto text-tiny tabular-nums text-slate-500">
                   {receive > 0 ? `대당 ${won(stepAmount[i] ?? 0)}원` : '—'}
                 </span>
-                <Btn size="sm" kind="quiet" onClick={() => setSteps((p) => p.filter((_, x) => x !== i))}>
-                  빼기
-                </Btn>
+                {!stepsLocked && (
+                  <Btn size="sm" kind="quiet" onClick={() => setSteps((p) => p.filter((_, x) => x !== i))}>
+                    빼기
+                  </Btn>
+                )}
               </div>
             ))}
           </div>
         )}
 
         <div className="mt-3 flex flex-wrap items-center gap-3">
-          {steps.length < 3 && <Btn size="sm" kind="side" onClick={addStep}>차수 추가</Btn>}
+          {stepsLocked ? (
+            <Btn size="sm" kind="quiet" onClick={() => setStepsLocked(false)}>
+              단계 직접 정의 — 운영사 모양이 바뀌었을 때만
+            </Btn>
+          ) : (
+            steps.length < 3 && <Btn size="sm" kind="side" onClick={addStep}>차수 추가</Btn>
+          )}
           {steps.length > 0 && receive > 0 && stepBad.length > 0 && (
             <span className="text-tiny font-semibold text-red-600">{stepBad[0]}</span>
           )}

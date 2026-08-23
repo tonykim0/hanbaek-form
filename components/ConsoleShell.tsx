@@ -182,6 +182,28 @@ export default function ConsoleShell({
     setOpen(localStorage.getItem(COLLAPSE_KEY) !== '1');
     setReady(true);
   }, []);
+
+  /*
+   * 할 일 건수 배지 — 상단 바의 「할 일」 버튼에 있던 것을 사이드바 항목으로 옮겼다
+   * (한백 확인 2026-08-24). 대시보드(/todos)가 생기면서 드롭다운은 같은 것을 두 벌
+   * 보여주는 자리가 됐다 — 남긴 것은 배지(건수)뿐이다.
+   * 화면을 옮기면 다시 센다 — 방금 처리한 것이 배지에 남아 있으면 거짓말이다.
+   */
+  const [todoCount, setTodoCount] = useState<number | null>(null);
+  useEffect(() => {
+    let alive = true;
+    void fetch('/api/todos')
+      .then((r) => (r.ok ? (r.json() as Promise<{ items: unknown[] }>) : null))
+      .then((d) => {
+        if (alive && d) setTodoCount(d.items.length);
+      })
+      .catch(() => {
+        /* 배지가 안 뜰 뿐 — 사이드바가 화면을 막으면 안 된다 */
+      });
+    return () => {
+      alive = false;
+    };
+  }, [pathname]);
   useEffect(() => {
     if (ready) localStorage.setItem(COLLAPSE_KEY, open ? '0' : '1');
   }, [open, ready]);
@@ -251,6 +273,16 @@ export default function ConsoleShell({
                         {open ? (
                           <>
                             <span className="truncate">{it.label}</span>
+                            {/* 할 일 건수 — 상단 바 배지와 같은 말투(주황 = 있음, 회색 = 없음) */}
+                            {it.href === '/todos' && todoCount !== null && (
+                              <span
+                                className={`ml-auto rounded-tag px-1.5 py-0.5 text-tiny font-bold tabular-nums ${
+                                  todoCount > 0 ? 'bg-amber-500 text-white' : 'bg-slate-100 text-slate-400'
+                                }`}
+                              >
+                                {todoCount}
+                              </span>
+                            )}
                             {it.external && (
                               <span aria-hidden className="ml-auto text-tiny text-slate-300">
                                 ↗
@@ -258,7 +290,16 @@ export default function ConsoleShell({
                             )}
                           </>
                         ) : (
-                          <span className="text-tiny font-bold">{it.short}</span>
+                          <span className="relative text-tiny font-bold">
+                            {it.short}
+                            {/* 접힌 채로도 있음은 보인다 — 숫자까지는 좁아서 못 싣는다 */}
+                            {it.href === '/todos' && (todoCount ?? 0) > 0 && (
+                              <span
+                                aria-hidden
+                                className="absolute -right-2 -top-1 h-1.5 w-1.5 rounded-full bg-amber-500"
+                              />
+                            )}
+                          </span>
                         )}
                       </Link>
                     </li>

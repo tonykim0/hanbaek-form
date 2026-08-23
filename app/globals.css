@@ -43,3 +43,32 @@ body {
 .animate-progress-indeterminate {
   animation: progress-indeterminate 1.5s ease-in-out infinite;
 }
+
+/* ── 인쇄 ──────────────────────────────────────────────────────────────────
+ * 인쇄물은 거래명세서 한 장이다(/payments/statement). 화면이 그대로 종이가 되고
+ * 껍데기·편집 칸은 print:hidden 이 걷는다.
+ *
+ * ★규칙이 아예 없었다 (2026-08-24 리뷰).★ 그래서 배치에 현장이 여러 곳이면 종이가
+ * 두 장이 되는데, 2쪽부터 표 머리글(현장·명목·금액)이 사라지고 줄이 페이지 경계에서
+ * 잘렸다. 용지·여백도 브라우저 기본값이라 사람마다 다른 종이가 나왔다.
+ */
+@page {
+  size: A4;
+  margin: 14mm 12mm;
+}
+
+@media print {
+  /* 여러 장이 되면 2쪽부터도 무엇의 열인지 알아야 한다 */
+  thead {
+    display: table-header-group;
+  }
+  /* 한 줄이 페이지 경계에서 잘리지 않게. 합계 묶음(tfoot)은 통째로 붙여 둔다 */
+  tr,
+  tfoot {
+    break-inside: avoid;
+  }
+  /* 표 배경(머리글 회색)은 배경 인쇄를 끈 브라우저에서 사라진다 — 선으로 읽히게 둔다 */
+  body {
+    background: #ffffff;
+  }
+}

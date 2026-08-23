@@ -38,6 +38,9 @@ export const users = pgTable('users', {
 export const partnerDetails = pgTable('partner_details', {
   userId: text('user_id').primaryKey(),
   bizRegNo: text('biz_reg_no'),                 // 사업자등록번호 — 숫자 10자리
+  /** 대표자·사업장 주소 — 거래명세서의 공급자 칸에 들어간다(0015). 업태·종목은 안 적는다 */
+  ceo: text('ceo'),
+  addr: text('addr'),
   bizCertUrl: text('biz_cert_url'),             // 사업자등록증 파일
   bankName: text('bank_name'),
   bankAccountNo: text('bank_account_no'),

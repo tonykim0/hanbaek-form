@@ -25,6 +25,10 @@ import {
 
 export interface PartnerDetailsView {
   bizRegNo: string | null;
+  /** 대표자 — 거래명세서 공급자 칸. 담당자(계정 이름)와 다른 사람일 수 있다 */
+  ceo: string | null;
+  /** 사업장 주소 — 거래명세서 공급자 칸 */
+  addr: string | null;
   bizCertUrl: string | null;
   bankName: string | null;
   bankAccountNo: string | null;
@@ -41,6 +45,8 @@ export const FILE_KIND_LABEL: Record<PartnerFileKind, string> = {
 
 const FIELD_LABEL = {
   bizRegNo: '사업자등록번호',
+  ceo: '대표자',
+  addr: '사업장 주소',
   bankName: '은행',
   bankAccountNo: '계좌번호',
   bankHolder: '예금주',
@@ -84,6 +90,8 @@ export async function getPartnerDetails(
   if (!r) return null;
   return {
     bizRegNo: r.bizRegNo,
+    ceo: r.ceo,
+    addr: r.addr,
     bizCertUrl: r.bizCertUrl,
     bankName: r.bankName,
     bankAccountNo: r.bankAccountNo,
@@ -100,6 +108,8 @@ export async function listPartnerDetails(): Promise<Record<string, PartnerDetail
   for (const r of rows) {
     map[r.userId] = {
       bizRegNo: r.bizRegNo,
+      ceo: r.ceo,
+      addr: r.addr,
       bizCertUrl: r.bizCertUrl,
       bankName: r.bankName,
       bankAccountNo: r.bankAccountNo,

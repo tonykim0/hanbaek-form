@@ -4,6 +4,9 @@ import { getRepository } from '@/lib/data';
 import { actorOf, getSessionUser, viewerOf } from '@/lib/auth/session';
 import { isHanbaek } from '@/lib/roles';
 import { PAYOUT_KINDS } from '@/types/project';
+import { getPartnerDetails } from '@/lib/auth/partner-details';
+import { userStore } from '@/lib/auth/users';
+import { today } from '@/lib/date';
 import PrintButton from '@/components/settlement/PrintButton';
 import StatementView from '@/components/settlement/StatementView';
 
@@ -59,6 +62,25 @@ export default async function StatementPage({
         (i) => i.org === org && i.kind === kind && i.payDate === date
       ) ?? null
     : null;
+  /*
+   * 공급자(협력사)의 사업자 정보 — 거래명세서에 적는다.
+   *
+   * ★공급자는 협력사다.★ 협력사가 용역을 공급하고 한백이 대금을 지급한다 — 그래서
+   * 세금계산서도 협력사가 발행한다. 예전 머리글은 「공급자 한백 → 받는 곳 협력사」라고
+   * 적고 있었다(2026-08-24 리뷰) — 돈이 나가는 방향을 공급으로 읽은 것이고, 그러면
+   * 이 명세서와 협력사가 끊은 계산서가 서로 반대를 말한다.
+   *
+   * partner_details 는 계정(userId) 단위다. 소속(org)당 계정이 하나라 소속으로 계정을
+   * 찾아 그 계정의 것을 읽는다 — 못 찾으면 사업자 칸이 비고, 명세서는 그대로 나온다
+   * (「미지정」으로 보인다). 이것 때문에 명세서가 안 열리게 하지는 않는다.
+   */
+  const partnerId = seesAll
+    ? (await userStore.list()).find((a) => a.org === org && a.role !== 'admin')?.id ?? null
+    : session.id;
+  const partner = partnerId
+    ? await getPartnerDetails(partnerId, actorOf(session)).catch(() => null)
+    : null;
+
   // 확정 여부 — 계산서와 무관하게 제 테이블(batch_finals)에 산다. 협력사도 자기 것은 본다.
   const finalized = kind
     ? (await getRepository().listBatchFinals(actorOf(session))).some(
@@ -82,6 +104,8 @@ export default async function StatementPage({
       <StatementView
         rows={rows}
         org={org}
+        partner={partner}
+        issuedAt={today()}
         date={date}
         kind={kind}
         invoice={invoice}

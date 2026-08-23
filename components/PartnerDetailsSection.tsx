@@ -31,6 +31,8 @@ import { Blank, Btn, Empty, Err, FIELD, Note, PANEL } from '@/components/ui';
 
 const EMPTY_DETAILS: PartnerDetailsView = {
   bizRegNo: null,
+  ceo: null,
+  addr: null,
   bizCertUrl: null,
   bankName: null,
   bankAccountNo: null,
@@ -90,11 +92,15 @@ function PartnerCard({
   const [fileError, setFileError] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
-  const [form, setForm] = useState({ bizRegNo: '', bankName: '', bankAccountNo: '', bankHolder: '' });
+  const [form, setForm] = useState({
+    bizRegNo: '', ceo: '', addr: '', bankName: '', bankAccountNo: '', bankHolder: '',
+  });
 
   function openEdit() {
     setForm({
       bizRegNo: details.bizRegNo ? formatBizRegNo(details.bizRegNo) : '',
+      ceo: details.ceo ?? '',
+      addr: details.addr ?? '',
       bankName: details.bankName ?? '',
       bankAccountNo: details.bankAccountNo ?? '',
       bankHolder: details.bankHolder ?? '',
@@ -122,6 +128,8 @@ function PartnerCard({
       body: {
         userId: account.id,
         bizRegNo: bizDigits,
+        ceo: form.ceo,
+        addr: form.addr,
         bankName: form.bankName,
         bankAccountNo: accountDigits,
         bankHolder: form.bankHolder,
@@ -168,6 +176,27 @@ function PartnerCard({
                   className={`${FIELD} tabular-nums`}
                 />
               </Field>
+              {/* 대표자·주소는 거래명세서의 공급자 칸에 그대로 찍힌다 */}
+              <div className="grid grid-cols-[9rem_1fr] gap-2">
+                <Field label="대표자">
+                  <input
+                    value={form.ceo}
+                    disabled={busy}
+                    placeholder="홍길동"
+                    onChange={(e) => setForm((f) => ({ ...f, ceo: e.target.value }))}
+                    className={FIELD}
+                  />
+                </Field>
+                <Field label="사업장 주소">
+                  <input
+                    value={form.addr}
+                    disabled={busy}
+                    placeholder="시·군·구부터"
+                    onChange={(e) => setForm((f) => ({ ...f, addr: e.target.value }))}
+                    className={FIELD}
+                  />
+                </Field>
+              </div>
               <div className="grid grid-cols-[9rem_1fr] gap-2">
                 <Field label="은행">
                   <select
@@ -226,6 +255,16 @@ function PartnerCard({
                 ) : (
                   <Empty kind="miss" />
                 )}
+              </FactRow>
+              <FactRow label="대표자">
+                {details.ceo
+                  ? <span className="font-bold text-slate-800">{details.ceo}</span>
+                  : <Empty kind="miss" />}
+              </FactRow>
+              <FactRow label="사업장 주소">
+                {details.addr
+                  ? <span className="font-bold text-slate-800">{details.addr}</span>
+                  : <Empty kind="miss" />}
               </FactRow>
               <FactRow label="정산 계좌">
                 {details.bankName || details.bankAccountNo ? (

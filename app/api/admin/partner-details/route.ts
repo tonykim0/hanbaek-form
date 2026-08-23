@@ -1,7 +1,7 @@
 /**
  * 협력사 정보 — 자기 것이거나 한백이거나 (판정은 저장소의 assertSelfOrAdmin).
  *
- *   PATCH  { userId, bizRegNo?|bankName?|bankAccountNo?|bankHolder? }   글자 값 고치기
+ *   PATCH  { userId, bizRegNo?|ceo?|addr?|bankName?|bankAccountNo?|bankHolder? }  글자 값 고치기
  *   POST   multipart (userId, kind, file)                               서류 올리기·교체
  *   DELETE { userId, kind }                                             서류 지우기
  *
@@ -38,11 +38,15 @@ function asKind(value: unknown): PartnerFileKind {
 
 export const PATCH = sessionWrite<
   Record<string, never>,
-  { userId?: string; bizRegNo?: unknown; bankName?: unknown; bankAccountNo?: unknown; bankHolder?: unknown }
+  {
+    userId?: string; bizRegNo?: unknown; ceo?: unknown; addr?: unknown;
+    bankName?: unknown; bankAccountNo?: unknown; bankHolder?: unknown;
+  }
 >(async ({ body, actor }) => {
   if (!body?.userId) throw new BadRequest('userId 가 필요합니다.');
   const patch: Record<string, string> = {};
-  for (const field of ['bizRegNo', 'bankName', 'bankAccountNo', 'bankHolder'] as const) {
+  // 목록의 정본은 savePartnerFields 의 FIELD_LABEL 이다 — 한 쪽만 늘리면 조용히 안 저장된다
+  for (const field of ['bizRegNo', 'ceo', 'addr', 'bankName', 'bankAccountNo', 'bankHolder'] as const) {
     const value = body[field];
     if (value === undefined) continue;
     if (typeof value !== 'string') throw new BadRequest('값이 올바르지 않습니다.');

@@ -14,25 +14,38 @@
  * 협력사에게 이 합계가 최종이라고 말한 것이기 때문이다. 계산서 첨부·교체·삭제는
  * 잠기지 않는다. 잠금은 서버가 지킨다(pg-store) — 여기서는 눌리지 않게 감출 뿐이다.
  *
+ * ★공급자는 협력사, 공급받는자는 한백이다 (한백 확인 2026-08-24).★
+ * 협력사가 영업·시공을 공급하고 한백이 대금을 지급한다 — 그래서 세금계산서도 협력사가
+ * 발행한다. 예전 머리글은 「공급자 한백 → 받는 곳 협력사」였다: 돈이 나가는 방향을 공급으로
+ * 읽은 것이고, 그러면 이 명세서와 협력사가 끊은 계산서가 서로 반대를 말한다.
+ * 이 장은 그 계산서를 뒷받침하는 명세다.
+ *
  * ★부가세 줄★ 원장 금액은 공급가액이다(한백 확인 2026-08-23). 부가세·합계는 참고로
  * 적는다 — 실제 송금액은 합계다.
  *
  * 편집(빼기·지급일·세금계산서)은 전부 print:hidden — 종이에는 명세서만 남는다.
  */
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { PayoutKind, PayoutRow, TaxInvoice } from '@/types/project';
+import type { PartnerDetailsView } from '@/lib/auth/partner-details';
+import { HANBAEK } from '@/lib/hanbaek';
+import { formatBizRegNo } from '@/lib/bank-account';
 import { batchStateOf } from '@/lib/payout-board';
 import { useAction } from '@/lib/use-action';
-import { Badge, Btn, Err, FIELD_CELL, Saved } from '@/components/ui';
+import { Badge, Btn, Empty, Err, FIELD_CELL, Saved } from '@/components/ui';
 import { won } from './parts';
 import { useFinalizeBatch, useTaxInvoiceUpload } from './use-batch';
 
 export default function StatementView({
-  rows, org, date, kind, invoice, finalized, canEdit,
+  rows, org, partner, issuedAt, date, kind, invoice, finalized, canEdit,
 }: {
   rows: PayoutRow[];
   org: string;
+  /** 공급자(협력사)의 사업자 정보 — 없으면 그 칸이 「미지정」으로 뜬다 */
+  partner: PartnerDetailsView | null;
+  /** 작성일 — 이 장을 뽑은 날. 지급일과 다른 값이다 */
+  issuedAt: string;
   date: string;
   /** 배치의 구분 — null 이면 그 지급일 전체를 읽기로만 본다(옛 링크) */
   kind: PayoutKind | null;
@@ -66,6 +79,11 @@ export default function StatementView({
             )}
           </h1>
           <div className="text-right text-small leading-relaxed text-slate-600">
+            {/* 작성일과 지급일은 다른 날이다 — 다시 뽑으면 작성일만 바뀐다 */}
+            <p>
+              <span className="font-bold text-slate-400">작성일</span>{' '}
+              <span className="font-bold tabular-nums text-slate-900">{issuedAt}</span>
+            </p>
             <p>
               <span className="font-bold text-slate-400">지급일</span>{' '}
               <span className="font-bold tabular-nums text-slate-900">{date}</span>
@@ -76,15 +94,31 @@ export default function StatementView({
                 <span className="font-bold text-slate-900">{kind}</span>
               </p>
             )}
-            <p>
-              <span className="font-bold text-slate-400">공급자</span>{' '}
-              <span className="font-bold text-slate-900">한백</span>
-              <span className="mx-1 text-slate-300">→</span>
-              <span className="font-bold text-slate-400">받는 곳</span>{' '}
-              <span className="font-bold text-slate-900">{org}</span>
-            </p>
           </div>
         </header>
+
+        {/*
+          공급자(협력사) · 공급받는자(한백). 왼쪽이 공급자다 — 세금계산서와 같은 자리에 둔다.
+          협력사 값은 사업자 정보 화면에서 협력사가 스스로 적는다. 안 적힌 칸은 「미지정」으로
+          두고 명세서는 그대로 나온다 — 여기서 막으면 명세서를 아예 못 뽑는다.
+        */}
+        <div className="mt-4 grid gap-0 border border-slate-300 text-small sm:grid-cols-2">
+          <Party
+            role="공급자"
+            name={org}
+            bizRegNo={partner?.bizRegNo ? formatBizRegNo(partner.bizRegNo) : null}
+            ceo={partner?.ceo ?? null}
+            addr={partner?.addr ?? null}
+          />
+          <Party
+            role="공급받는자"
+            name={HANBAEK.name}
+            bizRegNo={HANBAEK.bizRegNo}
+            ceo={HANBAEK.ceo}
+            addr={HANBAEK.addr}
+            className="border-t border-slate-300 sm:border-l sm:border-t-0"
+          />
+        </div>
 
         {rows.length === 0 ? (
           <p className="py-10 text-center text-base text-slate-400">
@@ -95,7 +129,12 @@ export default function StatementView({
             <thead className="border-b border-slate-200 text-tiny font-bold tracking-[0.08em] text-slate-500">
               <tr>
                 <th className="py-2 pr-3 text-left">현장</th>
-                <th className="px-3 py-2 text-left">구분</th>
+                {/*
+                  배치는 구분 하나로 묶여 있어 머리글에 이미 적혀 있다 — 줄마다 또 적으면
+                  같은 값이 한 장에 두 번이다(화면 규칙 5번). 옛 링크(구분 없이 그 지급일
+                  전체)로 들어오면 줄마다 갈리므로 그때만 열을 낸다.
+                */}
+                {kind === null && <th className="px-3 py-2 text-left">구분</th>}
                 <th className="px-3 py-2 text-left">명목</th>
                 <th className="px-3 py-2 text-left">메모</th>
                 <th className="py-2 pl-3 text-right">금액</th>
@@ -104,12 +143,12 @@ export default function StatementView({
             </thead>
             <tbody className="divide-y divide-slate-100">
               {rows.map((r) => (
-                <ItemRow key={r.entryId} r={r} canEdit={canRemove} />
+                <ItemRow key={r.entryId} r={r} showKind={kind === null} canEdit={canRemove} />
               ))}
             </tbody>
             <tfoot>
               <tr className="border-t-2 border-slate-900">
-                <td colSpan={4} className="py-2.5 pr-3 text-right text-base font-black text-slate-900">
+                <td colSpan={kind === null ? 4 : 3} className="py-2.5 pr-3 text-right text-base font-black text-slate-900">
                   공급가액 ({rows.length}건)
                 </td>
                 <td className="whitespace-nowrap py-2.5 pl-3 text-right text-lead font-black tabular-nums text-slate-900">
@@ -119,7 +158,7 @@ export default function StatementView({
                 {canRemove && <td className="print:hidden" />}
               </tr>
               <tr>
-                <td colSpan={4} className="py-1 pr-3 text-right text-small font-bold text-slate-500">
+                <td colSpan={kind === null ? 4 : 3} className="py-1 pr-3 text-right text-small font-bold text-slate-500">
                   부가세 (10%)
                 </td>
                 <td className="whitespace-nowrap py-1 pl-3 text-right text-base font-bold tabular-nums text-slate-700">
@@ -129,7 +168,7 @@ export default function StatementView({
                 {canRemove && <td className="print:hidden" />}
               </tr>
               <tr className="border-t border-slate-300">
-                <td colSpan={4} className="py-2.5 pr-3 text-right text-base font-black text-slate-900">
+                <td colSpan={kind === null ? 4 : 3} className="py-2.5 pr-3 text-right text-base font-black text-slate-900">
                   합계
                 </td>
                 <td className="whitespace-nowrap py-2.5 pl-3 text-right text-lead font-black tabular-nums text-slate-900">
@@ -140,6 +179,27 @@ export default function StatementView({
               </tr>
             </tfoot>
           </table>
+        )}
+
+        {/*
+          어느 계좌로 가는가 — 협력사에게 이 장의 핵심이고, 한백에게는 송금 전 대조다.
+          값은 협력사가 사업자 정보 화면에서 적은 것이다(정본은 거기 하나다).
+        */}
+        {rows.length > 0 && (
+          <p className="mt-4 flex flex-wrap items-baseline gap-x-2 border-t border-slate-200 pt-3 text-small">
+            <span className="text-tiny font-bold tracking-[0.08em] text-slate-400">지급 계좌</span>
+            {partner?.bankName || partner?.bankAccountNo ? (
+              <span className="font-bold text-slate-800">
+                {partner.bankName ?? <Empty kind="miss" />}{' '}
+                <span className="tabular-nums">{partner.bankAccountNo ?? ''}</span>
+                {partner.bankHolder && (
+                  <span className="font-semibold text-slate-500"> · {partner.bankHolder}</span>
+                )}
+              </span>
+            ) : (
+              <Empty kind="miss" />
+            )}
+          </p>
         )}
       </section>
 
@@ -162,8 +222,54 @@ export default function StatementView({
   );
 }
 
+/**
+ * 공급자·공급받는자 한 칸.
+ *
+ * 업태·종목은 두지 않는다 (한백 확인 2026-08-24) — 이 명세서에 안 적는다.
+ * 빈 칸은 지우지 않고 「미지정」으로 남긴다 — 안 적힌 것과 원래 없는 것은 다른 말이고,
+ * 협력사가 사업자 정보 화면에서 채워야 하는 자리라는 신호이기도 하다(화면 규칙 6·10번).
+ */
+function Party({
+  role, name, bizRegNo, ceo, addr, className = '',
+}: {
+  role: '공급자' | '공급받는자';
+  name: string;
+  bizRegNo: string | null;
+  ceo: string | null;
+  addr: string | null;
+  className?: string;
+}) {
+  return (
+    <div className={`p-3.5 ${className}`}>
+      <p className="mb-1.5 text-micro font-bold tracking-[0.12em] text-slate-400">{role}</p>
+      <p className="text-base font-black text-slate-900">{name}</p>
+      <dl className="mt-1 grid grid-cols-[4.5rem_1fr] gap-x-2 gap-y-0.5 text-slate-600">
+        {([
+          ['등록번호', bizRegNo, true],
+          ['대표자', ceo, false],
+          ['주소', addr, false],
+        ] as const).map(([label, value, nums]) => (
+          <Fragment key={label}>
+            <dt className="text-tiny font-bold text-slate-400">{label}</dt>
+            <dd className={`text-small ${nums ? 'tabular-nums' : ''}`}>
+              {value ? <span className="text-slate-800">{value}</span> : <Empty kind="miss" />}
+            </dd>
+          </Fragment>
+        ))}
+      </dl>
+    </div>
+  );
+}
+
 /** 명세서 한 줄 — 빼기는 원장 삭제라 그 회차가 지급 가능 풀로 돌아간다 */
-function ItemRow({ r, canEdit }: { r: PayoutRow; canEdit: boolean }) {
+function ItemRow({
+  r, showKind, canEdit,
+}: {
+  r: PayoutRow;
+  /** 구분이 줄마다 갈리는 경우에만 — 배치는 머리글이 이미 말한다 */
+  showKind: boolean;
+  canEdit: boolean;
+}) {
   const router = useRouter();
   const { busy, error, run } = useAction();
 
@@ -183,7 +289,7 @@ function ItemRow({ r, canEdit }: { r: PayoutRow; canEdit: boolean }) {
         {r.projectName}
         <span className="ml-1.5 text-tiny font-normal text-slate-400">{r.cpo}</span>
       </td>
-      <td className="whitespace-nowrap px-3 py-2.5 text-slate-600">{r.kind}</td>
+      {showKind && <td className="whitespace-nowrap px-3 py-2.5 text-slate-600">{r.kind}</td>}
       <td className="whitespace-nowrap px-3 py-2.5 text-slate-600">{r.label}</td>
       <td className="px-3 py-2.5 text-small text-slate-500">
         {r.note ?? <span className="text-slate-300">—</span>}

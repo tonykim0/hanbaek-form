@@ -13,6 +13,7 @@ import { batchesOf, batchKey, batchStateOf } from '@/lib/payout-board';
 import { actorOf, viewerOf } from '@/lib/auth/session';
 import { isHanbaek, type Role } from '@/lib/roles';
 import { won } from '@/lib/format';
+import { today } from '@/lib/date';
 import type { SessionPayload } from '@/lib/auth/types';
 import type { Court } from '@/types/project';
 
@@ -29,6 +30,23 @@ export interface TodoItem {
   what: string;
   group: TodoGroup;
   stalledDays: number;
+  /**
+   * 이 칸 안에서 무슨 일인가 — 계약 칸에 접수·검토·보완이 섞여 있어서 필요하다.
+   * 현장 보드는 이것을 칸으로 갈랐는데 여기는 국면이 칸이라, 꼬리표로 갈린다.
+   * 정산은 배치 일의 종류(세금계산서 발행·확정 누락)다.
+   */
+  kind: string;
+  /**
+   * 급함 — 칸을 넘어 견주는 잣대다.
+   *
+   * ★국면마다 급함의 근거가 다르다.★ 계약·시공은 정체일(며칠 멈춰 있나)이고, 정산은
+   * 날짜(지급일이 얼마 남았나 · 얼마나 지났나)다. 정산 카드는 stalledDays 가 늘 0 이라
+   * 정체로 재면 언제나 한가한 일로 보였다 — 확정 누락은 지급일이 지난 것이 곧 급함이다.
+   * 그래서 국면과 무관하게 견줄 수 있는 한 숫자로 만든다: 클수록 급하다.
+   */
+  urgency: number;
+  /** 급함을 사람 말로 — 카드에 그대로 적는다. 없으면 적을 것이 없다는 뜻이다 */
+  urgencyLabel: string | null;
 }
 
 /**
@@ -74,11 +92,13 @@ export async function todosOf(session: SessionPayload): Promise<TodoItem[]> {
         what: whatOf(column, p),
         // 계약·시공은 보드 띠 그대로다. 멈춤 띠는 위에서 걸렀으니 여기 안 온다.
         group: bandOfColumn(column) as '계약' | '시공',
+        kind: column,
         stalledDays: p.stalledDays,
+        /* 정체일이 곧 급함이다 — 하루 = 1. 정산의 날짜 급함과 같은 자에 올린다 */
+        urgency: p.stalledDays,
+        urgencyLabel: p.stalledDays > 0 ? `${p.stalledDays}일 정체` : null,
       };
-    })
-    // 오래 멈춘 것이 위로 — 정체일이 곧 급한 순서다
-    .sort((a, b) => b.stalledDays - a.stalledDays);
+    });
 
   /*
    * 배치의 할 일 둘 — 묶는 규칙·상태 판정은 명세서 화면과 같은 정본(lib/payout-board)이다.
@@ -93,9 +113,16 @@ export async function todosOf(session: SessionPayload): Promise<TodoItem[]> {
       id: `invoice|${batchKey(b.paidAt, b.org, b.kind)}`,
       href: '/statements',
       name: `세금계산서 발행 — ${b.kind}`,
-      what: `공급가액 ${won(b.total)}원 · 지급일 ${b.paidAt}`,
+      what: `공급가액 ${won(b.total)}원`,
       group: '정산',
+      kind: '세금계산서 발행',
       stalledDays: 0,
+      /*
+       * 지급일이 가까울수록 급하다 — 남은 날을 뒤집어 자에 올린다. 30일 뒤면 0,
+       * 내일이면 29. 계약·시공의 정체일과 같은 크기로 견줄 수 있다.
+       */
+      urgency: Math.max(0, 30 - daysUntil(b.paidAt)),
+      urgencyLabel: labelUntil(b.paidAt),
     }));
 
   /* 오래 놓친 것이 위로 — 지급일이 이른 순 */
@@ -106,12 +133,37 @@ export async function todosOf(session: SessionPayload): Promise<TodoItem[]> {
       id: `missed|${batchKey(b.paidAt, b.org, b.kind)}`,
       href: '/statements',
       name: `확정 누락 — ${b.org} ${b.kind}`,
-      what: `공급가액 ${won(b.total)}원 · 지급일 ${b.paidAt} 지남`,
+      what: `공급가액 ${won(b.total)}원`,
       group: '정산',
+      kind: '확정 누락',
       stalledDays: 0,
+      /*
+       * 이미 지난 일이다 — 확정은 지급의 전제인데 건너뛴 채 돈이 나갔다.
+       * 지난 날수에 30 을 얹어, 어떤 「발행 예정」보다 위에 선다.
+       */
+      urgency: 30 + Math.max(0, -daysUntil(b.paidAt)),
+      urgencyLabel: labelUntil(b.paidAt),
     }));
 
-  return [...missed, ...invoices, ...items];
+  /* 급한 순 — 국면을 넘어 한 자로 잰다. 같으면 국면 순서(정산 → 계약 → 시공) */
+  return [...missed, ...invoices, ...items].sort(
+    (a, b) => b.urgency - a.urgency
+      || TODO_GROUPS.indexOf(a.group) - TODO_GROUPS.indexOf(b.group)
+  );
+}
+
+/** 오늘부터 그 날까지 남은 날 — 지났으면 음수 */
+function daysUntil(day: string): number {
+  const ms = new Date(`${day}T00:00:00+09:00`).getTime() - new Date(`${today()}T00:00:00+09:00`).getTime();
+  return Math.round(ms / 86_400_000);
+}
+
+/** 지급일까지의 거리를 사람 말로 — 지난 것은 강하게 적는다 */
+function labelUntil(day: string): string {
+  const d = daysUntil(day);
+  if (d < 0) return `지급일 ${-d}일 지남`;
+  if (d === 0) return '지급일 오늘';
+  return `지급일 ${d}일 남음`;
 }
 
 /** 그 현장에서 지금 할 일 — 보드 칸 판정을 그대로 쓴다(부르는 쪽이 한 번 계산해 넘긴다) */

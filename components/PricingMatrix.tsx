@@ -27,7 +27,7 @@ import {
 import { won } from '@/lib/format';
 import { useAction } from '@/lib/use-action';
 import { halfEndKey, halfKeyOf, halfLabel, startKey } from '@/lib/pricing-match';
-import { checkSettlementSteps, RECEIVE_TRIGGERS, stepUnits } from '@/lib/settlement';
+import { checkSettlementSteps, RECEIVE_TRIGGERS, settlementStepsKeyOf, stepUnits } from '@/lib/settlement';
 import { Badge, Blank, Btn, Choice, Empty, Err, FIELD, FIELD_CELL, PANEL, Tag } from '@/components/ui';
 
 const POWER_TYPES = ['한전불입', '모자분리'] as const;
@@ -187,6 +187,7 @@ export default function PricingMatrix({
           key={JSON.stringify(form)}
           prefill={form.prefill}
           editId={form.editId}
+          settlementRules={settlementRules}
           onDone={() => setForm(null)}
         />
       )}
@@ -949,11 +950,13 @@ interface StepDraft {
 }
 
 function CaseForm({
-  prefill, editId, onDone,
+  prefill, editId, settlementRules, onDone,
 }: {
   prefill: Prefill;
   /** 있으면 이 케이스를 자리에서 고친다(PUT) — 참조 없는 케이스만. 없으면 새 케이스(POST)다 */
   editId?: string;
+  /** 쌓여 있는 정산 규칙 — 기성 단계를 규칙에서 불러오는 셀렉트가 쓴다 */
+  settlementRules: SettlementRule[];
   onDone: () => void;
 }) {
   const { busy, error, run } = useAction();
@@ -1028,10 +1031,12 @@ function CaseForm({
   const [miscTerms, setMiscTerms] = useState(prefill.miscTerms ?? '');
   const [note, setNote] = useState(prefill.note ?? '');
   /*
-   * 지원·조건은 운영사 공통 적용사항이라 개정(단가 갱신)에서 거의 안 바뀐다 — 펼쳐 두면
-   * 개정마다 여섯 칸이 「고쳐야 하는 것」처럼 보인다(한백 지적 2026-08-23). 개정은 접어
-   * 두고 원 케이스 값을 그대로 싣는다. 조건까지 바뀌는 개정만 사람이 펼쳐서 고친다.
+   * 요금·프로모션과 지원·조건은 운영사(와 계약연수)가 정하는 공통 적용사항이라 개정
+   * (단가 갱신)에서 거의 안 바뀐다 — 펼쳐 두면 개정마다 「고쳐야 하는 것」처럼 보인다
+   * (한백 지적 2026-08-23). 개정은 접어 두고 원 케이스 값을 그대로 싣는다.
+   * 그 값들까지 바뀌는 개정(정책 전면 개정)만 사람이 펼쳐서 고친다.
    */
+  const [showRates, setShowRates] = useState(!prefill.after);
   const [showTerms, setShowTerms] = useState(!prefill.after);
 
   /*
@@ -1086,6 +1091,25 @@ function CaseForm({
   const promoBad = promoSteps?.some((x) => x.months <= 0)
     ? '프로모션 구간의 기간을 적어주세요'
     : null;
+
+  /*
+   * 기성은 운영사마다 정해진 규칙 몇 가지를 돌려쓴다 — 차수를 매번 수기로 짜는 것은
+   * 과했다(한백 지적 2026-08-23). 규칙 셀렉트에서 고르면 단계가 통째로 채워지고,
+   * 손으로 고친 단계가 어느 규칙과 같은 모양이면 셀렉트가 그 규칙을 가리킨다
+   * (같은 모양 판정은 저장소와 같은 잣대 — settlementStepsKeyOf).
+   */
+  const liveRules = settlementRules.filter((r) => r.active);
+  const stepsKey = settlementStepsKeyOf(stepRules);
+  const matchedRuleId = liveRules.find((r) => settlementStepsKeyOf(r.steps) === stepsKey)?.id ?? '';
+  function loadRule(id: string) {
+    const rule = liveRules.find((r) => r.id === id);
+    if (!rule) return;
+    setSteps(rule.steps.map((x) =>
+      x.basis.kind === '고정' ? { trigger: x.trigger, kind: '고정' as const, value: String(x.basis.unit) }
+        : x.basis.kind === '비율' ? { trigger: x.trigger, kind: '비율' as const, value: String(Math.round(x.basis.ratio * 100)) }
+          : { trigger: x.trigger, kind: '잔액' as const, value: '' }
+    ));
+  }
 
   const stepBad = checkSettlementSteps(stepRules, receive);
   const stepAmount = receive > 0 ? stepUnits(stepRules, receive) : [];
@@ -1295,6 +1319,18 @@ function CaseForm({
 
       {/* ④ 기성 단계 — 받는 단가를 운영사에게 받는 차수. 현장 기성 탭·운영사 기성관리에 이대로 선다 */}
       <FormSection title="기성 단계" hint="받는 단가를 어느 시점에 얼마씩 받는가 — 합이 받는 단가와 같아야 한다">
+        <div className="mb-3 max-w-md">
+          <Field label="규칙에서 불러오기" hint="운영사마다 돌려쓰는 규칙 — 고르면 아래 차수가 채워진다">
+            <select
+              value={matchedRuleId}
+              onChange={(e) => loadRule(e.target.value)}
+              className={FIELD}
+            >
+              <option value="">직접 정의…</option>
+              {liveRules.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
+            </select>
+          </Field>
+        </div>
         {steps.length === 0 ? (
           <Tag tone="warn">기성 미정 — 이 케이스로 지정된 현장은 기성이 계산되지 않음</Tag>
         ) : (
@@ -1349,7 +1385,24 @@ function CaseForm({
         </div>
       </FormSection>
 
+      {/* 접힌 구역의 단추가 상태를 말한다 — 값은 사라지는 게 아니라 원 케이스 그대로 실린다 */}
+      {(!showRates || !showTerms) && (
+        <div className="mt-5 flex flex-wrap gap-2 border-t border-slate-100 pt-4">
+          {!showRates && (
+            <Btn size="sm" kind="quiet" onClick={() => setShowRates(true)}>
+              요금·프로모션 고치기 — 지금은 원 케이스 값 그대로
+            </Btn>
+          )}
+          {!showTerms && (
+            <Btn size="sm" kind="quiet" onClick={() => setShowTerms(true)}>
+              지원·조건 고치기 — 지금은 원 케이스 값 그대로
+            </Btn>
+          )}
+        </div>
+      )}
+
       {/* ⑤ 요금 — 정상 요금이 먼저, 그 요금을 깎는 프로모션과 연장이 그 아래로 */}
+      {showRates && (
       <FormSection title="요금·프로모션" hint="현장에 안내되는 충전요금 조건 — 비워 두면 「미지정」">
         <div className="flex flex-col gap-4">
           <div className="w-44">
@@ -1479,15 +1532,10 @@ function CaseForm({
           </div>
         </div>
       </FormSection>
+      )}
 
       {/* ⑥ 지원·조건 — 매트릭스의 지급자재·설치조건·병행·기타지원·기타 행이 이 값 그대로다 */}
-      {!showTerms ? (
-        <div className="mt-5 border-t border-slate-100 pt-4">
-          <Btn size="sm" kind="quiet" onClick={() => setShowTerms(true)}>
-            지원·조건 고치기 — 지금은 원 케이스 값 그대로
-          </Btn>
-        </div>
-      ) : (
+      {showTerms && (
       <FormSection title="지원·조건" hint="매트릭스의 조건 행에 이 값이 그대로 선다 — 비워 두면 「미지정」">
         <div className="flex flex-col gap-4">
           <Field label="지급자재" hint="운영사가 대주는 품목 · 미지급품목도 같이">

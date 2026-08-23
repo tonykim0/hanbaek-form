@@ -7,14 +7,15 @@
  *   시공비 1차 = 설치완료 · 2차 = 개통완료
  *
  * ★두 단계 확정★ (한백 확인 2026-08-24 — 세금계산서와 맞물리는 실무 순서)
- *   가확정  이 표에서 지급 가능한 줄을 체크해 지급일 하나로 묶는다. 협력사가 그
- *           배치를 보고(협력사 거래명세서) 그 합계로 세금계산서를 발행한다.
- *   확정    계산서가 첨부되면 /statements 상세에서 최종 확정 — 배치가 잠긴다.
+ *   가확정  이 표에서 지급 가능한 줄을 체크해 지급일 하나로 묶는다. 협력사의 할 일에
+ *           「세금계산서 발행」이 떠 그 합계로 발행한다(1~2일 회전).
+ *   확정    계산서가 오면 협력사 거래명세서의 배치 줄에서 첨부하고 확정 — 배치가 잠긴다.
  * 「1차 확정」이라 부르지 않는다 — 이 표의 1차·2차는 회차(70%/선지급)라 뜻이 겹친다.
  *
- * ★지급일 규칙★ 조건 충족 시 익월 10일 또는 25일 지급이다(한백 확인). 후보는 고른
- * 줄들의 트리거 충족일 중 가장 늦은 것 기준 — 이른 줄 기준으로 잡으면 늦은 줄이
- * 규칙보다 먼저 나가는 날이 된다.
+ * ★지급일 규칙★ 조건 충족 시 익월 10일 또는 25일 지급이 기본이다(한백 확인). 후보는
+ * 고른 줄들의 트리거 충족일 중 가장 늦은 것 기준 — 이른 줄 기준으로 잡으면 늦은 줄이
+ * 규칙보다 먼저 나가는 날이 된다. 다른 날 지급도 있다(한백 확인 2026-08-23) —
+ * 「다른 날」로 날짜를 직접 고른다. 정기일이 원클릭, 예외가 한 걸음 더다.
  *
  * 줄마다 있던 확정 버튼(지급일 선택 포함)은 체크박스로 바꿨다 — 실무가 「다음 달
  * 7일쯤 목록을 훑어 한 번에 추리는」 배치 작업이라, 한 줄씩 누르면 지급일이 줄마다
@@ -28,7 +29,8 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { BatchFinal } from '@/types/project';
 import { payoutReleaseOf } from '@/lib/settlement';
-import { payDateChoices, workOf, type PayoutRowInput, type PayoutWork } from '@/lib/payout-board';
+import { batchKey, payDateChoices, workOf, type PayoutRowInput, type PayoutWork } from '@/lib/payout-board';
+import { DatePicker } from '@/components/DatePicker';
 import { today } from '@/lib/date';
 import { useAction } from '@/lib/use-action';
 import { Badge, Blank, Btn, Choice, Empty, Err, FIELD_CELL, Tag } from '@/components/ui';
@@ -63,7 +65,7 @@ export default function PayoutWorkBoard({
   const work = useMemo(() => rows.map(workOf), [rows]);
   // 배치 확정 여부 — 지급 칸이 「가확정」과 「확정」을 가르는 데 쓴다
   const finalizedBatches = useMemo(
-    () => new Set(finals.map((f) => `${f.org}|${f.kind}|${f.payDate}`)),
+    () => new Set(finals.map((f) => batchKey(f.payDate, f.org, f.kind))),
     [finals]
   );
   const orgs = useMemo(
@@ -241,7 +243,7 @@ function StepPayCell({
   const at = no === 1 ? p.step1At : p.step2At;
   const entryId = no === 1 ? p.step1EntryId : p.step2EntryId;
   const release = payoutReleaseOf(p.kind, no, p.milestones);
-  const finalized = at !== null && finalizedBatches.has(`${p.org}|${p.kind}|${at}`);
+  const finalized = at !== null && finalizedBatches.has(batchKey(at, p.org, p.kind));
 
   return (
     <td className="whitespace-nowrap px-3 py-2.5 text-right align-top">
@@ -326,6 +328,8 @@ function ConfirmBar({ chosen, onDone }: { chosen: PayoutWork[]; onDone: () => vo
   const router = useRouter();
   const { busy, error, run } = useAction();
   const [at, setAt] = useState<string | null>(null);
+  /** null 이면 정기일(10·25) 모드 — 「다른 날」은 지금 고른 날로 채워 열려서 빈 날짜 상태가 없다 */
+  const [customDate, setCustomDate] = useState<string | null>(null);
 
   // 고른 줄들의 트리거 충족일 중 가장 늦은 것 기준 익월 10·25일
   const latestMet = chosen.reduce<string | null>((last, p) => {
@@ -333,7 +337,8 @@ function ConfirmBar({ chosen, onDone }: { chosen: PayoutWork[]; onDone: () => vo
     return met && (!last || met > last) ? met : last;
   }, null);
   const [d10, d25] = payDateChoices(latestMet ?? today());
-  const pickedAt = at === d10 || at === d25 ? at : d10;
+  const custom = customDate !== null;
+  const pickedAt = customDate ?? (at === d10 || at === d25 ? at : d10);
   const sum = chosen.reduce((n, p) => n + (p.open?.amount ?? 0), 0);
   const orgCount = new Set(chosen.map((p) => p.org)).size;
 
@@ -353,9 +358,29 @@ function ConfirmBar({ chosen, onDone }: { chosen: PayoutWork[]; onDone: () => vo
       <span className="text-small font-bold text-slate-600">
         {chosen.length}건 · 지급처 {orgCount}곳 · <span className="tabular-nums">{won(sum)}</span>원
       </span>
-      <span className="flex gap-1">
-        <Choice on={pickedAt === d10} disabled={busy} onClick={() => setAt(d10)}>{dayLabel(d10)}</Choice>
-        <Choice on={pickedAt === d25} disabled={busy} onClick={() => setAt(d25)}>{dayLabel(d25)}</Choice>
+      <span className="flex items-center gap-1">
+        {[d10, d25].map((d) => (
+          <Choice
+            key={d}
+            on={!custom && pickedAt === d}
+            disabled={busy}
+            onClick={() => { setAt(d); setCustomDate(null); }}
+          >
+            {dayLabel(d)}
+          </Choice>
+        ))}
+        {/* 정기일 밖의 지급 — 예외라서 누르면 그때 열리되, 지금 고른 날로 채워 연다 */}
+        <Choice on={custom} disabled={busy} onClick={() => setCustomDate((v) => (v === null ? pickedAt : null))}>
+          다른 날
+        </Choice>
+        {custom && (
+          <DatePicker
+            ariaLabel="지급일 직접 지정"
+            value={customDate}
+            onChange={setCustomDate}
+            disabled={busy}
+          />
+        )}
       </span>
       <Btn disabled={chosen.length === 0} busy={busy} busyLabel="가확정 중…" onClick={() => void confirm()}>
         {chosen.length === 0 ? '줄을 체크해 가확정' : `${chosen.length}건 가확정`}

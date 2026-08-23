@@ -16,38 +16,10 @@ import { won } from '@/lib/format';
 import { today } from '@/lib/date';
 import type { SessionPayload } from '@/lib/auth/types';
 import type { Court } from '@/types/project';
+import { TODO_GROUPS, type TodoItem } from '@/lib/todo-types';
 
-export type TodoGroup = '계약' | '시공' | '정산';
-/** 묶음 순서 — 정산이 맨 위다. 배치 일(계산서 발행·확정 누락)은 1~2일 회전이라
- *  계약·시공의 정체보다 먼저 눈에 걸려야 한다. */
-export const TODO_GROUPS = ['정산', '계약', '시공'] as const satisfies readonly TodoGroup[];
-
-export interface TodoItem {
-  id: string;
-  /** 눌러서 갈 곳 — 여기가 정한다(현장 상세 · 거래명세서). 화면은 라우팅 규칙을 모른다 */
-  href: string;
-  name: string;
-  what: string;
-  group: TodoGroup;
-  stalledDays: number;
-  /**
-   * 이 칸 안에서 무슨 일인가 — 계약 칸에 접수·검토·보완이 섞여 있어서 필요하다.
-   * 현장 보드는 이것을 칸으로 갈랐는데 여기는 국면이 칸이라, 꼬리표로 갈린다.
-   * 정산은 배치 일의 종류(세금계산서 발행·확정 누락)다.
-   */
-  kind: string;
-  /**
-   * 급함 — 칸을 넘어 견주는 잣대다.
-   *
-   * ★국면마다 급함의 근거가 다르다.★ 계약·시공은 정체일(며칠 멈춰 있나)이고, 정산은
-   * 날짜(지급일이 얼마 남았나 · 얼마나 지났나)다. 정산 카드는 stalledDays 가 늘 0 이라
-   * 정체로 재면 언제나 한가한 일로 보였다 — 확정 누락은 지급일이 지난 것이 곧 급함이다.
-   * 그래서 국면과 무관하게 견줄 수 있는 한 숫자로 만든다: 클수록 급하다.
-   */
-  urgency: number;
-  /** 급함을 사람 말로 — 카드에 그대로 적는다. 없으면 적을 것이 없다는 뜻이다 */
-  urgencyLabel: string | null;
-}
+/* 타입은 lib/todo-types 에 있다 — 클라이언트 부품이 이 파일을 안 끌어오게(빌드가 깨졌다) */
+export { TODO_GROUPS, type TodoGroup, type TodoItem } from '@/lib/todo-types';
 
 /**
  * 어느 차례가 내 것인가 — 턴키업체는 영업·시공 양쪽 다.

@@ -21,7 +21,7 @@
  */
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
-import { TODO_GROUPS, type TodoItem } from '@/lib/todos';
+import { TODO_GROUPS, type TodoItem } from '@/lib/todo-types';
 import { Blank, FIELD, Tag } from '@/components/ui';
 
 const ALL = '전체';

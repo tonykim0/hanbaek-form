@@ -171,52 +171,62 @@ function Survey({ project }: { project: ProjectDetail['project'] }) {
       )}
 
       {editing ? (
-        <div className="flex max-w-xl flex-col gap-2.5">
-          <div className="flex flex-wrap items-center gap-2">
-            <Btn
-              size="sm"
-              kind="side"
-              busy={looking}
-              busyLabel="조회 중…"
-              disabled={!project.addr}
-              onClick={() => void firstLook()}
-            >
-              {project.addr ? '주소로 이력 조회 — 1차 확인' : '주소 미지정 — 이력 조회 불가'}
-            </Btn>
-            <Err>{lookErr}</Err>
-          </div>
-          {draft && (
-            <div className="rounded-ctl bg-slate-50 px-3 py-2">
-              <p className="whitespace-pre-line break-keep text-tiny leading-snug text-slate-700">{draft.text}</p>
-              <div className="mt-1.5">
-                <Btn
-                  size="sm"
-                  kind="quiet"
-                  onClick={() => { setState(draft.state); setNote(draft.text); }}
-                >
-                  이 결과를 조사 내역에 채우기 — 현장 확인 후 고친다
-                </Btn>
-              </div>
+        <div className="flex max-w-2xl flex-col gap-4">
+          {/* ① 이력 조회 — 1차. 조회는 초안일 뿐이고 확정은 아래 ②에서 사람이 한다 */}
+          <div className="flex flex-col gap-2">
+            <span className="text-tiny font-bold tracking-[0.04em] text-slate-500">① 이력 조회 — 1차</span>
+            <div className="flex flex-wrap items-center gap-2">
+              <Btn
+                size="sm"
+                kind="side"
+                busy={looking}
+                busyLabel="조회 중…"
+                disabled={!project.addr}
+                onClick={() => void firstLook()}
+              >
+                {project.addr ? '주소로 이력 조회' : '주소 미지정 — 이력 조회 불가'}
+              </Btn>
+              <Err>{lookErr}</Err>
             </div>
-          )}
-          <div className="flex flex-wrap gap-1.5">
-            {(['없음', '있음'] as const).map((v) => (
-              <Choice key={v} on={state === v} onClick={() => setState(v)}>기설치 {v}</Choice>
-            ))}
+            {draft && (
+              <div className="rounded-ctl bg-slate-50 px-3 py-2.5">
+                <p className="whitespace-pre-line break-keep text-tiny leading-snug text-slate-700">{draft.text}</p>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <Btn size="sm" kind="side" onClick={() => { setState(draft.state); setNote(draft.text); }}>
+                    조사 내역 채우기
+                  </Btn>
+                </div>
+                {/* 채우기 전에 읽어야 하는 경고 — 이력은 원본 등록분일 뿐, 대수 확정은 현장이 한다 (한백 문구) */}
+                <p className="mt-2 text-tiny font-semibold leading-snug text-amber-700">
+                  현장별로 실제 기설치 대수 반드시 확인 필요 — 보조금 불가 시 추후 보조금 환수 및 패널티 적용 예정
+                </p>
+              </div>
+            )}
           </div>
-          <textarea
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            rows={3}
-            placeholder="조사에서 알아낸 것 — 대수 · kW · 운영사 · 설치 시기 · 보조금 수령 여부 등"
-            className={FIELD}
-          />
-          <div className="flex flex-wrap items-center gap-2">
-            <Btn size="sm" busy={busy} busyLabel="저장 중…" onClick={() => void save()}>
+
+          {/* ② 현장 확인 결과 — 여기 적힌 것이 확정이고, 저장이 「조사했다」가 된다 */}
+          <div className="flex flex-col gap-2">
+            <span className="text-tiny font-bold tracking-[0.04em] text-slate-500">② 현장 확인 결과</span>
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="mr-1 text-tiny font-bold text-slate-500">기설치</span>
+              {(['없음', '있음'] as const).map((v) => (
+                <Choice key={v} on={state === v} onClick={() => setState(v)}>{v}</Choice>
+              ))}
+            </div>
+            <textarea
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              rows={5}
+              placeholder="조사에서 알아낸 것 — 대수 · kW · 운영사 · 설치 시기 · 보조금 수령 여부 등"
+              className={FIELD}
+            />
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3">
+            <Btn busy={busy} busyLabel="저장 중…" onClick={() => void save()}>
               조사 결과 저장
             </Btn>
             <Btn
-              size="sm"
               kind="quiet"
               disabled={busy}
               onClick={() => { setEditing(false); setState(project.preInstall); setNote(project.preNote ?? ''); }}

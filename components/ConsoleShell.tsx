@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * 콘솔 껍데기 — 왼쪽 사이드바 대시보드.
+ * 콘솔 껍데기 — 왼쪽 사이드바.
  *
  * 가로 바에서 옮긴 이유: 항목 여섯 개가 위계 없이 한 줄에 늘어서 있었다.
  * 성격이 다른 세 종류(진행 · 돈 · 관리)를 묶어야 어디를 눌러야 할지 눈이 먼저 찾는다.
@@ -62,7 +62,9 @@ const GROUPS: Group[] = [
   {
     label: '진행',
     items: [
-      { href: '/dashboard', label: '대시보드', short: '대시' },
+      // 「대시보드」였다 — 이 화면이 보여주는 것은 수주 대수(월별·누적)뿐이라
+      // 이름이 무엇을 보는 자리인지 말하지 않았다 (한백 확인 2026-08-24)
+      { href: '/dashboard', label: '수주 현황', short: '수주' },
       // 계약과 시공을 페이지로 가른다 — 한 화면에 접으면 띠 높이가 반쪽이다 (한백 확인)
       { href: '/projects', label: '계약', short: '계약' },
       { href: '/construction', label: '시공', short: '시공' },
@@ -80,7 +82,9 @@ const GROUPS: Group[] = [
     partnerOnly: true,
     items: [
       { href: '/projects/new', label: '서류 접수', short: '접수', note: '접수하면 계약접수 칸으로' },
-      { href: '/contracts', label: '계약서 작성', short: '계약' },
+      // 짧은 이름이 '계약' 이면 접힌 사이드바에서 진행 묶음의 「계약」(보드)과 같은 글자다 —
+      // 협력사는 둘을 같이 본다. 이 자리는 쓰는 일이라 '작성' 이 맞다
+      { href: '/contracts', label: '계약서 작성', short: '작성' },
     ],
   },
   /*

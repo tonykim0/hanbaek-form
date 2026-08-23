@@ -9,10 +9,12 @@ import { Blank, PANEL } from '@/components/ui';
 import type { ProjectSummary } from '@/types/project';
 import type { ReactNode } from 'react';
 
-export const metadata = { title: '대시보드 — 한백 전기차사업관리' };
+export const metadata = { title: '수주 현황 — 한백 전기차사업관리' };
 
 /**
- * 대시보드의 숫자는 모두 계약 대수 기준이다.
+ * 수주 현황의 숫자는 모두 계약 대수 기준이다.
+ * (화면 이름이 「대시보드」였다 — 보여주는 것이 수주 대수뿐이라 2026-08-24 에 고쳤다.
+ *  주소는 /dashboard 그대로다 — 링크가 이미 나가 있다.)
  * 현장 수만 세면 3대짜리 현장과 21대짜리 현장이 같은 무게로 보여 사업 규모를 왜곡한다.
  */
 const qtyOf = (p: ProjectSummary) => p.lines.reduce((sum, line) => sum + line.qty, 0);
@@ -143,7 +145,7 @@ function PageHeader({ year, years, period }: { year: string; years: string[]; pe
     <header className="flex flex-wrap items-end justify-between gap-4">
       <div>
         <p className="mb-1 text-small font-bold text-brand-700">{year}년 · {period}</p>
-        <h1 className="text-h1 font-black text-slate-900">대시보드</h1>
+        <h1 className="text-h1 font-black text-slate-900">수주 현황</h1>
       </div>
 
       {years.length > 1 ? (

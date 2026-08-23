@@ -270,7 +270,7 @@ function TodoCell({
   );
 }
 
-/** 줄의 확정 — 배치를 잠근다. 항목을 고치려면 명세서(상세)에서 해제부터. */
+/** 줄의 확정 — 배치를 잠근다. 해제는 명세서(상세)나 지급관리의 지급 칸에서. */
 function RowFinalize({ org, kind, date }: { org: string; kind: PayoutKind; date: string }) {
   const { busy, error, finalize } = useFinalizeBatch(org, kind, date);
 

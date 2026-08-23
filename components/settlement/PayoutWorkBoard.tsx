@@ -9,7 +9,9 @@
  * ★두 단계 확정★ (한백 확인 2026-08-24 — 세금계산서와 맞물리는 실무 순서)
  *   가확정  이 표에서 지급 가능한 줄을 체크해 지급일 하나로 묶는다. 협력사의 할 일에
  *           「세금계산서 발행」이 떠 그 합계로 발행한다(1~2일 회전).
- *   확정    계산서가 오면 협력사 거래명세서의 배치 줄에서 첨부하고 확정 — 배치가 잠긴다.
+ *   확정    배치가 잠긴다. 계산서 첨부는 협력사 거래명세서에서 하고, ★확정·해제는
+ *           여기서도 된다★(한백 확인 2026-08-25) — 가확정과 그 취소가 이 표에 있는데
+ *           다음 단계만 다른 화면으로 가라는 것이 어색했다. 두 화면이 같은 훅을 쓴다.
  * 「1차 확정」이라 부르지 않는다 — 이 표의 1차·2차는 회차(70%/선지급)라 뜻이 겹친다.
  *
  * ★지급일 규칙★ 조건 충족 시 익월 10일 또는 25일 지급이 기본이다(한백 확인). 후보는
@@ -29,12 +31,13 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { BatchFinal } from '@/types/project';
 import { payoutReleaseOf } from '@/lib/settlement';
-import { batchKey, payDateChoices, workOf, type PayoutRowInput, type PayoutWork } from '@/lib/payout-board';
+import { batchKey, batchStateOf, payDateChoices, workOf, type PayoutRowInput, type PayoutWork } from '@/lib/payout-board';
 import { DatePicker } from '@/components/DatePicker';
 import { today } from '@/lib/date';
 import { useAction } from '@/lib/use-action';
 import { Badge, Blank, Btn, Choice, Empty, Err, FIELD_CELL, Tag } from '@/components/ui';
 import { Frame, SiteLink, won } from './parts';
+import { useFinalizeBatch } from './use-batch';
 
 const dayLabel = (d: string) => `${Number(d.slice(5, 7))}월 ${Number(d.slice(8))}일`;
 
@@ -244,25 +247,42 @@ function StepPayCell({
   const entryId = no === 1 ? p.step1EntryId : p.step2EntryId;
   const release = payoutReleaseOf(p.kind, no, p.milestones);
   const finalized = at !== null && finalizedBatches.has(batchKey(at, p.org, p.kind));
+  // 자리 판정은 배치 목록·명세서와 같은 정본이다 — 세 화면이 다른 이름을 말하면 안 된다
+  const state = at !== null ? batchStateOf({ paidAt: at, finalized }) : null;
 
   return (
     <td className="whitespace-nowrap px-3 py-2.5 text-right align-top">
       {done ? (
         // 배치에 실려도 줄은 안 없어진다(한백 확인) — 지급 칸이 지급일로 굳어 기록으로 남는다
         <>
-          {/* 지급일이 지난 것은 상태가 아니라 사실이다 — 날짜만 남긴다 */}
-          {at && at >= today() && (
+          {/*
+            지급완료(확정하고 지급일이 지난 것)는 상태가 아니라 사실이다 — 날짜만 남긴다.
+            확정 누락(확정 없이 지난 것)은 다르다: 확정은 지급의 전제라 놓친 것은 빨갛게 남아야 한다.
+          */}
+          {state && state !== '지급완료' && (
             <p className="mb-0.5">
-              {finalized ? <Badge tone="ok">확정</Badge> : <Badge tone="warn">가확정</Badge>}
+              <Badge tone={state === '확정' ? 'ok' : state === '가확정' ? 'warn' : 'stop'}>
+                {state}
+              </Badge>
             </p>
           )}
           <p className="text-small font-bold tabular-nums text-brand-800">{at ?? '지급됨'}</p>
           {/*
             * 가확정 무르기 — 그 자리에서(한백 확인 2026-08-24). 회차가 지급 가능으로
-            * 돌아가 다시 체크할 수 있다. 확정된 것은 명세서에서 해제부터라 여기 없다.
+            * 돌아가 다시 체크할 수 있다. 확정된 배치는 해제부터라 취소 단추가 없다.
             */}
           {canConfirm && !finalized && at && at >= today() && entryId && (
             <StepCancel p={p} entryId={entryId} />
+          )}
+          {/*
+            * 확정·해제 — 이 칸은 회차 한 줄이지만 확정은 배치(지급처×구분×지급일) 단위다.
+            * 누르면 같은 배치의 다른 줄들도 함께 잠기고 풀린다 — title 이 그것을 말한다.
+            */}
+          {canConfirm && p.org && at && (state === '가확정' || state === '확정 누락') && (
+            <StepFinalize org={p.org} kind={p.kind} at={at} />
+          )}
+          {canConfirm && p.org && at && state === '확정' && (
+            <StepFinalize org={p.org} kind={p.kind} at={at} undo />
           )}
         </>
       ) : p.open?.no === no ? (
@@ -311,6 +331,37 @@ function StepCancel({ p, entryId }: { p: PayoutWork; entryId: string }) {
     <p className="mt-0.5">
       <Btn kind="quiet" size="sm" busy={busy} onClick={() => void cancel()}>
         취소
+      </Btn>
+      <Err className="block">{error}</Err>
+    </p>
+  );
+}
+
+/**
+ * 확정·해제 한 칸 — 배치 단위 동작이다. 배치 목록·명세서와 같은 훅(useFinalizeBatch)을
+ * 쓴다 — 세 자리가 다른 길로 서버를 부르면 갈린다.
+ */
+function StepFinalize({
+  org, kind, at, undo = false,
+}: {
+  org: string;
+  kind: PayoutWork['kind'];
+  at: string;
+  /** true 면 해제 — 확정된 배치를 다시 연다 */
+  undo?: boolean;
+}) {
+  const { busy, error, finalize } = useFinalizeBatch(org, kind, at);
+  return (
+    <p className="mt-0.5">
+      <Btn
+        kind={undo ? 'undo' : 'quiet'}
+        size="sm"
+        busy={busy}
+        busyLabel={undo ? '해제 중…' : '확정 중…'}
+        title={`${at} ${org} ${kind} 배치 전체가 ${undo ? '풀립니다' : '잠깁니다'} — 같은 배치의 다른 줄도 함께`}
+        onClick={() => void finalize(undo)}
+      >
+        {undo ? '해제' : '확정'}
       </Btn>
       <Err className="block">{error}</Err>
     </p>

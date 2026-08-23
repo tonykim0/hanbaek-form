@@ -40,6 +40,10 @@ import { useFinalizeBatch, useTaxInvoiceUpload } from './use-batch';
 /**
  * 줄 하나의 부가세 — 공급가액의 10%.
  *
+ * ★언제나 10% 다 (한백 확정 2026-08-24).★ 협력사에 간이과세·면세 유형은 없다 —
+ * 그래서 과세유형을 저장하지도, 여기서 갈라 보지도 않는다. 리뷰에서 「면세 협력사면
+ * 부가세가 없는데 10%가 붙는다」를 짚었는데 그런 협력사가 없다는 답을 받았다.
+ *
  * 줄마다 반올림한다. 합계에 한 번 곱하면 열이 더해지지 않아서, 종이의 열을 위에서 아래로
  * 더한 값과 맨 아랫줄이 달라진다. 회수(음수)는 부가세도 음수다.
  */
@@ -74,8 +78,11 @@ export default function StatementView({
   const state = batchStateOf({ paidAt: date, finalized });
   // 잠긴 배치에는 빼기 열 자체가 없다 — 눌리지 않는 단추를 늘어놓지 않는다
   const canRemove = canEdit && !finalized;
-  /* 금액 두 열(공급가액·부가세) 앞의 칸 수 — 합계 줄의 라벨이 여기까지 뻗는다 */
-  const labelSpan = kind === null ? 6 : 5;
+  /*
+   * 금액 두 열(공급가액·부가세) 앞의 칸 수 — 합계 줄의 라벨이 여기까지 뻗는다.
+   * 현장 · 사업구분 · 연수 · 전력인입 · 계약대수 · 명목 = 6, 옛 링크에서는 구분이 붙어 7.
+   */
+  const labelSpan = kind === null ? 7 : 6;
 
   return (
     <>
@@ -153,7 +160,8 @@ export default function StatementView({
                   전체)로 들어오면 줄마다 갈리므로 그때만 열을 낸다.
                 */}
                 {kind === null && <th className="px-3 py-2 text-left">구분</th>}
-                {/* 현장 기본정보 — 어느 현장의 무엇에 대한 값인지 이 셋이 말한다 (한백 요청) */}
+                {/* 현장 기본정보 — 어느 현장의 무엇에 대한 값인지 이 넷이 말한다 (한백 요청) */}
+                <th className="px-2 py-2 text-left">사업구분</th>
                 <th className="px-2 py-2 text-right">연수</th>
                 <th className="px-2 py-2 text-left">전력인입</th>
                 <th className="px-2 py-2 text-right">계약대수</th>
@@ -312,6 +320,9 @@ function ItemRow({
       </td>
       {showKind && <td className="whitespace-nowrap px-3 py-2.5 text-slate-600">{r.kind}</td>}
       {/* 현장 기본정보 — 라인이 갈리면 여럿을 그대로 적는다(「7·10년」이 섞였다는 뜻이다) */}
+      <td className="whitespace-nowrap px-2 py-2.5 text-slate-600">
+        {r.site.bizTypes.length > 0 ? r.site.bizTypes.join('·') : <Empty kind="miss" />}
+      </td>
       <td className="whitespace-nowrap px-2 py-2.5 text-right tabular-nums text-slate-600">
         {r.site.termYears.length > 0 ? `${r.site.termYears.join('·')}년` : <Empty kind="miss" />}
       </td>

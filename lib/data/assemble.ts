@@ -21,11 +21,13 @@ import type {
   PayoutRow,
   PricingRule,
   ProjectSummary,
+  ReplType,
   Settlement,
   SettlementRule,
   SettlementStep,
   SettlementSummary,
 } from '@/types/project';
+import { bizTypeOfRepl } from '@/types/project';
 import { buildDocContext, PROCESS_DOCS } from '@/lib/doc-rules';
 import { entryTypeOf, payoutSideOf, settlementForProject } from '@/lib/settlement';
 import { contractStateOf, deriveStage, stalledDaysSince } from '@/lib/stage';
@@ -390,7 +392,19 @@ export function payoutRowsOf(r: ProjectRecord, viewer: Viewer, rules: RuleMap, s
    * 현장 기본정보 — 거래명세서가 적는다. 라인 여럿을 합친다: 대수는 더하고,
    * 연수·전력인입은 갈리면 여럿을 그대로 둔다(섞여 있다는 사실을 지우지 않는다).
    */
+  /*
+   * 사업구분은 라인의 교체유형에서 나온다 — 그것이 정본이다(bizTypeOfRepl). 라인에 아직
+   * 교체유형이 없으면 현장 대표값으로 내려간다: 접수 직후에는 라인이 비어 있을 수 있다.
+   */
+  const lineBiz = [...new Set(
+    d.lines
+      .map((l) => l.replType)
+      .filter((v): v is ReplType => v !== null)
+      .map(bizTypeOfRepl)
+  )];
+
   const site = {
+    bizTypes: lineBiz.length > 0 ? lineBiz : d.project.bizType ? [d.project.bizType] : [],
     termYears: [...new Set(d.lines.map((l) => l.termYears))].sort((a, b) => a - b),
     powerTypes: [...new Set(
       d.lines.map((l) => l.powerType).filter((v): v is '모자분리' | '한전불입' => v !== null)

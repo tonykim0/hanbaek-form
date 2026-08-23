@@ -15,11 +15,11 @@
  * ★협력사도 본다★ — 자기 배치만(저장소가 가른다). 첨부 파일 열은 한백의 보관함이라
  * 한백에게만 보이지만, 상태 배지는 협력사에게가 더 중요하다 — 발행하라는 신호다.
  */
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import type { BatchFinal, PayoutKind, PayoutRow, TaxInvoice } from '@/types/project';
 import { today } from '@/lib/date';
-import { Badge, Blank, Empty, Tag } from '@/components/ui';
+import { Badge, Blank, Empty, FIELD, Tag } from '@/components/ui';
 import { Frame, won } from './parts';
 
 interface Batch {
@@ -40,10 +40,17 @@ interface Batch {
  * 배치들이 전부 「발행 요청」으로 보이면 협력사가 옛 지급마다 계산서를 다시 발행하려
  * 든다. 「가확정」과 그 신호는 지급일 전에만 뜻이 있다.
  */
-function stateOf(b: Batch): '가확정' | '확정' | '지급완료' {
+function stateOf(b: Batch): BatchState {
   if (b.paidAt < today()) return '지급완료';
   return b.finalized ? '확정' : '가확정';
 }
+
+type BatchState = '가확정' | '확정' | '지급완료';
+const BATCH_STATES = ['가확정', '확정', '지급완료'] as const satisfies readonly BatchState[];
+const PAYOUT_KINDS = ['영업비', '시공비'] as const satisfies readonly PayoutKind[];
+/** 지급처가 비어 있는 배치 — 드롭다운에서도 고를 수 있어야 골라내 고칠 수 있다 */
+const NO_ORG = '받는 곳 미지정';
+const ALL = '전체';
 
 export default function StatementsBoard({
   history, finals, invoices, seesAll,
@@ -79,11 +86,65 @@ export default function StatementsBoard({
     );
   }, [history, finals, invoices]);
 
+  /*
+   * 필터 — 이 화면은 할 일 목록이다. 「계산서를 발행해야 하는 것」만 보는 것이 첫 쓰임이라
+   * 상태가 첫 칸이다. 지급처는 한백에게만 준다 — 협력사는 자기 것 하나뿐이라 고를 게 없다.
+   * 달 필터는 두지 않았다: 목록이 지급일 내림차순이고 「지급완료」를 걸러내면 남는 것이
+   * 곧 앞으로의 것이라, 달을 또 고르게 하면 칸만 늘고 얻는 것이 없다.
+   */
+  const [state, setState] = useState<string>(ALL);
+  const [org, setOrg] = useState<string>(ALL);
+  const [kind, setKind] = useState<string>(ALL);
+
+  /* 지급처 후보는 실제로 있는 배치에서 뽑는다 — 없는 곳을 고를 수 있으면 0건이 나온다 */
+  const orgs = useMemo(
+    () => [...new Set(batches.map((b) => b.org ?? NO_ORG))].sort((a, b) => a.localeCompare(b, 'ko')),
+    [batches]
+  );
+
+  const shown = useMemo(
+    () => batches.filter((b) =>
+      (state === ALL || stateOf(b) === state)
+      && (org === ALL || (b.org ?? NO_ORG) === org)
+      && (kind === ALL || b.kind === kind)),
+    [batches, state, org, kind]
+  );
+  const filtered = shown.length !== batches.length;
+
   return (
     <section>
-      <div className="mb-2 flex items-baseline gap-2">
+      {/* 매트릭스·케이스와 같은 모양 — 고르는 것은 왼쪽에 몰고, 표 머리가 아래로 밀리지 않게 한 줄로 */}
+      <div className="mb-4 flex flex-wrap items-center gap-3">
         <h2 className="text-h3 font-black text-slate-900">배치</h2>
-        <span className="text-tiny font-bold tabular-nums text-slate-400">{batches.length}건</span>
+        <div className="w-32">
+          <select aria-label="상태" className={FIELD} value={state} onChange={(e) => setState(e.target.value)}>
+            {[ALL, ...BATCH_STATES].map((v) => (
+              <option key={v} value={v}>{v === ALL ? '상태 전체' : v}</option>
+            ))}
+          </select>
+        </div>
+        {/* 지급처는 한백에게만 — 협력사는 자기 것 하나뿐이다 */}
+        {seesAll && orgs.length > 1 && (
+          <div className="w-44">
+            <select aria-label="지급처" className={FIELD} value={org} onChange={(e) => setOrg(e.target.value)}>
+              {[ALL, ...orgs].map((v) => (
+                <option key={v} value={v}>{v === ALL ? '지급처 전체' : v}</option>
+              ))}
+            </select>
+          </div>
+        )}
+        <div className="w-32">
+          <select aria-label="구분" className={FIELD} value={kind} onChange={(e) => setKind(e.target.value)}>
+            {[ALL, ...PAYOUT_KINDS].map((v) => (
+              <option key={v} value={v}>{v === ALL ? '구분 전체' : v}</option>
+            ))}
+          </select>
+        </div>
+        <span className="text-tiny font-bold tabular-nums text-slate-400">
+          {shown.length}건
+          {/* 걸러서 몇 건이 빠졌는지 적는다 — 안 적으면 걸러진 목록이 전부처럼 보인다 */}
+          {filtered && <span className="ml-1 font-semibold text-slate-300">/ 전체 {batches.length}건</span>}
+        </span>
         {seesAll && (
           <Link
             href="/payouts"
@@ -93,8 +154,8 @@ export default function StatementsBoard({
           </Link>
         )}
       </div>
-      {batches.length === 0 ? (
-        <Blank>0건</Blank>
+      {shown.length === 0 ? (
+        <Blank>{filtered ? '조건에 맞는 배치 0건' : '0건'}</Blank>
       ) : (
         <Frame min="760px">
           <thead className="border-b border-slate-100 bg-slate-50 text-tiny font-bold tracking-[0.06em] text-slate-500">
@@ -110,7 +171,7 @@ export default function StatementsBoard({
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {batches.map((b) => (
+            {shown.map((b) => (
               <BatchRow key={`${b.paidAt}|${b.org ?? ''}|${b.kind}`} b={b} seesAll={seesAll} />
             ))}
           </tbody>
@@ -126,7 +187,8 @@ function BatchRow({ b, seesAll }: { b: Batch; seesAll: boolean }) {
     <tr className="transition hover:bg-brand-50/40">
       <td className="whitespace-nowrap px-3 py-2.5 tabular-nums text-slate-700">{b.paidAt}</td>
       <td className="px-3 py-2.5 text-slate-700">
-        {b.org ?? <Empty kind="miss" label="받는 곳 미지정" />}
+        {/* 드롭다운의 이름표와 같은 말이어야 골라낸 것과 표의 줄이 같아 보인다 */}
+        {b.org ?? <Empty kind="miss" label={NO_ORG} />}
       </td>
       <td className="whitespace-nowrap px-3 py-2.5">
         <Tag tone={b.kind === '영업비' ? 'stage' : 'ok'}>{b.kind}</Tag>

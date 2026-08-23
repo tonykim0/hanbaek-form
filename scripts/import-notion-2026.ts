@@ -89,6 +89,12 @@ const ORG_LOGIN: Record<string, string> = {
 };
 const INITIAL_PASSWORD = '0000'; // 한백 지시 (2026-08-23) — 첫 로그인 뒤 각자 바꾼다
 
+/**
+ * 지금 만들 계정 — 이 4곳만 우선(한백 지시 2026-08-23). 나머지 소속은 현장에는
+ * 그대로 들어가되(한백은 다 본다) 계정은 나중에 /admin/accounts 에서 만든다.
+ */
+const CREATE_NOW = new Set(['에코일렉', '대상전력', '이에프이노베이션', '제일전기통신']);
+
 interface Row {
   notionNo: string;
   name: string;
@@ -246,6 +252,8 @@ async function main() {
       id: ORG_LOGIN[org] ?? null,
       role: salesOrgs.has(org) && gcOrgs.has(org) ? 'salesCons' : salesOrgs.has(org) ? 'sales' : 'cons',
       exists: haveOrg.has(org),
+      /** 이번에 안 만드는 소속 — 현장에는 들어가고 계정만 나중이다 */
+      deferred: !CREATE_NOW.has(org),
     }));
 
   /* ── 단가 매칭 ── */
@@ -272,9 +280,10 @@ async function main() {
 
   console.log('\n계정:');
   for (const a of accounts) {
-    console.log(`  ${a.exists ? '있음  ' : a.id ? '만든다' : '★ID 없음'} ${a.org} → ${a.id ?? '?'} (${a.role})`);
+    const mark = a.exists ? '있음  ' : a.deferred ? '나중에' : a.id ? '만든다' : '★ID 없음';
+    console.log(`  ${mark} ${a.org} → ${a.id ?? '?'} (${a.role})`);
   }
-  const noId = accounts.filter((a) => !a.exists && !a.id);
+  const noId = accounts.filter((a) => !a.exists && !a.deferred && !a.id);
   if (noId.length) throw new Error(`로그인 ID 미정 소속: ${noId.map((a) => a.org).join(', ')} — ORG_LOGIN 에 추가하세요.`);
 
   if (!WRITE) {
@@ -299,7 +308,7 @@ async function main() {
   const hash = await hashPassword(INITIAL_PASSWORD);
   let madeUsers = 0;
   for (const a of accounts) {
-    if (a.exists || !a.id) continue;
+    if (a.exists || a.deferred || !a.id) continue;
     if (haveUserId.has(a.id)) { console.log(`  [계정 건너뜀] ${a.id} — 같은 ID 가 있으나 소속이 다름 (${a.org})`); continue; }
     await db.insert(users).values({ id: a.id, name: a.org, role: a.role, org: a.org, passwordHash: hash });
     madeUsers += 1;

@@ -336,15 +336,28 @@ export interface ProjectRepository {
    */
   movePayoutBatch(org: string, from: string, to: string, actor: Actor): Promise<{ moved: number }>;
 
-  /** 세금계산서 목록 — 배치 목록에 상태를 붙이는 데 쓴다. [한백의 눈] */
+  /**
+   * 세금계산서 목록 — 배치 목록에 첨부·확정 상태를 붙이는 데 쓴다.
+   * 협력사는 자기 지급처 것만 받는다(자기가 발행한 문서 + 가확정/확정 신호).
+   */
   listTaxInvoices(actor: Actor): Promise<TaxInvoice[]>;
+
+  /**
+   * 배치 최종 확정·해제. [한백 전용]
+   *
+   * 가확정(runPayoutBatch) → 협력사가 세금계산서 발행 → 첨부 → 여기서 확정.
+   * 첨부가 전제라 확정 시각은 세금계산서 행에 산다. 확정되면 배치가 잠긴다 —
+   * 항목 빼기·지급일 변경·계산서 교체·삭제 전부 해제 후에만 된다(화면 규칙 7번).
+   */
+  finalizeBatch(org: string, payDate: string, undo: boolean, actor: Actor): Promise<void>;
 
   /**
    * 세금계산서 저장 — 배치 하나에 한 장(같은 배치에 다시 올리면 교체). [한백 전용]
    * 금액(공급가액·세액·합계)은 AI 판독이 검산을 통과했을 때만 실려 온다.
    */
   saveTaxInvoice(
-    input: Omit<TaxInvoice, 'id' | 'uploadedAt'>,
+    // finalizedAt 은 못 넣는다 — 새 첨부는 늘 가확정으로 시작하고, 확정은 finalizeBatch 뿐이다
+    input: Omit<TaxInvoice, 'id' | 'uploadedAt' | 'finalizedAt'>,
     actor: Actor
   ): Promise<{ id: string; replacedBlobUrl: string | null }>;
 

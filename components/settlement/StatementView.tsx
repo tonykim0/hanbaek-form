@@ -4,8 +4,13 @@
  * 거래명세서 한 장 — 인쇄물이자 (한백에게는) 배치를 고치는 자리.
  *
  * ★줄을 손으로 적지 않는다★ — 원장에서 그려진다. 항목이 틀렸으면 여기서 빼고
- * (원장 삭제 → 그 회차는 지급 가능 풀로 돌아간다) 거래명세서 화면에서 다시 확정한다.
+ * (원장 삭제 → 그 회차는 지급 가능으로 돌아간다) 지급관리 표에서 다시 가확정한다.
  * 반쯤 고친 명세서가 남는 것보다, 원장을 고치고 이 장을 다시 그리는 것이 맞다.
+ *
+ * ★최종 확정이 여기 있다★ — 협력사가 가확정 합계로 발행한 세금계산서를 첨부하고,
+ * 금액을 눈으로 확인한 뒤 누른다. 확정되면 배치가 잠긴다(빼기·지급일 변경·계산서
+ * 교체 전부) — 협력사가 그 합계로 계산서를 이미 발행했기 때문이다. 잠금은 서버가
+ * 지킨다(pg-store) — 여기서는 눌리지 않게 감출 뿐이다.
  *
  * ★부가세 줄★ 원장 금액은 공급가액이다(한백 확인 2026-08-23). 부가세·합계는 참고로
  * 적는다 — 실제 송금액은 합계다.
@@ -15,8 +20,9 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { PayoutRow, TaxInvoice } from '@/types/project';
+import { today } from '@/lib/date';
 import { useAction } from '@/lib/use-action';
-import { Btn, Empty, Err, FIELD_CELL, Saved } from '@/components/ui';
+import { Badge, Btn, Err, FIELD_CELL, Saved } from '@/components/ui';
 import { won } from './parts';
 
 export default function StatementView({
@@ -32,12 +38,29 @@ export default function StatementView({
 }) {
   const supply = rows.reduce((n, r) => n + r.amount, 0);
   const vat = Math.round(supply * 0.1);
+  const finalized = !!invoice?.finalizedAt;
+  // 잠긴 배치에는 빼기 열 자체가 없다 — 눌리지 않는 단추를 늘어놓지 않는다
+  const canRemove = canEdit && !finalized;
 
   return (
     <>
       <section className="rounded-panel border border-slate-200 bg-white p-8 print:border-0 print:p-0">
         <header className="flex flex-wrap items-end justify-between gap-3 border-b-2 border-slate-900 pb-4">
-          <h1 className="text-h1 font-black tracking-tight text-slate-900">거래명세서</h1>
+          <h1 className="flex items-center gap-2.5 text-h1 font-black tracking-tight text-slate-900">
+            거래명세서
+            {/* 종이에는 배지를 찍지 않는다 — 상태는 화면의 것이다 */}
+            {canEdit && (
+              <span className="print:hidden">
+                {date < today() ? (
+                  <Badge tone="mute">지급완료</Badge>
+                ) : finalized ? (
+                  <Badge tone="ok">확정</Badge>
+                ) : (
+                  <Badge tone="warn">가확정</Badge>
+                )}
+              </span>
+            )}
+          </h1>
           <div className="text-right text-small leading-relaxed text-slate-600">
             <p>
               <span className="font-bold text-slate-400">지급일</span>{' '}
@@ -66,12 +89,12 @@ export default function StatementView({
                 <th className="px-3 py-2 text-left">명목</th>
                 <th className="px-3 py-2 text-left">메모</th>
                 <th className="py-2 pl-3 text-right">금액</th>
-                {canEdit && <th className="w-14 print:hidden"></th>}
+                {canRemove && <th className="w-14 print:hidden"></th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {rows.map((r) => (
-                <ItemRow key={r.entryId} r={r} canEdit={canEdit} />
+                <ItemRow key={r.entryId} r={r} canEdit={canRemove} />
               ))}
             </tbody>
             <tfoot>
@@ -83,7 +106,7 @@ export default function StatementView({
                   {won(supply)}
                   <span className="ml-1 text-tiny font-bold text-slate-400">원</span>
                 </td>
-                {canEdit && <td className="print:hidden" />}
+                {canRemove && <td className="print:hidden" />}
               </tr>
               <tr>
                 <td colSpan={4} className="py-1 pr-3 text-right text-small font-bold text-slate-500">
@@ -93,7 +116,7 @@ export default function StatementView({
                   {won(vat)}
                   <span className="ml-1 text-tiny font-bold text-slate-400">원</span>
                 </td>
-                {canEdit && <td className="print:hidden" />}
+                {canRemove && <td className="print:hidden" />}
               </tr>
               <tr className="border-t border-slate-300">
                 <td colSpan={4} className="py-2.5 pr-3 text-right text-base font-black text-slate-900">
@@ -103,7 +126,7 @@ export default function StatementView({
                   {won(supply + vat)}
                   <span className="ml-1 text-tiny font-bold text-slate-400">원</span>
                 </td>
-                {canEdit && <td className="print:hidden" />}
+                {canRemove && <td className="print:hidden" />}
               </tr>
             </tfoot>
           </table>
@@ -112,8 +135,8 @@ export default function StatementView({
 
       {canEdit && rows.length > 0 && (
         <div className="mt-5 grid gap-4 print:hidden lg:grid-cols-2">
-          <InvoiceCard org={org} date={date} invoice={invoice} />
-          <MoveBatch org={org} date={date} />
+          <InvoiceCard org={org} date={date} invoice={invoice} statementSupply={supply} />
+          {finalized ? <Unfinalize org={org} date={date} /> : <MoveBatch org={org} date={date} />}
         </div>
       )}
     </>
@@ -167,16 +190,29 @@ function ItemRow({ r, canEdit }: { r: PayoutRow; canEdit: boolean }) {
  * 협력사가 발행해 보낸 것을 붙여 두는 보관함이고, 배치 하나에 한 장이다.
  */
 function InvoiceCard({
-  org, date, invoice,
+  org, date, invoice, statementSupply,
 }: {
   org: string;
   date: string;
   invoice: TaxInvoice | null;
+  /** 명세서 합계 — 최종 확정 버튼 옆에 적어, 계산서와 눈으로 대조하고 누르게 한다 */
+  statementSupply: number;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const del = useAction();
+  const fin = useAction();
+  const finalized = !!invoice?.finalizedAt;
+
+  async function finalize(undo: boolean) {
+    const ok = await fin.run({
+      url: '/api/statements/finalize',
+      body: { org, payDate: date, undo },
+      fail: undo ? '해제하지 못했습니다.' : '확정하지 못했습니다.',
+    });
+    if (ok) router.refresh();
+  }
 
   async function upload(file: File) {
     setBusy(true);
@@ -269,29 +305,84 @@ function InvoiceCard({
           </p>
 
           <div className="flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3">
-            <label className="cursor-pointer text-small font-bold text-slate-500 transition hover:text-slate-800">
-              파일 교체
-              <input
-                type="file"
-                accept="application/pdf,image/jpeg,image/png,image/webp"
-                disabled={busy}
-                onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (f) void upload(f);
-                  e.target.value = '';
-                }}
-                className="hidden"
-              />
-            </label>
-            <span className="ml-auto" />
-            <Btn kind="quiet" size="sm" busy={del.busy} onClick={() => void remove()}>
-              삭제
-            </Btn>
+            {finalized ? (
+              /* 잠긴 배치 — 교체·삭제 자리가 없다. 풀려면 옆 카드의 확정 해제부터. */
+              <p className="text-small font-bold text-brand-800">
+                최종 확정됨 · {invoice.finalizedAt}
+              </p>
+            ) : (
+              <>
+                {/*
+                  * 확정 = 「이 계산서가 이 명세서와 맞다」는 사람의 판단이다.
+                  * 그래서 명세서 합계를 버튼 옆에 적는다 — 계산서를 열어 이 숫자와
+                  * 맞는지 눈으로 확인하고 누른다(자동 대조는 걷어냈다, 2026-08-23).
+                  */}
+                <Btn size="sm" busy={fin.busy} busyLabel="확정 중…" onClick={() => void finalize(false)}>
+                  최종 확정
+                </Btn>
+                <span className="text-tiny text-slate-500">
+                  공급가액 <b className="tabular-nums">{won(statementSupply)}</b>원과 맞는지 확인 후
+                </span>
+                <label className="ml-auto cursor-pointer text-small font-bold text-slate-500 transition hover:text-slate-800">
+                  파일 교체
+                  <input
+                    type="file"
+                    accept="application/pdf,image/jpeg,image/png,image/webp"
+                    disabled={busy}
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) void upload(f);
+                      e.target.value = '';
+                    }}
+                    className="hidden"
+                  />
+                </label>
+                <Btn kind="quiet" size="sm" busy={del.busy} onClick={() => void remove()}>
+                  삭제
+                </Btn>
+              </>
+            )}
             {busy && <span className="text-small font-bold text-slate-500">올리는 중…</span>}
-            <Err>{error ?? del.error}</Err>
+            <Err>{error ?? del.error ?? fin.error}</Err>
           </div>
         </div>
       )}
+    </section>
+  );
+}
+
+/**
+ * 확정 해제 — 잠긴 배치를 다시 가확정으로.
+ *
+ * 넣는 자리를 만들면 되돌리는 자리도 만든다(규칙 7). 해제하면 빼기·지급일 변경·계산서
+ * 교체가 다시 열린다 — 협력사가 수정세금계산서를 발행해야 할 수 있으니 말로 알린다.
+ */
+function Unfinalize({ org, date }: { org: string; date: string }) {
+  const router = useRouter();
+  const { busy, error, run } = useAction();
+
+  async function undo() {
+    const ok = await run({
+      url: '/api/statements/finalize',
+      body: { org, payDate: date, undo: true },
+      fail: '해제하지 못했습니다.',
+    });
+    if (ok) router.refresh();
+  }
+
+  return (
+    <section className="rounded-panel border border-slate-200 bg-white p-5">
+      <h2 className="mb-3 text-base font-black tracking-[-0.02em] text-slate-900">확정 해제</h2>
+      <p className="mb-3 text-small text-slate-500">
+        이 배치는 최종 확정돼 잠겨 있습니다 — 항목·지급일·계산서를 고치려면 먼저 해제하세요.
+        {org}이(가) 계산서를 이미 발행했다면 수정세금계산서가 필요할 수 있습니다.
+      </p>
+      <div className="flex items-center gap-2">
+        <Btn kind="undo" size="sm" busy={busy} busyLabel="해제 중…" onClick={() => void undo()}>
+          확정 해제
+        </Btn>
+        <Err>{error}</Err>
+      </div>
     </section>
   );
 }

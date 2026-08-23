@@ -869,6 +869,8 @@ export interface TaxInvoice {
   /** 합계금액 (공급가액 + 세액) */
   totalAmount: number | null;
   uploadedAt: string;
+  /** 최종 확정 시각 — null 이면 가확정(협력사가 세금계산서를 발행하는 단계) */
+  finalizedAt: string | null;
 }
 
 export interface ContractState {

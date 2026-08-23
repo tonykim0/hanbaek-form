@@ -8,24 +8,24 @@ export const metadata = { title: '협력사 거래명세서 — 한백 전기차
 export const dynamic = 'force-dynamic';
 
 /**
- * 협력사 거래명세서 — 지급 배치를 만들고 보관하는 자리.
+ * 협력사 거래명세서 — 배치 목록과 상태(가확정 → 확정 → 지급완료).
  *
- * 한백은 조건이 찬 회차를 모아 체크해 지급일 하나로 확정한다(최종확인). 확정하면
- * 배치(지급처 × 지급일)가 서고 그 배치가 거래명세서 한 장이 된다. 협력사가 발행한
- * 세금계산서는 배치 옆에 첨부로 보관한다.
+ * 가확정은 협력사 지급관리 표에서 체크로 만든다(한백 확인 2026-08-24 — 전 현장
+ * 현황을 보며 추리는 자리가 그쪽이다). 여기는 만들어진 배치를 따라간다: 협력사가
+ * 가확정 합계로 세금계산서를 발행하고, 첨부되면 명세서 상세에서 최종 확정한다.
  *
- * ★협력사도 본다★ (한백 확인 2026-08-23) — 자기 배치만 내려오므로(저장소가 가른다)
- * 「이번 달 최종 확인된 정산분」을 여기서 확인한다. 지급 가능 풀과 세금계산서는
- * 한백의 눈에만 보인다 — 풀은 한백의 할 일이고, 첨부는 한백의 보관함이다.
+ * ★협력사도 본다★ — 자기 배치만 내려오므로(저장소가 가른다) 「이번 달 가확정분 =
+ * 발행할 계산서」와 확정분을 여기서 확인한다. 세금계산서 목록도 협력사는 자기
+ * 지급처 것만 받는다(listTaxInvoices 가 가른다) — 상태 배지가 거기서 나온다.
  */
 export default async function StatementsPage() {
   const session = await getSessionUser();
   if (!session) redirect('/login?next=/statements');
 
   const seesAll = isHanbaek(session.role);
-  const [{ plans, history }, invoices] = await Promise.all([
+  const [{ history }, invoices] = await Promise.all([
     getRepository().listPayoutOverview(viewerOf(session)),
-    seesAll ? getRepository().listTaxInvoices(actorOf(session)) : Promise.resolve([]),
+    getRepository().listTaxInvoices(actorOf(session)),
   ]);
 
   return (
@@ -34,18 +34,12 @@ export default async function StatementsPage() {
         <h1 className="text-h1 font-black text-slate-900">협력사 거래명세서</h1>
         <p className="mt-1.5 text-base text-slate-500">
           {seesAll
-            ? '지급 가능한 회차를 모아 확정하면 배치(지급처 × 지급일)가 명세서 한 장이 됩니다'
-            : '최종 확인된 지급 배치 — 배치 하나가 거래명세서 한 장입니다'}
+            ? '가확정 → 세금계산서 첨부 → 최종 확정 — 배치 하나가 명세서 한 장입니다'
+            : '가확정된 배치의 합계로 세금계산서를 발행해 주세요 — 첨부되면 확정으로 바뀝니다'}
         </p>
       </div>
 
-      <StatementsBoard
-        plans={plans}
-        history={history}
-        invoices={invoices}
-        canConfirm={session.role === 'admin'}
-        seesAll={seesAll}
-      />
+      <StatementsBoard history={history} invoices={invoices} seesAll={seesAll} />
     </>
   );
 }

@@ -1,30 +1,31 @@
 'use client';
 
 /**
- * 협력사 지급관리 — 줄에서 바로 확정하는 표.
+ * 협력사 지급관리 — 전 현장의 지급현황을 한 표로 보고, 여기서 체크해 가확정한다.
  *
  *   영업비 1차 = 계약완료 · 2차 = 개통완료
  *   시공비 1차 = 설치완료 · 2차 = 개통완료
  *
- * 현장·구분마다 총 지급액, 회차 금액(지급시기 포함), 회차 지급 칸이 한 줄에 선다.
- * 지급 칸은 나갔으면 지급일, 차례가 왔으면 지급일을 골라 그 자리에서 확정한다(한백만).
+ * ★두 단계 확정★ (한백 확인 2026-08-24 — 세금계산서와 맞물리는 실무 순서)
+ *   가확정  이 표에서 지급 가능한 줄을 체크해 지급일 하나로 묶는다. 협력사가 그
+ *           배치를 보고(협력사 거래명세서) 그 합계로 세금계산서를 발행한다.
+ *   확정    계산서가 첨부되면 /statements 상세에서 최종 확정 — 배치가 잠긴다.
+ * 「1차 확정」이라 부르지 않는다 — 이 표의 1차·2차는 회차(70%/선지급)라 뜻이 겹친다.
  *
- * ★지급일 규칙★ 조건 충족 시 익월 10일 또는 25일 지급이다(한백 확인). 그래서
- * 지급일은 달력이 아니라 그 두 날짜 중 하나를 고른다 — 트리거 충족일의 다음 달로
- * 계산한다.
+ * ★지급일 규칙★ 조건 충족 시 익월 10일 또는 25일 지급이다(한백 확인). 후보는 고른
+ * 줄들의 트리거 충족일 중 가장 늦은 것 기준 — 이른 줄 기준으로 잡으면 늦은 줄이
+ * 규칙보다 먼저 나가는 날이 된다.
  *
- * ★일괄 확정(체크박스 → 검토 → 묶음 확정)은 걷어냈다(한백 확인).★ 「송금 대상으로
- * 확정한 누계」까지 끌고 다니는 흐름이 너무 복잡했다 — 지급은 한 줄씩 확정한다.
+ * 줄마다 있던 확정 버튼(지급일 선택 포함)은 체크박스로 바꿨다 — 실무가 「다음 달
+ * 7일쯤 목록을 훑어 한 번에 추리는」 배치 작업이라, 한 줄씩 누르면 지급일이 줄마다
+ * 갈라질 수 있고 협력사는 계산서를 몇 장으로 끊어야 할지 알 수 없게 된다.
  *
- * ★협력사도 본다.★ 자기 몫 줄만 내려오고(페이지가 가른다, lib/payout-board) 확정
- * 칸은 읽기다 — 이번에 받을 금액과 지급시기를 여기서 확인한다.
- *
- * ★이 화면은 계획표만 남았다(한백 확인 2026-08-23).★ 지급된 내역 테이블은 같은
- * 원장을 세 번째로 그리는 자리라 걷어냈고, 그 자리에 두었던 거래명세서 배치 목록도
- * 배치가 작업 대상(모아서 확정 · 수정 · 세금계산서 대조)이 되면서 제 화면으로 나갔다
- * — /statements. 여기는 「현장마다 언제 무엇이 나가나」만 답한다.
+ * ★협력사도 본다.★ 자기 몫 줄만 내려오고(페이지가 가른다, lib/payout-board) 체크
+ * 칸이 없다 — 이번에 받을 금액과 지급시기를 여기서 확인한다.
  */
 import { useMemo, useState } from 'react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { payoutReleaseOf } from '@/lib/settlement';
 import { payDateChoices, workOf, type PayoutRowInput, type PayoutWork } from '@/lib/payout-board';
 import { today } from '@/lib/date';
@@ -54,6 +55,7 @@ export default function PayoutWorkBoard({
   const [org, setOrg] = useState<string | null>(null);
   const [kindFilter, setKindFilter] = useState<KindFilter>('전체');
   const [stepFilter, setStepFilter] = useState<StepFilter>('전체');
+  const [picked, setPicked] = useState<Set<string>>(new Set());
 
   const work = useMemo(() => rows.map(workOf), [rows]);
   const orgs = useMemo(
@@ -66,6 +68,16 @@ export default function PayoutWorkBoard({
     .filter((p) => org === null || p.org === org)
     .filter((p) => kindFilter === '전체' || p.kind === kindFilter)
     .filter((p) => stepFilter === '전체' || p.open?.no === (stepFilter === '1차' ? 1 : 2));
+
+  const toggle = (key: string) =>
+    setPicked((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  // 필터로 가려진 줄은 확정에 안 실린다 — 안 보이는 것이 함께 나가면 합계가 거짓말이 된다
+  const chosen = shown.filter((p) => p.state === '지급 가능' && picked.has(p.key));
 
 
   return (
@@ -114,6 +126,7 @@ export default function PayoutWorkBoard({
         <Frame min="1120px">
           <thead className="border-b border-slate-100 bg-slate-50 text-tiny font-bold tracking-[0.06em] text-slate-500">
             <tr>
+              {canConfirm && <th className="w-10 px-3 py-2.5"></th>}
               <th className="px-3 py-2.5 text-left">현장</th>
               <th className="px-3 py-2.5 text-left">지급처</th>
               <th className="px-3 py-2.5 text-left">구분</th>
@@ -126,7 +139,24 @@ export default function PayoutWorkBoard({
           </thead>
           <tbody className="divide-y divide-slate-100">
             {shown.map((p) => (
-              <tr key={p.key} className="transition hover:bg-brand-50/40">
+              <tr
+                key={p.key}
+                className={`transition ${picked.has(p.key) && p.state === '지급 가능' ? 'bg-brand-50/60' : 'hover:bg-brand-50/40'}`}
+              >
+                {canConfirm && (
+                  <td className="px-3 py-2.5 align-top">
+                    {/* 조건이 안 찬 줄에는 칸 자체가 비어 있다 — 눌리지 않는 체크박스보다 분명하다 */}
+                    {p.state === '지급 가능' && (
+                      <input
+                        type="checkbox"
+                        aria-label={`${p.projectName} ${p.kind} 가확정 선택`}
+                        checked={picked.has(p.key)}
+                        onChange={() => toggle(p.key)}
+                        className="h-4 w-4 accent-brand-600"
+                      />
+                    )}
+                  </td>
+                )}
                 <td className="px-3 py-2.5 align-top">
                   <SiteLink id={p.projectId} name={p.projectName} tab="settlement" />
                   <p className="mt-0.5 text-tiny text-slate-400">{p.cpo}</p>
@@ -155,6 +185,9 @@ export default function PayoutWorkBoard({
         </Frame>
       )}
 
+      {canConfirm && shown.some((p) => p.state === '지급 가능') && (
+        <ConfirmBar chosen={chosen} onDone={() => setPicked(new Set())} />
+      )}
     </div>
   );
 }
@@ -194,23 +227,20 @@ function StepPayCell({ p, no, canConfirm }: { p: PayoutWork; no: 1 | 2; canConfi
   return (
     <td className="whitespace-nowrap px-3 py-2.5 text-right align-top">
       {done ? (
-        // 확정해도 줄은 안 없어진다(한백 확인) — 지급 칸이 지급일로 굳어 기록으로 남는다
+        // 가확정해도 줄은 안 없어진다(한백 확인) — 지급 칸이 지급일로 굳어 기록으로 남는다
         <p className="text-small font-bold tabular-nums text-brand-800">{at ?? '지급됨'}</p>
       ) : p.open?.no === no ? (
         p.state === '지급 가능' ? (
-          canConfirm ? (
-            <StepConfirm p={p} metAt={release.metAt} />
-          ) : (
-            <>
-              <Tag tone="ok">지급 예정</Tag>
-              {/* 협력사가 언제 받는지 묻지 않게 — 규칙(익월 10·25일)을 날짜로 보여준다 */}
-              {release.metAt && (
-                <p className="mt-0.5 text-micro font-bold text-slate-400">
-                  {Number(payDateChoices(release.metAt)[0].slice(5, 7))}월 10·25일
-                </p>
-              )}
-            </>
-          )
+          <>
+            {/* 확정은 왼쪽 체크 → 아래 가확정 바에서 — 여기는 상태만 말한다 */}
+            <Tag tone="ok">지급 가능</Tag>
+            {/* 언제 받는지 묻지 않게 — 규칙(익월 10·25일)을 날짜로 보여준다 */}
+            {release.metAt && (
+              <p className="mt-0.5 text-micro font-bold text-slate-400">
+                {Number(payDateChoices(release.metAt)[0].slice(5, 7))}월 10·25일
+              </p>
+            )}
+          </>
         ) : (
           // 지급시기는 옆 칸에 있다 — 트리거 대기는 「대기」로 줄여 같은 말을 두 번 안 적는다
           p.blockers.map((reason) => (
@@ -227,32 +257,54 @@ function StepPayCell({ p, no, canConfirm }: { p: PayoutWork; no: 1 | 2; canConfi
 }
 
 /**
- * 줄에서 바로 확정 — 지급일을 골라 그 회차를 원장에 고정한다.
- * 지급일은 달력이 아니라 익월 10일·25일 둘 중 하나다(지급 규칙, 한백 확인).
+ * 가확정 바 — 체크한 줄들을 지급일 하나로 묶어 원장에 올린다.
+ *
  * 금액은 보내지 않는다 — 1차 70% / 2차 잔액은 정해져 있어 저장소가 계산해 넣는다.
+ * 전부 되거나 전부 안 된다(runPayoutBatch). 지급처가 섞여 있어도 배치는
+ * (지급처 × 지급일)로 저절로 갈라진다 — 협력사마다 계산서 한 장이 되는 단위다.
  */
-function StepConfirm({ p, metAt }: { p: PayoutWork; metAt: string | null }) {
+function ConfirmBar({ chosen, onDone }: { chosen: PayoutWork[]; onDone: () => void }) {
+  const router = useRouter();
   const { busy, error, run } = useAction();
-  // 지급 가능이면 트리거 충족일이 있다 — 없을 길은 방어로만 남긴다
-  const [d10, d25] = payDateChoices(metAt ?? today());
-  const [at, setAt] = useState(d10);
+  const [at, setAt] = useState<string | null>(null);
 
-  const confirm = () =>
-    void run({
+  // 고른 줄들의 트리거 충족일 중 가장 늦은 것 기준 익월 10·25일
+  const latestMet = chosen.reduce<string | null>((last, p) => {
+    const met = p.open ? payoutReleaseOf(p.kind, p.open.no, p.milestones).metAt : null;
+    return met && (!last || met > last) ? met : last;
+  }, null);
+  const [d10, d25] = payDateChoices(latestMet ?? today());
+  const pickedAt = at === d10 || at === d25 ? at : d10;
+  const sum = chosen.reduce((n, p) => n + (p.open?.amount ?? 0), 0);
+  const orgCount = new Set(chosen.map((p) => p.org)).size;
+
+  async function confirm() {
+    const ok = await run({
       url: '/api/payouts',
-      body: { at, items: [{ projectId: p.projectId, kind: p.kind }] },
-      fail: '확정하지 못했습니다.',
+      body: { at: pickedAt, items: chosen.map((p) => ({ projectId: p.projectId, kind: p.kind })) },
+      fail: '가확정하지 못했습니다.',
     });
+    if (!ok) return;
+    onDone();
+    router.refresh();
+  }
 
   return (
-    <div className="flex flex-col items-end gap-1">
-      <div className="flex gap-1">
-        <Choice on={at === d10} disabled={busy} onClick={() => setAt(d10)}>{dayLabel(d10)}</Choice>
-        <Choice on={at === d25} disabled={busy} onClick={() => setAt(d25)}>{dayLabel(d25)}</Choice>
-      </div>
-      <Btn size="sm" busy={busy} busyLabel="확정 중…" onClick={confirm}>
-        {p.open?.no}차 확정
+    <div className="mt-3 flex flex-wrap items-center gap-2.5">
+      <span className="text-small font-bold text-slate-600">
+        {chosen.length}건 · 지급처 {orgCount}곳 · <span className="tabular-nums">{won(sum)}</span>원
+      </span>
+      <span className="flex gap-1">
+        <Choice on={pickedAt === d10} disabled={busy} onClick={() => setAt(d10)}>{dayLabel(d10)}</Choice>
+        <Choice on={pickedAt === d25} disabled={busy} onClick={() => setAt(d25)}>{dayLabel(d25)}</Choice>
+      </span>
+      <Btn disabled={chosen.length === 0} busy={busy} busyLabel="가확정 중…" onClick={() => void confirm()}>
+        {chosen.length === 0 ? '줄을 체크해 가확정' : `${chosen.length}건 가확정`}
       </Btn>
+      {/* 다음 걸음이 어디인지 — 가확정 뒤 협력사가 계산서를 발행하고 저기서 최종 확정한다 */}
+      <Link href="/statements" className="text-small font-bold text-slate-500 transition hover:text-brand-800">
+        협력사 거래명세서 →
+      </Link>
       <Err>{error}</Err>
     </div>
   );

@@ -959,6 +959,18 @@ export const pgRepository: ProjectRepository = {
           throw new Error(`${name} ${item.kind} ${open.no}차 — ${release.trigger} 후 지급할 수 있습니다.`);
         }
 
+        // 확정된 배치에는 얹지 못한다 — 협력사가 그 합계로 세금계산서를 이미 발행했다
+        if (org) {
+          const [inv] = await tx
+            .select({ finalizedAt: taxInvoices.finalizedAt })
+            .from(taxInvoices)
+            .where(and(eq(taxInvoices.org, org), eq(taxInvoices.payDate, at)))
+            .limit(1);
+          if (inv?.finalizedAt) {
+            throw new Error(`${name} ${item.kind} — ${at} ${org} 배치는 최종 확정돼 잠겨 있습니다.`);
+          }
+        }
+
         // 두 번 눌러도 두 번 안 나가게 — 같은 회차 줄이 이미 있으면 배치를 통째로 세운다
         const category = `${open.no}차`;
         const [dup] = await tx
@@ -1033,6 +1045,29 @@ export const pgRepository: ProjectRepository = {
         .limit(1);
       if (!row) throw new Error('지급 기록을 찾을 수 없습니다.');
 
+      /*
+       * 확정된 배치의 지급 줄은 잠긴다 — 협력사가 그 합계로 세금계산서를 발행했다.
+       * 조정(자재비·차감)은 배치가 아니라서 안 본다. 줄의 지급처는 현장에서 유도한다.
+       */
+      if (entryTypeOf(row.category as PayoutCategory) === '지급') {
+        const [proj] = await tx
+          .select({ salesOrg: projects.salesOrg, gcOrg: projects.gcOrg })
+          .from(projects)
+          .where(eq(projects.id, projectId))
+          .limit(1);
+        const org = row.kind === '영업비' ? proj?.salesOrg : proj?.gcOrg;
+        if (org) {
+          const [inv] = await tx
+            .select({ finalizedAt: taxInvoices.finalizedAt })
+            .from(taxInvoices)
+            .where(and(eq(taxInvoices.org, org), eq(taxInvoices.payDate, row.at)))
+            .limit(1);
+          if (inv?.finalizedAt) {
+            throw new Error('최종 확정된 배치의 지급입니다 — 빼려면 먼저 확정을 해제하세요.');
+          }
+        }
+      }
+
       await tx.delete(payoutEntries).where(eq(payoutEntries.id, entryId));
       // 지운 값을 로그에 통째로 남긴다 — 고치기가 없는 대신 무엇이 지워졌는지는 남아야 한다
       await writeAudit(tx, {
@@ -1070,6 +1105,15 @@ export const pgRepository: ProjectRepository = {
           (r.kind === '영업비' ? r.salesOrg : r.gcOrg) === org
       );
       if (mine.length === 0) throw new Error('그 지급일에 이 지급처로 나간 지급이 없습니다.');
+      // 확정된 배치는 잠긴다 — 협력사가 이 금액으로 세금계산서를 이미 발행했다
+      const [inv] = await tx
+        .select({ finalizedAt: taxInvoices.finalizedAt })
+        .from(taxInvoices)
+        .where(and(eq(taxInvoices.org, org), eq(taxInvoices.payDate, from)))
+        .limit(1);
+      if (inv?.finalizedAt) {
+        throw new Error('최종 확정된 배치입니다 — 옮기려면 먼저 확정을 해제하세요.');
+      }
 
       // 옮겨간 날에 같은 지급처의 배치가 이미 있으면 합쳐진다 — 명세서도 한 장이 된다. 막지 않는다.
       await tx
@@ -1091,13 +1135,47 @@ export const pgRepository: ProjectRepository = {
   },
 
   async listTaxInvoices(actor): Promise<TaxInvoice[]> {
-    assertHanbaek(actor, '세금계산서 조회');
-    const rows = await getDb().select().from(taxInvoices);
+    /*
+     * 협력사도 자기 지급처 것은 본다 — 자기가 발행한 문서이고, 배치의 가확정/확정
+     * 상태가 여기(finalizedAt) 실려 있어 「발행해 달라」는 신호를 이걸로 그린다.
+     * 소속 없는 협력사 계정은 볼 것이 없다.
+     */
+    const rows = isHanbaek(actor.role)
+      ? await getDb().select().from(taxInvoices)
+      : actor.org
+        ? await getDb().select().from(taxInvoices).where(eq(taxInvoices.org, actor.org))
+        : [];
     return rows.map((r) => ({
       id: r.id, org: r.org, payDate: r.payDate, blobUrl: r.blobUrl, filename: r.filename,
       supplyAmount: r.supplyAmount, taxAmount: r.taxAmount, totalAmount: r.totalAmount,
-      uploadedAt: r.uploadedAt,
+      uploadedAt: r.uploadedAt, finalizedAt: r.finalizedAt,
     }));
+  },
+
+  async finalizeBatch(org, payDate, undo, actor): Promise<void> {
+    assertAdmin(actor, '배치 최종 확정');
+    const db = getDb();
+    await db.transaction(async (tx) => {
+      const [row] = await tx
+        .select()
+        .from(taxInvoices)
+        .where(and(eq(taxInvoices.org, org), eq(taxInvoices.payDate, payDate)))
+        .limit(1);
+      // 첨부가 확정의 전제다(한백 확인 2026-08-24) — 계산서 없이 확정할 길을 두지 않는다
+      if (!row) throw new Error('세금계산서를 먼저 첨부해야 최종 확정할 수 있습니다.');
+      if (undo ? !row.finalizedAt : !!row.finalizedAt) {
+        throw new Error(undo ? '아직 확정되지 않은 배치입니다.' : '이미 확정된 배치입니다.');
+      }
+      await tx
+        .update(taxInvoices)
+        .set({ finalizedAt: undo ? null : today() })
+        .where(eq(taxInvoices.id, row.id));
+      await writeAudit(tx, {
+        projectId: null, actor,
+        action: `배치 ${undo ? '확정 해제' : '최종 확정'} — ${org} ${payDate}`,
+        field: 'finalizedAt', oldValue: row.finalizedAt, newValue: undo ? null : today(),
+      });
+    });
   },
 
   async saveTaxInvoice(input, actor): Promise<{ id: string; replacedBlobUrl: string | null }> {
@@ -1114,6 +1192,9 @@ export const pgRepository: ProjectRepository = {
         .from(taxInvoices)
         .where(and(eq(taxInvoices.org, input.org), eq(taxInvoices.payDate, input.payDate)))
         .limit(1);
+      if (prev?.finalizedAt) {
+        throw new Error('최종 확정된 배치입니다 — 계산서를 바꾸려면 먼저 확정을 해제하세요.');
+      }
       if (prev) await tx.delete(taxInvoices).where(eq(taxInvoices.id, prev.id));
 
       await tx.insert(taxInvoices).values({
@@ -1156,6 +1237,9 @@ export const pgRepository: ProjectRepository = {
     return db.transaction(async (tx) => {
       const [row] = await tx.select().from(taxInvoices).where(eq(taxInvoices.id, id)).limit(1);
       if (!row) throw new Error('세금계산서를 찾을 수 없습니다.');
+      if (row.finalizedAt) {
+        throw new Error('최종 확정된 배치입니다 — 지우려면 먼저 확정을 해제하세요.');
+      }
       await tx.delete(taxInvoices).where(eq(taxInvoices.id, id));
       await writeAudit(tx, {
         projectId: null, actor, action: `세금계산서 삭제 — ${row.org} ${row.payDate}`,

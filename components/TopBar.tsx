@@ -33,6 +33,8 @@ const ADMIN_INTAKE = [
 
 interface Todo {
   id: string;
+  /** 눌러서 갈 곳 — 서버가 정한다(현장 상세 · 거래명세서). 화면은 라우팅 규칙을 모른다 */
+  href: string;
   name: string;
   what: string;
   stalledDays: number;
@@ -125,7 +127,7 @@ export default function TopBar({ role }: { role: Role }) {
                   {todos.slice(0, SHOW_MAX).map((t) => (
                     <li key={t.id}>
                       <Link
-                        href={`/projects/${t.id}`}
+                        href={t.href}
                         onClick={() => setOpen(false)}
                         className="block px-3 py-2 transition hover:bg-slate-50"
                       >

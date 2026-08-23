@@ -51,9 +51,6 @@ export function contractStateOf(input: {
 }
 
 export function deriveStage(input: {
-  docCtx: DocContext;
-  documents: ProjectDocument[];
-  lines: ContractLine[];
   settlement: Settlement;
   /**
    * 한백이 계약을 확인했는가.
@@ -67,8 +64,17 @@ export function deriveStage(input: {
   const collected = input.settlement.steps.some((s) => s.state === 'collected');
   if (collected || input.settlement.cpoCloseDate) return 'settlement';
 
-  const contract = contractStateOf(input);
-  return contract.ready && Boolean(input.contractConfirmedAt) ? 'construction' : 'intake';
+  /*
+   * ★확인이 곧 계약의 끝이다 — 서류를 다시 묻지 않는다.★
+   *
+   * 예전에는 ready(서류 다 참 + 반려 없음 + 단가)와 확인을 둘 다 물었다. 서류 조건은
+   * 확인해 주는 순간(confirmContract)이 이미 지키고, 반려는 확인을 지운다(pg-store) —
+   * 그러니 여기서 또 물으면 같은 문을 두 번 잠그는 것인데, 그 두 번째 자물쇠가
+   * 이관 현장을 전부 계약접수로 되돌렸다: 노션에서 온 현장은 확인일은 있지만 서류
+   * 파일이 콘솔에 없다(서류는 이관하지 않았다). 확인은 사람이 내린 판정의 기록이고,
+   * 기록이 있으면 유도는 그것을 믿는다 (실사고: 전주태평에스케이뷰, 2026-08-25).
+   */
+  return input.contractConfirmedAt !== null ? 'construction' : 'intake';
 }
 
 /**

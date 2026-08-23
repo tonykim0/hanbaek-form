@@ -206,9 +206,6 @@ export function toDetail(r: ProjectRecord, rules: RuleMap, settles: SettleMap): 
   const settlement: Settlement = { ...r.settlementRaw, steps };
   const contract = contractStateOf({ docCtx, documents: r.documents, lines: r.lines });
   const stage = deriveStage({
-    docCtx,
-    documents: r.documents,
-    lines: r.lines,
     settlement,
     contractConfirmedAt: r.project.contractConfirmedAt,
   });

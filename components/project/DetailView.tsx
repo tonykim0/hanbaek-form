@@ -303,11 +303,11 @@ function SiteHeader({
   return (
     <div className="rounded-panel border border-slate-200 bg-white p-5 sm:p-6">
       {/*
-        * 왼쪽은 현장의 사실, 오른쪽은 진행현황 및 메모(한백 확인). 세로로 쌓으면 머리말이
-        * 길어지고 넓은 화면의 오른쪽이 놀았다. 좁은 화면에서는 다시 아래로 접힌다.
+        * 위는 현장의 사실, 아래가 진행현황 및 메모다. 한때 좌우 2열이었는데(오른쪽이 노는
+        * 화면 때문) 승인 흐름과 메모가 좌우로 떨어져 「승인일 적고 메모 남기는」 동선이
+        * 끊겼다 — 진행현황을 승인일 줄 아래로 내렸다(한백 지시 2026-08-23).
         * 뒤로가기·차례 칩은 걷어냈다 — 목록은 사이드바로 가고, 차례는 보드 카드가 민다.
         */}
-      <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_360px] lg:gap-x-8">
       <div className="min-w-0">
       {/*
         * 단계를 이름 위에 둔다. 오른쪽 끝에 있으면 이름을 읽고 눈을 옮겨야 보이는데,
@@ -397,9 +397,8 @@ function SiteHeader({
       )}
       </div>
 
-      <div className="mt-5 min-w-0 border-t border-slate-100 pt-4 lg:mt-0 lg:border-l lg:border-t-0 lg:pl-6 lg:pt-0">
+      <div className="mt-5 min-w-0 border-t border-slate-100 pt-4">
         <ProgressLog projectId={project.id} notes={detail.notes} author={noteAuthor} />
-      </div>
       </div>
     </div>
   );

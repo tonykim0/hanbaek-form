@@ -26,7 +26,7 @@
  * ★협력사도 본다.★ 자기 몫 줄만 내려오고(페이지가 가른다, lib/payout-board) 체크
  * 칸이 없다 — 이번에 받을 금액과 지급시기를 여기서 확인한다.
  */
-import { useMemo, useState } from 'react';
+import { Fragment, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { BatchFinal } from '@/types/project';
@@ -136,18 +136,32 @@ export default function PayoutWorkBoard({
       {shown.length === 0 ? (
         <Blank>조건에 맞는 지급이 0건</Blank>
       ) : (
-        <Frame min="1120px">
+        <Frame min={canConfirm ? '1520px' : '1300px'}>
+          {/*
+            머리가 두 줄이다 — 「N차 지급」 한 칸에 배지·날짜·단추가 세로로 쌓여 있던 것을
+            지급일·상태·동작 열로 폈다(한백 요청 2026-08-25). 쌓인 칸은 줄마다 높이가
+            달라지고, 단추가 값 사이에 끼어 어디를 눌러야 하는지 훑어야 했다.
+            열로 펴면 한 열을 위아래로 읽는 것이 곧 비교다(단가표 케이스 표와 같은 이유).
+          */}
           <thead className="border-b border-slate-100 bg-slate-50 text-tiny font-bold tracking-[0.06em] text-slate-500">
             <tr>
-              {canConfirm && <th className="w-10 px-3 py-2.5"></th>}
-              <th className="px-3 py-2.5 text-left">현장</th>
-              <th className="px-3 py-2.5 text-left">지급처</th>
-              <th className="px-3 py-2.5 text-left">구분</th>
-              <th className="px-3 py-2.5 text-right">총 지급액</th>
-              <th className="px-3 py-2.5 text-right">1차 · 70%</th>
-              <th className="px-3 py-2.5 text-right">1차 지급</th>
-              <th className="px-3 py-2.5 text-right">2차 · 잔액</th>
-              <th className="px-3 py-2.5 text-right">2차 지급</th>
+              {canConfirm && <th rowSpan={2} className="w-10 px-3 py-2.5"></th>}
+              <th rowSpan={2} className="px-3 py-2.5 text-left">현장</th>
+              <th rowSpan={2} className="px-3 py-2.5 text-left">지급처</th>
+              <th rowSpan={2} className="px-3 py-2.5 text-left">구분</th>
+              <th rowSpan={2} className="px-3 py-2.5 text-right">총 지급액</th>
+              <th colSpan={canConfirm ? 4 : 3} className="border-l border-slate-200 px-3 pt-2 text-center">1차 · 70%</th>
+              <th colSpan={canConfirm ? 4 : 3} className="border-l border-slate-200 px-3 pt-2 text-center">2차 · 잔액</th>
+            </tr>
+            <tr>
+              {[1, 2].map((no) => (
+                <Fragment key={no}>
+                  <th className="border-l border-slate-200 px-3 pb-2 text-right font-semibold">금액</th>
+                  <th className="px-3 pb-2 text-right font-semibold">지급일</th>
+                  <th className="px-3 pb-2 text-left font-semibold">상태</th>
+                  {canConfirm && <th className="px-3 pb-2 text-left font-semibold"></th>}
+                </Fragment>
+              ))}
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -188,10 +202,9 @@ export default function PayoutWorkBoard({
                     <p key={reason} className="text-micro font-bold text-amber-700">{reason}</p>
                   ))}
                 </td>
-                <StepAmountCell p={p} no={1} />
-                <StepPayCell p={p} no={1} finalizedBatches={finalizedBatches} canConfirm={canConfirm} />
-                <StepAmountCell p={p} no={2} />
-                <StepPayCell p={p} no={2} finalizedBatches={finalizedBatches} canConfirm={canConfirm} />
+                {([1, 2] as const).map((no) => (
+                  <StepCells key={no} p={p} no={no} finalizedBatches={finalizedBatches} canConfirm={canConfirm} />
+                ))}
               </tr>
             ))}
           </tbody>
@@ -205,33 +218,17 @@ export default function PayoutWorkBoard({
   );
 }
 
-/** 회차 금액 한 칸 — 금액 밑에 지급시기(트리거)가 늘 붙는다 */
-function StepAmountCell({ p, no }: { p: PayoutWork; no: 1 | 2 }) {
-  if (p.due <= 0) {
-    return <td className="px-3 py-2.5 text-right align-top text-slate-300">—</td>;
-  }
-  const done = no === 1 ? p.step1Done : p.step2Done;
-  const amount = p.open?.no === no ? p.open.amount : no === 1 ? p.step1Amount : p.step2Amount;
-  // 회차의 지급시기 — 영업비 1차=계약완료 · 시공비 1차=설치완료 · 2차=개통완료
-  const trigger = payoutReleaseOf(p.kind, no, p.milestones).trigger;
-
-  return (
-    <td className="whitespace-nowrap px-3 py-2.5 text-right align-top">
-      <p className={`font-black tabular-nums ${done ? 'text-slate-400' : 'text-slate-900'}`}>
-        {won(amount)}
-      </p>
-      <p className="text-micro text-slate-400">지급시기 {trigger}</p>
-    </td>
-  );
-}
-
 /**
- * 회차 지급 한 칸 — 아직이면 「1차 뒤」, 조건 대기면 그 사정, 차례가 왔으면 「지급 가능」,
- * 배치에 실렸으면 지급일 위에 그 배치의 자리(가확정 → 확정 → 지급일 경과 시 날짜만).
- * 가확정을 이 표에서도 보이게 한다(한백 확인 2026-08-24) — 배치 화면까지 안 가도
- * 어느 줄이 계산서를 기다리는 중인지 여기서 읽힌다.
+ * 회차 하나의 네 칸 — 금액 · 지급일 · 상태 · 동작.
+ *
+ * 한 칸에 배지·날짜·단추를 세로로 쌓던 것을 열로 폈다(한백 요청 2026-08-25).
+ * 쌓인 칸은 줄마다 높이가 달라지고, 단추가 값 사이에 끼어 어디를 눌러야 하는지
+ * 훑어야 했다. 네 칸이 같은 사정을 봐야 하므로 판정은 여기서 한 번 한다.
+ *
+ * 총액 자체가 안 서는 줄(due ≤ 0)은 회차 칸을 통째로 묶어 「—」 하나만 둔다 —
+ * 빈 칸 네 개는 「값이 넷 다 빠졌다」로 읽힌다.
  */
-function StepPayCell({
+function StepCells({
   p, no, finalizedBatches, canConfirm,
 }: {
   p: PayoutWork;
@@ -240,75 +237,95 @@ function StepPayCell({
   canConfirm: boolean;
 }) {
   if (p.due <= 0) {
-    return <td className="px-3 py-2.5 text-right align-top text-slate-300">—</td>;
+    return (
+      <td colSpan={canConfirm ? 4 : 3} className="border-l border-slate-100 px-3 py-2.5 text-center align-top text-slate-300">
+        —
+      </td>
+    );
   }
+
   const done = no === 1 ? p.step1Done : p.step2Done;
   const at = no === 1 ? p.step1At : p.step2At;
   const entryId = no === 1 ? p.step1EntryId : p.step2EntryId;
+  const amount = p.open?.no === no ? p.open.amount : no === 1 ? p.step1Amount : p.step2Amount;
+  const openHere = p.open?.no === no;
   const release = payoutReleaseOf(p.kind, no, p.milestones);
   const finalized = at !== null && finalizedBatches.has(batchKey(at, p.org, p.kind));
   // 자리 판정은 배치 목록·명세서와 같은 정본이다 — 세 화면이 다른 이름을 말하면 안 된다
   const state = at !== null ? batchStateOf({ paidAt: at, finalized }) : null;
 
   return (
-    <td className="whitespace-nowrap px-3 py-2.5 text-right align-top">
-      {done ? (
-        // 배치에 실려도 줄은 안 없어진다(한백 확인) — 지급 칸이 지급일로 굳어 기록으로 남는다
-        <>
-          {/*
-            지급완료(확정하고 지급일이 지난 것)는 상태가 아니라 사실이다 — 날짜만 남긴다.
-            확정 누락(확정 없이 지난 것)은 다르다: 확정은 지급의 전제라 놓친 것은 빨갛게 남아야 한다.
-          */}
-          {state && state !== '지급완료' && (
-            <p className="mb-0.5">
-              <Badge tone={state === '확정' ? 'ok' : state === '가확정' ? 'warn' : 'stop'}>
-                {state}
-              </Badge>
-            </p>
-          )}
+    <>
+      {/* 금액 — 밑에 지급시기(트리거)가 늘 붙는다 */}
+      <td className="whitespace-nowrap border-l border-slate-100 px-3 py-2.5 text-right align-top">
+        <p className={`font-black tabular-nums ${done ? 'text-slate-400' : 'text-slate-900'}`}>
+          {won(amount)}
+        </p>
+        <p className="text-micro text-slate-400">지급시기 {release.trigger}</p>
+      </td>
+
+      {/* 지급일 — 배치에 실렸으면 그 날짜, 지급 가능이면 규칙(익월 10·25일)을 예정으로 */}
+      <td className="whitespace-nowrap px-3 py-2.5 text-right align-top">
+        {done ? (
           <p className="text-small font-bold tabular-nums text-brand-800">{at ?? '지급됨'}</p>
-          {/*
-            * 가확정 무르기 — 그 자리에서(한백 확인 2026-08-24). 회차가 지급 가능으로
-            * 돌아가 다시 체크할 수 있다. 확정된 배치는 해제부터라 취소 단추가 없다.
-            */}
-          {canConfirm && !finalized && at && at >= today() && entryId && (
-            <StepCancel p={p} entryId={entryId} />
-          )}
-          {/*
-            * 확정·해제 — 이 칸은 회차 한 줄이지만 확정은 배치(지급처×구분×지급일) 단위다.
-            * 누르면 같은 배치의 다른 줄들도 함께 잠기고 풀린다 — title 이 그것을 말한다.
-            */}
-          {canConfirm && p.org && at && (state === '가확정' || state === '확정 누락') && (
-            <StepFinalize org={p.org} kind={p.kind} at={at} />
-          )}
-          {canConfirm && p.org && at && state === '확정' && (
-            <StepFinalize org={p.org} kind={p.kind} at={at} undo />
-          )}
-        </>
-      ) : p.open?.no === no ? (
-        p.state === '지급 가능' ? (
-          <>
-            {/* 확정은 왼쪽 체크 → 아래 가확정 바에서 — 여기는 상태만 말한다 */}
-            <Tag tone="ok">지급 가능</Tag>
-            {/* 언제 받는지 묻지 않게 — 규칙(익월 10·25일)을 날짜로 보여준다 */}
-            {release.metAt && (
-              <p className="mt-0.5 text-micro font-bold text-slate-400">
-                {Number(payDateChoices(release.metAt)[0].slice(5, 7))}월 10·25일
-              </p>
-            )}
-          </>
+        ) : openHere && p.state === '지급 가능' && release.metAt ? (
+          <p className="text-micro font-bold text-slate-400">
+            {Number(payDateChoices(release.metAt)[0].slice(5, 7))}월 10·25일
+          </p>
         ) : (
-          // 지급시기는 옆 칸에 있다 — 트리거 대기는 「대기」로 줄여 같은 말을 두 번 안 적는다
-          p.blockers.map((reason) => (
-            <p key={reason} className="text-micro font-bold text-amber-700">
-              {reason === `${release.trigger} 대기` ? '대기' : reason}
-            </p>
-          ))
-        )
-      ) : (
-        <p className="text-micro font-bold text-slate-300">1차 뒤</p>
+          <span className="text-slate-300">—</span>
+        )}
+      </td>
+
+      {/* 상태 — 배치의 자리(가확정→확정→지급완료 · 확정 누락) 또는 그 앞의 사정 */}
+      <td className="whitespace-nowrap px-3 py-2.5 align-top">
+        {done && state ? (
+          <Badge tone={
+            state === '확정' ? 'ok'
+              : state === '가확정' ? 'warn'
+                : state === '확정 누락' ? 'stop'
+                  : 'mute'
+          }>
+            {state}
+          </Badge>
+        ) : openHere ? (
+          p.state === '지급 가능' ? (
+            /* 가확정은 왼쪽 체크 → 아래 가확정 바에서 — 여기는 상태만 말한다 */
+            <Tag tone="ok">지급 가능</Tag>
+          ) : (
+            /* 지급시기는 금액 칸에 있다 — 트리거 대기는 「대기」로 줄여 같은 말을 두 번 안 적는다 */
+            p.blockers.map((reason) => (
+              <p key={reason} className="text-micro font-bold text-amber-700">
+                {reason === `${release.trigger} 대기` ? '대기' : reason}
+              </p>
+            ))
+          )
+        ) : (
+          <p className="text-micro font-bold text-slate-300">1차 뒤</p>
+        )}
+      </td>
+
+      {/*
+        동작 — 이 배치에서 지금 누를 수 있는 것.
+          가확정      확정(배치 잠금) · 취소(이 회차를 지급 가능으로 되돌림)
+          확정 누락   확정(놓친 전제를 그 자리에서 채운다)
+          확정        해제
+        확정·해제는 배치(지급처×구분×지급일) 단위다 — 같은 배치의 다른 줄도 함께 움직인다.
+      */}
+      {canConfirm && (
+        <td className="whitespace-nowrap px-3 py-2.5 align-top">
+          {done && state && p.org && at ? (
+            <span className="inline-flex items-center gap-1.5">
+              {(state === '가확정' || state === '확정 누락') && (
+                <StepFinalize org={p.org} kind={p.kind} at={at} />
+              )}
+              {state === '가확정' && entryId && <StepCancel p={p} entryId={entryId} />}
+              {state === '확정' && <StepFinalize org={p.org} kind={p.kind} at={at} undo />}
+            </span>
+          ) : null}
+        </td>
       )}
-    </td>
+    </>
   );
 }
 
@@ -328,12 +345,12 @@ function StepCancel({ p, entryId }: { p: PayoutWork; entryId: string }) {
   }
 
   return (
-    <p className="mt-0.5">
+    <span className="inline-block">
       <Btn kind="quiet" size="sm" busy={busy} onClick={() => void cancel()}>
         취소
       </Btn>
       <Err className="block">{error}</Err>
-    </p>
+    </span>
   );
 }
 
@@ -352,7 +369,7 @@ function StepFinalize({
 }) {
   const { busy, error, finalize } = useFinalizeBatch(org, kind, at);
   return (
-    <p className="mt-0.5">
+    <span className="inline-block">
       <Btn
         kind={undo ? 'undo' : 'quiet'}
         size="sm"
@@ -364,7 +381,7 @@ function StepFinalize({
         {undo ? '해제' : '확정'}
       </Btn>
       <Err className="block">{error}</Err>
-    </p>
+    </span>
   );
 }
 

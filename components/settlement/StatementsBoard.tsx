@@ -7,17 +7,25 @@
  * 배치도 그 축으로 갈린다(한백 확인 2026-08-24). 가확정은 협력사 지급관리 표에서 체크로 만들고(그쪽이
  * 전 현장 현황을 보는 자리다), 여기는 만들어진 배치의 상태를 따라간다:
  *
- *   가확정   협력사가 이 합계로 세금계산서를 발행하는 단계 — 협력사 화면에는
- *            「세금계산서 발행 요청」으로 보인다
- *   확정     계산서가 첨부되고 한백이 최종 확정 — 배치가 잠긴다
- *   지급완료  확정된 배치의 지급일이 지났다
+ *   가확정    협력사가 이 합계로 세금계산서를 발행하는 단계
+ *   확정      한백이 최종 확정 — 배치가 잠긴다
+ *   지급완료   확정된 배치의 지급일이 지났다
+ *   확정 누락  확정 없이 지급일이 지났다 — 확정은 지급의 전제인데 건너뛴 것이다
+ *
+ * 네 자리의 정본은 lib/payout-board 의 batchStateOf 다(두 축이 만든다).
  *
  * ★첨부와 확정을 줄에서 끝낸다★ — 계산서는 가확정 뒤 1~2일이면 오고, 확정에 필요한
  * 것(지급처·구분·지급일·합계·첨부 여부)은 줄에 다 있다. 계산서 한 장 = 그 줄에서
  * 첨부 → 확정. 상세(명세서)는 검토·인쇄·빼기·지급일 변경·해제의 자리다.
  *
- * ★협력사도 본다★ — 자기 배치만(저장소가 가른다). 첨부 파일 열은 한백의 보관함이라
- * 한백에게만 보이지만, 상태 배지는 협력사에게가 더 중요하다 — 발행하라는 신호다.
+ * ★「할 일」을 한 열에 모은다 (한백 요청 2026-08-24).★ 예전에는 상태 배지·첨부 여부·확정
+ * 단추가 세 열에 흩어져 있어서 줄을 좌우로 훑어야 다음 행동을 알았다. 할 일 목록인데
+ * 할 일이 한 자리에 없었다. 그리고 확정 단추가 「명세서 →」와 붙어 있었다 — 가장 자주
+ * 누르는 것과 배치를 잠그는 것이 나란히 있으면 안 된다(화면 규칙 8번).
+ *
+ * ★협력사도 본다★ — 자기 배치만(저장소가 가른다). 할 일 열의 내용이 눈에 따라 갈린다:
+ * 협력사에게는 「세금계산서 발행」, 한백에게는 첨부와 확정이다. 예전에는 협력사의 유일한
+ * 할 일이 배지 아래 micro 잔글씨였다.
  */
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
@@ -27,7 +35,14 @@ import { Badge, Blank, Btn, Empty, Err, FIELD, Tag } from '@/components/ui';
 import { Frame, won } from './parts';
 import { useFinalizeBatch, useTaxInvoiceUpload } from './use-batch';
 
-const BATCH_STATES = ['가확정', '확정', '지급완료'] as const satisfies readonly BatchState[];
+const BATCH_STATES = ['가확정', '확정 누락', '확정', '지급완료'] as const satisfies readonly BatchState[];
+/** 상태마다 배지 색 — 확정 누락은 절차가 어긋난 것이라 가확정과 구별되어야 한다 */
+const STATE_TONE: Record<BatchState, 'warn' | 'ok' | 'mute' | 'stop'> = {
+  가확정: 'warn',
+  '확정 누락': 'stop',
+  확정: 'ok',
+  지급완료: 'mute',
+};
 const PAYOUT_KINDS = ['영업비', '시공비'] as const satisfies readonly PayoutKind[];
 /** 지급처가 비어 있는 배치 — 드롭다운에서도 고를 수 있어야 골라내 고칠 수 있다 */
 const NO_ORG = '받는 곳 미지정';
@@ -74,15 +89,28 @@ export default function StatementsBoard({
   );
   const filtered = shown.length !== batches.length;
 
+  /* 상태별 건수 — 드롭다운 옵션에 적는다. 지급처·구분 필터와 무관한 전체 기준이다 */
+  const countByState = useMemo(() => {
+    const m = new Map<BatchState, number>();
+    for (const b of batches) {
+      const st = batchStateOf(b);
+      m.set(st, (m.get(st) ?? 0) + 1);
+    }
+    return m;
+  }, [batches]);
+
   return (
     <section>
       {/* 매트릭스·케이스와 같은 모양 — 고르는 것은 왼쪽에 몰고, 표 머리가 아래로 밀리지 않게 한 줄로 */}
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <h2 className="text-h3 font-black text-slate-900">배치</h2>
-        <div className="w-32">
+        <div className="w-40">
+          {/* 건수를 옵션에 적는다 — 「가확정이 몇 건인가」를 눌러 보기 전에 안다. 0건인 상태는 골라도 빈 목록뿐이라 숫자가 곧 안내다 */}
           <select aria-label="상태" className={FIELD} value={state} onChange={(e) => setState(e.target.value)}>
             {[ALL, ...BATCH_STATES].map((v) => (
-              <option key={v} value={v}>{v === ALL ? '상태 전체' : v}</option>
+              <option key={v} value={v}>
+                {v === ALL ? '상태 전체' : `${v} (${countByState.get(v as BatchState) ?? 0})`}
+              </option>
             ))}
           </select>
         </div>
@@ -129,7 +157,13 @@ export default function StatementsBoard({
               <th className="px-3 py-2.5 text-right">건수</th>
               <th className="px-3 py-2.5 text-right">공급가액</th>
               <th className="px-3 py-2.5 text-left">상태</th>
-              {seesAll && <th className="px-3 py-2.5 text-left">세금계산서</th>}
+              {/*
+                할 일 — 상태 배지·첨부·확정이 세 열에 흩어져 있던 것을 하나로 모았다.
+                다음 행동(첨부 → 확정)이 이 칸 안에서 순서대로 보이고, 끝난 배치는
+                계산서 링크만 남는다. 명세서 링크는 오른쪽 끝 — 자주 누르는 것과
+                잠그는 것을 붙여 두지 않는다(화면 규칙 8번).
+              */}
+              <th className="px-3 py-2.5 text-left">할 일</th>
               <th className="px-3 py-2.5 text-right"></th>
             </tr>
           </thead>
@@ -161,54 +195,78 @@ function BatchRow({ b, seesAll, canEdit }: { b: Batch; seesAll: boolean; canEdit
         {won(b.total)}
       </td>
       <td className="whitespace-nowrap px-3 py-2.5">
-        {state === '가확정' && (
-          <>
-            <Badge tone="warn">가확정</Badge>
-            {/* 협력사에게는 이 배지가 곧 할 일이다 — 이 합계로 계산서를 발행한다 */}
-            {!seesAll && (
-              <p className="mt-0.5 text-micro font-bold text-amber-700">세금계산서 발행 요청</p>
-            )}
-          </>
-        )}
-        {state === '확정' && <Badge tone="ok">확정</Badge>}
-        {state === '지급완료' && <Badge tone="mute">지급완료</Badge>}
+        <Badge tone={STATE_TONE[state]}>{state}</Badge>
       </td>
-      {seesAll && (
-        <td className="whitespace-nowrap px-3 py-2.5">
-          {b.invoice ? (
-            <a
-              href={b.invoice.blobUrl}
-              target="_blank"
-              rel="noopener"
-              className="text-small font-bold text-brand-700 underline-offset-2 hover:underline"
-            >
-              첨부됨
-            </a>
-          ) : canEdit && b.org ? (
-            // 계산서가 오면 이 줄에서 바로 붙인다 — 확정 여부와 무관한 보관용 첨부다
-            <RowAttach org={b.org} kind={b.kind} date={b.paidAt} />
-          ) : (
-            <span className="text-small text-slate-300">미첨부</span>
-          )}
-        </td>
-      )}
+      <td className="whitespace-nowrap px-3 py-2.5">
+        <TodoCell b={b} state={state} seesAll={seesAll} canEdit={canEdit} />
+      </td>
       <td className="whitespace-nowrap px-3 py-2.5 text-right">
-        <span className="inline-flex items-center gap-2.5">
-          {/* 확정은 줄에서 — 필요한 값이 이 줄에 다 있고, 해제(상세)가 있어 되돌릴 수 있다 */}
-          {canEdit && b.org && state === '가확정' && (
-            <RowFinalize org={b.org} kind={b.kind} date={b.paidAt} />
-          )}
-          {b.org && (
-            <Link
-              href={`/payments/statement?org=${encodeURIComponent(b.org)}&date=${b.paidAt}&kind=${encodeURIComponent(b.kind)}`}
-              className="text-small font-bold text-brand-700 transition hover:text-brand-900"
-            >
-              명세서 →
-            </Link>
-          )}
-        </span>
+        {b.org && (
+          <Link
+            href={`/payments/statement?org=${encodeURIComponent(b.org)}&date=${b.paidAt}&kind=${encodeURIComponent(b.kind)}`}
+            className="text-small font-bold text-brand-700 transition hover:text-brand-900"
+          >
+            명세서 →
+          </Link>
+        )}
       </td>
     </tr>
+  );
+}
+
+/**
+ * 할 일 한 칸 — 이 배치에서 다음 행동이 무엇인가.
+ *
+ * 눈에 따라 다르다: 협력사의 할 일은 계산서 발행이고, 한백의 할 일은 첨부와 확정이다.
+ * 할 일이 없으면 무엇으로 끝났는지(계산서 링크)나 「—」를 남긴다 — 빈 칸도 자리를
+ * 지킨다(화면 규칙 6번).
+ */
+function TodoCell({
+  b, state, seesAll, canEdit,
+}: {
+  b: Batch;
+  state: BatchState;
+  seesAll: boolean;
+  canEdit: boolean;
+}) {
+  // 협력사 — 가확정이면 이 합계로 계산서를 발행한다. 그것이 이 화면에 오는 이유다.
+  if (!seesAll) {
+    return state === '가확정' ? (
+      <span className="text-small font-bold text-amber-700">세금계산서 발행 — 위 합계로</span>
+    ) : (
+      <span className="text-small text-slate-300">—</span>
+    );
+  }
+
+  const attached = b.invoice ? (
+    <a
+      href={b.invoice.blobUrl}
+      target="_blank"
+      rel="noopener"
+      className="text-small font-bold text-brand-700 underline-offset-2 hover:underline"
+    >
+      계산서
+    </a>
+  ) : null;
+
+  // 열람 전용 — 행동 없이 사실만
+  if (!canEdit || !b.org) {
+    return attached ?? <span className="text-small text-slate-300">계산서 미첨부</span>;
+  }
+
+  /*
+   * 확정 누락에도 확정 단추를 준다 — 예전에는 지급일이 지나면 단추가 사라져서, 놓친
+   * 배치를 목록에서 고칠 수 없었다(상세에는 있는데 목록에는 신호도 길도 없었다).
+   * 확정은 지급의 전제라 놓친 것일수록 바로 그 자리에서 채워야 한다(화면 규칙 7번).
+   */
+  const canFinalize = state === '가확정' || state === '확정 누락';
+
+  return (
+    <span className="inline-flex items-center gap-2.5">
+      {/* 첨부는 확정 여부와 무관하다(보관용) — 잠긴 배치에도 계산서는 붙는다 */}
+      {attached ?? <RowAttach org={b.org} kind={b.kind} date={b.paidAt} />}
+      {canFinalize && <RowFinalize org={b.org} kind={b.kind} date={b.paidAt} />}
+    </span>
   );
 }
 

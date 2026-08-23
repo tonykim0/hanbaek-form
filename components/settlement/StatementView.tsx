@@ -93,7 +93,12 @@ export default function StatementView({
             {/* 종이에는 배지를 찍지 않는다 — 상태는 화면의 것이다 */}
             {canEdit && (
               <span className="print:hidden">
-                <Badge tone={state === '확정' ? 'ok' : state === '가확정' ? 'warn' : 'mute'}>
+                <Badge tone={
+                  state === '확정' ? 'ok'
+                    : state === '가확정' ? 'warn'
+                      : state === '확정 누락' ? 'stop'
+                        : 'mute'
+                }>
                   {state}
                 </Badge>
               </span>

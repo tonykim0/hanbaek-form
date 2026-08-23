@@ -294,7 +294,15 @@ function StepCells({
         )}
       </td>
 
-      {/* 상태 — 배치의 자리(가확정→확정→지급완료 · 확정 누락) 또는 그 앞의 사정 */}
+      {/*
+        상태 — 배치의 자리(가확정→확정→지급완료 · 확정 누락) 또는 그 앞의 사정.
+
+        ★한 열에 한 부품이다 (한백 지적 2026-08-25).★ 지급 가능은 각진 Tag, 배치 상태는
+        동근 Badge, 대기·1차 뒤는 맨 텍스트 — 셋이 섞여 있었다. 이 칸의 값은 전부
+        「그 회차가 지금 있는 자리」 하나라 전부 동근 Badge 다(화면 규칙 11번).
+        트리거 대기는 「대기」로 줄인다 — 무엇의 대기인지는 금액 칸이 말한다(「계약완료 전」).
+        그 밖의 사정(수수료 미정 등)은 상태가 아니라 이유라 배지 밑에 글로 남는다.
+      */}
       <td className="whitespace-nowrap px-3 py-2.5 align-top">
         {done && state ? (
           <Badge tone={
@@ -307,18 +315,22 @@ function StepCells({
           </Badge>
         ) : openHere ? (
           p.state === '지급 가능' ? (
-            /* 가확정은 왼쪽 체크 → 아래 가확정 바에서 — 여기는 상태만 말한다 */
-            <Tag tone="ok">지급 가능</Tag>
+            /* 가확정은 왼쪽 체크 → 가확정 바에서 — 여기는 상태만 말한다 */
+            <Badge tone="stage">지급 가능</Badge>
           ) : (
-            /* 지급시기는 금액 칸에 있다 — 트리거 대기는 「대기」로 줄여 같은 말을 두 번 안 적는다 */
-            p.blockers.map((reason) => (
-              <p key={reason} className="text-micro font-bold text-amber-700">
-                {reason === `${release.trigger} 대기` ? '대기' : reason}
-              </p>
-            ))
+            <>
+              <Badge tone="warn">대기</Badge>
+              {p.blockers
+                .filter((reason) => reason !== `${release.trigger} 대기`)
+                .map((reason) => (
+                  <p key={reason} className="mt-0.5 text-micro font-bold text-amber-700">
+                    {reason}
+                  </p>
+                ))}
+            </>
           )
         ) : (
-          <p className="text-micro font-bold text-slate-300">1차 뒤</p>
+          <Badge tone="mute">1차 뒤</Badge>
         )}
       </td>
 

@@ -131,6 +131,15 @@ export default function PayoutWorkBoard({
             </select>
           </label>
         )}
+
+        {/*
+          가확정 바 — 표 오른쪽 위 (한백 요청 2026-08-25). 표 아래에 있었는데, 체크는
+          표에서 하고 확인은 맨 아래로 내려가야 해서 손이 오르내렸다. 필터(왼쪽)와
+          동작(오른쪽)이 한 줄에 서는 것은 다른 표들과 같은 꼴이다.
+        */}
+        {canConfirm && shown.some((p) => p.state === '지급 가능') && (
+          <ConfirmBar chosen={chosen} onDone={() => setPicked(new Set())} />
+        )}
       </div>
 
       {shown.length === 0 ? (
@@ -211,9 +220,6 @@ export default function PayoutWorkBoard({
         </Frame>
       )}
 
-      {canConfirm && shown.some((p) => p.state === '지급 가능') && (
-        <ConfirmBar chosen={chosen} onDone={() => setPicked(new Set())} />
-      )}
     </div>
   );
 }
@@ -422,7 +428,7 @@ function ConfirmBar({ chosen, onDone }: { chosen: PayoutWork[]; onDone: () => vo
   }
 
   return (
-    <div className="mt-3 flex flex-wrap items-center gap-2.5">
+    <div className="ml-auto flex flex-wrap items-center justify-end gap-2.5">
       <span className="text-small font-bold text-slate-600">
         {chosen.length}건 · 지급처 {orgCount}곳 · <span className="tabular-nums">{won(sum)}</span>원
       </span>

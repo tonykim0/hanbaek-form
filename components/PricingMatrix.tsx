@@ -1027,6 +1027,12 @@ function CaseForm({
   const [coexistTerms, setCoexistTerms] = useState(prefill.coexistTerms ?? '');
   const [miscTerms, setMiscTerms] = useState(prefill.miscTerms ?? '');
   const [note, setNote] = useState(prefill.note ?? '');
+  /*
+   * 지원·조건은 운영사 공통 적용사항이라 개정(단가 갱신)에서 거의 안 바뀐다 — 펼쳐 두면
+   * 개정마다 여섯 칸이 「고쳐야 하는 것」처럼 보인다(한백 지적 2026-08-23). 개정은 접어
+   * 두고 원 케이스 값을 그대로 싣는다. 조건까지 바뀌는 개정만 사람이 펼쳐서 고친다.
+   */
+  const [showTerms, setShowTerms] = useState(!prefill.after);
 
   /*
    * 목록의 수정·개정, 그리드 칸에서 열리면 폼이 화면 밖(맨 위)에 있다 — 눌렀는데 아무 일도
@@ -1475,6 +1481,13 @@ function CaseForm({
       </FormSection>
 
       {/* ⑥ 지원·조건 — 매트릭스의 지급자재·설치조건·병행·기타지원·기타 행이 이 값 그대로다 */}
+      {!showTerms ? (
+        <div className="mt-5 border-t border-slate-100 pt-4">
+          <Btn size="sm" kind="quiet" onClick={() => setShowTerms(true)}>
+            지원·조건 고치기 — 지금은 원 케이스 값 그대로
+          </Btn>
+        </div>
+      ) : (
       <FormSection title="지원·조건" hint="매트릭스의 조건 행에 이 값이 그대로 선다 — 비워 두면 「미지정」">
         <div className="flex flex-col gap-4">
           <Field label="지급자재" hint="운영사가 대주는 품목 · 미지급품목도 같이">
@@ -1531,6 +1544,7 @@ function CaseForm({
           </Field>
         </div>
       </FormSection>
+      )}
 
       <div className="mt-5 border-t border-slate-100 pt-4">
         <div className="flex flex-wrap items-center gap-2">

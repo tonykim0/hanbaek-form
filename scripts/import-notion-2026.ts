@@ -152,7 +152,11 @@ function transform(page: NotionPage): Row | { skip: string } {
 
   const contractAt = date(p, '계약서수령일');
   if (!contractAt) issues.push('계약서수령일 없음 — 계약 확인 전으로 둔다');
-  const created = new Date(page.created_time);
+  // 접수일은 계약서수령일이다(한백 지시 2026-08-24) — 노션 페이지 생성일은 DB 를 꾸린
+  // 날일 뿐이라 대시보드 월별 수주가 그 달로 뭉친다. 수령일이 없을 때만 생성일로.
+  const created = contractAt
+    ? new Date(`${contractAt}T00:00:00+09:00`)
+    : new Date(page.created_time);
   // 정체일의 기준 — 노션 페이지를 마지막으로 만진 날이 실제 진척의 가장 가까운 근사치다
   // (생성일은 못 쓴다 — 페이지 대부분이 DB 를 꾸린 날 일괄 생성이라 전부 같은 날이 된다)
   const lastTouched = page.last_edited_time.slice(0, 10);

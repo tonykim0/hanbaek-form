@@ -189,7 +189,8 @@ function pickRule(row: Row, all: PricingRule[]): { rule: PricingRule | null; why
   const channel = row.salesOrg && row.gcOrg ? '턴키' : row.salesOrg ? '영업' : row.gcOrg ? '시공' : '턴키';
   const { exact } = matchingRules(
     { cpo: row.cpo, bizType: row.bizType, replType: row.replType, bldgType: row.bldgType },
-    { termYears: row.termYears, powerType: row.powerType, replType: row.replType },
+    // 혼용(한전불입+모자분리)은 라인 축에 못 넣는다 — 라인은 한 수전이고, null 이면 그 축을 건너뛴다
+    { termYears: row.termYears, powerType: row.powerType === '한전불입+모자분리' ? null : row.powerType, replType: row.replType },
     all
   );
   const byChannel = exact.filter((r) => r.channel === channel);

@@ -21,7 +21,7 @@ import { DocReview } from './DocReview';
 import { docState } from './parts';
 import { useShardLoader } from '@/components/ChargerHistoryLookup';
 import {
-  DATA_BASE, lookupChargerHistory, summarize, type LookupResult, type SiteRecord,
+  DATA_BASE, isSubsidized, lookupChargerHistory, summarize, type LookupResult, type SiteRecord,
 } from '@/lib/charger-history';
 import {
   lookupSubsidyHistory, SUBSIDY_DATA_BASE, summarizeSubsidy, type SubsidyRecord,
@@ -187,7 +187,7 @@ function Survey({ project }: { project: ProjectDetail['project'] }) {
           </div>
           {draft && (
             <div className="rounded-ctl bg-slate-50 px-3 py-2">
-              <p className="break-keep text-tiny leading-snug text-slate-700">{draft.text}</p>
+              <p className="whitespace-pre-line break-keep text-tiny leading-snug text-slate-700">{draft.text}</p>
               <div className="mt-1.5">
                 <Btn
                   size="sm"
@@ -229,7 +229,7 @@ function Survey({ project }: { project: ProjectDetail['project'] }) {
       ) : (
         <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
           {project.preChecked ? (
-            <p className="max-w-xl break-keep text-small text-slate-700">
+            <p className="max-w-xl whitespace-pre-line break-keep text-small text-slate-700">
               {project.preNote ?? <span className="text-slate-400">조사 내역 없음 — 파일만 있음</span>}
             </p>
           ) : (
@@ -246,41 +246,62 @@ function Survey({ project }: { project: ProjectDetail['project'] }) {
 
 
 /*
- * 조회 결과를 조사 내역 초안 한 문장으로 — /lookup 의 요약(summarize)과 같은 숫자를 쓰되,
- * 저장될 글이므로 표가 아니라 문장이다. 무매칭도 적는다 — 「이력 없음」은 조사 결과다.
+ * 조회 결과를 조사 내역 초안으로 — /lookup 과 같은 두 자료(DB1 충전소 이력 · DB2 보조금
+ * 신청 이력)를 같은 라벨로 각각 적는다(한 문장에 우겨넣으니 못 읽었다 — 한백 지적).
+ * 보조금 이력이 있으면 ★사업연도·대기번호★를 줄마다 적고, 기설치가 있는데 이력이 없으면
+ * ★미수령 증빙 필요★를 적는다. 무매칭도 적는다 — 「이력 없음」은 조사 결과다.
  */
 function draftOf(
   charger: LookupResult,
   subsidy: LookupResult<SubsidyRecord>
 ): { state: PreInstallState; text: string } {
-  const parts: string[] = [];
+  const lines: string[] = [];
   let found = false;
 
+  /* DB1 — 충전소 이력. /lookup 과 같은 라벨을 쓴다: 두 화면이 같은 말을 해야 대조가 된다 */
   if (charger.status === '매칭') {
     const sum = summarize(charger.record);
     found = sum.slow + sum.fast > 0;
     const ops = sum.operators.map((o) => `${o.name} ${o.qty}기`).join(' · ');
-    parts.push(
-      `완속 ${sum.slow}기 · 급속 ${sum.fast}기 (보조금 ${sum.subsidized}기 · 자부담 ${sum.ownFunded}기` +
-      (sum.applyYears.length ? ` · ${sum.applyYears.join('·')}년` : '') + ')' +
-      (ops ? ` — ${ops}` : '')
-    );
+    lines.push(`[DB1 충전소 이력] 완속 ${sum.slow}기 · 급속 ${sum.fast}기${ops ? ` — ${ops}` : ''}`);
+    if (sum.subsidized > 0 || sum.ownFunded > 0) {
+      // 보조금 설치분의 신청번호 — 신청 이력 자료(DB2)에 없는 현장에서도 번호가 남는 자리다
+      const applyNos = [...new Set(
+        charger.record.h.filter(([, , , code, no]) => isSubsidized(code) && no).map(([, , , , no]) => no)
+      )];
+      lines.push(
+        `  - 보조금 설치 ${sum.subsidized}기 · 자부담 ${sum.ownFunded}기`
+        + (applyNos.length ? ` — 신청번호 ${applyNos.join(' · ')}` : '')
+      );
+    }
   } else if (charger.status === '시군구불일치') {
-    parts.push('충전소 이력: 같은 주소가 다른 지역에 있음 — 주소 표기 확인 필요');
+    lines.push('[DB1 충전소 이력] 같은 주소가 다른 지역에 있음 — 주소 표기 확인 필요');
   } else {
-    parts.push('충전소 등록 이력 없음');
+    lines.push('[DB1 충전소 이력] 등록 이력 없음');
   }
 
-  if (subsidy.status === '매칭') {
+  /* DB2 — 보조금 신청 이력. 사업연도·대기번호는 환경부 신청 때 그대로 옮겨 적는 값이라 줄마다 다 적는다 */
+  if (subsidy.status === '매칭' && subsidy.record.q > 0) {
+    found = true;
     const sum = summarizeSubsidy(subsidy.record);
-    if (sum.units > 0) found = true;
-    parts.push(`보조금 신청 이력 ${sum.count}건 ${sum.units}기${sum.years.length ? ` (${sum.years.join('·')}년)` : ''}`);
+    lines.push(`[DB2 보조금 신청 이력] ${sum.count}건 ${sum.units}기`);
+    for (const [year, waitNo, qty, type, doneAt] of sum.rows) {
+      lines.push(
+        `  - ${year || '연도 미상'}년 · 대기번호 ${waitNo || '미상'} · ${type ? `${type} ` : ''}${qty}기`
+        + (doneAt ? ` · 공사완료 ${doneAt}` : '')
+      );
+    }
   } else {
-    parts.push('보조금 신청 이력 없음');
+    // 기설치가 있는데 신청 이력이 없으면 미수령 증빙이 필요하다 — 그 서류가 이 구역의 증빙 칸이다
+    lines.push(
+      found
+        ? '[DB2 보조금 신청 이력] 없음 — 기설치분 보조금 미수령 증빙 필요'
+        : '[DB2 보조금 신청 이력] 없음'
+    );
   }
 
   return {
     state: found ? '있음' : '없음',
-    text: `[이력 조회 1차] ${parts.join(' / ')} — 현장 재확인 전`,
+    text: `[이력 조회 1차 — 현장 재확인 전]\n${lines.join('\n')}`,
   };
 }

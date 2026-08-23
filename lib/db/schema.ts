@@ -343,15 +343,25 @@ export const taxInvoices = pgTable('tax_invoices', {
   taxAmount: integer('tax_amount'),
   totalAmount: integer('total_amount'),
   uploadedAt: text('uploaded_at').notNull(),
-  /**
-   * 최종 확정 시각. null = 가확정(협력사가 이 금액으로 세금계산서를 발행하는 단계).
-   * 여기(세금계산서 행)에 두는 이유 — 첨부 없이 확정할 수 없다는 규칙이 자리로 강제된다.
-   * 확정되면 배치가 잠긴다: 항목 빼기·지급일 변경·계산서 교체·삭제 전부 해제 후에만.
-   */
-  finalizedAt: text('finalized_at'),
 }, (t) => ({
   // 배치(지급처 × 구분 × 지급일) 하나에 한 장 — 다시 올리면 교체다
   byBatch: uniqueIndex('tax_invoices_batch_kind_idx').on(t.org, t.payDate, t.kind),
+}));
+
+// ── 배치 최종 확정 ─────────────────────────────────────────────
+/**
+ * 확정된 배치(지급처 × 구분 × 지급일) — 행이 있으면 확정, 없으면 가확정이다.
+ * 세금계산서와 무관하다(한백 확인 2026-08-24 — 계산서는 검토 없는 보관용 첨부일 뿐,
+ * 확정은 한백이 배치를 잠그는 행위다). 확정되면 항목 빼기·지급일 변경·취소가 막힌다.
+ */
+export const batchFinals = pgTable('batch_finals', {
+  id: text('id').primaryKey(),
+  org: text('org').notNull(),
+  kind: text('kind').notNull(),
+  payDate: text('pay_date').notNull(),
+  finalizedAt: text('finalized_at').notNull(),
+}, (t) => ({
+  byBatch: uniqueIndex('batch_finals_batch_idx').on(t.org, t.kind, t.payDate),
 }));
 
 // ── 감사 로그 ───────────────────────────────────────────────────

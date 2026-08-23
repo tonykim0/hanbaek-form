@@ -7,10 +7,11 @@
  * (원장 삭제 → 그 회차는 지급 가능으로 돌아간다) 지급관리 표에서 다시 가확정한다.
  * 반쯤 고친 명세서가 남는 것보다, 원장을 고치고 이 장을 다시 그리는 것이 맞다.
  *
- * ★최종 확정이 여기 있다★ — 협력사가 가확정 합계로 발행한 세금계산서를 첨부하고,
- * 금액을 눈으로 확인한 뒤 누른다. 확정되면 배치가 잠긴다(빼기·지급일 변경·계산서
- * 교체 전부) — 협력사가 그 합계로 계산서를 이미 발행했기 때문이다. 잠금은 서버가
- * 지킨다(pg-store) — 여기서는 눌리지 않게 감출 뿐이다.
+ * ★최종 확정이 여기 있다★ — 세금계산서와 무관하게 한백이 누른다(한백 확인
+ * 2026-08-24, 계산서는 검토 없는 보관용 첨부일 뿐이다). 확정되면 배치가 잠긴다
+ * (빼기·지급일 변경·취소) — 협력사에게 이 합계가 최종이라고 말한 것이기 때문이다.
+ * 계산서 첨부·교체·삭제는 잠기지 않는다. 잠금은 서버가 지킨다(pg-store) —
+ * 여기서는 눌리지 않게 감출 뿐이다.
  *
  * ★부가세 줄★ 원장 금액은 공급가액이다(한백 확인 2026-08-23). 부가세·합계는 참고로
  * 적는다 — 실제 송금액은 합계다.
@@ -26,7 +27,7 @@ import { Badge, Btn, Err, FIELD_CELL, Saved } from '@/components/ui';
 import { won } from './parts';
 
 export default function StatementView({
-  rows, org, date, kind, invoice, canEdit,
+  rows, org, date, kind, invoice, finalized, canEdit,
 }: {
   rows: PayoutRow[];
   org: string;
@@ -35,12 +36,13 @@ export default function StatementView({
   kind: PayoutKind | null;
   /** 이 배치의 세금계산서 — 한백의 눈일 때만 내려온다(협력사는 null) */
   invoice: TaxInvoice | null;
+  /** 최종 확정 여부 — batch_finals 의 행 유무. 계산서와 무관하다. */
+  finalized: boolean;
   /** 항목 빼기·지급일 변경·세금계산서 관리 — 관리자만, 배치(kind 있음)일 때만 */
   canEdit: boolean;
 }) {
   const supply = rows.reduce((n, r) => n + r.amount, 0);
   const vat = Math.round(supply * 0.1);
-  const finalized = !!invoice?.finalizedAt;
   // 잠긴 배치에는 빼기 열 자체가 없다 — 눌리지 않는 단추를 늘어놓지 않는다
   const canRemove = canEdit && !finalized;
 
@@ -143,12 +145,17 @@ export default function StatementView({
 
       {canEdit && kind && rows.length > 0 && (
         <div className="mt-5 grid gap-4 print:hidden lg:grid-cols-2">
-          <InvoiceCard org={org} kind={kind} date={date} invoice={invoice} statementSupply={supply} />
-          {finalized ? (
-            <Unfinalize org={org} kind={kind} date={date} />
-          ) : (
-            <MoveBatch org={org} kind={kind} date={date} />
-          )}
+          <div className="flex flex-col gap-4">
+            {finalized ? (
+              <Unfinalize org={org} kind={kind} date={date} />
+            ) : (
+              <>
+                <Finalize org={org} kind={kind} date={date} supply={supply} />
+                <MoveBatch org={org} kind={kind} date={date} />
+              </>
+            )}
+          </div>
+          <InvoiceCard org={org} kind={kind} date={date} invoice={invoice} />
         </div>
       )}
     </>
@@ -198,34 +205,22 @@ function ItemRow({ r, canEdit }: { r: PayoutRow; canEdit: boolean }) {
 }
 
 /* ── 세금계산서 ───────────────────────────────────────────────────────────
- * 명세서 기록 옆의 첨부다 — 금액 판독·대조는 걷어냈다(한백 확인 2026-08-23).
+ * 명세서 기록 옆의 첨부다 — 검토·대조·확정과 무관하다(한백 확인 2026-08-24).
  * 협력사가 발행해 보낸 것을 붙여 두는 보관함이고, 배치 하나에 한 장이다.
+ * 확정 여부와 상관없이 언제든 붙이고 바꾸고 지운다.
  */
 function InvoiceCard({
-  org, kind, date, invoice, statementSupply,
+  org, kind, date, invoice,
 }: {
   org: string;
   kind: PayoutKind;
   date: string;
   invoice: TaxInvoice | null;
-  /** 명세서 합계 — 최종 확정 버튼 옆에 적어, 계산서와 눈으로 대조하고 누르게 한다 */
-  statementSupply: number;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const del = useAction();
-  const fin = useAction();
-  const finalized = !!invoice?.finalizedAt;
-
-  async function finalize(undo: boolean) {
-    const ok = await fin.run({
-      url: '/api/statements/finalize',
-      body: { org, kind, payDate: date, undo },
-      fail: undo ? '해제하지 못했습니다.' : '확정하지 못했습니다.',
-    });
-    if (ok) router.refresh();
-  }
 
   async function upload(file: File) {
     setBusy(true);
@@ -318,48 +313,62 @@ function InvoiceCard({
           </p>
 
           <div className="flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3">
-            {finalized ? (
-              /* 잠긴 배치 — 교체·삭제 자리가 없다. 풀려면 옆 카드의 확정 해제부터. */
-              <p className="text-small font-bold text-brand-800">
-                최종 확정됨 · {invoice.finalizedAt}
-              </p>
-            ) : (
-              <>
-                {/*
-                  * 확정 = 「이 계산서가 이 명세서와 맞다」는 사람의 판단이다.
-                  * 그래서 명세서 합계를 버튼 옆에 적는다 — 계산서를 열어 이 숫자와
-                  * 맞는지 눈으로 확인하고 누른다(자동 대조는 걷어냈다, 2026-08-23).
-                  */}
-                <Btn size="sm" busy={fin.busy} busyLabel="확정 중…" onClick={() => void finalize(false)}>
-                  최종 확정
-                </Btn>
-                <span className="text-tiny text-slate-500">
-                  공급가액 <b className="tabular-nums">{won(statementSupply)}</b>원과 맞는지 확인 후
-                </span>
-                <label className="ml-auto cursor-pointer text-small font-bold text-slate-500 transition hover:text-slate-800">
-                  파일 교체
-                  <input
-                    type="file"
-                    accept="application/pdf,image/jpeg,image/png,image/webp"
-                    disabled={busy}
-                    onChange={(e) => {
-                      const f = e.target.files?.[0];
-                      if (f) void upload(f);
-                      e.target.value = '';
-                    }}
-                    className="hidden"
-                  />
-                </label>
-                <Btn kind="quiet" size="sm" busy={del.busy} onClick={() => void remove()}>
-                  삭제
-                </Btn>
-              </>
-            )}
+            <label className="cursor-pointer text-small font-bold text-slate-500 transition hover:text-slate-800">
+              파일 교체
+              <input
+                type="file"
+                accept="application/pdf,image/jpeg,image/png,image/webp"
+                disabled={busy}
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) void upload(f);
+                  e.target.value = '';
+                }}
+                className="hidden"
+              />
+            </label>
+            <span className="ml-auto" />
+            <Btn kind="quiet" size="sm" busy={del.busy} onClick={() => void remove()}>
+              삭제
+            </Btn>
             {busy && <span className="text-small font-bold text-slate-500">올리는 중…</span>}
-            <Err>{error ?? del.error ?? fin.error}</Err>
+            <Err>{error ?? del.error}</Err>
           </div>
         </div>
       )}
+    </section>
+  );
+}
+
+/**
+ * 최종 확정 — 배치를 잠근다. 세금계산서와 무관하다(검토 없는 보관용 첨부일 뿐).
+ * 확정하면 빼기·지급일 변경·취소가 막힌다 — 협력사에게 이 합계가 최종이라고 말한 것이다.
+ */
+function Finalize({ org, kind, date, supply }: { org: string; kind: PayoutKind; date: string; supply: number }) {
+  const router = useRouter();
+  const { busy, error, run } = useAction();
+
+  async function finalize() {
+    const ok = await run({
+      url: '/api/statements/finalize',
+      body: { org, kind, payDate: date },
+      fail: '확정하지 못했습니다.',
+    });
+    if (ok) router.refresh();
+  }
+
+  return (
+    <section className="rounded-panel border border-slate-200 bg-white p-5">
+      <h2 className="mb-3 text-base font-black tracking-[-0.02em] text-slate-900">최종 확정</h2>
+      <div className="flex flex-wrap items-center gap-2">
+        <Btn size="sm" busy={busy} busyLabel="확정 중…" onClick={() => void finalize()}>
+          최종 확정
+        </Btn>
+        <span className="text-tiny text-slate-500">
+          공급가액 <b className="tabular-nums">{won(supply)}</b>원으로 잠급니다 — 빼기·지급일 변경이 막힙니다
+        </span>
+        <Err>{error}</Err>
+      </div>
     </section>
   );
 }

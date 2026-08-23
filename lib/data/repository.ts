@@ -13,7 +13,7 @@
  */
 import type {
   Court, DocStatus, HoldState, IntakeDraft, LineAxes, NewPayoutEntry, NewPricingRule, PayoutKind, PayoutRow, PreInstall, PricingRule,
-  PayoutPlanRow, ProcessInfo, ProcessStatus, ProjectDetail, ProjectSummary, Settlement, SettlementRule, SettlementSummary, TaxInvoice,
+  PayoutPlanRow, ProcessInfo, ProcessStatus, ProjectDetail, ProjectSummary, Settlement, SettlementRule, SettlementSummary, BatchFinal, TaxInvoice,
 } from '@/types/project';
 import type { Actor, Viewer } from '@/lib/auth/types';
 
@@ -339,20 +339,20 @@ export interface ProjectRepository {
     org: string, kind: PayoutKind, from: string, to: string, actor: Actor
   ): Promise<{ moved: number }>;
 
-  /**
-   * 세금계산서 목록 — 배치 목록에 첨부·확정 상태를 붙이는 데 쓴다.
-   * 협력사는 자기 지급처 것만 받는다(자기가 발행한 문서 + 가확정/확정 신호).
-   */
+  /** 세금계산서 목록 — 한백의 보관함. 배치 상태는 listBatchFinals 가 따로 준다. [한백의 눈] */
   listTaxInvoices(actor: Actor): Promise<TaxInvoice[]>;
 
   /**
    * 배치 최종 확정·해제. [한백 전용]
    *
-   * 가확정(runPayoutBatch) → 협력사가 세금계산서 발행 → 첨부 → 여기서 확정.
-   * 첨부가 전제라 확정 시각은 세금계산서 행에 산다. 확정되면 배치가 잠긴다 —
-   * 항목 빼기·지급일 변경·계산서 교체·삭제 전부 해제 후에만 된다(화면 규칙 7번).
+   * 세금계산서와 무관하다(한백 확인 2026-08-24) — 계산서는 보관용 첨부일 뿐이고
+   * 확정은 한백이 배치를 잠그는 행위다. 확정되면 항목 빼기·지급일 변경·취소가
+   * 해제 후에만 된다(화면 규칙 7번). 계산서 첨부·교체·삭제는 잠기지 않는다.
    */
   finalizeBatch(org: string, kind: PayoutKind, payDate: string, undo: boolean, actor: Actor): Promise<void>;
+
+  /** 확정된 배치 목록 — 가확정/확정 배지의 정본. 협력사는 자기 지급처 것만 받는다. */
+  listBatchFinals(actor: Actor): Promise<BatchFinal[]>;
 
   /**
    * 배치 가확정 취소 — 그 배치의 지급 줄 전부를 원장에서 지운다. [한백 전용]

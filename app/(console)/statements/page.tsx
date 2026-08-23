@@ -15,17 +15,20 @@ export const dynamic = 'force-dynamic';
  * 가확정 합계로 세금계산서를 발행하고, 첨부되면 명세서 상세에서 최종 확정한다.
  *
  * ★협력사도 본다★ — 자기 배치만 내려오므로(저장소가 가른다) 「이번 달 가확정분 =
- * 발행할 계산서」와 확정분을 여기서 확인한다. 세금계산서 목록도 협력사는 자기
- * 지급처 것만 받는다(listTaxInvoices 가 가른다) — 상태 배지가 거기서 나온다.
+ * 발행할 계산서」와 확정분을 여기서 눈으로 확인한다. 확정 배지는 listBatchFinals 에서
+ * 나온다(협력사는 자기 것만). 협력사가 누르는 것은 없다 — 확정도 첨부도 한백의 일이다.
  */
 export default async function StatementsPage() {
   const session = await getSessionUser();
   if (!session) redirect('/login?next=/statements');
 
   const seesAll = isHanbaek(session.role);
-  const [{ history }, invoices] = await Promise.all([
+  const [{ history }, finals, invoices] = await Promise.all([
     getRepository().listPayoutOverview(viewerOf(session)),
-    getRepository().listTaxInvoices(actorOf(session)),
+    // 가확정/확정 배지의 정본 — 협력사는 자기 지급처 것만 받는다
+    getRepository().listBatchFinals(actorOf(session)),
+    // 첨부는 한백의 보관함 — 협력사 화면에는 열 자체가 없다
+    seesAll ? getRepository().listTaxInvoices(actorOf(session)) : Promise.resolve([]),
   ]);
 
   return (
@@ -39,7 +42,7 @@ export default async function StatementsPage() {
         </p>
       </div>
 
-      <StatementsBoard history={history} invoices={invoices} seesAll={seesAll} />
+      <StatementsBoard history={history} finals={finals} invoices={invoices} seesAll={seesAll} />
     </>
   );
 }

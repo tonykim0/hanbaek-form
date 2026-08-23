@@ -26,7 +26,7 @@
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import type { TaxInvoice } from '@/types/project';
+import type { BatchFinal } from '@/types/project';
 import { payoutReleaseOf } from '@/lib/settlement';
 import { payDateChoices, workOf, type PayoutRowInput, type PayoutWork } from '@/lib/payout-board';
 import { today } from '@/lib/date';
@@ -47,11 +47,11 @@ type KindFilter = (typeof KIND_FILTERS)[number];
 type StepFilter = (typeof STEP_FILTERS)[number];
 
 export default function PayoutWorkBoard({
-  rows, invoices, canConfirm,
+  rows, finals, canConfirm,
 }: {
   rows: PayoutRowInput[];
-  /** 배치의 확정 상태 — (지급처×구분×지급일)의 세금계산서 행. 지급 칸 배지가 본다. */
-  invoices: TaxInvoice[];
+  /** 확정된 배치(지급처×구분×지급일) — 지급 칸의 가확정/확정 배지가 본다 */
+  finals: BatchFinal[];
   /** 지급일을 골라 확정할 수 있는가 — 한백만. 협력사는 같은 표를 읽기만 한다. */
   canConfirm: boolean;
 }) {
@@ -63,8 +63,8 @@ export default function PayoutWorkBoard({
   const work = useMemo(() => rows.map(workOf), [rows]);
   // 배치 확정 여부 — 지급 칸이 「가확정」과 「확정」을 가르는 데 쓴다
   const finalizedBatches = useMemo(
-    () => new Set(invoices.filter((i) => i.finalizedAt).map((i) => `${i.org}|${i.kind}|${i.payDate}`)),
-    [invoices]
+    () => new Set(finals.map((f) => `${f.org}|${f.kind}|${f.payDate}`)),
+    [finals]
   );
   const orgs = useMemo(
     () => [...new Set(work.map((p) => p.org).filter(Boolean) as string[])]

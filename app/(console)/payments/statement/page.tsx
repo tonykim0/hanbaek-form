@@ -59,6 +59,12 @@ export default async function StatementPage({
         (i) => i.org === org && i.kind === kind && i.payDate === date
       ) ?? null
     : null;
+  // 확정 여부 — 계산서와 무관하게 제 테이블(batch_finals)에 산다. 협력사도 자기 것은 본다.
+  const finalized = kind
+    ? (await getRepository().listBatchFinals(actorOf(session))).some(
+        (f) => f.org === org && f.kind === kind && f.payDate === date
+      )
+    : false;
 
   return (
     <div className="mx-auto max-w-3xl">
@@ -79,6 +85,7 @@ export default async function StatementPage({
         date={date}
         kind={kind}
         invoice={invoice}
+        finalized={finalized}
         canEdit={session.role === 'admin' && kind !== null}
       />
     </div>

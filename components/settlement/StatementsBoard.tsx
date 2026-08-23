@@ -17,7 +17,7 @@
  */
 import { useMemo } from 'react';
 import Link from 'next/link';
-import type { PayoutKind, PayoutRow, TaxInvoice } from '@/types/project';
+import type { BatchFinal, PayoutKind, PayoutRow, TaxInvoice } from '@/types/project';
 import { today } from '@/lib/date';
 import { Badge, Blank, Empty, Tag } from '@/components/ui';
 import { Frame, won } from './parts';
@@ -28,6 +28,7 @@ interface Batch {
   kind: PayoutKind;
   count: number;
   total: number;
+  finalized: boolean;
   invoice: TaxInvoice | null;
 }
 
@@ -41,24 +42,29 @@ interface Batch {
  */
 function stateOf(b: Batch): '가확정' | '확정' | '지급완료' {
   if (b.paidAt < today()) return '지급완료';
-  return b.invoice?.finalizedAt ? '확정' : '가확정';
+  return b.finalized ? '확정' : '가확정';
 }
 
 export default function StatementsBoard({
-  history, invoices, seesAll,
+  history, finals, invoices, seesAll,
 }: {
   history: PayoutRow[];
+  /** 확정된 배치 — 상태 배지의 정본. 협력사도 자기 것을 받는다. */
+  finals: BatchFinal[];
+  /** 첨부 파일 — 한백의 눈일 때만 내려온다(협력사는 빈 배열) */
   invoices: TaxInvoice[];
   /** 한백의 눈인가 — 첨부 파일 열이 보인다. 협력사는 자기 배치의 상태만 본다. */
   seesAll: boolean;
 }) {
   const batches = useMemo<Batch[]>(() => {
     const inv = new Map(invoices.map((i) => [`${i.payDate}|${i.org}|${i.kind}`, i]));
+    const fin = new Set(finals.map((f) => `${f.payDate}|${f.org}|${f.kind}`));
     const map = new Map<string, Batch>();
     for (const r of history) {
       const key = `${r.paidAt}|${r.org ?? ''}|${r.kind}`;
       const b = map.get(key) ?? {
         paidAt: r.paidAt, org: r.org, kind: r.kind, count: 0, total: 0,
+        finalized: r.org ? fin.has(`${r.paidAt}|${r.org}|${r.kind}`) : false,
         invoice: r.org ? inv.get(`${r.paidAt}|${r.org}|${r.kind}`) ?? null : null,
       };
       b.count += 1;
@@ -71,7 +77,7 @@ export default function StatementsBoard({
         || (a.org ?? '').localeCompare(b.org ?? '', 'ko')
         || a.kind.localeCompare(b.kind)
     );
-  }, [history, invoices]);
+  }, [history, finals, invoices]);
 
   return (
     <section>

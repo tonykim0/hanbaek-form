@@ -852,10 +852,8 @@ export interface PayoutRow {
 /**
  * 세금계산서 — 배치(지급처 × 구분 × 지급일)에 붙는다. [한백 전용]
  *
- * 협력사가 발행해 보낸 것을 한백이 보관하고, 거래명세서 합계(공급가액)와 대조한다.
- * 금액은 올린 PDF 에서 AI 가 읽되(lib/tax-invoice.ts) 공급가액+세액=합계 검산을
- * 통과한 것만 채운다 — 검산에 실패하면 null 로 남고 사람이 적는다. 사람이 언제든
- * 고칠 수 있다(화면 규칙 7번 — 넣는 자리를 만들면 고치는 자리도 만든다).
+ * 협력사가 발행해 보낸 것을 명세서 옆에 붙여 두는 보관용 첨부다 — 검토·대조·확정과
+ * 무관하다(한백 확인 2026-08-24). 금액 칸은 옛 대조 기능의 잔재로 지금은 쓰지 않는다.
  */
 export interface TaxInvoice {
   id: string;
@@ -874,8 +872,17 @@ export interface TaxInvoice {
   /** 합계금액 (공급가액 + 세액) */
   totalAmount: number | null;
   uploadedAt: string;
-  /** 최종 확정 시각 — null 이면 가확정(협력사가 세금계산서를 발행하는 단계) */
-  finalizedAt: string | null;
+}
+
+/**
+ * 확정된 배치 — 행이 있으면 확정, 없으면 가확정. [협력사는 자기 지급처 것만]
+ * 세금계산서와 무관하다 — 계산서는 검토 없는 보관용 첨부다(한백 확인 2026-08-24).
+ */
+export interface BatchFinal {
+  org: string;
+  kind: PayoutKind;
+  payDate: string;
+  finalizedAt: string;
 }
 
 export interface ContractState {

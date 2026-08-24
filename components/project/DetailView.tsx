@@ -22,7 +22,7 @@ import { today } from '@/lib/date';
 import { DatePicker } from '@/components/DatePicker';
 import { Badge, Btn, Empty, Err, FIELD, Tag, type Tone, Val } from '@/components/ui';
 import { buildDocContext, evaluateDocs, isPartyInferred, PROCESS_DOCS } from '@/lib/doc-rules';
-import { BAND_TONE, bandOfColumn, boardColumnOf } from '@/lib/board';
+import { BAND_TONE, bandOfColumn, boardColumnOf, phaseOfProject } from '@/lib/board';
 import type { ProcessEdit } from '@/lib/process';
 import type { Visibility } from '@/lib/roles';
 import type { RuleOptions } from '@/lib/pricing-match';
@@ -75,12 +75,25 @@ export default function ProjectDetailView({
   /** 「계약서 접수하기」를 누를 수 있는가 — 내는 쪽(협력사·한백), 열람 전용은 아니다 */
   canSubmit: boolean;
 }) {
+  /*
+   * 주소에 탭이 없으면 국면이 정한다 — stage 를 그대로 쓰지 않는다.
+   *
+   * 계약완료·운영사 계약서 제출은 stage 가 construction 이지만 ★계약 국면★이다
+   * (보드에서도 계약 페이지의 칸이다, BAND_OF_STATUS). stage 로 탭을 정하면 운영사
+   * 제출을 기다리는 현장을 눌렀을 때 시공 탭이 열려서, 아직 아무 일도 없는 공정
+   * 스테퍼를 본다(한백 지적 2026-08-24). 판정은 보드와 같은 함수를 쓴다.
+   */
+  const byPhase: TabKey =
+    phaseOfProject({ stage: detail.stage, status: detail.process.status }) === '계약'
+      ? 'intake'
+      : detail.stage;
+
   // 잠긴 시공 탭은 URL 로도 못 연다 — 화면에서 못 누르는 것은 주소로도 안 된다.
   // 기성 탭도 같다 — 한백이 아니면 탭이 없으므로 주소로도 안 열린다.
   const [tab, setTab] = useState<TabKey>(() => {
-    if (!initialTab) return detail.stage;
-    if (initialTab === 'construction' && detail.stage === 'intake') return detail.stage;
-    if (initialTab === 'receivable' && !canReview) return detail.stage;
+    if (!initialTab) return byPhase;
+    if (initialTab === 'construction' && detail.stage === 'intake') return byPhase;
+    if (initialTab === 'receivable' && !canReview) return byPhase;
     return initialTab;
   });
   /**

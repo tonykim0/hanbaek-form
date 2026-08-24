@@ -26,6 +26,7 @@ import { useAction } from '@/lib/use-action';
 import { won } from '@/lib/format';
 import { today } from '@/lib/date';
 import { Badge, Btn, Choice, Empty, Err, FIELD, FIELD_CELL, Note, Saved, Tag } from '@/components/ui';
+import { DatePicker } from '@/components/DatePicker';
 
 // ── 정산 탭 ─────────────────────────────────────────────────────
 const STEP_STYLE: Record<SettlementStep['state'], string> = {
@@ -419,7 +420,7 @@ function PayConditions({
  */
 
 function PaymentSection({
-  lines, entries, salesOrg, gcOrg, vis,
+  projectId, lines, entries, salesOrg, gcOrg, vis, canReview,
 }: {
   projectId: string;
   lines: ProjectDetail['lines'];
@@ -591,7 +592,80 @@ function PaymentSection({
         </div>
         );
       })()}
+
+      {/* 조정을 적는 자리는 지금 프로모션 차감 하나만 연다 — 나머지 명목은 나중에(한백 지시) */}
+      {canReview && <PromoDeduction projectId={projectId} />}
     </section>
+  );
+}
+
+/**
+ * 프로모션 비용 차감 적기 — 한백 전용.
+ *
+ * 프로모션 연장(예: 6개월 250원 연장 → 영업비 10만 차감)은 계약 조건인데, 원장에
+ * 안 적으면 비고 문장으로만 떠돌다 지급 때 빠뜨린다 — 노션 정산관리 115행 중 10행이
+ * 그랬다. 원장에 적으면 총 지급액(계획+조정)·1차 70%·명세서에 자동 반영된다.
+ *
+ * 차감액은 양수로 받아 음수로 보낸다 — 「-100000」을 치게 하면 부호를 빠뜨린 반대
+ * 입력이 생긴다. 명목·검증은 서버(checkPayoutEntry)와 같은 정본이다.
+ */
+function PromoDeduction({ projectId }: { projectId: string }) {
+  const { busy, error, run } = useAction();
+  const [open, setOpen] = useState(false);
+  const [kind, setKind] = useState<PayoutKind>('영업비');
+  const [amount, setAmount] = useState('');
+  const [at, setAt] = useState<string>(today());
+  const [note, setNote] = useState('');
+
+  const parsed = Number(amount.replace(/[,\s]/g, ''));
+  const valid = Number.isInteger(parsed) && parsed > 0;
+
+  async function save() {
+    const ok = await run({
+      url: `/api/projects/${projectId}/payouts`,
+      body: { kind, category: '프로모션 비용 차감', amount: -parsed, at, note: note.trim() || null },
+      fail: '차감을 적지 못했습니다.',
+    });
+    if (ok) { setOpen(false); setAmount(''); setNote(''); }
+  }
+
+  if (!open) {
+    return (
+      <div className="mt-2">
+        <Btn size="sm" kind="quiet" onClick={() => setOpen(true)}>
+          프로모션 비용 차감 적기
+        </Btn>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-2 flex flex-wrap items-center gap-2 rounded-box border border-slate-200 p-3">
+      <span className="flex gap-1">
+        {(['영업비', '시공비'] as const).map((k) => (
+          <Choice key={k} on={kind === k} disabled={busy} onClick={() => setKind(k)}>{k}</Choice>
+        ))}
+      </span>
+      <input
+        inputMode="numeric"
+        value={amount}
+        onChange={(e) => setAmount(e.target.value)}
+        placeholder="차감액 (원)"
+        className={`${FIELD_CELL} w-36 text-right`}
+      />
+      <DatePicker ariaLabel="차감 반영일" value={at} onChange={(v) => setAt(v ?? today())} disabled={busy} />
+      <input
+        value={note}
+        onChange={(e) => setNote(e.target.value)}
+        placeholder="사유 — 예: 6개월 250원 프로모션 연장"
+        className={`${FIELD_CELL} min-w-[240px] flex-1`}
+      />
+      <Btn size="sm" busy={busy} busyLabel="적는 중…" disabled={!valid} onClick={() => void save()}>
+        {valid ? `${kind}에서 ${won(parsed)}원 차감` : '차감액을 적으세요'}
+      </Btn>
+      <Btn size="sm" kind="quiet" disabled={busy} onClick={() => setOpen(false)}>취소</Btn>
+      <Err className="w-full">{error}</Err>
+    </div>
   );
 }
 

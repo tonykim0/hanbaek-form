@@ -655,6 +655,12 @@ export const PAYOUT_CATEGORIES = [
   { key: '자재비', type: '조정', sign: 1, manual: true },
   { key: '추가공사비', type: '조정', sign: 1, manual: true },
   { key: '차감', type: '조정', sign: -1, manual: true },
+  /*
+   * 프로모션 연장의 영업비 차감 — 「차감」과 따로 둔다(한백 지시 2026-08-24).
+   * 명목이 곧 화면의 라벨이라, 뭉뚱그리면 명세서에서 왜 깎였는지 알 수 없다.
+   * 케이스의 연장 옵션(promoExtend)에서 자동으로 만드는 것은 나중에 — 지금은 손으로 적는다.
+   */
+  { key: '프로모션 비용 차감', type: '조정', sign: -1, manual: true },
   // 재정산은 방향이 정해져 있지 않다(추가 지급도, 감액도 있다) — 화면이 방향을 받는다
   { key: '재정산', type: '조정', sign: 0, manual: true },
 ] as const;

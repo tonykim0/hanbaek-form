@@ -7,7 +7,7 @@
  * 다운로드는 받아서 「현장명_서류명」으로 이름을 바꿔 저장한다 —
  * Blob 에 저장된 이름은 중복 회피용 접미사가 붙어 있어 그대로 주면 알아보기 어렵다.
  */
-import { useState } from 'react';
+import { useState, useSyncExternalStore } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAction } from '@/lib/use-action';
 import { Btn, Err } from '@/components/ui';
@@ -18,6 +18,67 @@ import { downloadBlob } from '@/lib/download';
 /** 파일 이름에 쓸 수 없는 문자를 지운다 */
 function safe(name: string): string {
   return name.replace(/[\\/:*?"<>|]/g, '_').trim();
+}
+
+/* ── 파일을 끌고 들어왔는가 ────────────────────────────────────────────────
+ * 창 어디로든 파일을 끌고 들어오면 서류 칸마다 드롭 자리가 펴진다. 평소에는 단추만
+ * 둔다 — 늘 펼쳐 두면 칸이 스무 개인 화면에서 점선 상자가 스무 개다(화면 규칙 2).
+ *
+ * 리스너는 창에 한 쌍만 붙인다(구독자 집합). 칸마다 useEffect 로 붙이면 스무 쌍이 되고,
+ * dragenter/leave 는 자식 요소를 지날 때마다 튀어서 깊이를 세는 상태도 스무 벌이 된다.
+ * 여기서 한 번 세고 결과만 나눠 준다.
+ */
+let dragDepth = 0;
+let dragging = false;
+const dragSubs = new Set<() => void>();
+
+/** 파일 드래그만 본다 — 글자·링크를 끌 때도 dragenter 는 뜬다 */
+const hasFiles = (e: DragEvent) => Boolean(e.dataTransfer?.types?.includes('Files'));
+
+function setDragging(next: boolean) {
+  if (dragging === next) return;
+  dragging = next;
+  dragSubs.forEach((fn) => fn());
+}
+
+function onWindowDragEnter(e: DragEvent) {
+  if (!hasFiles(e)) return;
+  dragDepth += 1;
+  setDragging(true);
+}
+function onWindowDragLeave(e: DragEvent) {
+  if (!hasFiles(e)) return;
+  dragDepth = Math.max(0, dragDepth - 1);
+  if (dragDepth === 0) setDragging(false);
+}
+function onWindowDragEnd() {
+  dragDepth = 0;
+  setDragging(false);
+}
+
+function subscribeDrag(cb: () => void): () => void {
+  if (dragSubs.size === 0) {
+    window.addEventListener('dragenter', onWindowDragEnter);
+    window.addEventListener('dragleave', onWindowDragLeave);
+    window.addEventListener('drop', onWindowDragEnd);
+    window.addEventListener('dragend', onWindowDragEnd);
+  }
+  dragSubs.add(cb);
+  return () => {
+    dragSubs.delete(cb);
+    if (dragSubs.size === 0) {
+      window.removeEventListener('dragenter', onWindowDragEnter);
+      window.removeEventListener('dragleave', onWindowDragLeave);
+      window.removeEventListener('drop', onWindowDragEnd);
+      window.removeEventListener('dragend', onWindowDragEnd);
+      onWindowDragEnd();
+    }
+  };
+}
+
+/** 서버 렌더에서는 늘 false — 드래그는 브라우저에서만 일어난다 */
+function useFileDragging(): boolean {
+  return useSyncExternalStore(subscribeDrag, () => dragging, () => false);
 }
 
 function extOf(doc: ProjectDocument): string {
@@ -201,6 +262,10 @@ export function DownloadAll({
  *
  * 브라우저가 Blob 에 직접 올린다 — 서버를 거치면 스캔본이 4.5MB 를 넘을 때 막힌다.
  * 올리고 나면 반려가 자동으로 풀리고 공이 한백으로 넘어간다.
+ *
+ * ★끌어다 놓아도 올라간다★ (한백 요청 2026-08-24) — 파일을 창으로 끌고 들어오면 그때
+ * 칸마다 드롭 자리가 펴진다. 접수 화면(UploadZone)은 원래 그렇게 되는데 서류 칸은
+ * 클릭뿐이라, 스캔한 서류를 폴더에서 바로 끌어 놓을 수 없었다.
  */
 export function DocUpload({
   projectId, kind, rejected, hasFile = false,
@@ -215,12 +280,27 @@ export function DocUpload({
   const [busy, setBusy] = useState(false);
   const [pct, setPct] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const filesInFlight = useFileDragging();
+  /** 이 칸 위에 있는가 — 창 전체의 드래그와 달리 놓을 자리를 가리킨다 */
+  const [over, setOver] = useState(false);
 
   async function onPick(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     e.target.value = ''; // 같은 파일을 다시 고를 수 있게 비운다
-    if (!file) return;
+    if (file) void upload(file);
+  }
 
+  async function onDrop(e: React.DragEvent) {
+    e.preventDefault();
+    setOver(false);
+    const dropped = Array.from(e.dataTransfer.files);
+    if (dropped.length === 0) return;
+    // 한 칸에 파일 하나다 — 여럿을 놓으면 첫 것만 올리고 그 사실을 말한다
+    if (dropped.length > 1) setError(`파일 하나만 올립니다 — ${dropped[0].name}`);
+    void upload(dropped[0]);
+  }
+
+  async function upload(file: File) {
     setBusy(true);
     setError(null);
     setPct(0);
@@ -273,16 +353,40 @@ export function DocUpload({
     }
   }
 
+  /*
+   * 파일을 끌고 들어오면 단추가 드롭 자리로 넓어진다 — 작은 단추에 조준해 놓기는 어렵다.
+   * 올리는 중에는 넓히지 않는다(진행률이 자리를 옮기면 어디를 보는지 잃는다).
+   */
+  const dropOpen = filesInFlight && !busy;
+
   return (
     <div className="mt-2">
       <label
-        className={`inline-flex cursor-pointer items-center rounded-ctl px-2 py-1 text-tiny font-bold transition ${
-          rejected
-            ? 'bg-brand-600 text-white hover:bg-brand-700'
-            : 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
+        onDragEnter={(e) => { e.preventDefault(); setOver(true); }}
+        onDragOver={(e) => { e.preventDefault(); setOver(true); }}
+        onDragLeave={(e) => {
+          // 자식으로 들어간 것은 떠난 것이 아니다 — 안 걸러내면 깜빡인다
+          if (e.currentTarget.contains(e.relatedTarget as Node | null)) return;
+          setOver(false);
+        }}
+        onDrop={onDrop}
+        className={`inline-flex cursor-pointer items-center rounded-ctl text-tiny font-bold transition ${
+          dropOpen
+            ? `w-full justify-center border border-dashed px-2 py-2 ${
+              over ? 'border-brand-500 bg-brand-50 text-brand-800' : 'border-slate-300 bg-white text-slate-500'
+            }`
+            : `px-2 py-1 ${
+              rejected
+                ? 'bg-brand-600 text-white hover:bg-brand-700'
+                : 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
+            }`
         } ${busy ? 'pointer-events-none opacity-60' : ''}`}
       >
-        {busy ? `업로드 중 ${pct}%` : rejected ? '다시 업로드' : hasFile ? '파일 바꾸기' : '파일 업로드'}
+        {busy
+          ? `업로드 중 ${pct}%`
+          : dropOpen
+            ? '여기에 놓기'
+            : rejected ? '다시 업로드' : hasFile ? '파일 바꾸기' : '파일 업로드'}
         <input type="file" className="hidden" onChange={onPick} disabled={busy} />
       </label>
       <Err className="mt-1 block">{error}</Err>

@@ -164,3 +164,22 @@ export function boardColumnOf(p: {
   }
   return p.status;
 }
+
+/**
+ * 협력사가 볼 다음 걸음 — 내 차례가 아닐 때는 조작이 아니라 기다리는 대상을 적는다.
+ *
+ * 「다음: 제출 체크」는 한백이 자기 화면에서 누를 것의 이름이다(한백 지시 2026-08-24).
+ * 협력사에게 그 말을 보여주면 자기가 무엇을 체크해야 하는 줄 읽는다 — 실제로 할 일이
+ * 없는 구간이라, 무엇을 기다리는 중인지가 맞는 말이다.
+ *
+ * null 이면 그 단계는 협력사의 일이다 — 그때는 게이트의 need 를 그대로 보여준다.
+ */
+const PARTNER_WAITING: Partial<Record<ProcessStatus, string>> = {
+  '운영사 계약서 제출': '운영사 접수 대기 중',
+  '준공서류 접수/검토': '한백 검토 대기 중',
+  '준공': '한백 준공마감 대기 중',
+};
+
+export function partnerWaitingOf(next: ProcessStatus): string | null {
+  return PARTNER_WAITING[next] ?? null;
+}

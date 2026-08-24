@@ -15,7 +15,7 @@
 import { useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import type { ProcessStatus, ProjectSummary } from '@/types/project';
-import { BOARD_COLUMNS, boardColumnOf, type BoardBand, type BoardColumn } from '@/lib/board';
+import { BOARD_COLUMNS, boardColumnOf, partnerWaitingOf, type BoardBand, type BoardColumn } from '@/lib/board';
 import { Tag } from '@/components/ui';
 import { StopControl } from '@/components/project/StopControl';
 
@@ -280,8 +280,17 @@ function Card({
             {next.status} 로 넘기기 →
           </button>
         ) : (
-          <p className={`mt-2 text-micro font-semibold ${next.ready ? 'text-brand-700' : 'text-amber-700'}`}>
-            {next.ready ? `${next.status} 준비됨` : `다음: ${next.need}`}
+          /*
+           * 협력사에게는 조작 이름 대신 기다리는 대상을 적는다 — 「다음: 제출 체크」는
+           * 한백이 누를 것의 이름이라, 협력사는 자기가 체크해야 하는 줄 읽는다
+           * (한백 지시 2026-08-24). 판정은 lib/board 가 한다.
+           */
+          <p className={`mt-2 text-micro font-semibold ${
+            !canMove && partnerWaitingOf(next.status) ? 'text-slate-500'
+              : next.ready ? 'text-brand-700' : 'text-amber-700'
+          }`}>
+            {(!canMove && partnerWaitingOf(next.status))
+              ?? (next.ready ? `${next.status} 준비됨` : `다음: ${next.need}`)}
           </p>
         )
       )}

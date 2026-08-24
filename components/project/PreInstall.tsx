@@ -67,6 +67,15 @@ export function PreInstall({
 
       <Survey project={project} />
 
+      {/*
+        * 조사도 보완이 필요하다(한백 지시 2026-08-24) — 서류와 같은 이치다. 조사 내역이
+        * 부실하면 「다시 조사해라」를 사유와 함께 돌려보낸다. 조사한 적이 없으면 되돌릴
+        * 것도 없으니 단추를 두지 않는다. 협력사가 조사를 다시 저장하면 반려가 풀린다.
+        */}
+      {canReview && project.preChecked && (
+        <SurveyReview projectId={project.id} rejected={project.preRejectReason !== null} />
+      )}
+
       <div className="mt-3 grid gap-1.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {docs.map((d) => {
           const doc = byKind.get(d.key);
@@ -109,6 +118,81 @@ export function PreInstall({
   );
 }
 
+
+/**
+ * 조사 반려 — 한백 전용. 서류 반려(DocReview)와 같은 모양이다.
+ *
+ * 승인 단추는 없다 — 제출된 조사는 기본이 통과이고, 한백이 하는 일은 부실한 것을
+ * 골라내는 것뿐이다(검수 규칙). 사유를 받는다: 사유 없이 되돌리면 협력사가 무엇을
+ * 다시 조사해야 할지 알 수 없다. 서버도 같은 검사를 한다(preinstall 라우트).
+ */
+function SurveyReview({ projectId, rejected }: { projectId: string; rejected: boolean }) {
+  const { busy, error, setError, run } = useAction();
+  const [open, setOpen] = useState(false);
+  const [reason, setReason] = useState('');
+
+  async function send(why: string | null) {
+    const ok = await run({
+      url: `/api/projects/${projectId}/preinstall`,
+      method: 'PATCH',
+      body: { preRejectReason: why },
+      fail: '처리에 실패했습니다.',
+    });
+    if (!ok) return;
+    setOpen(false);
+    setReason('');
+  }
+
+  if (open) {
+    return (
+      <div className="mt-2 flex max-w-xl flex-col gap-1.5">
+        <textarea
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          rows={2}
+          autoFocus
+          placeholder="보완 사유 — 협력사가 이 문장을 보고 다시 조사합니다"
+          className={`${FIELD} leading-snug`}
+        />
+        <div className="flex gap-1.5">
+          <Btn size="sm" kind="stop" disabled={!reason.trim()} busy={busy} onClick={() => void send(reason)}>
+            조사 반려 확정
+          </Btn>
+          <Btn size="sm" kind="side" disabled={busy} onClick={() => { setOpen(false); setReason(''); setError(null); }}>
+            취소
+          </Btn>
+        </div>
+        <Err>{error}</Err>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-2 flex items-center gap-2">
+      {rejected ? (
+        <>
+          <Btn size="sm" busy={busy} onClick={() => void send(null)}>
+            반려 해제
+          </Btn>
+          <Btn size="sm" kind="undo" disabled={busy} onClick={() => setOpen(true)}>
+            사유 수정
+          </Btn>
+        </>
+      ) : (
+        /* 여는 자리는 글자만 — 확정만 빨강 배경이다(화면 규칙 12) */
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => setOpen(true)}
+          className="text-tiny font-bold text-red-700 underline decoration-red-300 transition hover:text-red-900 disabled:text-slate-300"
+        >
+          조사 반려
+        </button>
+      )}
+      <Err>{error}</Err>
+    </div>
+  );
+}
 
 /*
  * 조사 결과 — 있음/없음과 조사 내역(대수·kW·운영사·보조금 이력 등).

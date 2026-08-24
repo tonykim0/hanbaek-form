@@ -29,7 +29,7 @@ import type {
 } from '@/types/project';
 import { subsidized } from '@/types/project';
 import type { Viewer } from '@/lib/auth/types';
-import { canAccessProject, effectiveVisibility, isHanbaek, normalizeOrg } from '@/lib/roles';
+import { canAccessProject, canWrite, effectiveVisibility, isHanbaek, normalizeOrg } from '@/lib/roles';
 import { needsPreInstallCheck, PROCESS_DOCS } from '@/lib/doc-rules';
 import {
   asProcessStatus, assertProcessWrite, canEnter, CHECK_ADVANCES, COURT_AFTER_STATUS, statusIndex,
@@ -118,6 +118,7 @@ function toProject(r: ProjectRow): Project {
     envQueueNo: r.envQueueNo,
     note: r.note,
     contractConfirmedAt: r.contractConfirmedAt,
+    contractSubmittedAt: r.contractSubmittedAt,
     createdAt: dayOf(r.createdAt),
     settlementRuleId: r.settlementRuleId,
     settlementAppliedAt: r.settlementAppliedAt,
@@ -1720,6 +1721,52 @@ export const pgRepository: ProjectRepository = {
           field: 'gcOrg', oldValue: row.gcOrg, newValue: next.gcOrg,
         });
       }
+    });
+  },
+
+  async submitContract(projectId, submitted, actor): Promise<void> {
+    // 열람 전용은 무엇도 바꾸지 않는다 — 라우트 껍데기가 이미 막지만 여기서 한 번 더
+    if (!canWrite(actor.role)) throw new Error('계약서 접수는 열람 전용이 할 수 없습니다.');
+
+    const rows = await getDb().select().from(projects).where(eq(projects.id, projectId)).limit(1);
+    if (!rows[0]) throw new Error('현장을 찾을 수 없습니다.');
+    // 내는 쪽이 누르는 자리다 — 그 현장의 협력사와 한백만
+    if (!canAccessProject(actor.role, actor.org, rows[0])) {
+      throw new Error('이 현장의 계약서를 접수할 수 없습니다.');
+    }
+    const [record] = await recordsOf(rows);
+    if (!record) throw new Error('현장을 찾을 수 없습니다.');
+
+    /*
+     * 낼 것이 남았는데 「다 냈다」고 할 수는 없다 — 조건은 lib/stage.ts 가 정본이다.
+     * 반려는 막지 않는다: 반려된 서류를 다시 올리면 그 순간 반려가 풀리고(attach-doc),
+     * 그때 다시 누르는 것이 보완의 끝이다.
+     */
+    const state = contractStateFor(record);
+    if (submitted && !state.docsFilled) {
+      throw new Error('필수 서류를 다 올려야 계약서를 접수할 수 있습니다.');
+    }
+
+    const before = record.project.contractSubmittedAt;
+    const after = submitted ? today() : null;
+    if (Boolean(before) === Boolean(after)) return;
+
+    const db = getDb();
+    await db.transaction(async (tx) => {
+      await tx
+        .update(projects)
+        .set({
+          contractSubmittedAt: after,
+          // 냈으면 볼 차례가 한백이고, 되돌리면 다시 내는 쪽 차례다
+          court: submitted ? '한백' : '영업사',
+          lastProgressAt: today(),
+        })
+        .where(eq(projects.id, projectId));
+
+      await writeAudit(tx, {
+        projectId, actor, action: submitted ? '계약서 접수' : '계약서 접수 취소',
+        field: 'contractSubmittedAt', oldValue: before, newValue: after,
+      });
     });
   },
 

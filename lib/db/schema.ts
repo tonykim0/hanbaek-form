@@ -174,6 +174,11 @@ export const projects = pgTable('projects', {
    * 서류가 반려되면 지워진다 — 보완 뒤 다시 확인해야 한다.
    */
   contractConfirmedAt: text('contract_confirmed_at'),
+  /**
+   * 협력사가 「계약서 접수하기」를 누른 날 (YYYY-MM-DD). null 이면 아직 모으는 중이다.
+   * 확인일과 짝이다 — 이쪽은 협력사가 「다 냈다」, 저쪽은 한백이 「봤다」.
+   */
+  contractSubmittedAt: text('contract_submitted_at'),
   /** 한백이 현장별로 적용하는 정산 규칙 */
   settlementRuleId: text('settlement_rule_id').references(() => settlementRules.id),
   settlementAppliedAt: text('settlement_applied_at'),

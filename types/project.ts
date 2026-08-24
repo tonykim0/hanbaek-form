@@ -168,6 +168,15 @@ export interface Project {
    * 앞서 한 확인을 무효로 만든다 — 보완한 뒤 다시 확인해야 한다.
    */
   contractConfirmedAt: string | null;
+  /**
+   * 협력사가 계약서 접수를 마쳤다고 누른 날. null 이면 아직 모으는 중이다.
+   *
+   * ★왜 저장하는가★ 필수 서류 칸이 차는 것만으로 계약검토로 올리면, 협력사가 아직
+   * 고치는 중인 것이 한백의 검토 칸에 선다 — 「다 냈다」고 말할 자리가 없었다.
+   * 단계를 저장하는 것이 아니다: 이것도 확인일처럼 「사람이 한 일」의 기록이고,
+   * 칸은 그 기록에서 유도된다(lib/board.ts).
+   */
+  contractSubmittedAt: string | null;
   createdAt: string;
   /** 한백이 현장별로 적용하는 정산 규칙. 미지정이면 기성이 계산되지 않는다. */
   settlementRuleId: string | null;
@@ -706,6 +715,8 @@ export interface ProjectSummary {
    * 계약접수(아직 모으는 중)와 계약검토(다 찼으니 한백 차례)를 가르는 값이다.
    */
   docsFilled: boolean;
+  /** 협력사가 계약서 접수를 마쳤다고 눌렀는가 — 계약접수와 계약검토를 가른다 */
+  submitted: boolean;
   /**
    * 지금 넘어갈 수 있는 공정 단계.
    * 보드가 놓을 수 없는 칸을 미리 가리는 데 쓴다 — 조건은 lib/process.ts 가 정한다.

@@ -56,7 +56,14 @@ function SiteFacts({ project }: { project: ProjectDetail['project'] }) {
     ['사업구분', project.bizType],
     ['수전방식', project.powerType],
     ['교체유형', project.replType ?? (project.bizType ? '라인별로 다름' : null)],
-    ['접수일', project.createdAt],
+    /*
+     * 세 날짜가 순서대로 선다 — 계약서를 받은 날 · 협력사가 다 냈다고 누른 날 ·
+     * 한백이 확인한 날. 한 칸에 뭉치면 「누가 언제 무엇을 했나」가 사라진다.
+     * 이관 현장은 접수일과 확인일이 같은 값이다(노션에는 수령일만 있었다).
+     */
+    ['계약서 수령일', project.createdAt],
+    ['계약서 접수', project.contractSubmittedAt],
+    ['계약 확인', project.contractConfirmedAt],
   ];
 
   return (
@@ -100,7 +107,7 @@ function FactGroup({ title, rows }: { title: string; rows: Array<[string, string
 }
 
 export function IntakeTab({
-  project, evaluated, byKind, contract, projectId, siteName, canReview,
+  project, evaluated, byKind, contract, projectId, siteName, canReview, canSubmit,
   partyInferred, inferredParty, knownOrgs,
 }: {
   knownOrgs: string[];
@@ -112,6 +119,8 @@ export function IntakeTab({
   projectId: string;
   siteName: string;
   canReview: boolean;
+  /** 계약서 접수를 누를 수 있는가 — 내는 쪽(협력사·한백) */
+  canSubmit: boolean;
   partyInferred: boolean;
   inferredParty: string;
 }) {
@@ -295,6 +304,18 @@ export function IntakeTab({
           </Note>
         )}
 
+        {/*
+          * 두 단추가 순서대로 선다 — 내는 쪽이 접수하고, 한백이 확인한다.
+          * 계약이 확인된 뒤에는 접수 단추를 두지 않는다(끝난 일을 되돌리는 자리는 확인 취소다).
+          */}
+        {canSubmit && !project.contractConfirmedAt && (
+          <SubmitContract
+            projectId={projectId}
+            contract={contract}
+            submittedAt={project.contractSubmittedAt}
+          />
+        )}
+
         {canReview && (
           <ConfirmContract
             projectId={projectId}
@@ -304,6 +325,64 @@ export function IntakeTab({
         )}
       </section>
 
+    </div>
+  );
+}
+
+/**
+ * 계약서 접수 — 내는 쪽이 누른다(그 현장의 협력사 · 한백).
+ *
+ * ★이 단추가 계약검토로 넘긴다★ (한백 지시 2026-08-24). 예전에는 필수 서류 칸이 차는
+ * 순간 저절로 넘어갔는데, 그러면 협력사가 아직 고치는 중인 것이 한백의 검토 칸에 서고
+ * 협력사에게는 「다 냈다」고 말할 자리가 없었다.
+ *
+ * 되돌릴 수 있다 — 잘못 눌렀거나 뺄 서류가 생기면 접수를 취소하고 다시 모은다.
+ */
+function SubmitContract({
+  projectId,
+  contract,
+  submittedAt,
+}: {
+  projectId: string;
+  contract: ContractState;
+  submittedAt: string | null;
+}) {
+  const { busy, error, run } = useAction();
+
+  const send = (submitted: boolean) =>
+    void run({
+      url: `/api/projects/${projectId}/contract-submit`,
+      body: { submitted },
+      fail: '처리에 실패했습니다.',
+    });
+
+  if (submittedAt) {
+    return (
+      <Note tone="ok" className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1.5">
+        <span className="font-bold">계약서 접수 완료 · {submittedAt}</span>
+        {/* 되돌리기는 반대쪽 끝 — 자주 누르는 것과 붙여 두지 않는다 */}
+        <Btn kind="undo" busy={busy} busyLabel="되돌리는 중…" onClick={() => send(false)} className="ml-auto">
+          접수 취소
+        </Btn>
+        <Err className="w-full">{error}</Err>
+      </Note>
+    );
+  }
+
+  /* 막는 것을 단추 이름에 적는다 — 반려는 다시 올리면 풀리므로 여기서 막지 않는다 */
+  const missing = contract.requiredTotal - contract.satisfied;
+  return (
+    <div className="mt-4 flex flex-col gap-1.5">
+      <Btn
+        disabled={!contract.docsFilled}
+        busy={busy}
+        busyLabel="접수 중…"
+        onClick={() => send(true)}
+        className="self-start"
+      >
+        {contract.docsFilled ? '계약서 접수하기' : `필수 서류 ${missing}건 남음 — 접수 불가`}
+      </Btn>
+      <Err>{error}</Err>
     </div>
   );
 }

@@ -212,6 +212,18 @@ export interface ProjectRepository {
   confirmContract(projectId: string, confirmed: boolean, actor: Actor): Promise<void>;
 
   /**
+   * 계약서 접수 선언 — 협력사가 「다 냈다」고 누른다(그 현장의 협력사와 한백).
+   *
+   * 이것이 계약접수와 계약검토를 가른다(lib/board.ts). 필수 서류 칸이 차는 것만으로
+   * 넘기지 않는 이유: 협력사가 아직 고치는 중인 것이 한백의 검토 칸에 서면, 한백은
+   * 무엇이 검토를 기다리는 것인지 알 수 없다(한백 지시 2026-08-24).
+   *
+   * 필수 서류가 덜 찼으면 거절한다 — 낼 것이 남았는데 「다 냈다」고 할 수는 없다.
+   * 되돌릴 수 있다(submitted=false) — 잘못 눌렀을 때 길이 없으면 안 된다.
+   */
+  submitContract(projectId: string, submitted: boolean, actor: Actor): Promise<void>;
+
+  /**
    * 계약 라인에 단가 케이스를 붙인다. [한백 전용]
    * 케이스는 불변이라 값을 복사하지 않고 참조만 남긴다 — 지급액은 조회할 때 계산된다.
    */

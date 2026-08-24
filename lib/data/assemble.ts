@@ -266,6 +266,7 @@ export function summaryOf(r: ProjectRecord, rules: RuleMap, settles: SettleMap):
     priced: d.contract.allPriced,
     rejectedDocs: d.contract.rejected,
     docsFilled: d.contract.docsFilled,
+    submitted: d.project.contractSubmittedAt !== null,
     entryOk: entryOkOf(d.process),
     nextStep: nextStepOf(d.process),
     milestones: {

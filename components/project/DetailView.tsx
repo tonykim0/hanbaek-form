@@ -47,6 +47,7 @@ export default function ProjectDetailView({
   settlementRuleChoices,
   initialTab,
   processEdit,
+  canSubmit,
 }: {
   detail: ProjectDetail;
   /** 세션에서 계산된 가시성. 화면에서 고를 수 있는 값이 아니다. */
@@ -71,6 +72,8 @@ export default function ProjectDetailView({
   initialTab: TabKey | null;
   /** 공정 입력 권한 — 한백 전부(all) · 그 현장의 시공사(partner) · 보기만(none) */
   processEdit: ProcessEdit;
+  /** 「계약서 접수하기」를 누를 수 있는가 — 내는 쪽(협력사·한백), 열람 전용은 아니다 */
+  canSubmit: boolean;
 }) {
   // 잠긴 시공 탭은 URL 로도 못 연다 — 화면에서 못 누르는 것은 주소로도 안 된다.
   // 기성 탭도 같다 — 한백이 아니면 탭이 없으므로 주소로도 안 열린다.
@@ -218,6 +221,7 @@ export default function ProjectDetailView({
               projectId={project.id}
               siteName={project.name}
               canReview={canReview}
+              canSubmit={canSubmit}
               partyInferred={isPartyInferred(docCtx)}
               inferredParty={docCtx.bldgType === '공동주택' ? '입주자대표회의' : '관리단'}
             />
@@ -273,6 +277,7 @@ function SiteHeader({
     holdState: project.holdState,
     rejectedDocs: contract.rejected,
     docsFilled: contract.docsFilled,
+    submitted: project.contractSubmittedAt !== null,
   });
   const band = bandOfColumn(column);
   const qty = lines.reduce((s, l) => s + l.qty, 0);

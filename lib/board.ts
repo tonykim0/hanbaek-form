@@ -140,21 +140,27 @@ export function boardColumnOf(p: {
   holdState: HoldState | null;
   rejectedDocs: number;
   docsFilled: boolean;
+  /** 협력사가 「계약서 접수하기」를 눌렀는가 */
+  submitted: boolean;
 }): BoardColumn {
   if (p.holdState) return p.holdState; // 보류·계약중단이 곧 칸 이름이다
   if (p.stage === 'intake') {
     /*
      * 계약 안에서 세 칸으로 갈린다. 순서가 곧 우선순위다.
      *
-     *   반려가 있으면        → 계약보완  (협력사가 고칠 차례)
-     *   필수 서류가 덜 찼으면 → 계약접수  (협력사가 더 낼 차례)
-     *   다 찼으면            → 계약검토  (한백이 볼 차례 — 단가 지정·계약 확인)
+     *   반려가 있으면            → 계약보완  (협력사가 고칠 차례)
+     *   접수하기를 안 눌렀으면    → 계약접수  (협력사가 모으는 중)
+     *   눌렀으면                → 계약검토  (한백이 볼 차례 — 단가 지정·계약 확인)
+     *
+     * ★검토로 넘기는 것은 협력사의 선언이다★ (한백 지시 2026-08-24). 예전에는 필수
+     * 서류 칸이 차는 순간(docsFilled) 저절로 넘어갔는데, 그러면 협력사가 아직 고치는
+     * 중인 것이 한백의 검토 칸에 서고 「다 냈다」고 말할 자리가 없었다.
      *
      * 서류는 여러 번 오간다. 그 왕복은 검토 ↔ 보완 사이에서만 일어나고,
      * 접수는 처음 모으는 동안만 서는 자리다 — 몇 번을 돌아도 칸이 늘지 않는다.
      */
     if (p.rejectedDocs > 0) return '계약보완';
-    return p.docsFilled ? '계약검토' : '계약접수';
+    return p.submitted ? '계약검토' : '계약접수';
   }
   return p.status;
 }

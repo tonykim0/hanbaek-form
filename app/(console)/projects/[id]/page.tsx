@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation';
 import ProjectDetailView, { type TabKey } from '@/components/project/DetailView';
 import { getRepository } from '@/lib/data';
 import { actorOf, getSessionUser, viewerOf } from '@/lib/auth/session';
-import { effectiveVisibility, isHanbaek, normalizeOrg } from '@/lib/roles';
+import { canWrite, effectiveVisibility, isHanbaek, normalizeOrg } from '@/lib/roles';
 import type { ProcessEdit } from '@/lib/process';
 import { matchingRules, type RuleOptions } from '@/lib/pricing-match';
 import type { SettlementRuleChoice } from '@/types/project';
@@ -118,6 +118,11 @@ export default async function ProjectPage({
       settlementRuleChoices={settlementRuleChoices}
       initialTab={initialTab}
       processEdit={processEdit}
+      /*
+       * 계약서 접수는 내는 쪽이 누른다 — 그 현장의 협력사와 한백. 이 화면에 들어온 것이
+       * 이미 접근 판정을 지난 것이므로(저장소가 걸렀다) 열람 전용만 가른다.
+       */
+      canSubmit={canWrite(session.role)}
     />
   );
 }

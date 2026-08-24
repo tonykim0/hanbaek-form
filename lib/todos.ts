@@ -117,7 +117,7 @@ export async function todosOf(session: SessionPayload): Promise<TodoItem[]> {
       urgencyLabel: labelUntil(b.paidAt),
     }));
 
-  /* 급한 순 — 국면을 넘어 한 자로 잰다. 같으면 국면 순서(정산 → 계약 → 시공) */
+  /* 급한 순 — 업무를 넘어 한 자로 잰다. 같으면 업무 순서(정산 → 계약 → 시공) */
   return [...missed, ...invoices, ...items].sort(
     (a, b) => b.urgency - a.urgency
       || TODO_GROUPS.indexOf(a.group) - TODO_GROUPS.indexOf(b.group)

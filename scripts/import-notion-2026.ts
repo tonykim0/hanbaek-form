@@ -40,7 +40,7 @@ if (!process.env.DATABASE_URL && process.env.DIRECT_URL) {
 import { eq, isNotNull, sql } from 'drizzle-orm';
 import { getDb } from '../lib/db/client';
 import {
-  auditLog, batchFinals, contractLines, pricingRules, projects, taxInvoices, users,
+  auditLog, batchFinals, contractLines, pricingRules, projectNotes, projects, taxInvoices, users,
 } from '../lib/db/schema';
 import { hashPassword } from '../lib/auth/crypto';
 import { normalizeOrg } from '../lib/roles';
@@ -115,6 +115,8 @@ interface Row {
   preChecked: boolean;
   preNote: string | null;
   note: string | null;
+  /** 노트를 마지막으로 만진 때(페이지 최종 수정) — 진행 메모의 시각으로 쓴다 */
+  noteAt: Date;
   contractConfirmedAt: string | null;
   createdAt: Date;
   lastProgressAt: string;
@@ -192,7 +194,9 @@ function transform(page: NotionPage): Row | { skip: string } {
     preInstall: preNote && !noneSurvey ? '있음' : '없음',
     preChecked: chk(p, '기설치 확인여부'),
     preNote,
+    // 「현재상황」은 진행상황 메모다(한백 확인 2026-08-24) — 접수 메모(projects.note)가 아니다
     note: txt(p, '현재상황'),
+    noteAt: new Date(page.last_edited_time),
     contractConfirmedAt: contractAt,
     createdAt: created,
     lastProgressAt: [contractAt, lastTouched].filter(Boolean).sort().pop() as string,
@@ -361,7 +365,8 @@ async function main() {
         bizType: row.bizType,
         envQueueNo: row.envQueueNo,
         bizYear: 2026,
-        note: row.note,
+        note: null, // 「현재상황」은 아래 진행 메모로 — 접수 메모 칸이 아니다
+
         contractConfirmedAt: row.contractConfirmedAt,
         settlementRuleId: pick.rule ? defaultSettle.get(pick.rule.id) ?? null : null,
         settlementAppliedAt: pick.rule && defaultSettle.get(pick.rule.id) ? today : null,
@@ -380,6 +385,11 @@ async function main() {
         pricingRuleId: pick.rule?.id ?? null,
         pricedAt: pick.rule ? today : null,
       });
+      if (row.note) {
+        await tx.insert(projectNotes).values({
+          id: crypto.randomUUID(), projectId: id, author: '한백', body: row.note, at: row.noteAt,
+        });
+      }
     });
     made += 1;
   }

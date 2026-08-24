@@ -13,10 +13,14 @@
 export type TodoGroup = '계약' | '시공' | '정산';
 
 /**
- * 묶음 순서 — 정산이 맨 위다. 배치 일(계산서 발행·확정 누락)은 1~2일 회전이라
- * 계약·시공의 정체보다 먼저 눈에 걸려야 한다.
+ * 칸 순서 — ★일이 흘러가는 순서다★ (한백 확인 2026-08-24): 계약 → 시공 → 정산.
+ *
+ * 처음에는 정산을 맨 위에 뒀다 — 배치 일이 1~2일 회전이라 급한 것을 앞에 두려던
+ * 것이었다. 그런데 순서로 급함을 말하면 흐름을 잃는다: 사이드바도 현장 상세 탭도
+ * 계약 → 시공 → 정산이라, 할 일만 거꾸로면 같은 축을 두 방향으로 배우게 된다.
+ * 급함은 자리가 아니라 칸 안 정렬(urgency)과 카드의 밀림 문구가 말한다.
  */
-export const TODO_GROUPS = ['정산', '계약', '시공'] as const satisfies readonly TodoGroup[];
+export const TODO_GROUPS = ['계약', '시공', '정산'] as const satisfies readonly TodoGroup[];
 
 export interface TodoItem {
   id: string;

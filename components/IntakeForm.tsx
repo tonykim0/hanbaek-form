@@ -529,7 +529,7 @@ export default function IntakeForm({ org, isAdmin = false, knownOrgs = [] }: {
             <Select value={cpo} onChange={(v) => { setCpo(v as CpoName); touched('cpo'); }} options={CPOS} />
           </Field>
           <Field label="현장명" required auto={auto.has('name')}>
-            <input value={name} onChange={(e) => { setName(e.target.value); touched('name'); }} placeholder="강원 속초 ES아뜨리움" className={inputClass} />
+            <input value={name} onChange={(e) => { setName(e.target.value); touched('name'); }} placeholder="서울 강남 행복아파트" className={inputClass} />
             {/*
               * 판독이 채운 이름에는 이미 지역이 붙어 있다(lib/region). 사람이 직접 칠 때만
               * 이 자리가 나타난다 — 치는 중에 이름을 몰래 고치지는 않는다.
@@ -545,13 +545,13 @@ export default function IntakeForm({ org, isAdmin = false, knownOrgs = [] }: {
             )}
           </Field>
           <Field label="주소" span auto={auto.has('addr')}>
-            <input value={addr} onChange={(e) => { setAddr(e.target.value); touched('addr'); }} placeholder="강원 속초시 조양동 1451" className={inputClass} />
+            <input value={addr} onChange={(e) => { setAddr(e.target.value); touched('addr'); }} placeholder="서울 강남구 역삼동 123" className={inputClass} />
           </Field>
           <Field label="건축물유형" auto={auto.has('bldgType')}>
             <Select value={bldgType ?? ''} onChange={(v) => { setBldgType((v || null) as BuildingType | null); touched('bldgType'); }} options={BLDG} blank />
           </Field>
           <Field label="총 주차면수" auto={auto.has('parkTotal')}>
-            <input value={parkTotal} onChange={(e) => { setParkTotal(e.target.value.replace(/\D/g, '')); touched('parkTotal'); }} inputMode="numeric" placeholder="214" className={inputClass} />
+            <input value={parkTotal} onChange={(e) => { setParkTotal(e.target.value.replace(/\D/g, '')); touched('parkTotal'); }} inputMode="numeric" placeholder="120" className={inputClass} />
           </Field>
           <Field label="계약연수" required auto={auto.has('termYears')}>
             <select

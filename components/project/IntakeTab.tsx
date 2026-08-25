@@ -204,14 +204,28 @@ export function IntakeTab({
                     return (
                       <div
                         key={d.key}
-                        className={`flex flex-col rounded-box border border-l-[3px] p-2.5 ${
+                        /*
+                         * 칸 전체를 물들인다 (한백 지시 2026-08-25). 왼쪽 3px 선만으로는 넷씩
+                         * 늘어선 카드 사이에서 안 보였다 — 화면 규칙 1 의 층 순서도 배경색이
+                         * 테두리보다 앞이다. 선과 배경을 같이 쓰지 않는다: 한 뜻에 장치 하나다.
+                         *
+                         *   초록 — 냈다            (더 볼 것 없다)
+                         *   빨강 — 필수인데 안 냈다  (접수를 막는다)
+                         *   주황 — 반려, 보완할 차례 (냈는데 문제가 있다)
+                         *   무색 — 조건부·선택      (해당되는 현장만이라 색을 줄 이유가 없다)
+                         *
+                         * 옅은 색(50)으로 채운다. 화면 규칙 12 는 짙은 빨강을 되돌릴 수 없는 것을
+                         * 확정하는 자리에만 두라고 한다 — 여기는 상태이고, 반려 확정 단추가
+                         * 그 짙은 빨강을 쓴다. 톤은 components/ui.tsx 의 stop·warn·ok 와 같다.
+                         */
+                        className={`flex flex-col rounded-box border p-2.5 ${
                           rejected
-                            ? 'border-slate-200 border-l-red-500 bg-red-50/40'
+                            ? 'border-amber-300 bg-amber-50'
                             : doc?.blobUrl || doc?.status === 'uploaded' || doc?.status === 'approved'
-                              ? 'border-slate-200 border-l-brand-500 bg-white'
+                              ? 'border-brand-200 bg-brand-50'
                               : d.req === 'm'
-                                ? 'border-slate-200 border-l-red-300 bg-white'
-                                : 'border-dashed border-slate-200 border-l-slate-200 bg-white'
+                                ? 'border-red-200 bg-red-50'
+                                : 'border-dashed border-slate-200 bg-white'
                         }`}
                       >
                         <div className="flex items-start justify-between gap-2">
@@ -236,8 +250,9 @@ export function IntakeTab({
                           <p className="mt-1 text-tiny text-slate-400">{doc.uploadedAt}</p>
                         )}
 
+                        {/* 주황 카드 위에서는 red-50 이 묻힌다 — 흰 바탕에 붉은 글씨로 띄운다 */}
                         {doc?.rejectReason && (
-                          <p className="mt-2 rounded-ctl bg-red-50 px-2 py-1.5 text-tiny leading-snug text-red-800">
+                          <p className="mt-2 rounded-ctl bg-white px-2 py-1.5 text-tiny leading-snug text-red-800">
                             {doc.rejectReason}
                           </p>
                         )}

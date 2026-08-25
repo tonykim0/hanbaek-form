@@ -280,7 +280,7 @@ function SiteHeader({
   knownOrgs: string[];
   processEdit: ProcessEdit;
 }) {
-  const { project, lines, stage, process, stalledDays } = detail;
+  const { project, lines, stage, process } = detail;
   const column = boardColumnOf({
     stage,
     status: process.status,
@@ -312,9 +312,12 @@ function SiteHeader({
    */
   // 단가 미지정은 머리말에 안 띄운다(한백 확인) — 정산 탭의 지정 자리가 그 말을 한다
   /*
-   * 「N일째 미해결」도 여기 없다 — 진행현황 머리로 옮겼다(한백 지시 2026-08-25).
-   * 이 줄은 지금 무엇이 막고 있나(보류·반려)를 말하고, 날수는 막는 것이 아니라 흐른
-   * 시간이다. 그 시간의 기준은 마지막 진척이라 진척을 적는 자리에 선다(ProgressLog).
+   * ★「N일째 미해결」은 상세에 없다★ (한백 지시 2026-08-25 — 머리말에서 진행현황 머리로
+   * 옮겼다가 아예 걷었다).
+   *
+   * 상세는 한 현장을 붙잡고 일하는 화면이라 「며칠 됐나」로 할 일이 갈리지 않는다. 그 값이
+   * 쓰이는 곳은 138건에서 어느 것부터 볼지 고르는 자리다 — 보드 카드(14일부터)와 표의
+   * 정체일 칸이 그 말을 하고, 정렬도 그것으로 한다(byStalled).
    */
 
   return (
@@ -415,12 +418,7 @@ function SiteHeader({
       </div>
 
       <div className="mt-5 min-w-0 border-t border-slate-100 pt-4">
-        <ProgressLog
-          projectId={project.id}
-          notes={detail.notes}
-          author={noteAuthor}
-          stalledDays={stalledDays}
-        />
+        <ProgressLog projectId={project.id} notes={detail.notes} author={noteAuthor} />
       </div>
     </div>
   );

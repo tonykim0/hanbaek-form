@@ -9,7 +9,7 @@
 import { useState } from 'react';
 import type { ProjectNote } from '@/types/project';
 import { useAction } from '@/lib/use-action';
-import { Btn, Err, FIELD, Tag } from '@/components/ui';
+import { Btn, Err, FIELD } from '@/components/ui';
 
 /**
  * 진행현황 — 한백과 협력사가 이 현장의 특이사항을 남기는 자리.
@@ -25,20 +25,12 @@ import { Btn, Err, FIELD, Tag } from '@/components/ui';
  * 사람 이름은 안 적는다 — 회사마다 계정이 하나라 이름이 늘 같다. 대신 어느 쪽이 썼는지 남긴다.
  */
 export function ProgressLog({
-  projectId, notes, author, stalledDays,
+  projectId, notes, author,
 }: {
   projectId: string;
   notes: ProjectNote[];
   /** 지금 남기면 붙을 이름 — 서버가 적는 값과 같다 */
   author: string;
-  /**
-   * 마지막 진척 후 경과일 — 머리말에서 여기로 옮겼다 (한백 지시 2026-08-25).
-   *
-   * 머리말의 그 줄은 「지금 무엇이 막고 있나」를 말한다(보류·반려). 날수는 막는 것이 아니라
-   * 흐른 시간이고, 그 시간을 세는 기준이 마지막 진척이다 — 진척을 적는 자리가 여기다.
-   * 「35일째 미해결」을 보고 할 일은 이 목록을 읽고 한 줄 남기는 것이라, 그 자리에 있어야 한다.
-   */
-  stalledDays: number;
 }) {
   const { busy, error, run } = useAction();
   const [body, setBody] = useState('');
@@ -68,10 +60,6 @@ export function ProgressLog({
       <div className="mb-2 flex flex-wrap items-baseline gap-x-2 gap-y-1">
         <h2 className="text-lead font-black text-slate-900">진행현황 및 메모</h2>
         <span className="text-tiny font-bold tabular-nums text-slate-400">{notes.length}건</span>
-        {/* 2주가 넘게 안 움직인 현장만 — 그 아래는 정상 속도라 적을 것이 없다(보드 카드와 같은 기준) */}
-        {stalledDays >= 14 && (
-          <Tag tone={stalledDays >= 30 ? 'stop' : 'warn'}>{stalledDays}일째 미해결</Tag>
-        )}
       </div>
 
       {/*

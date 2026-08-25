@@ -15,12 +15,12 @@ export function formatBizRegNo(value: string): string {
 }
 
 /**
- * 사업자등록번호 검증 — 마지막 자리가 검증 숫자다(국세청 가중치 1,3,7,1,3,7,1,5).
+ * 사업자등록번호 검증 — 마지막 자리가 검증 숫자다(국세청 가중치 1,3,7,1,3,7,1,3,5).
  * 오타(자리 바뀜·한 자리 틀림)를 접수 시점에 잡는다.
  */
 export function isValidBizRegNo(digits: string): boolean {
   if (!/^\d{10}$/.test(digits)) return false;
-  const key = [1, 3, 7, 1, 3, 7, 1, 5];
+  const key = [1, 3, 7, 1, 3, 7, 1, 3];
   let sum = 0;
   for (let i = 0; i < 8; i++) sum += Number(digits[i]) * key[i];
   sum += Math.floor((Number(digits[8]) * 5) / 10);

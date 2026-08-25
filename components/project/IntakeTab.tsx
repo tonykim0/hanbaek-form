@@ -357,8 +357,8 @@ export function IntakeTab({
 
                         {/*
                           * 올린 사람 이름은 적지 않는다 — 회사마다 계정이 하나라 이름이 늘 같다.
-                          * 「영업비 조건」 배지도 달지 않는다 — 칸마다 붙어 있어도 할 일이 달라지지
-                          * 않는다. 조건이 실제로 미달일 때만 아래 한 줄로 알린다(feeMissing).
+                          * 여러 장이면 마지막으로 올린 날이다(파일마다의 날짜는 두지 않는다 —
+                          * 칸 넷이 늘어선 화면에서 줄마다 날짜가 붙으면 이름을 읽을 자리가 없다).
                           */}
                         {doc?.uploadedAt && (
                           <p className="mt-1 text-tiny text-slate-400">{doc.uploadedAt}</p>
@@ -372,50 +372,75 @@ export function IntakeTab({
                         )}
 
                         {/*
-                          * 조작은 카드 아래에 모은다. 예전에는 미리보기·올리기·검수·삭제가
-                          * 세로로 네 줄 쌓여서 카드마다 높이가 달랐다.
+                          * ★카드를 세 구역으로 나눈다★ (한백 지시 2026-08-25 — 조작 UI 가 엉망이었다).
                           *
-                          * 반려는 같은 줄의 오른쪽 끝으로 밀어낸다(DocReview 안의 ml-auto).
-                          * 자주 누르는 것(미리보기·올리기)과 되돌리기 어려운 것을 나란히 두면
-                          * 잘못 누른다. 사유를 받을 때는 아래로 한 줄 내려간다.
+                          *   사실     이름 · 상태 · 날짜 · 반려 사유
+                          *   ─────    파일 목록 (한 줄에 한 장: 이름 · 받기 · 빼기)
+                          *   ─────    조작 줄 (파일 추가 … 반려 · 삭제)
+                          *
+                          * 파일 목록이 조작 단추들과 같은 flex 줄에 있었다. 한 칸에 여러 장이
+                          * 붙게 되면서(migrations/0021) 파일 이름·받기·빼기가 「파일 추가」·「반려」·
+                          * 「삭제」와 한 줄에서 서로 밀었고, 카드마다 줄바꿈이 달라 높이가 튀었다.
+                          *
+                          * 구역은 얇은 선으로만 가른다 — 상자 안에 상자를 넣지 않는다(화면 규칙 1).
+                          * 선 색은 반투명 먹으로: 카드 배경이 초록·빨강·주황·흰색 넷이라 어느 바탕에서도
+                          * 같은 세기로 보인다.
+                          *
+                          * 조작 줄은 왼쪽이 자주 누르는 것(파일 추가), 오른쪽 끝이 되돌리기 어려운
+                          * 것(반려·삭제)이다(화면 규칙 8). 사유를 받을 때는 반려가 줄을 통째로 쓴다.
                           */}
-                        <div className="mt-auto pt-2">
-                          <div className="flex flex-wrap items-center gap-x-3">
-                            {doc?.blobUrl && (
-                              <DocFileActions
-                                doc={doc}
-                                siteName={siteName}
-                                label={d.label}
-                                projectId={projectId}
-                                canRemove={canSubmit || canReview}
-                              />
-                            )}
-                            {d.req !== 'o' && (
-                              <DocUpload
-                                projectId={projectId}
-                                kind={d.key}
-                                rejected={rejected}
-                                hasFile={Boolean(doc?.blobUrl)}
-                              />
-                            )}
-                            {canReview && doc && doc.status !== 'none' && (
-                              <DocReview projectId={projectId} kind={d.key} status={doc.status} />
-                            )}
-                            {/*
-                              * 삭제는 한백만 — 협력사는 다시 올려서 덮는 길이 있다.
-                              * 반려(빨간 글자) 뒤 맨 끝에 회색 글자로 — 색과 자리로 가른다(한백 지적).
-                              */}
-                            {canReview && doc && doc.status !== 'none' && (
-                              <DocDelete
-                                projectId={projectId}
-                                kind={d.key}
-                                label={d.label}
-                                filename={doc.filename}
-                                count={doc.files.length}
-                              />
-                            )}
+                        {doc && doc.files.length > 0 && (
+                          <div className="mt-2 border-t border-slate-900/[0.07] pt-2">
+                            <DocFileActions
+                              doc={doc}
+                              siteName={siteName}
+                              label={d.label}
+                              projectId={projectId}
+                              canRemove={canSubmit || canReview}
+                            />
                           </div>
+                        )}
+
+                        {/*
+                          * 조작 줄은 담을 것이 있을 때만 그린다 — 「해당없음」 칸(선택 서류)은
+                          * 올릴 것도 검수할 것도 없다. 빈 줄에 선만 그으면 카드마다 쓸모없는
+                          * 층이 하나 늘어난다(화면 규칙 1).
+                          */}
+                        {(d.req !== 'o' || (canReview && doc && doc.status !== 'none')) && (
+                        <div className="mt-auto flex flex-wrap items-center gap-x-2 gap-y-1 border-t border-slate-900/[0.07] pt-2">
+                          {d.req !== 'o' && (
+                            <DocUpload
+                              projectId={projectId}
+                              kind={d.key}
+                              rejected={rejected}
+                              hasFile={doc ? doc.files.length > 0 : false}
+                            />
+                          )}
+                          {/* 남는 자리를 밀어 반려·삭제를 반대쪽 끝으로 보낸다 */}
+                          <span className="flex-1" />
+                          {canReview && doc && doc.status !== 'none' && (
+                            <DocReview
+                              projectId={projectId}
+                              kind={d.key}
+                              status={doc.status}
+                              hasFile={doc.files.length > 0}
+                            />
+                          )}
+                          {/*
+                            * 삭제는 한백만 — 협력사는 파일을 빼거나 다시 올린다.
+                            * 반려(붉은 테두리 칩) 뒤 맨 끝에 회색 글자로 — 색과 모양으로 가른다.
+                            */}
+                          {canReview && doc && doc.status !== 'none' && (
+                            <DocDelete
+                              projectId={projectId}
+                              kind={d.key}
+                              label={d.label}
+                              filename={doc.filename}
+                              count={doc.files.length}
+                            />
+                          )}
                         </div>
+                        )}
                       </div>
                     );
                   })}

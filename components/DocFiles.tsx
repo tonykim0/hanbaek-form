@@ -125,8 +125,9 @@ export function DocFileActions({
 }) {
   if (doc.files.length === 0) return null;
 
+  /* 자리(여백)는 부르는 쪽이 정한다 — 부품이 자기 mt 를 갖고 있으면 줄에 세울 때 어긋난다 */
   return (
-    <div className="mt-2 flex flex-col gap-1">
+    <div className="flex flex-col gap-1">
       {doc.files.map((f, i) => (
         <FileRow
           key={f.url}
@@ -174,7 +175,7 @@ function FileRow({
 
   return (
     <div className="flex flex-col gap-0.5">
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1.5">
         {/*
           * 이름이 곧 미리보기 링크다 — 그릴 수 있는 형식만. 엑셀·워드는 링크를 열면
           * 내려받기가 시작돼서 「받기」와 구분이 없어진다(그때는 글자로만 둔다).
@@ -194,19 +195,22 @@ function FileRow({
             {file.name}
           </span>
         )}
-        <button
-          type="button"
-          disabled={busy}
-          onClick={download}
-          className="shrink-0 text-tiny font-bold text-slate-500 underline decoration-slate-300 transition hover:text-slate-800 disabled:text-slate-300"
-        >
-          {busy ? '받는 중' : '받기'}
-        </button>
-        {/* 빼기는 되돌리기 어려운 일이라 반대쪽 끝의 글자 단추다(화면 규칙 8·12) */}
+        {/*
+          * 「받기」가 따로 있는 이유 — 이름 링크는 브라우저에 맡기는 것이고(그릴 수 있으면
+          * 새 탭), 이쪽은 받아서 「현장명_서류명」으로 이름을 바꿔 저장한다. Blob 에 저장된
+          * 이름에는 중복 회피 접미사가 붙어 있다.
+          */}
+        <Btn size="sm" kind="quiet" busy={busy} busyLabel="받는 중" onClick={download} className="shrink-0">
+          받기
+        </Btn>
+        {/* 빼기는 되돌릴 수 없어 글자 단추다 — 받기(칩)와 모양으로 갈린다(화면 규칙 12) */}
         {canRemove && projectId && (
-          <button
-            type="button"
-            disabled={remove.busy}
+          <Btn
+            size="sm"
+            kind="undo"
+            busy={remove.busy}
+            busyLabel="빼는 중"
+            className="shrink-0"
             onClick={() => {
               if (!window.confirm(`「${file.name}」을 뺍니다. 파일도 함께 사라지고 되돌릴 수 없습니다.`)) return;
               void remove.run({
@@ -216,10 +220,9 @@ function FileRow({
                 fail: '빼지 못했습니다.',
               });
             }}
-            className="shrink-0 text-tiny font-bold text-slate-400 underline decoration-slate-300 transition hover:text-red-700 disabled:text-slate-300"
           >
-            {remove.busy ? '빼는 중' : '빼기'}
-          </button>
+            빼기
+          </Btn>
         )}
       </div>
       <Err>{remove.error}</Err>
@@ -260,13 +263,14 @@ export function DocDelete({
     });
   }
 
+  /* 실패 문구는 누른 단추 아래에 붙는다(화면 규칙 9) — 줄에 세워도 흐트러지지 않게 한 겹으로 */
   return (
-    <>
+    <div className="flex flex-col items-end">
       <Btn kind="undo" size="sm" busy={busy} busyLabel="지우는 중…" onClick={remove}>
         삭제
       </Btn>
-      <Err className="mt-1 block">{error}</Err>
-    </>
+      <Err>{error}</Err>
+    </div>
   );
 }
 
@@ -480,8 +484,9 @@ export function DocUpload({
    */
   const dropOpen = filesInFlight && !busy;
 
+  /* 자리(여백)는 부르는 쪽이 정한다 — 카드의 조작 줄에 다른 단추와 나란히 선다 */
   return (
-    <div className="mt-2">
+    <div>
       <label
         onDragEnter={(e) => { e.preventDefault(); setOver(true); }}
         onDragOver={(e) => { e.preventDefault(); setOver(true); }}

@@ -83,7 +83,7 @@ export function PreInstall({
           const doc = byKind.get(d.key);
           const st = docState(doc, d.req);
           return (
-            <div key={d.key} className="rounded-box border border-slate-200 p-2.5">
+            <div key={d.key} className="flex flex-col rounded-box border border-slate-200 p-2.5">
               <div className="flex items-start justify-between gap-2">
                 <p className="break-keep text-small font-bold leading-snug text-slate-800">
                   {d.label}
@@ -97,8 +97,13 @@ export function PreInstall({
                   {doc.rejectReason}
                 </p>
               )}
-              <div className="mt-2 flex flex-wrap items-center gap-x-3">
-                {doc && (
+
+              {/*
+                * 서류 칸과 같은 세 구역이다 — 사실 · 파일 목록 · 조작 (IntakeTab 의 카드 주석 참조).
+                * 같은 서류를 두 구역에서 다른 모양으로 보여주면 어느 쪽이 맞는지 물어야 한다.
+                */}
+              {doc && doc.files.length > 0 && (
+                <div className="mt-2 border-t border-slate-900/[0.07] pt-2">
                   <DocFileActions
                     doc={doc}
                     siteName={siteName}
@@ -106,15 +111,24 @@ export function PreInstall({
                     projectId={project.id}
                     canRemove={canRemove}
                   />
-                )}
+                </div>
+              )}
+
+              <div className="mt-auto flex flex-wrap items-center gap-x-2 gap-y-1 border-t border-slate-900/[0.07] pt-2">
                 <DocUpload
                   projectId={project.id}
                   kind={d.key}
                   rejected={doc?.status === 'rejected'}
-                  hasFile={Boolean(doc?.blobUrl)}
+                  hasFile={doc ? doc.files.length > 0 : false}
                 />
+                <span className="flex-1" />
                 {canReview && doc && doc.status !== 'none' && (
-                  <DocReview projectId={project.id} kind={d.key} status={doc.status} hasFile={Boolean(doc.blobUrl)} />
+                  <DocReview
+                    projectId={project.id}
+                    kind={d.key}
+                    status={doc.status}
+                    hasFile={doc.files.length > 0}
+                  />
                 )}
                 {canReview && doc && doc.status !== 'none' && (
                   <DocDelete

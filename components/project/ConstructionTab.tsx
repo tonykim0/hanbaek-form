@@ -645,8 +645,8 @@ function DocRow({
           파일 없음
         </span>
       )}
-      {/* 부품(DocFiles)은 카드용 여백(mt-2)을 갖고 있다 — 줄에서는 지운다 */}
-      <span className="flex flex-wrap items-center gap-1.5 [&>div]:mt-0">
+      {/* 부품은 자기 여백을 갖지 않는다 — 자리는 이 줄이 정한다(gap) */}
+      <span className="flex flex-wrap items-center gap-1.5">
         {doc && (
           <DocFileActions
             doc={doc}
@@ -661,7 +661,7 @@ function DocRow({
       <span className="flex-1" />
       {/* 지우기는 한백만 — 협력사는 다시 올리는 것으로 고친다(덮어쓴다) */}
       {canDelete && doc && doc.status !== 'none' && (
-        <span className="[&>div]:mt-0">
+        <span>
           <DocDelete
             projectId={projectId}
             kind={spec.key}

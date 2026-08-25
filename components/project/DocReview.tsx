@@ -62,7 +62,7 @@ export function DocReview({
    */
   if (rejecting) {
     return (
-      <div className="mt-2 flex w-full flex-col gap-1.5">
+      <div className="flex w-full flex-col gap-1.5">
         <textarea
           value={reason}
           onChange={(e) => setReason(e.target.value)}
@@ -85,13 +85,13 @@ export function DocReview({
   }
 
   /*
-   * 평소에는 카드 오른쪽 아래 구석에 붙는다(ml-auto).
-   * 미리보기·다운로드·올리기와 같은 줄에 두되 반대쪽 끝으로 밀어낸다 — 자주 누르는 것과
-   * 되돌리기 어려운 것을 같은 자리에 나란히 두면 잘못 누른다.
+   * 자리는 부르는 쪽이 정한다 — 카드의 조작 줄 오른쪽 끝이다(화면 규칙 8: 자주 누르는
+   * 「파일 추가」와 반대쪽). 예전에는 이 부품이 ml-auto 를 쥐고 있어서, 줄 안에 다른
+   * 것과 섞이면 어디에 설지 부품과 자리가 서로 다투었다.
    */
   return (
-    <div className="ml-auto flex flex-col items-end gap-1">
-      <div className="flex gap-1.5">
+    <div className="flex flex-col items-end gap-1">
+      <div className="flex items-center gap-1.5">
         {/*
           승인 버튼은 없다. 제출된 서류는 기본이 통과라서 누를 일이 없다 —
           한백이 하는 일은 문제 있는 것을 골라내는 것뿐이다.
@@ -103,23 +103,20 @@ export function DocReview({
                 반려 해제
               </Btn>
             )}
-            <Btn size="sm" kind="undo" disabled={busy} onClick={() => setRejecting(true)}>
+            {/* 곁다리 동작은 고스트 칩이다 — 밑줄은 링크로 읽힌다(화면 규칙 4) */}
+            <Btn size="sm" kind="quiet" disabled={busy} onClick={() => setRejecting(true)}>
               사유 수정
             </Btn>
           </>
         ) : (
           /*
-           * 반려와 삭제가 같은 회색 글자라 구분이 안 됐다(한백 지적).
-           * 반려는 빨간 글자 — 여는 단추라 배경은 칠하지 않는다(규칙 12, 확정만 빨강 배경).
+           * 붉은 테두리 칩(kind="warn") — 「누락 서류 보완요청」과 같은 모양이다.
+           * 반려와 삭제가 같은 회색 글자라 구분이 안 됐고(한백 지적), 붉은 밑줄 글자로 뒀더니
+           * 옆의 칩들 사이에서 눌리는 것으로 안 읽혔다. 배경 빨강은 「반려 확정」에만 쓴다(규칙 12).
            */
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => setRejecting(true)}
-            className="text-tiny font-bold text-red-700 underline decoration-red-300 transition hover:text-red-900 disabled:text-slate-300"
-          >
+          <Btn size="sm" kind="warn" disabled={busy} onClick={() => setRejecting(true)}>
             반려
-          </button>
+          </Btn>
         )}
       </div>
       <Err>{error}</Err>

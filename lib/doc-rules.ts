@@ -185,11 +185,6 @@ export function resolveParty(ctx: DocContext): ContractParty | null {
   return null;
 }
 
-/** 계약주체가 입력값이 아니라 추정값인가 */
-export function isPartyInferred(ctx: DocContext): boolean {
-  return !ctx.contractParty && resolveParty(ctx) !== null;
-}
-
 export interface EvaluatedDoc {
   key: string;
   label: string;

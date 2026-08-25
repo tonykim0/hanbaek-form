@@ -108,7 +108,7 @@ function FactGroup({ title, rows }: { title: string; rows: Array<[string, string
 
 export function IntakeTab({
   project, evaluated, byKind, contract, projectId, siteName, canReview, canSubmit,
-  partyInferred, inferredParty, knownOrgs,
+  knownOrgs,
 }: {
   knownOrgs: string[];
   project: ProjectDetail['project'];
@@ -121,8 +121,6 @@ export function IntakeTab({
   canReview: boolean;
   /** 계약서 접수를 누를 수 있는가 — 내는 쪽(협력사·한백) */
   canSubmit: boolean;
-  partyInferred: boolean;
-  inferredParty: string;
 }) {
   /* 반려된 것은 사유까지 보여줘야 해서 목록으로 따로 모은다 — 개수는 contract.rejected 다 */
   const rejected = evaluated
@@ -167,13 +165,6 @@ export function IntakeTab({
                 </li>
               ))}
             </ul>
-          </Note>
-        )}
-
-        {partyInferred && (
-          <Note tone="warn" className="mb-3">
-            계약주체가 비어 있어 건축물유형으로 <b>{inferredParty}</b>로 추정했습니다. 회의록 종류가
-            이 추정에 따라 정해집니다.
           </Note>
         )}
 

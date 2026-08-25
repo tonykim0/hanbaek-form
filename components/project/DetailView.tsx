@@ -21,7 +21,7 @@ import { useAction } from '@/lib/use-action';
 import { today } from '@/lib/date';
 import { DatePicker } from '@/components/DatePicker';
 import { Badge, Btn, Empty, Err, FIELD, Tag, type Tone, Val } from '@/components/ui';
-import { buildDocContext, evaluateDocs, isPartyInferred, PROCESS_DOCS } from '@/lib/doc-rules';
+import { buildDocContext, evaluateDocs, PROCESS_DOCS } from '@/lib/doc-rules';
 import { BAND_TONE, bandOfColumn, boardColumnOf, phaseOfProject } from '@/lib/board';
 import type { ProcessEdit } from '@/lib/process';
 import type { Visibility } from '@/lib/roles';
@@ -235,8 +235,6 @@ export default function ProjectDetailView({
               siteName={project.name}
               canReview={canReview}
               canSubmit={canSubmit}
-              partyInferred={isPartyInferred(docCtx)}
-              inferredParty={docCtx.bldgType === '공동주택' ? '입주자대표회의' : '관리단'}
             />
           )}
           {tab === 'construction' && <ConstructionTab detail={detail} edit={processEdit} />}

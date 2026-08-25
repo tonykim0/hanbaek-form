@@ -16,22 +16,10 @@ import { useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import type { ProcessStatus, ProjectSummary } from '@/types/project';
 import { PROCESS_STATUSES } from '@/types/project';
-import { bandOfColumn, BOARD_COLUMNS, boardColumnOf, partnerWaitingOf, type BoardBand, type BoardColumn } from '@/lib/board';
+import { BOARD_COLUMNS, boardColumnOf, partnerWaitingOf, type BoardColumn } from '@/lib/board';
 import { statusIndex } from '@/lib/process';
 import { Btn, Tag } from '@/components/ui';
 import { StopControl } from '@/components/project/StopControl';
-
-/** 띠별 강조색 — 카드까지 색을 입히면 읽히지 않는다. 줄 머리글만 물들인다. */
-const BAND_RULE: Record<BoardBand, string> = {
-  계약: 'bg-sky-400',
-  시공: 'bg-brand-400',
-  멈춤: 'bg-slate-300',
-};
-const BAND_TEXT: Record<BoardBand, string> = {
-  계약: 'text-sky-800',
-  시공: 'text-brand-800',
-  멈춤: 'text-slate-500',
-};
 
 export default function ProjectBoard({
   projects, band, canMove, onMove, busyId,
@@ -90,7 +78,6 @@ export default function ProjectBoard({
     ...visible.filter((c) => c.band === band),
     ...visible.filter((c) => c.band === '멈춤'),
   ];
-  const total = cols.reduce((n, c) => n + (columns.get(c.key)?.length ?? 0), 0);
 
   /*
    * 계약과 시공이 남은 높이를 반씩 쓴다.
@@ -111,14 +98,6 @@ export default function ProjectBoard({
             aria-label={`${band} 구역`}
             className="flex min-h-0 flex-1 flex-col"
           >
-            <header className="mb-2 flex items-center gap-2.5">
-              <span aria-hidden className={`h-[3px] w-6 rounded-full ${BAND_RULE[band]}`} />
-              <h2 className={`text-tiny font-black tracking-[0.12em] ${BAND_TEXT[band]}`}>
-                {band}
-              </h2>
-              <span className="text-tiny font-bold tabular-nums text-slate-400">{total}건</span>
-            </header>
-
             {/*
               * 칸이 줄의 폭을 나눠 채운다.
               *

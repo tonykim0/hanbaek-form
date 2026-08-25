@@ -22,7 +22,6 @@ import {
   ATTRS, countActive, optionsOf, passesAttrs, type AttrFilters, type AttrKey,
 } from '@/lib/project-filter';
 import { ALL_YEARS, businessYearsOf, inBusinessYear } from '@/lib/business-year';
-import YearTabs from '@/components/YearTabs';
 import ProjectBoard from './ProjectBoard';
 import ProjectTable from './ProjectTable';
 
@@ -36,6 +35,17 @@ const FLAGS: Array<{ key: FlagKey; label: string }> = [
 ];
 
 const split = (v: string | null): string[] => (v ? v.split(',').filter(Boolean) : []);
+
+/**
+ * 몇 기인가 — 건수만으로는 규모를 모른다(한백 지시 2026-08-25). 137건이 500기일 수도
+ * 1,500기일 수도 있고, 운영사로 좁혀 볼 때 알고 싶은 것은 보통 대수 쪽이다.
+ * 카드가 세는 것과 같은 방식이다(ProjectBoard: 라인 수량의 합).
+ */
+const unitsOf = (list: ProjectSummary[]): number =>
+  list.reduce((n, p) => n + p.lines.reduce((m, l) => m + l.qty, 0), 0);
+
+/** 천 단위 쉼표 — lib/format 의 won 은 돈 이름이라 대수에 쓰지 않는다 */
+const num = (n: number): string => n.toLocaleString('ko-KR');
 
 export default function ProjectsView({
   projects,
@@ -67,7 +77,7 @@ export default function ProjectsView({
   });
   /*
    * 사업연도는 필터가 아니라 범위다 — 걸면 「전체 N건」의 N 자체가 그 해의 건수가 된다.
-   * 그래서 접는 필터 막대(표에서만 나온다)가 아니라 늘 보이는 자리에 둔다.
+   * 그래서 접는 필터 막대가 아니라 늘 보이는 자리에 둔다.
    *
    * 기본은 전체다. 보드는 도는 일을 보는 자리라, 해가 바뀌었다고 작년에 접수해 아직
    * 시공 중인 현장이 사라지면 안 된다 — 그것을 놓치면 일이 멈춘 것을 모른다.
@@ -170,6 +180,9 @@ export default function ProjectsView({
     });
   }, [scoped, q, attrs, flags]);
 
+  const scopedUnits = useMemo(() => unitsOf(scoped), [scoped]);
+  const filteredUnits = useMemo(() => unitsOf(filtered), [filtered]);
+
   const activeCount = countActive(attrs) + flags.length + (q.trim() ? 1 : 0);
   const clear = () => {
     setQ('');
@@ -178,18 +191,17 @@ export default function ProjectsView({
   };
 
   /*
-   * 보드로 넘어가면 조건을 푼다.
-   * 걸린 채로 보드를 보면 칸의 숫자가 전체인지 걸린 것인지 알 수 없다 —
-   * 보드는 「전부 어디에 있나」를 보는 자리다.
+   * 보기를 바꿔도 조건은 그대로 남는다.
+   *
+   * 예전에는 보드로 넘어갈 때 조건을 풀었다 — 「보드는 전부 어디에 있나를 보는 자리라
+   * 걸린 채로 보면 칸의 숫자가 무슨 뜻인지 알 수 없다」는 이유였다. 그런데 운영사·시공사로
+   * 좁혀 보는 일이 표에서만 되니, 「현대엔지니어링 현장이 지금 어느 단계에 몰려 있나」를
+   * 볼 자리가 없었다(한백 지시 2026-08-25) — 그건 보드가 답할 질문이다.
+   *
+   * 숫자가 무슨 뜻인지는 건수 줄이 말한다 — 걸려 있으면 「40건 / 전체 137건」으로 적힌다.
+   * 이 파일 머리말이 처음부터 말하던 것이기도 하다: 필터는 보기가 아니라 자료에 걸린다.
    */
-  const changeView = useCallback((next: ViewKey) => {
-    setView(next);
-    if (next === 'board') {
-      setAttrs({});
-      setFlags([]);
-      setOpen(false);
-    }
-  }, []);
+  const changeView = useCallback((next: ViewKey) => setView(next), []);
 
   /** 한 축의 값을 켜고 끈다. 표의 열 머리글도 이걸 부른다. */
   const setAttr = useCallback((key: AttrKey, values: string[]) => {
@@ -206,8 +218,27 @@ export default function ProjectsView({
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <Tabs view={view} onChange={changeView} />
 
-        {/* 범위라서 접는 필터 막대에 넣지 않는다 — 보드에서도 보여야 한다 */}
-        <YearTabs years={years} value={year} onPick={setYear} withAll />
+        {/*
+          * 사업연도는 범위라서 접는 필터 막대에 넣지 않는다 — 늘 보여야 한다.
+          *
+          * 탭이었는데 드롭다운으로 바꿨다(한백 지시 2026-08-25). 해가 쌓이면 탭이 가로로
+          * 늘어 검색칸을 밀어냈고, 고른 해가 「눌린 탭」이라 한눈에 안 읽혔다. 드롭다운은
+          * 접혀 있어도 고른 값을 글자로 말한다.
+          * 수주 현황은 그대로 탭이다 — 거기는 주소를 갈아 서버가 다시 그리는 자리다.
+          */}
+        <label className="shrink-0">
+          <span className="sr-only">사업연도</span>
+          <select
+            className={`${FIELD} bg-white`}
+            value={year}
+            onChange={(e) => setYear(e.target.value)}
+          >
+            <option value={ALL_YEARS}>{ALL_YEARS}</option>
+            {years.map((y) => (
+              <option key={y} value={y}>{y}년</option>
+            ))}
+          </select>
+        </label>
 
         <label className="relative flex-1 min-w-[180px]">
           <span className="sr-only">현장 검색</span>
@@ -219,27 +250,19 @@ export default function ProjectsView({
           />
         </label>
 
-        {/*
-          * 필터는 표에서만 쓴다.
-          *
-          * 보드는 「어느 단계에 몇 건」을 보는 자리다 — 거기서 조건을 걸면 칸의 숫자가
-          * 무슨 뜻인지 알 수 없게 된다(전체 중 몇 건인지 걸린 것 중 몇 건인지).
-          * 조건으로 좁혀 찾는 일은 표가 한다.
-          */}
-        {view === 'table' && (
-          <button
-            type="button"
-            onClick={() => setOpen((v) => !v)}
-            aria-expanded={open}
-            className={`shrink-0 rounded-ctl border px-3.5 py-2 text-lead font-bold transition ${
-              open || activeCount > 0
-                ? 'border-brand-300 bg-brand-50 text-brand-800'
-                : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
-            }`}
-          >
-            필터{activeCount > 0 && <span className="ml-1 tabular-nums">{activeCount}</span>}
-          </button>
-        )}
+        {/* 보드에서도 건다 — 운영사·영업사·시공사로 좁혀 보는 일이 두 보기 모두의 질문이다 */}
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          aria-expanded={open}
+          className={`shrink-0 rounded-ctl border px-3.5 py-2 text-lead font-bold transition ${
+            open || activeCount > 0
+              ? 'border-brand-300 bg-brand-50 text-brand-800'
+              : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
+          }`}
+        >
+          필터{activeCount > 0 && <span className="ml-1 tabular-nums">{activeCount}</span>}
+        </button>
 
         {activeCount > 0 && (
           <button
@@ -252,7 +275,7 @@ export default function ProjectsView({
         )}
       </div>
 
-      {open && view === 'table' && (
+      {open && (
         <div className={`mb-4 flex flex-col gap-3 ${PANEL} p-4`}>
           {/*
             * 모든 축을 다 편다. 표에서는 열 머리글에서도 같은 축을 걸 수 있고, 여기 걸든
@@ -285,10 +308,13 @@ export default function ProjectsView({
       <p className="mb-3 text-small font-semibold text-slate-500">
         {activeCount > 0 ? (
           <>
-            {filtered.length}건 <span className="font-normal text-slate-400">/ 전체 {scoped.length}건</span>
+            {filtered.length}건 · {num(filteredUnits)}기{' '}
+            <span className="font-normal text-slate-400">
+              / 전체 {scoped.length}건 · {num(scopedUnits)}기
+            </span>
           </>
         ) : (
-          <>전체 {scoped.length}건</>
+          <>전체 {scoped.length}건 · {num(scopedUnits)}기</>
         )}
         {year !== ALL_YEARS && <span className="font-normal text-slate-400"> · {year}년</span>}
       </p>

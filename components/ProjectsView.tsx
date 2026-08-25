@@ -15,7 +15,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useAction } from '@/lib/use-action';
-import { Choice, FIELD, Note, PANEL } from '@/components/ui';
+import { FIELD, Note, PANEL } from '@/components/ui';
 import type { ProcessStatus, ProjectSummary } from '@/types/project';
 import { type BoardColumn } from '@/lib/board';
 import {
@@ -219,39 +219,6 @@ export default function ProjectsView({
         <Tabs view={view} onChange={changeView} />
 
         {/*
-          * 필터는 보기 전환 바로 옆, 왼쪽 위다(한백 지시 2026-08-25).
-          *
-          * 검색칸(flex-1) 뒤에 있어서 창이 넓으면 화면 오른쪽 끝까지 밀려나 있었다 —
-          * 거르는 일은 보드·표를 보면서 하는 일인데, 누를 것이 시선에서 가장 먼 자리에
-          * 있었다. 보드에서도 걸리게 되면서 더 그렇다.
-          *
-          * 보드에서도 건다 — 운영사·영업사·시공사로 좁혀 보는 일이 두 보기 모두의 질문이다.
-          */}
-        <button
-          type="button"
-          onClick={() => setOpen((v) => !v)}
-          aria-expanded={open}
-          className={`shrink-0 rounded-ctl border px-3.5 py-2 text-lead font-bold transition ${
-            open || activeCount > 0
-              ? 'border-brand-300 bg-brand-50 text-brand-800'
-              : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
-          }`}
-        >
-          필터{activeCount > 0 && <span className="ml-1 tabular-nums">{activeCount}</span>}
-        </button>
-
-        {/* 거는 자리 곁에 푸는 자리를 둔다(화면 규칙 7) — 조건·검색을 통째로 지운다 */}
-        {activeCount > 0 && (
-          <button
-            type="button"
-            onClick={clear}
-            className="shrink-0 rounded-ctl px-2.5 py-2 text-lead font-semibold text-slate-500 transition hover:text-slate-800"
-          >
-            지우기
-          </button>
-        )}
-
-        {/*
           * 사업연도는 범위라서 접는 필터 막대에 넣지 않는다 — 늘 보여야 한다.
           *
           * 탭이었는데 드롭다운으로 바꿨다(한백 지시 2026-08-25). 해가 쌓이면 탭이 가로로
@@ -282,7 +249,39 @@ export default function ProjectsView({
             className={`${FIELD} bg-white`}
           />
         </label>
+      </div>
 
+      {/*
+        * 필터는 보기 전환 아랫줄이다(한백 지시 2026-08-26).
+        *
+        * 검색칸(flex-1) 뒤에 있던 때는 창이 넓을수록 오른쪽 끝으로 밀려나 있었고, 보기
+        * 전환 옆에 붙이니 첫 줄이 빽빽했다. 줄을 나누면 위는 「무엇을 보나」(보기·연도·검색),
+        * 아래는 「무엇으로 좁히나」로 갈린다 — 펼친 판이 바로 이 줄 밑에 붙는다.
+        */}
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          aria-expanded={open}
+          className={`shrink-0 rounded-ctl border px-3.5 py-2 text-lead font-bold transition ${
+            open || activeCount > 0
+              ? 'border-brand-300 bg-brand-50 text-brand-800'
+              : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
+          }`}
+        >
+          필터{activeCount > 0 && <span className="ml-1 tabular-nums">{activeCount}</span>}
+        </button>
+
+        {/* 거는 자리 곁에 푸는 자리를 둔다(화면 규칙 7) — 조건·검색을 통째로 지운다 */}
+        {activeCount > 0 && (
+          <button
+            type="button"
+            onClick={clear}
+            className="shrink-0 rounded-ctl px-2.5 py-2 text-lead font-semibold text-slate-500 transition hover:text-slate-800"
+          >
+            지우기
+          </button>
+        )}
       </div>
 
       {open && (
@@ -315,7 +314,9 @@ export default function ProjectsView({
         「전체」는 고른 해의 건수다 — 연도는 필터가 아니라 범위다. 연도를 걸어 둔 채
         전체를 전 기간으로 적으면 두 숫자가 무엇의 비율인지 알 수 없다.
       */}
-      <p className="mb-3 text-small font-semibold text-slate-500">
+      {/* 오른쪽 끝에 세운다(한백 지시 2026-08-26) — 규모는 읽고 지나가는 값이라 왼쪽의
+          거르는 자리와 자리를 다투지 않는다 */}
+      <p className="mb-3 text-right text-small font-semibold text-slate-500">
         {activeCount > 0 ? (
           <>
             {filtered.length}건 · {num(filteredUnits)}기{' '}
@@ -377,6 +378,16 @@ function Tabs({ view, onChange }: { view: ViewKey; onChange: (v: ViewKey) => voi
   );
 }
 
+/**
+ * 한 축의 값들 — 체크박스로 고른다(한백 지시 2026-08-26).
+ *
+ * 칩(Choice)이었다. 칩은 켜진 것만 색으로 말해서, 안 켜진 값이 「고를 수 있는 것」인지
+ * 「지금 걸려서 빠진 것」인지 모양이 같았다 — 축 열 개가 한 판에 깔리면 더 그렇다.
+ * 체크박스는 고르는 물건이라고 생김새가 먼저 말한다.
+ *
+ * 모양은 표의 열 고르기와 같은 것을 쓴다(ProjectTable) — 같은 일을 하는 자리가 화면마다
+ * 다르게 생기지 않게 한다.
+ */
 function Group({
   label, options, picked, onToggle,
 }: {
@@ -386,20 +397,24 @@ function Group({
   onToggle: (v: string) => void;
 }) {
   return (
-    <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1.5">
+    <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
       <span className="w-[76px] shrink-0 text-tiny font-bold tracking-[0.04em] text-slate-400">
         {label}
       </span>
-      {/* 누르는 것은 각지다(화면 규칙 11) — 모양은 부품이 쥔다 */}
-      <div className="flex flex-1 flex-wrap gap-1.5">
+      <div className="flex flex-1 flex-wrap gap-x-3 gap-y-1">
         {options.map((o) => (
-          <Choice
+          <label
             key={o.value}
-            on={picked.includes(o.value)}
-            onClick={() => onToggle(o.value)}
+            className="flex cursor-pointer items-center gap-1.5 rounded-ctl px-1.5 py-1 text-small font-semibold text-slate-700 transition hover:bg-slate-50"
           >
-            {o.label}
-          </Choice>
+            <input
+              type="checkbox"
+              checked={picked.includes(o.value)}
+              onChange={() => onToggle(o.value)}
+              className="h-3.5 w-3.5 accent-brand-600"
+            />
+            <span>{o.label}</span>
+          </label>
         ))}
       </div>
     </div>

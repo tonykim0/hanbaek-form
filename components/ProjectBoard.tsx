@@ -86,14 +86,16 @@ export default function ProjectBoard({
    * 계약 줄만 길어지고 시공 줄은 카드 한 장 높이로 납작해져서, 시공 칸에 카드를 끌어다
    * 놓을 자리조차 좁았다 — 두 줄의 높이가 「몇 건 있나」에 따라 매번 달라졌다.
    *
-   * 위쪽 chrome(제목·필터 막대·본문 여백)이 13rem 쯤이라 그만큼 뺀다.
+   * 위쪽 chrome(제목·보기 막대·필터 줄·건수·본문 여백)이 14rem 쯤이라 그만큼 뺀다.
+   * 13rem 이었다 — 필터가 제 줄로 내려오면서(+3rem) 띠 머리말이 사라진 것(-2rem)보다
+   * 조금 더 늘었다(2026-08-26). 필터 판을 펴면 그만큼 페이지가 스크롤된다.
    * 창이 아주 낮으면 30rem 아래로는 줄이지 않고 그때는 페이지가 스크롤된다.
    *
    * 멈춤은 늘리지 않는다 — 나타날 때만 있는 줄이고, 세 줄을 똑같이 나누면
    * 보류 몇 건이 계약·시공과 같은 자리를 차지한다.
    */
   return (
-    <div className="flex h-[calc(100vh-13rem)] min-h-[30rem] flex-col">
+    <div className="flex h-[calc(100vh-14rem)] min-h-[30rem] flex-col">
           <section
             aria-label={`${band} 구역`}
             className="flex min-h-0 flex-1 flex-col"

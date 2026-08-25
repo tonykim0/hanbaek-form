@@ -33,6 +33,7 @@ export const CATEGORY_TO_KIND: Record<FileCategory, string | null> = {
   '기설치 증빙자료': 'legacyev',
   '별지2 사전체크리스트': 'checklist2',
   '설치승인서': 'approval',
+  '견적서': 'quote',
   '기타': 'etc',
 };
 
@@ -66,17 +67,22 @@ export function preInstallFromCategories(categories: FileCategory[]): PreInstall
 }
 
 /**
- * 엑셀 두 종을 파일명으로 가른다.
+ * 엑셀 세 종을 파일명으로 가른다.
  *
- * 파이프라인은 PDF 만 AI 에 넘긴다(비용·토큰). 엑셀은 확장자만 보고 카테고리를 정해 왔는데,
- * .xlsx 필수 서류가 둘이라(실사보고서 · 기설치 충전기 설치이력) 둘을 같이 올리면
- * 하나가 사라졌다. 파일명으로 가른다 — 둘 다 한백이 배포한 서식이라 이름이 예측 가능하다.
+ * 파이프라인은 PDF 만 AI 에 넘긴다(비용·토큰 — Claude vision 이 xlsx 를 읽지 못한다).
+ * 엑셀은 확장자만 보고 카테고리를 정해 왔는데, .xlsx 로 오는 서류가 여럿이라
+ * (실사보고서 · 기설치 충전기 설치이력 · SK 자체투자 견적서) 같이 올리면 하나가 사라졌다.
+ * 파일명으로 가른다 — 다 한백이 배포한 서식이라 이름이 예측 가능하다.
+ *
+ * 견적서를 먼저 본다 (한백 지시 2026-08-25). 넣기 전에는 견적서가 기본값에 걸려
+ * 실사보고서 칸에 들어갔다 — 서로 다른 서류가 한 칸에 앉고 실사보고서는 빈 것이 된다.
  *
  * 애매하면 실사보고서로 둔다(종전 동작). 잘못 들어가도 한백이 검수에서 반려하면 되지만,
  * 칸이 비면 필수 미충족으로 접수가 영구히 막힌다 — 덜 나쁜 쪽으로 기울인다.
  */
 export function excelCategory(fileName: string): FileCategory {
   const n = fileName.normalize('NFC').toLowerCase();
+  if (/견적|estimate|quotation/.test(n)) return '견적서';
   if (/설치이력|기설치|이력서?\b|history/.test(n)) return '기설치 충전기 설치이력';
   return '실사보고서';
 }

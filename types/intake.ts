@@ -19,6 +19,7 @@ export type FileCategory =
   | '기설치 증빙자료'
   | '별지2 사전체크리스트'
   | '설치승인서'
+  | '견적서'
   | '기타';
 
 // 노션 select 옵션 (HANDOFF.md §6)

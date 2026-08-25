@@ -7,9 +7,12 @@
  * (/admin/partners)에서 전 계정을. 누가 남의 것을 고칠 수 있는지는 저장소(assertSelfOrAdmin)가 판정한다.
  *
  * 카드마다 「고치기」로 연다 — 평소엔 글자, 고칠 때만 입력칸(화면 규칙 4).
- * 사업자등록번호는 적는 대로 하이픈이 붙고 국세청 검증 숫자를 본다. 은행은 골라 넣고
- * 계좌번호는 숫자만 받는다 — 형식 규칙은 lib/bank-account 한 곳에 있다(저장소와 같은 규칙).
- * 서류(사업자등록증·통장사본)는 올리기·교체·지우기 — 편집 모드와 무관하게 그 자리에서 한다.
+ * 사업자등록번호는 적는 대로 하이픈이 붙고 국세청 검증 숫자를 본다(정본 lib/bizid). 은행은
+ * 골라 넣고 계좌번호는 숫자만 받는다(lib/bank-account) — 저장소와 같은 규칙을 쓴다.
+ * 서류(사업자등록증·통장사본)는 올리기·채우기·교체·지우기 — 편집 모드와 무관하게 그 자리에서 한다.
+ * 서류를 올리면 Claude 가 읽어 입력칸을 1차로 채운다(/api/admin/partner-details/read).
+ * ★채우는 데서 멈춘다★ — 저장은 사람이 「저장」을 눌러야 한다. 판독은 타이핑을 덜어 주는
+ * 것이지 확인을 대신하는 것이 아니다. 검산에 걸린 값은 지우지 않고 카드 아래에 적는다.
  *
  * 비어 있으면 「미지정」(노랑) — 지급 처리 전에 채워야 하는 값이라 눈에 띄어야 한다.
  */
@@ -22,11 +25,10 @@ import {
   ACCOUNT_DIGITS_MAX,
   ACCOUNT_DIGITS_MIN,
   BANKS,
-  formatBizRegNo,
   isValidAccountNo,
-  isValidBizRegNo,
   normalizeAccountNo,
 } from '@/lib/bank-account';
+import { formatKoreanBizIdInput, isValidKoreanBizId } from '@/lib/bizid';
 import { Blank, Btn, Empty, Err, FIELD, Note, PANEL } from '@/components/ui';
 
 const EMPTY_DETAILS: PartnerDetailsView = {
@@ -92,28 +94,79 @@ function PartnerCard({
   const [fileError, setFileError] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
+  const [reading, setReading] = useState<PartnerFileKind | null>(null);
+  const [readIssues, setReadIssues] = useState<string[]>([]);
   const [form, setForm] = useState({
     bizRegNo: '', ceo: '', addr: '', bankName: '', bankAccountNo: '', bankHolder: '',
   });
 
-  function openEdit() {
-    setForm({
-      bizRegNo: details.bizRegNo ? formatBizRegNo(details.bizRegNo) : '',
+  /** 저장값에서 뜬 입력칸 한 벌 — 「고치기」와 서류 판독이 같은 바닥에서 시작한다 */
+  function savedForm() {
+    return {
+      bizRegNo: details.bizRegNo ? formatKoreanBizIdInput(details.bizRegNo) : '',
       ceo: details.ceo ?? '',
       addr: details.addr ?? '',
       bankName: details.bankName ?? '',
       bankAccountNo: details.bankAccountNo ?? '',
       bankHolder: details.bankHolder ?? '',
-    });
+    };
+  }
+
+  function openEdit() {
+    setForm(savedForm());
     setLocalError(null);
+    setReadIssues([]);
     setEditing(true);
+  }
+
+  /**
+   * 서류에서 읽어 입력칸을 채운다 — ★저장까지 가지 않는다★. 읽은 값을 눈으로 보고
+   * 「저장」을 눌러야 들어간다(화면 규칙 4·7). 못 읽은 칸은 건드리지 않는다 —
+   * 빈 문자열로 덮으면 이미 적어 둔 값이 조용히 지워진다.
+   */
+  async function readDoc(kind: PartnerFileKind) {
+    setReading(kind);
+    setFileError(null);
+    setReadIssues([]);
+    try {
+      const res = await fetch('/api/admin/partner-details/read', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: account.id, kind }),
+      });
+      const data = (await res.json().catch(() => null)) as
+        | { fields?: Record<string, string | null>; issues?: string[]; error?: string }
+        | null;
+      if (!res.ok) {
+        setFileError(`${KIND_LABEL[kind]} — ${data?.error ?? '읽지 못했습니다.'}`);
+        return;
+      }
+      const fields = data?.fields ?? {};
+      setForm((current) => {
+        // 고치는 중이면 지금 적고 있는 값 위에, 아니면 저장값 위에 얹는다
+        const next = { ...(editing ? current : savedForm()) };
+        if (fields.bizRegNo) next.bizRegNo = formatKoreanBizIdInput(fields.bizRegNo);
+        for (const key of ['ceo', 'addr', 'bankName', 'bankAccountNo', 'bankHolder'] as const) {
+          const value = fields[key];
+          if (value) next[key] = value;
+        }
+        return next;
+      });
+      setLocalError(null);
+      setEditing(true);
+      setReadIssues(data?.issues ?? []);
+    } catch {
+      setFileError(`${KIND_LABEL[kind]} — 읽지 못했습니다.`);
+    } finally {
+      setReading(null);
+    }
   }
 
   async function save() {
     setLocalError(null);
     // 저장소와 같은 검사를 먼저 돌린다 — 왕복 없이 그 자리에서 잡는다
     const bizDigits = form.bizRegNo.replace(/\D/g, '');
-    if (bizDigits && !isValidBizRegNo(bizDigits)) {
+    if (bizDigits && !isValidKoreanBizId(bizDigits)) {
       setLocalError('사업자등록번호가 올바르지 않습니다 — 숫자 10자리, 검증 숫자 불일치.');
       return;
     }
@@ -136,7 +189,10 @@ function PartnerCard({
       },
       label: account.org ?? account.id,
     });
-    if (ok) setEditing(false);
+    if (ok) {
+      setEditing(false);
+      setReadIssues([]);
+    }
   }
 
   // 현재 저장값이 목록에 없는 은행이면(자유 입력 시절 값) 선택지에 남겨 되돌릴 수 있게 한다
@@ -172,7 +228,7 @@ function PartnerCard({
                   disabled={busy}
                   inputMode="numeric"
                   placeholder="000-00-00000"
-                  onChange={(e) => setForm((f) => ({ ...f, bizRegNo: formatBizRegNo(e.target.value) }))}
+                  onChange={(e) => setForm((f) => ({ ...f, bizRegNo: formatKoreanBizIdInput(e.target.value) }))}
                   className={`${FIELD} tabular-nums`}
                 />
               </Field>
@@ -250,7 +306,7 @@ function PartnerCard({
               <FactRow label="사업자등록번호">
                 {details.bizRegNo ? (
                   <span className="font-bold tabular-nums text-slate-800">
-                    {formatBizRegNo(details.bizRegNo)}
+                    {formatKoreanBizIdInput(details.bizRegNo)}
                   </span>
                 ) : (
                   <Empty kind="miss" />
@@ -284,13 +340,28 @@ function PartnerCard({
         </div>
 
         <div className="flex flex-col gap-2.5">
-          <FileFact account={account} kind="bizCert" url={details.bizCertUrl} dbReady={dbReady} onError={setFileError} />
-          <FileFact account={account} kind="bankbook" url={details.bankbookUrl} dbReady={dbReady} onError={setFileError} />
+          <FileFact
+            account={account} kind="bizCert" url={details.bizCertUrl} dbReady={dbReady}
+            onError={setFileError} onRead={readDoc} reading={reading === 'bizCert'}
+          />
+          <FileFact
+            account={account} kind="bankbook" url={details.bankbookUrl} dbReady={dbReady}
+            onError={setFileError} onRead={readDoc} reading={reading === 'bankbook'}
+          />
         </div>
       </div>
 
       {fileError && (
         <p className="mt-2 text-tiny font-semibold text-red-700">{fileError}</p>
+      )}
+
+      {/* 읽었지만 검산에 걸린 것 — 지우지 않고 그대로 보여 사람이 고치게 한다 */}
+      {readIssues.length > 0 && (
+        <ul className="mt-2 flex flex-col gap-0.5">
+          {readIssues.map((issue) => (
+            <li key={issue} className="text-tiny font-semibold text-amber-700">{issue}</li>
+          ))}
+        </ul>
       )}
     </div>
   );
@@ -320,24 +391,29 @@ const KIND_LABEL: Record<PartnerFileKind, string> = {
 };
 
 /**
- * 서류 한 줄 — 올리기 / 보기·교체·지우기.
+ * 서류 한 줄 — 올리기 / 보기·채우기·교체·지우기.
  * useAction 은 JSON 만 보내서 파일은 여기서 직접 multipart 로 보낸다. 오류는
  * 카드의 오류 슬롯(onError)으로 — 누른 자리 곁에 떠야 한다(화면 규칙 9).
+ *
+ * 올리고 나면 곧바로 판독으로 넘어간다 — 올린 사람이 원하는 것은 파일이 붙는 것이
+ * 아니라 칸이 차는 것이다. 이미 붙어 있는 서류는 「채우기」로 다시 읽는다.
  */
 function FileFact({
-  account, kind, url, dbReady, onError,
+  account, kind, url, dbReady, onError, onRead, reading,
 }: {
   account: AccountView;
   kind: PartnerFileKind;
   url: string | null;
   dbReady: boolean;
   onError: (message: string | null) => void;
+  onRead: (kind: PartnerFileKind) => void;
+  reading: boolean;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  async function send(init: RequestInit, fail: string) {
+  async function send(init: RequestInit, fail: string): Promise<boolean> {
     setBusy(true);
     onError(null);
     try {
@@ -345,24 +421,27 @@ function FileFact({
       if (!res.ok) {
         const data = (await res.json().catch(() => null)) as { error?: string } | null;
         onError(`${KIND_LABEL[kind]} — ${data?.error ?? fail}`);
-        return;
+        return false;
       }
       router.refresh();
+      return true;
     } catch {
       onError(`${KIND_LABEL[kind]} — ${fail}`);
+      return false;
     } finally {
       setBusy(false);
     }
   }
 
-  function upload(files: FileList | null) {
+  async function upload(files: FileList | null) {
     const file = files?.[0];
     if (!file) return;
     const body = new FormData();
     body.append('userId', account.id);
     body.append('kind', kind);
     body.append('file', file);
-    void send({ method: 'POST', body }, '올리지 못했습니다.');
+    // 올라간 뒤에 읽는다 — 판독은 Blob 에 붙은 것을 다시 받아 본다
+    if (await send({ method: 'POST', body }, '올리지 못했습니다.')) onRead(kind);
   }
 
   const actionBtn =
@@ -377,7 +456,7 @@ function FileFact({
         className="hidden"
         disabled={busy || !dbReady}
         onChange={(e) => {
-          upload(e.target.files);
+          void upload(e.target.files);
           e.target.value = '';
         }}
       />
@@ -387,7 +466,15 @@ function FileFact({
             <a href={url} target="_blank" rel="noreferrer" className="font-bold text-brand-700 underline">
               보기
             </a>
-            <button type="button" disabled={busy || !dbReady} onClick={() => inputRef.current?.click()} className={actionBtn}>
+            <button
+              type="button"
+              disabled={busy || reading || !dbReady}
+              onClick={() => onRead(kind)}
+              className={actionBtn}
+            >
+              {reading ? '읽는 중…' : '채우기'}
+            </button>
+            <button type="button" disabled={busy || reading || !dbReady} onClick={() => inputRef.current?.click()} className={actionBtn}>
               {busy ? '올리는 중…' : '교체'}
             </button>
             <button
@@ -409,8 +496,8 @@ function FileFact({
         ) : (
           <>
             <Empty kind="miss" />
-            <button type="button" disabled={busy || !dbReady} onClick={() => inputRef.current?.click()} className={actionBtn}>
-              {busy ? '올리는 중…' : '올리기'}
+            <button type="button" disabled={busy || reading || !dbReady} onClick={() => inputRef.current?.click()} className={actionBtn}>
+              {busy ? '올리는 중…' : reading ? '읽는 중…' : '올리기'}
             </button>
           </>
         )}

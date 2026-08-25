@@ -15,8 +15,10 @@
 import { useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import type { ProcessStatus, ProjectSummary } from '@/types/project';
-import { BOARD_COLUMNS, boardColumnOf, partnerWaitingOf, type BoardBand, type BoardColumn } from '@/lib/board';
-import { Tag } from '@/components/ui';
+import { PROCESS_STATUSES } from '@/types/project';
+import { bandOfColumn, BOARD_COLUMNS, boardColumnOf, partnerWaitingOf, type BoardBand, type BoardColumn } from '@/lib/board';
+import { statusIndex } from '@/lib/process';
+import { Btn, Tag } from '@/components/ui';
 import { StopControl } from '@/components/project/StopControl';
 
 /** 띠별 강조색 — 카드까지 색을 입히면 읽히지 않는다. 줄 머리글만 물들인다. */
@@ -224,6 +226,25 @@ function Card({
    */
   const next = p.stage !== 'intake' && !p.holdState ? p.nextStep : null;
 
+  /*
+   * 되돌리는 걸음 — 미는 자리에 되돌리는 자리를 같이 둔다(화면 규칙 7).
+   *
+   * 카드의 「넘기기 →」는 한 번 누르면 옮겨지는데, 되돌리는 길은 상세의 스테퍼뿐이었다.
+   * 게다가 시공의 첫 칸(행위신고)은 스테퍼에 앞 칸이 없다 — 운영사 계약서 제출은 계약
+   * 국면이라 시공 스테퍼에 그리지 않는다. 그래서 보드에서 잘못 넘긴 현장이 시공 첫 칸에
+   * 갇혔다(휴먼서희스타힐스 2026-08-25).
+   *
+   * 이름에 막는 것을 적지 않는다(화면 규칙 3) — 뒤로 가는 길은 늘 열려 있다
+   * (lib/process canEnter: 지난 자리는 조건을 묻지 않는다).
+   *
+   * 계약 칸으로 돌아가면 이 카드는 시공 페이지에서 사라진다(계약 페이지에 선다) —
+   * 그것이 되돌아갔다는 표시다. 어디로 가는지는 단추 이름이 이미 말한다.
+   */
+  const back =
+    p.stage !== 'intake' && !p.holdState
+      ? PROCESS_STATUSES[statusIndex(p.status) - 1] ?? null
+      : null;
+
   return (
     <article
       role="link"
@@ -293,6 +314,22 @@ function Card({
               ?? (next.ready ? `${next.status} 준비됨` : `다음: ${next.need}`)}
           </p>
         )
+      )}
+
+      {/* 되돌리기는 넘기기와 같은 줄에 두지 않는다 — 반대쪽 끝이다(화면 규칙 8) */}
+      {canMove && back && (
+        <div className="mt-1.5 flex" onClick={(e) => e.stopPropagation()}>
+          <Btn
+            kind="undo"
+            size="sm"
+            busy={busy}
+            busyLabel="되돌리는 중…"
+            className="ml-auto break-keep text-left"
+            onClick={() => onMove(p, back)}
+          >
+            ← {back} 로 되돌리기
+          </Btn>
+        </div>
       )}
 
       {/*

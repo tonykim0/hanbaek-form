@@ -18,6 +18,7 @@ import { Fragment, useEffect, useState } from 'react';
 import type { ProcessStatus, ProjectDetail } from '@/types/project';
 import { PROCESS_STATUSES } from '@/types/project';
 import { PROCESS_DOCS } from '@/lib/doc-rules';
+import { bandOfColumn } from '@/lib/board';
 import {
   canEnter, isHanbaekOnlyProcessField, statusIndex, STATUS_GATES, type ProcessEdit,
 } from '@/lib/process';
@@ -224,6 +225,22 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
 
   const now = statusIndex(p.status);
 
+  /*
+   * 시공의 첫 칸에서 계약으로 되돌리는 길 (한백 지시 2026-08-25).
+   *
+   * 지난 칩을 누르면 되돌아가지만, ★행위신고에 서 있으면 되돌릴 칩이 없다★ —
+   * 그 앞 칸(운영사 계약서 제출)은 계약 국면이라 이 스테퍼에 그리지 않는다.
+   * 그래서 잘못 넘긴 현장이 시공 보드의 첫 칸에 갇혔다(휴먼서희스타힐스 2026-08-25):
+   * 표의 단계 칸에서 고르는 것 말고는 길이 없었다. 넘기는 자리에 되돌리는 자리를
+   * 같이 둔다(화면 규칙 7).
+   *
+   * 판정은 띠(lib/board)로 한다 — '행위신고' 를 여기 적으면 첫 칸이 바뀔 때
+   * (계약 칸이 늘거나 줄면) 이 자리가 조용히 어긋난다.
+   */
+  const prevStatus = PROCESS_STATUSES[now - 1] ?? null;
+  const backToContract =
+    prevStatus && bandOfColumn(prevStatus) === '계약' ? prevStatus : null;
+
   return (
     <div className="flex flex-col gap-5">
       {error && (
@@ -332,6 +349,25 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
                       🔒 {STATUS_GATES[selected]?.need} 필요
                     </p>
                   )
+                )}
+
+                {/*
+                  * 계약으로 되돌리기 — 지금 구간이 시공의 첫 칸일 때만 선다.
+                  * 넘기는 단추(다음 — … 로 넘기기)는 패널 아래에 있고 이것은 머리의
+                  * 반대쪽 끝이다(화면 규칙 8). 글자 단추다 — 확정이 아니라 되돌리기다
+                  * (화면 규칙 12).
+                  */}
+                {edit === 'all' && selState === 'current' && backToContract && (
+                  <Btn
+                    kind="undo"
+                    busy={busyKey === 'status'}
+                    busyLabel="되돌리는 중…"
+                    className="ml-auto"
+                    title={`${backToContract} 로 돌아갑니다 — 이 현장은 계약 페이지에 섭니다`}
+                    onClick={() => moveStatus(backToContract)}
+                  >
+                    ← 계약으로 되돌리기
+                  </Btn>
                 )}
               </div>
 

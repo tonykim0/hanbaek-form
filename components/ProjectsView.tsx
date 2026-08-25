@@ -21,6 +21,8 @@ import { type BoardColumn } from '@/lib/board';
 import {
   ATTRS, countActive, optionsOf, passesAttrs, type AttrFilters, type AttrKey,
 } from '@/lib/project-filter';
+import { ALL_YEARS, businessYearsOf, inBusinessYear } from '@/lib/business-year';
+import YearTabs from '@/components/YearTabs';
 import ProjectBoard from './ProjectBoard';
 import ProjectTable from './ProjectTable';
 
@@ -63,6 +65,14 @@ export default function ProjectsView({
     }
     return init;
   });
+  /*
+   * 사업연도는 필터가 아니라 범위다 — 걸면 「전체 N건」의 N 자체가 그 해의 건수가 된다.
+   * 그래서 접는 필터 막대(표에서만 나온다)가 아니라 늘 보이는 자리에 둔다.
+   *
+   * 기본은 전체다. 보드는 도는 일을 보는 자리라, 해가 바뀌었다고 작년에 접수해 아직
+   * 시공 중인 현장이 사라지면 안 된다 — 그것을 놓치면 일이 멈춘 것을 모른다.
+   */
+  const [year, setYear] = useState(() => sp.get('year') ?? ALL_YEARS);
   const [flags, setFlags] = useState<string[]>(() => split(sp.get('flag')));
   // 필터가 걸린 주소로 들어왔으면 무엇이 걸렸는지 펴서 보여준다
   const [open, setOpen] = useState(() => ATTRS.some((a) => split(sp.get(a.key)).length > 0));
@@ -74,7 +84,15 @@ export default function ProjectsView({
 
   // 주소에 남긴다. replaceState 라서 서버를 다시 부르지 않고 뒤로가기 이력도 안 쌓인다.
   useEffect(() => {
-    const p = new URLSearchParams();
+    /*
+     * 우리가 쥔 값만 다시 쓴다. 처음부터 새로 만들면 이 화면이 모르는 값이 조용히
+     * 지워진다 — 사업연도를 붙여 보낸 링크가 열자마자 풀리는 것이 그것이었다.
+     */
+    const p = new URLSearchParams(window.location.search);
+    for (const key of ['view', 'q', 'flag', 'year']) p.delete(key);
+    for (const a of ATTRS) p.delete(a.key);
+
+    if (year !== ALL_YEARS) p.set('year', year);
     if (view === 'table') p.set('view', 'table');
     if (q.trim()) p.set('q', q.trim());
     for (const a of ATTRS) {
@@ -84,7 +102,7 @@ export default function ProjectsView({
     if (flags.length) p.set('flag', flags.join(','));
     const qs = p.toString();
     window.history.replaceState(null, '', qs ? `?${qs}` : window.location.pathname);
-  }, [view, q, attrs, flags]);
+  }, [view, q, attrs, flags, year]);
 
   /*
    * 서버가 따라잡으면 임시 위치를 버린다.
@@ -125,15 +143,20 @@ export default function ProjectsView({
     [run]
   );
 
-  /** 축별로 고를 수 있는 값 — 이 사람 화면에 있는 값만 나온다 */
+  const years = useMemo(() => businessYearsOf(projects), [projects]);
+
+  /** 연도로 좁힌 것이 이 화면의 「전체」다 — 필터는 이 안에서 다시 거른다 */
+  const scoped = useMemo(() => inBusinessYear(withMoves, year), [withMoves, year]);
+
+  /** 축별로 고를 수 있는 값 — 이 사람 화면에, 고른 해에 있는 값만 나온다 */
   const options = useMemo(
-    () => Object.fromEntries(ATTRS.map((a) => [a.key, optionsOf(projects, a.key)])) as Record<AttrKey, string[]>,
-    [projects]
+    () => Object.fromEntries(ATTRS.map((a) => [a.key, optionsOf(scoped, a.key)])) as Record<AttrKey, string[]>,
+    [scoped]
   );
 
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
-    return withMoves.filter((p) => {
+    return scoped.filter((p) => {
       if (needle) {
         const hay = `${p.name} ${p.mgmtNo ?? ''} ${p.id} ${p.addr ?? ''}`.toLowerCase();
         if (!hay.includes(needle)) return false;
@@ -145,7 +168,7 @@ export default function ProjectsView({
       if (flags.includes('stalled') && p.stalledDays < 14) return false;
       return true;
     });
-  }, [withMoves, q, attrs, flags]);
+  }, [scoped, q, attrs, flags]);
 
   const activeCount = countActive(attrs) + flags.length + (q.trim() ? 1 : 0);
   const clear = () => {
@@ -182,6 +205,9 @@ export default function ProjectsView({
     <div>
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <Tabs view={view} onChange={changeView} />
+
+        {/* 범위라서 접는 필터 막대에 넣지 않는다 — 보드에서도 보여야 한다 */}
+        <YearTabs years={years} value={year} onPick={setYear} withAll />
 
         <label className="relative flex-1 min-w-[180px]">
           <span className="sr-only">현장 검색</span>
@@ -252,14 +278,19 @@ export default function ProjectsView({
         </div>
       )}
 
+      {/*
+        「전체」는 고른 해의 건수다 — 연도는 필터가 아니라 범위다. 연도를 걸어 둔 채
+        전체를 전 기간으로 적으면 두 숫자가 무엇의 비율인지 알 수 없다.
+      */}
       <p className="mb-3 text-small font-semibold text-slate-500">
         {activeCount > 0 ? (
           <>
-            {filtered.length}건 <span className="font-normal text-slate-400">/ 전체 {projects.length}건</span>
+            {filtered.length}건 <span className="font-normal text-slate-400">/ 전체 {scoped.length}건</span>
           </>
         ) : (
-          <>전체 {projects.length}건</>
+          <>전체 {scoped.length}건</>
         )}
+        {year !== ALL_YEARS && <span className="font-normal text-slate-400"> · {year}년</span>}
       </p>
 
       {error && <Note tone="stop" className="mb-4">{error}</Note>}

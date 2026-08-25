@@ -105,23 +105,30 @@ export async function middleware(request: NextRequest) {
      * 구역이 셋이다. 대행 중(asId)이면 눈이 협력사이므로 앞의 둘은 언제나 막힌다 —
      * 바탕이 관리자여도 그렇다.
      *
-     *   adminOnly    쓰는 자리. 관리자만. (계정·자료실·재발행·협력사 정보)
-     *   hanbaekOnly  보는 자리. 관리자와 열람 전용. (기성·단가·디자인 기준)
-     *   writerOnly   내는 자리. 열람 전용만 못 들어간다. (접수·계약서 작성·협력사 정보)
+     *   adminOnly    쓰는 자리. 관리자만. (계정·자료실·재발행)
+     *   hanbaekOnly  보는 자리. 관리자와 열람 전용. (기성·단가·디자인 기준·협력사 정보)
+     *   writerOnly   내는 자리. 열람 전용만 못 들어간다. (접수·계약서 작성·사업자 정보)
      *
      * /payouts 는 어디에도 없다 — 협력사도 자기 몫을 본다(페이지가 줄을 가른다).
      * 여기는 엣지라 쿠키에 박힌 구분을 그대로 읽는다. 진짜 문은 레이아웃이다
-     * (app/(console)/(admin)/layout.tsx · 그 아래 admin/layout.tsx).
+     * (app/(console)/(admin)/layout.tsx · 그 아래 admin/(write)/layout.tsx).
+     *
+     * ★/admin 은 통째로 관리자 전용이고, 열어 준 주소만 뺀다(adminReadable).★
+     * 재무팀(열람 전용)이 협력사 정보 — 사업자등록증·통장사본·정산 계좌 — 를 봐야 한다
+     * (한백 지시 2026-08-25). 목록을 「열린 것만」으로 뒤집지 않는 이유는, 그러면 새로
+     * 만드는 /admin 화면이 저절로 열리기 때문이다. 막는 쪽이 기본이어야 빠뜨려도 안전하다.
      */
     const starts = (list: string[]) => hits(path, list);
 
     const adminOnly = ['/admin'];
+    /** /admin 이지만 한백의 눈이면 보는 자리 — 보기만 하고 쓰기는 API 가 막는다 */
+    const adminReadable = ['/admin/partners'];
     const hanbaekOnly = ['/receivables', '/pricing', '/design'];
     const writerOnly = ['/projects/new', '/contracts', '/settings'];
 
     const blocked =
-      (starts(adminOnly) && (session.role !== 'admin' || session.asId))
-      || (starts(hanbaekOnly) && (!isHanbaek(session.role) || session.asId))
+      (starts(adminOnly) && !starts(adminReadable) && (session.role !== 'admin' || session.asId))
+      || ((starts(hanbaekOnly) || starts(adminReadable)) && (!isHanbaek(session.role) || session.asId))
       || (starts(writerOnly) && !canWrite(session.role));
 
     if (blocked) return NextResponse.redirect(new URL('/projects', request.url));

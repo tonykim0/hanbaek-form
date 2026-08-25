@@ -14,6 +14,7 @@
 import { NextResponse } from 'next/server';
 import { del, put } from '@vercel/blob';
 import { actorOf, getSessionUser } from '@/lib/auth/session';
+import { canWrite } from '@/lib/roles';
 import { BadRequest, sessionWrite } from '@/lib/api/write-route';
 import {
   FILE_KIND_LABEL,
@@ -72,6 +73,19 @@ export async function POST(request: Request): Promise<NextResponse> {
   const session = await getSessionUser();
   if (!session) {
     return NextResponse.json({ error: '로그인이 필요합니다.' }, { status: 401 });
+  }
+  /*
+   * ★열람 전용 차단이 여기 빠져 있었다.★ 껍데기(sessionWrite)를 못 쓰는 자리라 손으로
+   * 옮겨 적는데, 이 한 줄이 안 옮겨졌다 — 위 머리말은 「권한 확인·오류 모양은 껍데기와
+   * 똑같이 맞춘다」고 말하고 있었고 PATCH·DELETE 는 막는데 파일 올리기만 열려 있었다.
+   * 화면이 안 보여 주는 것과 API 가 막는 것은 다른 일이다(재무팀이 이 화면에 들어오면서
+   * 드러났다, 한백 지시 2026-08-25). 문구는 껍데기와 같은 것을 쓴다.
+   */
+  if (!canWrite(session.role)) {
+    return NextResponse.json(
+      { error: '열람 전용 계정입니다 — 보기만 할 수 있습니다.' },
+      { status: 403 }
+    );
   }
 
   try {

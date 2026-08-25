@@ -143,8 +143,8 @@ const GROUPS: Group[] = [
      * 지급관리」·「운영사 기성관리」가 있어서 같은 말이 한 사이드바에서 두 뜻으로 쓰였다 —
      * 항목의 관리는 매일 하는 일이고 이 묶음은 어쩌다 만지는 기준값이다. 그래서
      * 「관리」로 끝나는 화면을 찾으러 이 묶음을 열면 거기엔 없었다.
-     * 열람 전용에게 남는 것은 단가 케이스 하나뿐이다(읽기). 계정·협력사 정보는
-     * 바꾸는 자리라 주소부터 막혀 있다(app/(console)/(admin)/admin/layout.tsx).
+     * 열람 전용(재무팀)에게 남는 것은 단가표와 협력사 정보다 — 둘 다 읽기다. 계정설정만
+     * 주소부터 막혀 있다(app/(console)/(admin)/admin/(write)/layout.tsx).
      * 자료실 관리는 상단 바의 자료실 옆으로 옮겼다 — 보는 자리 옆이 올리는 자리다.
      */
     label: '기준 · 계정',
@@ -152,8 +152,12 @@ const GROUPS: Group[] = [
     items: [
       // 정산 묶음에서 옮겼다(한백 확인) — 매일 도는 흐름이 아니라 어쩌다 만지는 기준값이다
       { href: '/pricing', label: '단가표', short: '단가' },
-      // 계정설정(/admin/accounts)에서 뗐다(한백 확인) — 지급 전마다 보는 값이라 계정 등록과 결이 다르다
-      { href: '/admin/partners', label: '협력사 정보', short: '협력', adminOnly: true },
+      /*
+       * 계정설정(/admin/accounts)에서 뗐다(한백 확인) — 지급 전마다 보는 값이라 계정 등록과 결이 다르다.
+       * 열람 전용도 본다(한백 지시 2026-08-25) — 재무팀이 지급 전에 확인하는 통장사본·
+       * 사업자등록증이 여기 있다. 고치는 단추는 화면이 걷는다(PartnerDetailsSection canWrite).
+       */
+      { href: '/admin/partners', label: '협력사 정보', short: '협력', hanbaekOnly: true },
       { href: '/admin/accounts', label: '계정설정', short: '계정', adminOnly: true },
       /*
        * 디자인 기준(/design)은 메뉴에 없다 — 화면을 만드는 사람의 도구라서

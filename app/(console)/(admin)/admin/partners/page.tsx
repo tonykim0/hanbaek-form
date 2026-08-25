@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation';
 import { getSessionUser } from '@/lib/auth/session';
+import { canWrite, isHanbaek } from '@/lib/roles';
 import { userStore } from '@/lib/auth/users';
 import { listPartnerDetails } from '@/lib/auth/partner-details';
 import PartnerDetailsSection from '@/components/PartnerDetailsSection';
@@ -16,11 +17,15 @@ export const dynamic = 'force-dynamic';
  * 설정(/admin/accounts)에 얹혀 있던 것을 뗐다(한백 확인) — 계정 등록은 어쩌다 한 번이고,
  * 협력사 정보는 지급 처리 전마다 확인하는 값이라 드나드는 결이 다르다.
  * 협력사 자신은 /settings 에서 자기 것 하나를 고친다 — 같은 부품, 다른 인구.
+ *
+ * ★/admin 아래에서 열람 전용이 들어오는 유일한 화면이다.★ 재무팀이 지급 전에 보는 값이라
+ * 계정설정과 같은 문 뒤에 둘 이유가 없다(한백 지시 2026-08-25). 바꾸는 화면들은 한 층
+ * 안쪽 (write) 그룹에 있다. 여기서는 보기만 되고, 고치는 단추는 canWrite 가 걷는다.
  */
 export default async function PartnersPage() {
   const session = await getSessionUser();
   if (!session) redirect('/login?next=/admin/partners');
-  if (session.role !== 'admin') redirect('/projects');
+  if (!isHanbaek(session.role)) redirect('/projects');
 
   const [accounts, details] = await Promise.all([userStore.list(), listPartnerDetails()]);
   const partners = accounts.filter((a) => a.role !== 'admin');
@@ -39,6 +44,7 @@ export default async function PartnersPage() {
         details={details}
         dbReady
         heading={false}
+        canWrite={canWrite(session.role)}
       />
     </>
   );

@@ -43,7 +43,7 @@ const EMPTY_DETAILS: PartnerDetailsView = {
 };
 
 export default function PartnerDetailsSection({
-  accounts, details, dbReady, heading = true,
+  accounts, details, dbReady, heading = true, canWrite = true,
 }: {
   /** 협력사 계정만 — 관리자 계정에는 협력사 정보를 두지 않는다 */
   accounts: AccountView[];
@@ -51,6 +51,12 @@ export default function PartnerDetailsSection({
   dbReady: boolean;
   /** 페이지 제목이 이미 「협력사 정보」면 끈다 — 같은 말을 두 번 적지 않는다 */
   heading?: boolean;
+  /**
+   * 고칠 수 있는가 — 열람 전용(재무팀)이면 false. 「수정」과 서류의
+   * 올리기·채우기·교체·지우기가 사라지고 「보기」만 남는다.
+   * 못 하는 일은 눌리지 않게 두는 쪽이다(화면 규칙 3) — 판정의 정본은 API 다.
+   */
+  canWrite?: boolean;
 }) {
   return (
     <section>
@@ -75,6 +81,7 @@ export default function PartnerDetailsSection({
               account={a}
               details={details[a.id] ?? EMPTY_DETAILS}
               dbReady={dbReady}
+              canWrite={canWrite}
             />
           ))}
         </div>
@@ -84,11 +91,12 @@ export default function PartnerDetailsSection({
 }
 
 function PartnerCard({
-  account, details, dbReady,
+  account, details, dbReady, canWrite,
 }: {
   account: AccountView;
   details: PartnerDetailsView;
   dbReady: boolean;
+  canWrite: boolean;
 }) {
   const { busy, error, run } = useAction();
   const [fileError, setFileError] = useState<string | null>(null);
@@ -206,7 +214,7 @@ function PartnerCard({
       <div className="flex items-center gap-2">
         <p className="text-lead font-black text-slate-900">{account.org ?? account.name}</p>
         <p className="text-tiny text-slate-400">{account.id}</p>
-        {!editing && (
+        {!editing && canWrite && (
           <button
             type="button"
             disabled={!dbReady}
@@ -343,10 +351,12 @@ function PartnerCard({
           <FileFact
             account={account} kind="bizCert" url={details.bizCertUrl} dbReady={dbReady}
             onError={setFileError} onRead={readDoc} reading={reading === 'bizCert'}
+            canWrite={canWrite}
           />
           <FileFact
             account={account} kind="bankbook" url={details.bankbookUrl} dbReady={dbReady}
             onError={setFileError} onRead={readDoc} reading={reading === 'bankbook'}
+            canWrite={canWrite}
           />
         </div>
       </div>
@@ -399,7 +409,7 @@ const KIND_LABEL: Record<PartnerFileKind, string> = {
  * 아니라 칸이 차는 것이다. 이미 붙어 있는 서류는 「채우기」로 다시 읽는다.
  */
 function FileFact({
-  account, kind, url, dbReady, onError, onRead, reading,
+  account, kind, url, dbReady, onError, onRead, reading, canWrite,
 }: {
   account: AccountView;
   kind: PartnerFileKind;
@@ -408,6 +418,8 @@ function FileFact({
   onError: (message: string | null) => void;
   onRead: (kind: PartnerFileKind) => void;
   reading: boolean;
+  /** 열람 전용이면 「보기」만 남는다 — 올리기·채우기·교체·지우기가 사라진다 */
+  canWrite: boolean;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -446,6 +458,26 @@ function FileFact({
 
   const actionBtn =
     'rounded-ctl border border-slate-200 px-2 py-1 text-tiny font-bold text-slate-600 transition hover:border-brand-300 disabled:opacity-40';
+
+  /*
+   * 열람 전용(재무팀)은 「보기」만 — 파일 고르는 칸도 두지 않는다. 눌리지 않는 단추를
+   * 남겨 두면 무엇이 막힌 건지 화면에서 알 수 없다(화면 규칙 3).
+   */
+  if (!canWrite) {
+    return (
+      <FactRow label={KIND_LABEL[kind]}>
+        <span className="flex items-center gap-2 whitespace-nowrap">
+          {url ? (
+            <a href={url} target="_blank" rel="noreferrer" className="font-bold text-brand-700 underline">
+              보기
+            </a>
+          ) : (
+            <Empty kind="miss" />
+          )}
+        </span>
+      </FactRow>
+    );
+  }
 
   return (
     <FactRow label={KIND_LABEL[kind]}>

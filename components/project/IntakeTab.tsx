@@ -227,6 +227,7 @@ export function IntakeTab({
         byKind={byKind}
         siteName={siteName}
         canReview={canReview}
+        canRemove={canSubmit || canReview}
       />
 
       <section>
@@ -381,7 +382,13 @@ export function IntakeTab({
                         <div className="mt-auto pt-2">
                           <div className="flex flex-wrap items-center gap-x-3">
                             {doc?.blobUrl && (
-                              <DocFileActions doc={doc} siteName={siteName} label={d.label} />
+                              <DocFileActions
+                                doc={doc}
+                                siteName={siteName}
+                                label={d.label}
+                                projectId={projectId}
+                                canRemove={canSubmit || canReview}
+                              />
                             )}
                             {d.req !== 'o' && (
                               <DocUpload
@@ -404,6 +411,7 @@ export function IntakeTab({
                                 kind={d.key}
                                 label={d.label}
                                 filename={doc.filename}
+                                count={doc.files.length}
                               />
                             )}
                           </div>

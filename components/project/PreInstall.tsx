@@ -28,13 +28,15 @@ import {
 } from '@/lib/subsidy-history';
 
 export function PreInstall({
-  project, docs, byKind, siteName, canReview,
+  project, docs, byKind, siteName, canReview, canRemove = false,
 }: {
   project: ProjectDetail['project'];
   docs: ReturnType<typeof evaluateDocs>;
   byKind: Map<string, ProjectDocument>;
   siteName: string;
   canReview: boolean;
+  /** 파일 한 장을 뺄 수 있는가 — 내는 쪽(협력사)과 한백 (열람 전용은 아니다) */
+  canRemove?: boolean;
 }) {
   /*
    * 자체투자는 기설치 조사를 하지 않는다 — 환경부 보조금이 기설치 여부로 갈리기 때문에
@@ -96,7 +98,15 @@ export function PreInstall({
                 </p>
               )}
               <div className="mt-2 flex flex-wrap items-center gap-x-3">
-                {doc?.blobUrl && <DocFileActions doc={doc} siteName={siteName} label={d.label} />}
+                {doc && (
+                  <DocFileActions
+                    doc={doc}
+                    siteName={siteName}
+                    label={d.label}
+                    projectId={project.id}
+                    canRemove={canRemove}
+                  />
+                )}
                 <DocUpload
                   projectId={project.id}
                   kind={d.key}
@@ -107,7 +117,13 @@ export function PreInstall({
                   <DocReview projectId={project.id} kind={d.key} status={doc.status} hasFile={Boolean(doc.blobUrl)} />
                 )}
                 {canReview && doc && doc.status !== 'none' && (
-                  <DocDelete projectId={project.id} kind={d.key} label={d.label} filename={doc.filename} />
+                  <DocDelete
+                    projectId={project.id}
+                    kind={d.key}
+                    label={d.label}
+                    filename={doc.filename}
+                    count={doc.files.length}
+                  />
                 )}
               </div>
             </div>

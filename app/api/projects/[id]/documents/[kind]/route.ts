@@ -37,7 +37,7 @@ export const PATCH = adminWrite<Params, { status?: string; reason?: string | nul
 export const DELETE = adminWrite<Params, undefined>(
   '한백 관리자만 서류를 지울 수 있습니다.',
   async ({ params, actor }) => {
-    const { blobUrl } = await getRepository().deleteDocument(
+    const { blobUrls } = await getRepository().deleteDocument(
       { projectId: params.id, kind: params.kind },
       actor
     );
@@ -46,11 +46,14 @@ export const DELETE = adminWrite<Params, undefined>(
      * 기록을 지운 뒤에 파일을 지운다. 순서를 바꾸면 기록이 실패했을 때 파일만 사라져
      * 「제출됨인데 열 수 없는 서류」가 된다.
      *
+     * 한 칸에 여러 장이 붙을 수 있다(migrations/0021) — 전부 지운다.
      * 우리 자리(projects/{현장}/)에 있는 것만 지운다 — 예전 방식으로 다른 곳을 가리키는
      * 주소가 있어도 그것까지 지울 판단은 여기서 하지 않는다.
      */
-    if (blobUrl && (pathnameOfBlobUrl(blobUrl) ?? '').startsWith(`projects/${params.id}/`)) {
-      await dropBlob(blobUrl);
+    for (const blobUrl of blobUrls) {
+      if ((pathnameOfBlobUrl(blobUrl) ?? '').startsWith(`projects/${params.id}/`)) {
+        await dropBlob(blobUrl);
+      }
     }
   }
 );

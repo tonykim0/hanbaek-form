@@ -444,6 +444,7 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
                           spec={spec}
                           doc={p.docs.find((x) => x.kind === kind)}
                           canDelete={edit === 'all'}
+                          canRemove={edit !== 'none'}
                         />
                       );
                     })}
@@ -615,13 +616,15 @@ function DateRow({
  * 「제출됨」이 통과다 — 공정 게이트(lib/process.ts)도 uploaded 를 통과로 본다.
  */
 function DocRow({
-  projectId, siteName, spec, doc, canDelete,
+  projectId, siteName, spec, doc, canDelete, canRemove,
 }: {
   projectId: string;
   siteName: string;
   spec: { key: string; name: string };
   doc: ProjectDetail['process']['docs'][number] | undefined;
   canDelete: boolean;
+  /** 파일 한 장을 뺄 수 있는가 — 올리는 쪽(한백·그 현장 시공사)이면 뺄 수도 있다 */
+  canRemove: boolean;
 }) {
   const done = doc?.status === 'uploaded' || doc?.status === 'approved';
   return (
@@ -644,14 +647,28 @@ function DocRow({
       )}
       {/* 부품(DocFiles)은 카드용 여백(mt-2)을 갖고 있다 — 줄에서는 지운다 */}
       <span className="flex flex-wrap items-center gap-1.5 [&>div]:mt-0">
-        {doc && <DocFileActions doc={doc} siteName={siteName} label={spec.name} />}
+        {doc && (
+          <DocFileActions
+            doc={doc}
+            siteName={siteName}
+            label={spec.name}
+            projectId={projectId}
+            canRemove={canRemove}
+          />
+        )}
         <DocUpload projectId={projectId} kind={spec.key} rejected={false} hasFile={Boolean(doc?.blobUrl)} />
       </span>
       <span className="flex-1" />
       {/* 지우기는 한백만 — 협력사는 다시 올리는 것으로 고친다(덮어쓴다) */}
       {canDelete && doc && doc.status !== 'none' && (
         <span className="[&>div]:mt-0">
-          <DocDelete projectId={projectId} kind={spec.key} label={spec.name} filename={doc.filename} />
+          <DocDelete
+            projectId={projectId}
+            kind={spec.key}
+            label={spec.name}
+            filename={doc.filename}
+            count={doc.files.length}
+          />
         </span>
       )}
     </div>

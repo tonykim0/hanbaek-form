@@ -114,13 +114,28 @@ export interface ProjectRepository {
    *
    * ★반려와 다른 일이다.★ 반려는 「이 서류를 고쳐 오라」이고, 삭제는 「이 칸에 이 서류가
    * 있을 자리가 아니다」다 — ZIP 자동분류가 엉뚱한 칸에 넣었을 때가 그렇다.
-   * 협력사는 지우지 못한다. 잘못 올렸으면 다시 올리면 그 자리를 덮는다.
+   * 칸을 통째로 비우는 것은 한백만 한다.
    *
-   * 지운 파일 주소를 돌려준다 — 파일 자체를 지우는 것은 부르는 쪽(라우트)이 한다.
-   * 저장소 계층이 Blob 을 직접 만지면 파일 저장소·DB 저장소 두 곳에 같은 코드가 생긴다.
+   * 지운 파일 주소들을 돌려준다 — 한 칸에 여러 장이 붙을 수 있다(migrations/0021).
+   * 파일 자체를 지우는 것은 부르는 쪽(라우트)이 한다: 저장소 계층이 Blob 을 직접 만지면
+   * 파일 저장소·DB 저장소 두 곳에 같은 코드가 생긴다.
    */
   deleteDocument(
     input: { projectId: string; kind: string },
+    actor: Actor
+  ): Promise<{ blobUrls: string[] }>;
+
+  /**
+   * 그 칸의 파일 한 장을 뺀다. [그 현장의 협력사 · 한백]
+   *
+   * ★올리는 쪽이 지울 수 있어야 한다.★ 한 칸에 파일이 쌓이게 되면서(migrations/0021)
+   * 잘못 올린 파일을 다시 올려 덮는 길이 없어졌다 — 그 자리가 여기다. 칸을 비우는 것과
+   * 다르다: 칸의 상태(반려 사유 등)는 그대로 두고 파일 한 장만 뺀다.
+   *
+   * 마지막 한 장을 빼면 그 칸은 미제출로 돌아간다 — 파일 없는 「제출됨」을 만들지 않는다.
+   */
+  deleteDocumentFile(
+    input: { projectId: string; kind: string; url: string },
     actor: Actor
   ): Promise<{ blobUrl: string | null }>;
 

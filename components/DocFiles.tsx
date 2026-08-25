@@ -12,7 +12,7 @@ import { useRouter } from 'next/navigation';
 import { useAction } from '@/lib/use-action';
 import { Btn, Err } from '@/components/ui';
 import JSZip from 'jszip';
-import type { ProjectDocument } from '@/types/project';
+import type { DocFile, ProjectDocument } from '@/types/project';
 import { downloadBlob } from '@/lib/download';
 
 /** 파일 이름에 쓸 수 없는 문자를 지운다 */
@@ -81,72 +81,148 @@ function useFileDragging(): boolean {
   return useSyncExternalStore(subscribeDrag, () => dragging, () => false);
 }
 
-function extOf(doc: ProjectDocument): string {
-  const from = doc.filename ?? doc.blobUrl ?? '';
+function extOf(file: DocFile): string {
+  const from = file.name ?? file.url ?? '';
   const m = from.match(/\.([a-z0-9]{2,5})(?:\?|$)/i);
   return m ? m[1].toLowerCase() : 'pdf';
 }
 
 /** 브라우저가 탭에서 그려주는 형식 — 그 밖(엑셀·워드·한글)은 내려받아야 열린다 */
 const PREVIEWABLE = ['pdf', 'jpg', 'jpeg', 'png', 'gif', 'webp', 'txt'];
-export const canPreview = (doc: ProjectDocument): boolean =>
-  Boolean(doc.blobUrl) && PREVIEWABLE.includes(extOf(doc));
+export const canPreview = (file: DocFile): boolean => PREVIEWABLE.includes(extOf(file));
 
-export function docFileName(siteName: string, label: string, doc: ProjectDocument): string {
-  return `${safe(siteName)}_${safe(label)}.${extOf(doc)}`;
+/**
+ * 받을 때 붙는 이름 — 「현장명_서류명」이다. Blob 에 저장된 이름은 중복 회피용 접미사가
+ * 붙어 있어 그대로 주면 알아보기 어렵다.
+ *
+ * 한 칸에 여러 장이면 두 번째부터 (2)·(3) 을 붙인다 — 같은 이름 셋을 한 폴더에 받으면
+ * 브라우저가 제멋대로 이름을 바꾼다.
+ */
+export function docFileName(siteName: string, label: string, file: DocFile, i = 0): string {
+  const n = i > 0 ? `(${i + 1})` : '';
+  return `${safe(siteName)}_${safe(label)}${n}.${extOf(file)}`;
 }
 
-/** 서류 한 칸의 미리보기·다운로드 */
+/**
+ * 서류 한 칸의 파일들 — 한 줄에 한 장이다.
+ *
+ * 한 칸에 여러 장이 붙는다(한백 지시 2026-08-25). 파일이 하나일 때와 모양을 가르지 않는다 —
+ * 「한 장이면 단추 두 개, 여러 장이면 목록」으로 두면 같은 칸이 두 얼굴을 갖고, 두 번째
+ * 장을 올리는 순간 화면이 바뀌어 무엇이 없어졌는지 찾아야 한다.
+ *
+ * 파일 이름을 적는다. 여러 장이 되면 「미리보기·다운로드」만으로는 어느 것을 여는지 알 수 없다.
+ */
 export function DocFileActions({
-  doc, siteName, label,
+  doc, siteName, label, projectId, canRemove = false,
 }: {
   doc: ProjectDocument;
   siteName: string;
   label: string;
+  /** 파일 한 장을 뺄 때 부를 곳 — 없으면 빼기 단추를 두지 않는다 */
+  projectId?: string;
+  /** 이 사람이 파일을 뺄 수 있는가 (그 현장의 협력사·한백) */
+  canRemove?: boolean;
+}) {
+  if (doc.files.length === 0) return null;
+
+  return (
+    <div className="mt-2 flex flex-col gap-1">
+      {doc.files.map((f, i) => (
+        <FileRow
+          key={f.url}
+          file={f}
+          index={i}
+          kind={doc.kind}
+          siteName={siteName}
+          label={label}
+          projectId={projectId}
+          canRemove={canRemove && Boolean(projectId)}
+        />
+      ))}
+    </div>
+  );
+}
+
+/** 파일 한 장 — 이름 · 미리보기 · 받기 · 빼기 */
+function FileRow({
+  file, index, kind, siteName, label, projectId, canRemove,
+}: {
+  file: DocFile;
+  index: number;
+  kind: string;
+  siteName: string;
+  label: string;
+  projectId?: string;
+  canRemove: boolean;
 }) {
   const [busy, setBusy] = useState(false);
-
-  if (!doc.blobUrl) return null;
+  const remove = useAction();
 
   async function download() {
     setBusy(true);
     try {
-      const res = await fetch(doc.blobUrl!);
+      const res = await fetch(file.url);
       if (!res.ok) throw new Error(String(res.status));
-      downloadBlob(await res.blob(), docFileName(siteName, label, doc));
+      downloadBlob(await res.blob(), docFileName(siteName, label, file, index));
     } catch {
-      // 실패해도 미리보기로 열 수 있으니 화면을 막지 않는다
-      window.open(doc.blobUrl!, '_blank', 'noopener');
+      // 실패해도 새 탭으로 열 수 있으니 화면을 막지 않는다
+      window.open(file.url, '_blank', 'noopener');
     } finally {
       setBusy(false);
     }
   }
 
   return (
-    <div className="mt-2 flex gap-1.5">
-      {/*
-        * 미리보기는 브라우저가 탭에서 그릴 수 있는 형식에만 준다.
-        * 엑셀·워드는 링크를 열면 그냥 내려받기가 시작돼서, 「미리보기」를 눌렀는데
-        * 파일이 다운로드되는 일이 된다 — 그러면 아래 다운로드 버튼과 구분이 없다.
-        */}
-      {canPreview(doc) && (
-        <a
-          href={doc.blobUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="rounded-ctl border border-slate-300 bg-white px-2 py-1 text-tiny font-bold text-slate-700 transition hover:bg-slate-50"
+    <div className="flex flex-col gap-0.5">
+      <div className="flex items-center gap-2">
+        {/*
+          * 이름이 곧 미리보기 링크다 — 그릴 수 있는 형식만. 엑셀·워드는 링크를 열면
+          * 내려받기가 시작돼서 「받기」와 구분이 없어진다(그때는 글자로만 둔다).
+          */}
+        {canPreview(file) ? (
+          <a
+            href={file.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            title={file.name}
+            className="min-w-0 flex-1 truncate text-tiny font-bold text-brand-800 underline decoration-brand-200 transition hover:decoration-brand-500"
+          >
+            {file.name}
+          </a>
+        ) : (
+          <span title={file.name} className="min-w-0 flex-1 truncate text-tiny font-bold text-slate-700">
+            {file.name}
+          </span>
+        )}
+        <button
+          type="button"
+          disabled={busy}
+          onClick={download}
+          className="shrink-0 text-tiny font-bold text-slate-500 underline decoration-slate-300 transition hover:text-slate-800 disabled:text-slate-300"
         >
-          미리보기
-        </a>
-      )}
-      <button
-        type="button"
-        disabled={busy}
-        onClick={download}
-        className="rounded-ctl border border-slate-300 bg-white px-2 py-1 text-tiny font-bold text-slate-700 transition hover:bg-slate-50 disabled:text-slate-400"
-      >
-        {busy ? '받는 중' : '다운로드'}
-      </button>
+          {busy ? '받는 중' : '받기'}
+        </button>
+        {/* 빼기는 되돌리기 어려운 일이라 반대쪽 끝의 글자 단추다(화면 규칙 8·12) */}
+        {canRemove && projectId && (
+          <button
+            type="button"
+            disabled={remove.busy}
+            onClick={() => {
+              if (!window.confirm(`「${file.name}」을 뺍니다. 파일도 함께 사라지고 되돌릴 수 없습니다.`)) return;
+              void remove.run({
+                url: `/api/projects/${projectId}/documents/${kind}/file`,
+                method: 'DELETE',
+                body: { url: file.url },
+                fail: '빼지 못했습니다.',
+              });
+            }}
+            className="shrink-0 text-tiny font-bold text-slate-400 underline decoration-slate-300 transition hover:text-red-700 disabled:text-slate-300"
+          >
+            {remove.busy ? '빼는 중' : '빼기'}
+          </button>
+        )}
+      </div>
+      <Err>{remove.error}</Err>
     </div>
   );
 }
@@ -161,17 +237,21 @@ export function DocFileActions({
  * 되돌릴 수 없으므로 한 번 묻는다. 파일도 함께 사라진다.
  */
 export function DocDelete({
-  projectId, kind, label, filename,
+  projectId, kind, label, filename, count = 0,
 }: {
   projectId: string;
   kind: string;
   label: string;
   filename: string | null;
+  /** 이 칸에 붙은 파일 장수 — 몇 장이 사라지는지 물을 때 적는다 */
+  count?: number;
 }) {
   const { busy, error, run } = useAction();
 
   async function remove() {
-    const warn = `「${label}」 칸을 지웁니다. 파일(${filename ?? '없음'})도 함께 사라지고 되돌릴 수 없습니다.`;
+    // 여러 장이면 장수를 적는다 — 이름 하나만 적으면 나머지가 사라지는 줄 모른다
+    const what = count > 1 ? `파일 ${count}장` : `파일(${filename ?? '없음'})`;
+    const warn = `「${label}」 칸을 지웁니다. ${what}도 함께 사라지고 되돌릴 수 없습니다.`;
     if (!window.confirm(warn)) return;
     await run({
       url: `/api/projects/${projectId}/documents/${kind}`,
@@ -213,8 +293,9 @@ export function DownloadAll({
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const withFiles = docs.filter((d) => d.blobUrl);
-  const total = withFiles.length + extra.length;
+  const withFiles = docs.filter((d) => d.files.length > 0);
+  /* 세는 것은 칸이 아니라 장이다 — 「전체 다운로드 (N)」의 N 과 zip 안의 파일 수가 같아야 한다 */
+  const total = withFiles.reduce((n, d) => n + d.files.length, 0) + extra.length;
 
   async function run() {
     setBusy(true);
@@ -227,13 +308,20 @@ export function DownloadAll({
        * BOM 을 앞에 붙인다: 없으면 윈도우 메모장·엑셀이 한글을 깨뜨려 읽는다.
        */
       for (const e of extra) zip.file(`${safe(siteName)}_${safe(e.name)}.txt`, `\uFEFF${e.text}`);
+      /*
+       * 한 칸에 여러 장이 있으면 전부 넣는다 — 두 번째부터 이름에 (2)·(3) 이 붙는다
+       * (docFileName). 예전에는 첫 장만 받아서, 두 장으로 스캔한 회의록의 뒷장이
+       * 묶음에서 조용히 빠졌다.
+       */
       for (const d of withFiles) {
-        try {
-          const res = await fetch(d.blobUrl!);
-          if (!res.ok) throw new Error(String(res.status));
-          zip.file(docFileName(siteName, labelOf(d.kind), d), await res.blob());
-        } catch {
-          failed.push(labelOf(d.kind));
+        for (const [i, f] of d.files.entries()) {
+          try {
+            const res = await fetch(f.url);
+            if (!res.ok) throw new Error(String(res.status));
+            zip.file(docFileName(siteName, labelOf(d.kind), f, i), await res.blob());
+          } catch {
+            failed.push(d.files.length > 1 ? `${labelOf(d.kind)}(${i + 1})` : labelOf(d.kind));
+          }
         }
       }
       if (zip.files && Object.keys(zip.files).length === 0) {
@@ -293,28 +381,45 @@ export function DocUpload({
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [pct, setPct] = useState(0);
+  /** 여러 장을 올리는 중이면 몇 장째인가 — 단추가 그것을 말한다 */
+  const [queue, setQueue] = useState<{ done: number; total: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const filesInFlight = useFileDragging();
   /** 이 칸 위에 있는가 — 창 전체의 드래그와 달리 놓을 자리를 가리킨다 */
   const [over, setOver] = useState(false);
 
   async function onPick(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
+    const picked = Array.from(e.target.files ?? []);
     e.target.value = ''; // 같은 파일을 다시 고를 수 있게 비운다
-    if (file) void upload(file);
+    if (picked.length > 0) void uploadAll(picked);
   }
 
   async function onDrop(e: React.DragEvent) {
     e.preventDefault();
     setOver(false);
     const dropped = Array.from(e.dataTransfer.files);
-    if (dropped.length === 0) return;
-    // 한 칸에 파일 하나다 — 여럿을 놓으면 첫 것만 올리고 그 사실을 말한다
-    if (dropped.length > 1) setError(`파일 하나만 올립니다 — ${dropped[0].name}`);
-    void upload(dropped[0]);
+    if (dropped.length > 0) void uploadAll(dropped);
   }
 
-  async function upload(file: File) {
+  /**
+   * 고른 것을 차례로 올린다 — 한 칸에 여러 장이 붙는다(한백 지시 2026-08-25).
+   *
+   * 겹쳐 올리지 않는다: 붙이는 쪽이 그 칸의 파일 목록을 읽고 한 장을 더한 뒤 저장하므로
+   * (pg-store uploadDocument) 두 개가 같이 들어오면 나중 것이 앞의 것을 덮는다.
+   * 몇 장째인지 단추에 적는다 — 스캔본 다섯 장이면 한참 걸린다.
+   */
+  async function uploadAll(files: File[]) {
+    setQueue({ done: 0, total: files.length });
+    for (const [i, file] of files.entries()) {
+      setQueue({ done: i, total: files.length });
+      const ok = await upload(file);
+      // 한 장이 막히면 멈춘다 — 왜 막혔는지(용량·형식) 다음 장에도 똑같이 걸린다
+      if (!ok) break;
+    }
+    setQueue(null);
+  }
+
+  async function upload(file: File): Promise<boolean> {
     setBusy(true);
     setError(null);
     setPct(0);
@@ -334,7 +439,7 @@ export function DocUpload({
       const tokenBody = (await tokenRes.json().catch(() => ({}))) as { token?: string; error?: string };
       if (!tokenRes.ok || !tokenBody.token) {
         setError(tokenBody.error ?? '업로드 준비에 실패했습니다.');
-        return;
+        return false;
       }
 
       const { put } = await import('@vercel/blob/client');
@@ -352,7 +457,7 @@ export function DocUpload({
       if (!confirm.ok) {
         const b = (await confirm.json().catch(() => ({}))) as { error?: string };
         setError(b.error ?? '저장에 실패했습니다.');
-        return;
+        return false;
       }
       /*
        * 전체 새로고침을 하지 않는다 — 페이지가 다시 시작되며 보던 탭이 URL 의 ?tab=
@@ -360,8 +465,10 @@ export function DocUpload({
        * 열리는 증상이 이것이었다(한백 확인). refresh 는 서버 데이터만 다시 그린다.
        */
       router.refresh();
+      return true;
     } catch {
       setError('업로드 중 오류가 났습니다.');
+      return false;
     } finally {
       setBusy(false);
     }
@@ -397,11 +504,15 @@ export function DocUpload({
         } ${busy ? 'pointer-events-none opacity-60' : ''}`}
       >
         {busy
-          ? `업로드 중 ${pct}%`
+          ? `${queue && queue.total > 1 ? `${queue.done + 1}/${queue.total} · ` : ''}업로드 중 ${pct}%`
           : dropOpen
             ? '여기에 놓기'
-            : rejected && hasFile ? '다시 업로드' : hasFile ? '파일 바꾸기' : '파일 업로드'}
-        <input type="file" className="hidden" onChange={onPick} disabled={busy} />
+            /*
+              * 이미 파일이 있으면 「추가」다 — 예전에는 「바꾸기」였고 실제로 갈아치웠다.
+              * 지금은 쌓이므로(migrations/0021) 바꾸기라고 적으면 앞 파일이 사라진다고 읽힌다.
+              */
+            : rejected && hasFile ? '다시 업로드' : hasFile ? '파일 추가' : '파일 업로드'}
+        <input type="file" multiple className="hidden" onChange={onPick} disabled={busy} />
       </label>
       <Err className="mt-1 block">{error}</Err>
     </div>

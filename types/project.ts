@@ -407,13 +407,36 @@ export interface ContractLineView extends ContractLine {
 // ── 서류 ────────────────────────────────────────────────────────
 export type DocStatus = 'none' | 'uploaded' | 'approved' | 'rejected';
 
+/**
+ * 서류 칸에 붙은 파일 하나.
+ *
+ * ★한 칸에 여러 장이 온다★ (한백 지시 2026-08-25). 회의록이 두 장으로 스캔되거나 실사
+ * 사진대지가 동·호별로 갈려 오는 일이 흔한데, 예전에는 한 칸에 파일 하나여서 나중에 올린
+ * 것이 앞의 것을 갈아치웠다(그리고 앞 파일은 저장소에서도 지워졌다) — 남은 장을 올릴 자리가
+ * 없으니 사람이 미리 하나로 합쳐야 했다.
+ */
+export interface DocFile {
+  name: string;
+  /** 실제 파일 주소 (Vercel Blob) */
+  url: string;
+  uploadedBy: string | null;
+  uploadedAt: string | null;
+}
+
 export interface ProjectDocument {
   kind: string;
+  /**
+   * 이 칸에 붙은 파일들 — 올린 순서(오래된 것이 먼저). ★파일 목록의 정본이다.★
+   * 빈 배열이면 아직 아무것도 안 올라왔다.
+   */
+  files: DocFile[];
+  /** 첫 파일의 이름 — files[0] 에서 딴다. 칸 하나를 한 줄로 말할 때 쓴다. */
   filename: string | null;
-  /** 실제 파일 주소 (Vercel Blob). null 이면 파일이 아직 없다. */
+  /** 첫 파일의 주소 — files[0] 에서 딴다. null 이면 파일이 아직 없다. */
   blobUrl: string | null;
   status: DocStatus;
   rejectReason: string | null;
+  /** 마지막으로 올린 사람·날 (파일마다는 files 가 갖는다) */
   uploadedBy: string | null;
   uploadedAt: string | null;
 }

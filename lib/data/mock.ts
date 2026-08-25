@@ -20,6 +20,7 @@ function docs(
   return ALL_DOC_KEYS.map((kind) => {
     const base: ProjectDocument = {
       kind,
+      files: [],
       filename: approved.includes(kind) ? `${kind}.pdf` : null,
       blobUrl: null,
       status: approved.includes(kind) ? 'approved' : 'none',

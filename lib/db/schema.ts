@@ -224,6 +224,11 @@ export const documents = pgTable('documents', {
   rejectReason: text('reject_reason'),
   uploadedBy: text('uploaded_by'),
   uploadedAt: text('uploaded_at'),
+  /**
+   * 이 칸의 파일들 — [{ name, url, uploadedBy, uploadedAt }] (migrations/0021).
+   * 파일 목록의 정본이다. 위 filename·blob_url 은 첫 파일의 사본이다(옛 코드·SQL 이 본다).
+   */
+  files: jsonb('files').notNull().default([]),
 }, (t) => ({
   pk: primaryKey({ columns: [t.projectId, t.kind] }),
 }));
@@ -272,6 +277,8 @@ export const processDocuments = pgTable('process_documents', {
   status: text('status').notNull().default('none'),
   uploadedBy: text('uploaded_by'),
   uploadedAt: text('uploaded_at'),
+  /** 이 칸의 파일들 — 계약 서류와 같은 모양이다 (migrations/0021) */
+  files: jsonb('files').notNull().default([]),
 }, (t) => ({
   pk: primaryKey({ columns: [t.projectId, t.kind] }),
 }));

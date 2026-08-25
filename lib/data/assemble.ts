@@ -90,6 +90,7 @@ export function isKnownDocKind(kind: string): boolean {
 export function processDocs(done: string[]): ProjectDocument[] {
   return PROCESS_DOCS.map((d) => ({
     kind: d.key,
+    files: [],
     filename: done.includes(d.key) ? `${d.key}.pdf` : null,
     blobUrl: null,
     status: done.includes(d.key) ? 'approved' : 'none',

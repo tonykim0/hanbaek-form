@@ -21,7 +21,7 @@ import {
   batchFinals, projectNotes, projects, settlementRules, settlements, taxInvoices,
 } from '@/lib/db/schema';
 import type {
-  BizType, BuildingType, ContractLine, ContractParty, Court, CpoName, DocStatus,
+  BizType, BuildingType, ContractLine, ContractParty, Court, CpoName, DocFile, DocStatus,
   IntakeDraft, LineAxes, NewPayoutEntry, PayoutCategory, PayoutEntry, PayoutKind, PayoutRow,
   PowerType, PreInstall, PricingRule, ProcessInfo, Project, PromoExtendOption, PromoStep,
   ProjectDetail, ProjectDocument, ProjectSummary, ReplType, Settlement, SettlementRule,
@@ -156,10 +156,19 @@ function mergeDocs(
   const byKind = new Map(rows.map((r) => [r.kind, r]));
   return keys.map((kind) => {
     const r = byKind.get(kind);
+    /*
+     * 파일 목록은 files 가 정본이다(migrations/0021). filename·blob_url 은 첫 파일의
+     * 사본이라 여기서 files 를 먼저 본다 — 두 값이 어긋나도 화면은 정본을 따른다.
+     *
+     * 열을 아예 안 보지는 않는다: 접수(createProject)는 파일이 붙기 전에 filename 만 있는
+     * 행을 만든다. 그 한 칸을 「이름 없음」으로 보이게 할 이유가 없다.
+     */
+    const files = ((r?.files ?? []) as DocFile[]).filter((f) => f?.url);
     return {
       kind,
-      filename: r?.filename ?? null,
-      blobUrl: r?.blobUrl ?? null,
+      files,
+      filename: files[0]?.name ?? r?.filename ?? null,
+      blobUrl: files[0]?.url ?? r?.blobUrl ?? null,
       status: (r?.status ?? 'none') as ProjectDocument['status'],
       rejectReason: (r && 'rejectReason' in r ? r.rejectReason : null) ?? null,
       uploadedBy: r?.uploadedBy ?? null,
@@ -774,7 +783,7 @@ export const pgRepository: ProjectRepository = {
     });
   },
 
-  async deleteDocument(input, actor): Promise<{ blobUrl: string | null }> {
+  async deleteDocument(input, actor): Promise<{ blobUrls: string[] }> {
     assertAdmin(actor, '서류 삭제');
 
     const db = getDb();
@@ -784,7 +793,9 @@ export const pgRepository: ProjectRepository = {
       const where = and(eq(table.projectId, input.projectId), eq(table.kind, input.kind));
 
       const [row] = await tx
-        .select({ filename: table.filename, blobUrl: table.blobUrl, status: table.status })
+        .select({
+          filename: table.filename, blobUrl: table.blobUrl, status: table.status, files: table.files,
+        })
         .from(table)
         .where(where)
         .limit(1);
@@ -805,7 +816,87 @@ export const pgRepository: ProjectRepository = {
         newValue: null,
       });
 
-      return { blobUrl: row.blobUrl ?? null };
+      /*
+       * 칸에 붙은 파일 전부를 돌려준다 — 한 칸에 여러 장이 있을 수 있다.
+       * 첫 파일 사본(blob_url)도 넣고 중복은 걷는다: files 백필 전 행이 있을 수 있다.
+       */
+      const urls = ((row.files ?? []) as DocFile[]).map((f) => f?.url).filter(Boolean) as string[];
+      if (row.blobUrl && !urls.includes(row.blobUrl)) urls.push(row.blobUrl);
+      return { blobUrls: urls };
+    });
+  },
+
+  /**
+   * 그 칸의 파일 한 장을 뺀다 — 올리는 쪽(협력사)도 한다.
+   *
+   * 파일이 쌓이게 되면서(migrations/0021) 「다시 올려 덮는다」로 잘못 올린 것을 고칠 수
+   * 없게 됐다. 그 길을 여기서 준다. 칸을 비우는 것(deleteDocument)과 다르다 — 칸의 상태·
+   * 반려 사유는 건드리지 않는다.
+   *
+   * 마지막 한 장을 빼면 미제출로 돌린다. 파일 없는 「제출됨」을 남기면 필수 서류가 찬 것으로
+   * 세어져(lib/stage) 파일 한 장 없는 계약이 확인 가능해진다.
+   */
+  async deleteDocumentFile(input, actor): Promise<{ blobUrl: string | null }> {
+    if (!canWrite(actor.role)) throw new Error('열람 전용 계정은 파일을 지울 수 없습니다.');
+
+    const db = getDb();
+    return db.transaction(async (tx) => {
+      const [project] = await tx
+        .select({ id: projects.id, salesOrg: projects.salesOrg, gcOrg: projects.gcOrg })
+        .from(projects)
+        .where(eq(projects.id, input.projectId))
+        .limit(1);
+      if (!project) throw new Error('현장을 찾을 수 없습니다.');
+      // 남의 현장 서류는 지울 수 없다 — 올리는 것과 같은 판정이다
+      if (!canAccessProject(actor.role, actor.org, project)) {
+        throw new Error('이 현장의 서류를 지울 권한이 없습니다.');
+      }
+
+      const table = isProcessDocKind(input.kind) ? processDocuments : documents;
+      const where = and(eq(table.projectId, input.projectId), eq(table.kind, input.kind));
+
+      const [row] = await tx
+        .select({ blobUrl: table.blobUrl, filename: table.filename, files: table.files })
+        .from(table)
+        .where(where)
+        .limit(1);
+      if (!row) throw new Error('이미 없는 서류입니다.');
+
+      const before = ((row.files ?? []) as DocFile[]).filter((f) => f?.url);
+      const gone = before.find((f) => f.url === input.url)
+        // files 백필 전 행 — 첫 파일 사본만 있는 경우다
+        ?? (row.blobUrl === input.url
+          ? { name: row.filename ?? '파일', url: row.blobUrl, uploadedBy: null, uploadedAt: null }
+          : null);
+      if (!gone) throw new Error('그 파일은 이 칸에 없습니다.');
+
+      const files = before.filter((f) => f.url !== input.url);
+
+      await tx
+        .update(table)
+        .set({
+          files,
+          filename: files[0]?.name ?? null,
+          blobUrl: files[0]?.url ?? null,
+          // 마지막 장을 빼면 미제출이다 — 파일 없는 「제출됨」을 남기지 않는다
+          ...(files.length === 0 ? { status: 'none' } : {}),
+        })
+        .where(where);
+
+      /*
+       * 정체일 기준은 갱신하지 않는다 — 파일을 빼는 것은 진척이 아니라 되돌리는 일이다
+       * (deleteDocument 와 같은 이유).
+       */
+      await writeAudit(tx, {
+        projectId: input.projectId,
+        actor,
+        action: '서류 파일 삭제',
+        field: isProcessDocKind(input.kind) ? `process.${input.kind}` : input.kind,
+        oldValue: gone.name,
+        newValue: files.length === 0 ? null : `남은 ${files.length}장`,
+      });
+
+      return { blobUrl: gone.url };
     });
   },
 
@@ -1385,9 +1476,26 @@ export const pgRepository: ProjectRepository = {
       const proc = isProcessDocKind(input.kind);
       const day = today();
 
+      /*
+       * ★쌓는다 — 갈아치우지 않는다★ (한백 지시 2026-08-25).
+       *
+       * 예전에는 한 칸에 파일 하나여서 새로 올리면 앞의 것이 사라졌다(저장소에서도 지웠다).
+       * 회의록이 두 장으로 스캔되거나 사진대지가 동별로 갈려 오면 올릴 자리가 없었다.
+       *
+       * 같은 주소는 두 번 넣지 않는다 — 두 번 눌림·접수 재시도에 같은 파일이 두 줄로 남는다.
+       */
+      const appended = (before: unknown): DocFile[] => {
+        const files = ((before ?? []) as DocFile[]).filter((f) => f?.url);
+        if (files.some((f) => f.url === input.blobUrl)) return files;
+        return [
+          ...files,
+          { name: input.filename, url: input.blobUrl, uploadedBy: actor.name, uploadedAt: day },
+        ];
+      };
+
       if (proc) {
         const [before] = await tx
-          .select({ filename: processDocuments.filename })
+          .select({ filename: processDocuments.filename, files: processDocuments.files })
           .from(processDocuments)
           .where(and(
             eq(processDocuments.projectId, input.projectId),
@@ -1395,11 +1503,14 @@ export const pgRepository: ProjectRepository = {
           ))
           .limit(1);
 
+        const files = appended(before?.files);
         const row = {
           projectId: input.projectId,
           kind: input.kind,
-          filename: input.filename,
-          blobUrl: input.blobUrl,
+          files,
+          // 첫 파일의 사본 — 정본은 files 다(migrations/0021)
+          filename: files[0].name,
+          blobUrl: files[0].url,
           status: 'uploaded',
           uploadedBy: actor.name,
           uploadedAt: day,
@@ -1445,16 +1556,19 @@ export const pgRepository: ProjectRepository = {
       }
 
       const [before] = await tx
-        .select({ status: documents.status })
+        .select({ status: documents.status, files: documents.files })
         .from(documents)
         .where(and(eq(documents.projectId, input.projectId), eq(documents.kind, input.kind)))
         .limit(1);
 
+      const files = appended(before?.files);
       const row = {
         projectId: input.projectId,
         kind: input.kind,
-        filename: input.filename,
-        blobUrl: input.blobUrl,
+        files,
+        // 첫 파일의 사본 — 정본은 files 다(migrations/0021)
+        filename: files[0].name,
+        blobUrl: files[0].url,
         // 다시 올리면 반려가 풀린다 — 반려 상태로 남겨두면 고쳐도 계약이 안 넘어간다
         status: 'uploaded',
         rejectReason: null,
@@ -1607,6 +1721,26 @@ export const pgRepository: ProjectRepository = {
     const entry = canEnter(status, record.process);
     if (!entry.ok) throw new Error(`${status} 로 넘기려면 ${entry.blockedBy} 이(가) 필요합니다.`);
 
+    /*
+     * 「운영사 계약서 제출」은 넘기는 것이 곧 선언이다 — 낸 날을 여기서 찍는다.
+     *
+     * 조건(STATUS_GATES)을 걷어내면서 이 칸을 적는 자리가 화면에서 사라졌다. 날짜는
+     * 남긴다 — 언제 냈는지는 상세가 보여준다. 이미 찍혀 있으면 덮지 않는다.
+     *
+     * ★그 칸에 들어설 때만 찍는다.★ 「지났으면 다 찍는다」로 두면 옛 현장을 착공→설치완료로
+     * 옮길 때 오늘 날짜가 제출일로 들어간다 — 오래전에 낸 현장에 틀린 날을 새로 적는 꼴이다.
+     * 건너뛰어 지나간 현장은 날짜 없이 「제출됨」으로 보인다(제출 여부는 단계가 말한다).
+     *
+     * 되돌려서 그 앞으로 내려가면 지운다 — 되돌리기는 「그 일이 없던 것으로」다(화면 규칙 7).
+     */
+    const before = record.process.cpoSubmitDate;
+    const stamp =
+      status === '운영사 계약서 제출' && !before
+        ? { cpoSubmitDate: today() }
+        : statusIndex(status) < statusIndex('운영사 계약서 제출') && before
+          ? { cpoSubmitDate: null }
+          : {};
+
     const db = getDb();
     await db.transaction(async (tx) => {
       const [row] = await tx
@@ -1620,9 +1754,9 @@ export const pgRepository: ProjectRepository = {
        */
       if (row) {
         if (row.status === status) return;
-        await tx.update(processes).set({ status }).where(eq(processes.projectId, projectId));
+        await tx.update(processes).set({ status, ...stamp }).where(eq(processes.projectId, projectId));
       } else {
-        await tx.insert(processes).values({ projectId, status });
+        await tx.insert(processes).values({ projectId, status, ...stamp });
       }
       // 상태를 옮기면 차례도 따라 넘어간다 — 다음 사람이 움직일 차례다 (lib/process.ts)
       await tx
@@ -1634,6 +1768,13 @@ export const pgRepository: ProjectRepository = {
         projectId, actor, action: '진행 단계 변경',
         field: 'process.status', oldValue: row?.status ?? null, newValue: status,
       });
+      if ('cpoSubmitDate' in stamp) {
+        await writeAudit(tx, {
+          projectId, actor, action: '운영사 계약서 제출',
+          field: 'process.cpoSubmitDate',
+          oldValue: before, newValue: stamp.cpoSubmitDate,
+        });
+      }
     });
   },
 

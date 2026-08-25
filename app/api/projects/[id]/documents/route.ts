@@ -60,8 +60,9 @@ export async function POST(
   if (!detail || !canAccessProject(session.role, session.org, detail.project)) {
     return NextResponse.json({ error: '이 현장에 올릴 수 없습니다.' }, { status: 404 });
   }
-  const prevOf = (kind: string) =>
-    detail.documents.find((d) => d.kind === kind)?.blobUrl ?? null;
+  /** 그 칸에 이미 파일이 있는가 — 임시본이 사라진 재시도를 성공으로 볼지 가른다 */
+  const hasOf = (kind: string) =>
+    (detail.documents.find((d) => d.kind === kind)?.files.length ?? 0) > 0;
 
   const failed: Array<{ kind: string; error: string }> = [];
   let attached = 0;
@@ -75,7 +76,7 @@ export async function POST(
           kind: d.kind ?? '',
           filename: d.filename ?? '',
           blobUrl: d.blobUrl ?? '',
-          prev: prevOf(d.kind ?? ''),
+          has: hasOf(d.kind ?? ''),
           session,
         }),
       }))

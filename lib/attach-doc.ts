@@ -30,8 +30,14 @@ export async function attachDocument(input: {
   kind: string;
   filename: string;
   blobUrl: string;
-  /** 지금 그 칸이 가리키는 파일. 갈아치우면 이것을 지운다. */
-  prev: string | null;
+  /**
+   * 그 칸에 이미 우리 파일이 있는가.
+   *
+   * 갈아치우기를 걷어내면서(한 칸에 여러 장, migrations/0021) 이전 파일 주소는 필요 없어졌다 —
+   * 남은 용도는 하나다: 임시본이 없을 때 「이미 붙인 뒤의 재시도」와 「청소가 걷어갔다」를
+   * 가르는 것(아래).
+   */
+  has: boolean;
   session: SessionPayload;
 }): Promise<AttachResult> {
   const { projectId, kind, session } = input;
@@ -70,9 +76,6 @@ export async function attachDocument(input: {
     return { ok: false, status: 400, error: '이 현장·서류의 파일 주소가 아닙니다.' };
   }
 
-  const prev = input.prev;
-  const prevIsOurs = (pathnameOfBlobUrl(prev ?? '') ?? '').startsWith(`projects/${projectId}/`);
-
   let blobUrl: string;
   /** 저장이 실패하면 되돌릴 사본 */
   let copied: string | null = null;
@@ -92,7 +95,7 @@ export async function attachDocument(input: {
        *
        * 그 밖은 청소가 걷어간 것이다. ZIP 을 다시 올려야 한다.
        */
-      if (prev && prevIsOurs) return { ok: true, already: true };
+      if (input.has) return { ok: true, already: true };
       console.error('[attach-doc] 임시본 옮기기 실패:', err);
       return {
         ok: false,
@@ -132,10 +135,10 @@ export async function attachDocument(input: {
    */
   if (staged) await dropBlob(input.blobUrl);
   /*
-   * 갈아치운 이전 파일도 지운다. 경로에 시각이 붙어 있어 새로 올리면 늘 다른 파일이므로,
-   * 안 지우면 반려·재업로드를 반복한 칸에 아무도 안 보는 스캔본이 쌓인다.
+   * ★이전 파일을 지우지 않는다★ (한백 지시 2026-08-25). 예전에는 새로 올린 것이 앞의 것을
+   * 갈아치우고 앞 파일을 저장소에서 지웠다 — 한 칸에 파일 하나였기 때문이다. 지금은 쌓이므로
+   * 지울 것이 없다. 필요 없어진 장은 사람이 뺀다(deleteDocumentFile).
    */
-  if (prev && prevIsOurs && prev !== blobUrl) await dropBlob(prev);
 
   return { ok: true };
 }

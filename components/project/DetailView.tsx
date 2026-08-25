@@ -305,13 +305,16 @@ function SiteHeader({
   if (contract.rejected > 0) {
     blockers.push({ label: `반려 ${contract.rejected}건`, tone: 'stop' });
   }
-  if (stage === 'intake' && !contract.docsFilled) {
-    blockers.push({ label: '필수 서류 미충족', tone: 'warn' });
-  }
+  /*
+   * 「필수 서류 미충족」은 서류 옆으로 옮겼다(한백 지시 2026-08-25) — 머리말에서는
+   * 무슨 서류가 모자란지 알 수 없고, 그것을 보려면 어차피 서류 구역까지 내려간다.
+   * 여기 남는 것은 서류 구역이 답할 수 없는 것들이다(보류·반려·멈춘 날수).
+   */
   // 단가 미지정은 머리말에 안 띄운다(한백 확인) — 정산 탭의 지정 자리가 그 말을 한다
   if (stalledDays >= 14) {
     blockers.push({
-      label: `${stalledDays}일째 그대로`,
+      // 「그대로」는 상태를 말하지 않는다 — 손대지 않은 것이 아니라 안 풀린 것이다(한백 지시)
+      label: `${stalledDays}일째 미해결`,
       tone: stalledDays >= 30 ? 'stop' : 'warn',
     });
   }

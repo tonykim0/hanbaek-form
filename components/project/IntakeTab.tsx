@@ -13,14 +13,20 @@ import { useAction } from '@/lib/use-action';
 import { DocReview } from './DocReview';
 import { PreInstall } from './PreInstall';
 import { docState } from './parts';
-import { Btn, Err, Note } from '@/components/ui';
+import { Btn, Err, Note, Tag } from '@/components/ui';
 
 // ── 계약 탭 ─────────────────────────────────────────────────────
-/** 서류를 세 묶음으로 가른다 — 접수 화면(components/IntakeForm)과 같은 말·같은 색 */
-const DOC_GROUPS: Array<{ req: DocReq; label: string; rule: string; note?: string }> = [
-  { req: 'm', label: '필수', rule: 'bg-red-400' },
-  { req: 'c', label: '조건부', rule: 'bg-amber-400', note: '해당되는 현장만' },
-  { req: 'o', label: '선택', rule: 'bg-slate-300', note: '있으면 함께' },
+/**
+ * 서류를 세 묶음으로 가른다 — 접수 화면(components/IntakeForm)과 같은 말.
+ *
+ * 색 띠(3px 짧은 줄)는 걷어냈다(한백 지시 2026-08-25). 칸을 색으로 채우게 되면서 그 줄이
+ * 같은 말을 한 번 더 하는 자리가 됐고, 5px 짜리 줄로는 애초에 무엇을 가리키는지 읽히지도
+ * 않았다 — 묶음을 가르는 것은 여백과 글자다.
+ */
+const DOC_GROUPS: Array<{ req: DocReq; label: string; note?: string }> = [
+  { req: 'm', label: '필수' },
+  { req: 'c', label: '조건부', note: '해당되는 현장만' },
+  { req: 'o', label: '선택', note: '있으면 함께' },
 ];
 
 /**
@@ -122,6 +128,31 @@ export function IntakeTab({
   /** 계약서 접수를 누를 수 있는가 — 내는 쪽(협력사·한백) */
   canSubmit: boolean;
 }) {
+  /*
+   * 「서류」 옆에 붙는 필수 수 — ★화면에 보이는 카드로 센다.★
+   *
+   * contract.satisfied 를 쓰지 않는다. 그쪽은 기설치 서류까지 넣어 세는데 그 서류는 위
+   * 「기설치 조사」 구역에서 다뤄 이 구역에 카드가 없다 — 그 수를 여기 적으면 세어지는
+   * 칸과 보이는 칸이 어긋나서, 다 채운 것처럼 보이는데 접수가 막히거나 그 반대가 된다.
+   */
+  const requiredHere = evaluated.filter((d) => d.req === 'm' && !d.preinstall);
+  const requiredDone = requiredHere.filter((d) => {
+    const st = byKind.get(d.key)?.status;
+    return st === 'uploaded' || st === 'approved';
+  }).length;
+  /*
+   * 「미충족」은 ★안 낸 것★을 말한다 — 반려는 칸이 차 있고, 그것은 위 반려 띠가 말한다.
+   * 둘을 한 태그로 묶으면 반려 하나에 「미충족」과 「반려 1건」이 같이 떠서 무엇을 해야
+   * 하는지 흐려진다.
+   *
+   * 확인된 뒤에는 띄우지 않는다. 이관 현장은 서류가 콘솔에 없는 채로 확인된 상태라
+   * (lib/stage docsOutsideConsole) 이 태그가 영구히 붙어 있게 된다 — 끝난 계약에
+   * 「모자란다」고 적는 것은 할 일이 아니라 잡음이다.
+   */
+  const requiredMissing =
+    project.contractConfirmedAt === null &&
+    requiredHere.some((d) => (byKind.get(d.key)?.status ?? 'none') === 'none');
+
   /* 반려된 것은 사유까지 보여줘야 해서 목록으로 따로 모은다 — 개수는 contract.rejected 다 */
   const rejected = evaluated
     .map((d) => ({ key: d.key, label: d.label, doc: byKind.get(d.key) }))
@@ -158,7 +189,18 @@ export function IntakeTab({
 
       <section>
         <div className="mb-3 flex flex-wrap items-baseline justify-between gap-3">
-          <h2 className="text-h3 font-black text-slate-900">서류</h2>
+          <div className="flex flex-wrap items-baseline gap-2">
+            <h2 className="text-h3 font-black text-slate-900">서류</h2>
+            {/*
+              * 필수 수와 막는 태그를 제목 옆에 붙인다 (한백 지시 2026-08-25). 머리말에
+              * 있던 「필수 서류 미충족」은 무슨 서류가 모자란지 말하지 못했고, 그것을 보려면
+              * 어차피 이 구역까지 내려온다 — 막는 말은 막힌 자리에 있어야 한다.
+              */}
+            <span className="text-small font-bold tabular-nums text-slate-400">
+              필수 {requiredDone}/{requiredHere.length}
+            </span>
+            {requiredMissing && <Tag tone="warn">필수 서류 미충족</Tag>}
+          </div>
           <div className="flex flex-wrap items-center gap-3">
             <DownloadAll
               docs={evaluated.map((d) => byKind.get(d.key)).filter((d): d is ProjectDocument => Boolean(d))}
@@ -203,11 +245,13 @@ export function IntakeTab({
             return (
               <div key={g.req}>
                 <div className="mb-2 flex items-baseline gap-2">
-                  <span aria-hidden className={`h-[3px] w-5 rounded-full ${g.rule}`} />
                   <h3 className="text-tiny font-black tracking-[0.1em] text-slate-500">{g.label}</h3>
-                  <span className="text-tiny font-bold tabular-nums text-slate-400">
-                    {done}/{list.length}
-                  </span>
+                  {/* 필수의 수는 「서류」 옆이 말한다 — 같은 값을 두 번 두지 않는다(화면 규칙 5) */}
+                  {g.req !== 'm' && (
+                    <span className="text-tiny font-bold tabular-nums text-slate-400">
+                      {done}/{list.length}
+                    </span>
+                  )}
                   {g.note && <span className="text-tiny text-slate-400">{g.note}</span>}
                 </div>
 
@@ -320,11 +364,15 @@ export function IntakeTab({
           })}
         </div>
 
-        {contract.feeMissing.length > 0 && (
-          <Note tone="warn" className="mt-3 font-semibold">
-            영업비 지급조건 미달 — {contract.feeMissing.join(' · ')}
-          </Note>
-        )}
+        {/*
+          * 「영업비 지급조건 미달」을 여기 적지 않는다 (한백 지시 2026-08-25). 계약 탭이
+          * 답할 질문은 「계약이 되나」이고 지급 조건은 그 질문이 아니다 — 서류 칸이 이미
+          * 무엇이 없는지 말하고 있는데 그 아래 같은 서류 이름을 다시 적으면 두 번 말하는
+          * 것이다(화면 규칙 5).
+          *
+          * 정보는 안 사라진다. 막는 자리인 지급관리가 그대로 적는다
+          * (lib/settlement payoutPrerequisiteBlockersOf → PayoutWorkBoard).
+          */}
 
         {/*
           * 두 단추가 순서대로 선다 — 내는 쪽이 접수하고, 한백이 확인한다.

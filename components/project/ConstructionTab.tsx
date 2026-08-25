@@ -350,26 +350,33 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
                     </p>
                   )
                 )}
+              </div>
 
-                {/*
-                  * 계약으로 되돌리기 — 지금 구간이 시공의 첫 칸일 때만 선다.
-                  * 넘기는 단추(다음 — … 로 넘기기)는 패널 아래에 있고 이것은 머리의
-                  * 반대쪽 끝이다(화면 규칙 8). 글자 단추다 — 확정이 아니라 되돌리기다
-                  * (화면 규칙 12).
-                  */}
-                {edit === 'all' && selState === 'current' && backToContract && (
+              {/*
+                * 계약으로 되돌리기 — 지금 구간이 시공의 첫 칸일 때만 선다.
+                *
+                * ★단계 이름 바로 밑이다★ (한백 지적 2026-08-25). 머리줄 오른쪽 끝에 글자
+                * 단추로 뒀더니 안 보였다 — 그 줄은 이름과 배지가 있는 자리라 눈이 왼쪽에서
+                * 멈추고, 밑줄 글자는 그 옆에서 배경으로 읽힌다. 되돌리기는 드물게 눌러도
+                * 「할 수 있다」가 보여야 하는 일이라 테두리 단추로 세운다.
+                *
+                * 넘기는 단추(다음 — … 로 넘기기)는 패널 맨 아래다 — 여기서 멀다
+                * (화면 규칙 8). 지난 구간의 「← 이 구간으로 되돌리기」와 같은 모양이다.
+                */}
+              {edit === 'all' && selState === 'current' && backToContract && (
+                <div>
                   <Btn
-                    kind="undo"
+                    kind="side"
+                    size="sm"
                     busy={busyKey === 'status'}
                     busyLabel="되돌리는 중…"
-                    className="ml-auto"
-                    title={`${backToContract} 로 돌아갑니다 — 이 현장은 계약 페이지에 섭니다`}
+                    title="이 현장은 계약 페이지에 섭니다"
                     onClick={() => moveStatus(backToContract)}
                   >
-                    ← 계약으로 되돌리기
+                    ← 계약으로 되돌리기 — {backToContract}
                   </Btn>
-                )}
-              </div>
+                </div>
+              )}
 
               {selGroups.map((g) => (
                 <div key={g.title}>

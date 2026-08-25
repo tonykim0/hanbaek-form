@@ -19,7 +19,8 @@ import { FIELD, Note, PANEL } from '@/components/ui';
 import type { ProcessStatus, ProjectSummary } from '@/types/project';
 import { type BoardColumn } from '@/lib/board';
 import {
-  ATTRS, countActive, optionsOf, passesAttrs, type AttrFilters, type AttrKey,
+  ATTR_BY_KEY, ATTRS, countActive, optionsOf, panelAttrKeys, passesAttrs,
+  type AttrFilters, type AttrKey,
 } from '@/lib/project-filter';
 import { ALL_YEARS, businessYearsOf, inBusinessYear } from '@/lib/business-year';
 import ProjectBoard from './ProjectBoard';
@@ -86,6 +87,11 @@ export default function ProjectsView({
   const [flags, setFlags] = useState<string[]>(() => split(sp.get('flag')));
   // 필터가 걸린 주소로 들어왔으면 무엇이 걸렸는지 펴서 보여준다
   const [open, setOpen] = useState(() => ATTRS.some((a) => split(sp.get(a.key)).length > 0));
+  /*
+   * 판에 펼 축 — 정해 둔 넷(사업유형·운영사·영업사·시공사)에, 표의 열 머리글에서 걸어 둔
+   * 나머지 축이 있으면 그것도 같이 편다. 걸려 있는데 판에 없으면 푸는 자리가 없다.
+   */
+  const panelKeys = useMemo(() => panelAttrKeys(attrs), [attrs]);
 
   /** 옮기는 중인 카드의 임시 위치 — 서버가 다시 그려주기 전까지 손을 따라간다 */
   const [moved, setMoved] = useState<Record<string, ProcessStatus>>({});
@@ -290,23 +296,32 @@ export default function ProjectsView({
             * 모든 축을 다 편다. 표에서는 열 머리글에서도 같은 축을 걸 수 있고, 여기 걸든
             * 저기 걸든 같은 상태다 — 보드에서도 쓰려면 이 자리가 있어야 한다.
             */}
-          {ATTRS.map((a) =>
-            options[a.key].length > 0 ? (
+          {panelKeys.map((key) => {
+            const attr = ATTR_BY_KEY.get(key);
+            if (!attr || options[key].length === 0) return null;
+            return (
               <Group
-                key={a.key}
-                label={a.label}
-                options={options[a.key].map((v) => ({ value: v, label: v }))}
-                picked={attrs[a.key] ?? []}
-                onToggle={(v) => setAttr(a.key, toggle(attrs[a.key] ?? [], v))}
+                key={key}
+                label={attr.label}
+                options={options[key].map((v) => ({ value: v, label: v }))}
+                picked={attrs[key] ?? []}
+                onToggle={(v) => setAttr(key, toggle(attrs[key] ?? [], v))}
               />
-            ) : null
+            );
+          })}
+          {/*
+            * 「문제」(반려·단가 미지정·14일 멈춤)는 판에서 뺐다 — 판은 넷만 편다
+            * (한백 지시 2026-08-26). 걸려 있을 때만 나온다: 주소로 들어온 조건을
+            * 푸는 자리가 없으면 왜 이것만 나오는지 알 수 없다.
+            */}
+          {flags.length > 0 && (
+            <Group
+              label="문제"
+              options={FLAGS.map((f) => ({ value: f.key, label: f.label }))}
+              picked={flags}
+              onToggle={(v) => setFlags(toggle(flags, v))}
+            />
           )}
-          <Group
-            label="문제"
-            options={FLAGS.map((f) => ({ value: f.key, label: f.label }))}
-            picked={flags}
-            onToggle={(v) => setFlags(toggle(flags, v))}
-          />
         </div>
       )}
 

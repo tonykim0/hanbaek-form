@@ -77,6 +77,27 @@ export const ATTRS: Attr[] = [
 
 export const ATTR_BY_KEY = new Map(ATTRS.map((a) => [a.key, a]));
 
+/**
+ * 필터 판에 펴 두는 축 — 넷이다(한백 지시 2026-08-26). 적은 순서대로 나온다.
+ *
+ * ★ATTRS 를 줄이지 않는다.★ 표의 열 머리글에서도 같은 축을 거는데(ProjectTable),
+ * 거기서 걸 수 있는 것은 열이 있는 만큼이다 — 축을 지우면 그쪽에서도 사라진다.
+ * 판은 「자주 묻는 것」만 편다: 어떤 사업이고, 누구 운영사고, 누가 영업·시공했나.
+ *
+ * 나머지 축(단계·계약연수·건축물·수전방식·대기번호·기설치)은 열 머리글에 남는다.
+ * 거기서 걸어 둔 것은 판에도 나온다 — 걸려 있는데 보이지 않는 조건을 두지 않는다
+ * (푸는 자리가 없으면 왜 이것만 나오는지 알 수 없다).
+ */
+export const PANEL_ATTR_KEYS: AttrKey[] = ['biz', 'cpo', 'sales', 'gc'];
+
+/** 판에 그릴 축 — 정해 둔 넷 + 지금 걸려 있는 나머지 */
+export function panelAttrKeys(filters: AttrFilters): AttrKey[] {
+  const extra = ATTRS
+    .map((a) => a.key)
+    .filter((k) => !PANEL_ATTR_KEYS.includes(k) && (filters[k]?.length ?? 0) > 0);
+  return [...PANEL_ATTR_KEYS, ...extra];
+}
+
 /** 축별로 고른 값. 빈 배열이면 그 축은 안 걸린 것이다. */
 export type AttrFilters = Partial<Record<AttrKey, string[]>>;
 

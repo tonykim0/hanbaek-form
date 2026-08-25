@@ -130,6 +130,22 @@ export function IntakeTab({
 
   return (
     <div className="flex flex-col gap-7">
+      {/*
+        * 끝난 일은 맨 위에서 말한다 (한백 지시 2026-08-25). 서류 열여섯 칸을 지나 맨 아래에
+        * 두면 「이 계약이 어디까지 갔나」를 알려고 화면을 끝까지 내려야 했다.
+        *
+        * ★올라오는 것은 상태뿐이고 단추는 서류 아래에 남는다.★ 「접수하기」·「계약 확인
+        * 완료」는 서류를 보고 누르는 것이고, 막힐 때 그 이유를 단추 이름에 적는다
+        * (화면 규칙 3) — 그 이름이 가리키는 서류에서 멀어지면 무엇을 말하는지 알 수 없다.
+        */}
+      <ContractStatus
+        projectId={projectId}
+        submittedAt={project.contractSubmittedAt}
+        confirmedAt={project.contractConfirmedAt}
+        canSubmit={canSubmit}
+        canReview={canReview}
+      />
+
       <SiteFacts project={project} />
 
       <PreInstall
@@ -313,21 +329,14 @@ export function IntakeTab({
         {/*
           * 두 단추가 순서대로 선다 — 내는 쪽이 접수하고, 한백이 확인한다.
           * 계약이 확인된 뒤에는 접수 단추를 두지 않는다(끝난 일을 되돌리는 자리는 확인 취소다).
+          * 이미 끝낸 것은 단추를 두지 않는다 — 그 상태와 되돌리는 자리는 맨 위에 있다.
           */}
-        {canSubmit && !project.contractConfirmedAt && (
-          <SubmitContract
-            projectId={projectId}
-            contract={contract}
-            submittedAt={project.contractSubmittedAt}
-          />
+        {canSubmit && !project.contractConfirmedAt && !project.contractSubmittedAt && (
+          <SubmitContract projectId={projectId} contract={contract} />
         )}
 
-        {canReview && (
-          <ConfirmContract
-            projectId={projectId}
-            contract={contract}
-            confirmedAt={project.contractConfirmedAt}
-          />
+        {canReview && !project.contractConfirmedAt && (
+          <ConfirmContract projectId={projectId} contract={contract} />
         )}
       </section>
 
@@ -347,33 +356,18 @@ export function IntakeTab({
 function SubmitContract({
   projectId,
   contract,
-  submittedAt,
 }: {
   projectId: string;
   contract: ContractState;
-  submittedAt: string | null;
 }) {
   const { busy, error, run } = useAction();
 
-  const send = (submitted: boolean) =>
+  const send = () =>
     void run({
       url: `/api/projects/${projectId}/contract-submit`,
-      body: { submitted },
+      body: { submitted: true },
       fail: '처리에 실패했습니다.',
     });
-
-  if (submittedAt) {
-    return (
-      <Note tone="ok" className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1.5">
-        <span className="font-bold">계약서 접수 완료 · {submittedAt}</span>
-        {/* 되돌리기는 반대쪽 끝 — 자주 누르는 것과 붙여 두지 않는다 */}
-        <Btn kind="undo" busy={busy} busyLabel="되돌리는 중…" onClick={() => send(false)} className="ml-auto">
-          접수 취소
-        </Btn>
-        <Err className="w-full">{error}</Err>
-      </Note>
-    );
-  }
 
   /* 막는 것을 단추 이름에 적는다 — 반려는 다시 올리면 풀리므로 여기서 막지 않는다 */
   const missing = contract.requiredTotal - contract.satisfied;
@@ -383,12 +377,86 @@ function SubmitContract({
         disabled={!contract.docsFilled}
         busy={busy}
         busyLabel="접수 중…"
-        onClick={() => send(true)}
+        onClick={send}
         className="self-start"
       >
         {contract.docsFilled ? '계약서 접수하기' : `필수 서류 ${missing}건 남음 — 접수 불가`}
       </Btn>
       <Err>{error}</Err>
+    </div>
+  );
+}
+
+/**
+ * 끝난 계약 상태 — 화면 맨 위.
+ *
+ * 접수와 확인은 서류를 보고 누르는 일이라 단추는 서류 아래에 있다. 그러나 ★끝난 뒤에는
+ * 그것이 상태★이고, 상태는 맨 위에서 말해야 한다 — 열여섯 칸을 지나 맨 아래까지 내려야
+ * 「이 계약이 어디까지 갔나」를 알 수 있으면 그 정보는 없는 것과 같다.
+ *
+ * 되돌리는 자리를 그 상태 옆에 둔다. 되돌리기는 상태를 지우는 일이라 상태가 있는 자리에
+ * 있어야 하고, 자주 누르는 것과 붙지 않게 반대쪽 끝으로 밀어낸다(화면 규칙 8).
+ *
+ * 확인된 뒤에는 접수 상태를 적지 않는다 — 계약이 끝난 현장에서 「접수됨」은 이미 지나간
+ * 말이고, 되돌리는 자리도 확인 취소 하나로 모인다(화면 규칙 5).
+ */
+function ContractStatus({
+  projectId, submittedAt, confirmedAt, canSubmit, canReview,
+}: {
+  projectId: string;
+  submittedAt: string | null;
+  confirmedAt: string | null;
+  canSubmit: boolean;
+  canReview: boolean;
+}) {
+  const submit = useAction();
+  const confirm = useAction();
+
+  const showConfirmed = canReview && confirmedAt !== null;
+  const showSubmitted = canSubmit && confirmedAt === null && submittedAt !== null;
+  if (!showConfirmed && !showSubmitted) return null;
+
+  return (
+    <div className="flex flex-col gap-2">
+      {showConfirmed && (
+        <Note tone="ok" className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+          <span className="font-bold">계약 확인 완료 · {confirmedAt}</span>
+          <Btn
+            kind="undo"
+            busy={confirm.busy}
+            busyLabel="되돌리는 중…"
+            className="ml-auto"
+            onClick={() => void confirm.run({
+              url: `/api/projects/${projectId}/contract-confirm`,
+              body: { confirmed: false },
+              fail: '처리에 실패했습니다.',
+            })}
+          >
+            확인 취소
+          </Btn>
+          <Err className="w-full">{confirm.error}</Err>
+        </Note>
+      )}
+
+      {showSubmitted && (
+        <Note tone="ok" className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+          <span className="font-bold">계약서 접수 완료 · {submittedAt}</span>
+          <Btn
+            kind="undo"
+            busy={submit.busy}
+            busyLabel="되돌리는 중…"
+            className="ml-auto"
+            onClick={() => void submit.run({
+              url: `/api/projects/${projectId}/contract-submit`,
+              body: { submitted: false },
+              fail: '처리에 실패했습니다.',
+            })}
+          >
+            접수 취소
+          </Btn>
+          <Err className="w-full">{submit.error}</Err>
+        </Note>
+      )}
     </div>
   );
 }
@@ -406,11 +474,9 @@ function SubmitContract({
 function ConfirmContract({
   projectId,
   contract,
-  confirmedAt,
 }: {
   projectId: string;
   contract: ContractState;
-  confirmedAt: string | null;
 }) {
   const { busy, error, run } = useAction();
 
@@ -432,32 +498,19 @@ function ConfirmContract({
         ? '단가 미지정'
         : null;
 
-  const send = (confirmed: boolean) =>
+  const send = () =>
     void run({
       url: `/api/projects/${projectId}/contract-confirm`,
-      body: { confirmed },
+      body: { confirmed: true },
       fail: '처리에 실패했습니다.',
     });
-
-  if (confirmedAt) {
-    return (
-      <Note tone="ok" className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1.5">
-        <span className="font-bold">계약 확인 완료 · {confirmedAt}</span>
-        {/* 되돌리기는 반대쪽 끝 — 자주 누르는 것과 붙여 두지 않는다 */}
-        <Btn kind="undo" busy={busy} busyLabel="되돌리는 중…" onClick={() => send(false)} className="ml-auto">
-          확인 취소
-        </Btn>
-        <Err className="w-full">{error}</Err>
-      </Note>
-    );
-  }
 
   return (
     <div className="mt-4 flex flex-col gap-1.5">
       <Btn
         disabled={!contract.ready}
         busy={busy}
-        onClick={() => send(true)}
+        onClick={send}
         className="self-start"
       >
         {/* 막는 것을 단추 이름에 적는다 — 흐린 단추만으로는 왜 안 되는지 알 수 없다 */}

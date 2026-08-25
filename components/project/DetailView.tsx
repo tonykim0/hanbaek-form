@@ -18,12 +18,11 @@ import { useRouter } from 'next/navigation';
 import type { ContractState, ProjectDetail, SettlementRuleChoice } from '@/types/project';
 import { subsidized } from '@/types/project';
 import { useAction } from '@/lib/use-action';
-import { today } from '@/lib/date';
 import { DatePicker } from '@/components/DatePicker';
 import { Badge, Btn, Empty, Err, FIELD, Tag, type Tone, Val } from '@/components/ui';
 import { buildDocContext, evaluateDocs, PROCESS_DOCS } from '@/lib/doc-rules';
 import { BAND_TONE, bandOfColumn, boardColumnOf, phaseOfProject } from '@/lib/board';
-import type { ProcessEdit } from '@/lib/process';
+import { statusIndex, type ProcessEdit } from '@/lib/process';
 import type { Visibility } from '@/lib/roles';
 import type { RuleOptions } from '@/lib/pricing-match';
 import { ConstructionTab } from './ConstructionTab';
@@ -427,11 +426,12 @@ function SiteHeader({
 /**
  * 승인 흐름 두 줄 — 머리말 3·4줄이다 (한백 확인 2026-08-21).
  *
- *   3줄: 운영사 계약서 제출 · 환경부 대기번호   (제출 체크는 한백만 — 몰라도 되는 값)
+ *   3줄: 운영사 계약서 제출 · 환경부 대기번호   (제출 여부는 한백만 — 몰라도 되는 값)
  *   4줄: 환경부 승인일 · 운영사 시공승인일
  *
- * 환경부 승인일과 제출 체크는 한백이 적고, 시공승인일은 그 현장의 시공사도 적는다 —
- * 판정은 저장소(assertProcessWrite)가 다시 한다.
+ * 환경부 승인일은 한백이 적고, 시공승인일은 그 현장의 시공사도 적는다 — 판정은
+ * 저장소(assertProcessWrite)가 다시 한다. 제출 여부는 적는 자리가 아니다 — 보드에서
+ * 넘길 때 찍히고 여기는 읽기만 한다.
  */
 function ApprovalFacts({
   projectId, process, edit, envQueueNo, isSelfInvest, canReview,
@@ -453,25 +453,29 @@ function ApprovalFacts({
       key: field,
     });
 
+  // 낸 것은 그 칸에 들어섰다는 뜻이다 — 날짜는 언제 냈는지일 뿐 여부가 아니다
+  const cpoSubmitted = statusIndex(process.status) >= statusIndex('운영사 계약서 제출');
+
   return (
     <>
     <dl className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-1.5 text-base">
+      {/*
+        * 적는 자리가 아니라 보는 자리다 — 보드에서 「운영사 계약서 제출 로 넘기기」를
+        * 누르면 저장소가 옮기면서 찍고(pg-store setProcessStatus), 여기는 그 결과만 읽는다.
+        * 체크칸이던 동안은 같은 사실을 두 번 말해야 했다: 여기서 체크해야 보드에 단추가
+        * 뜨고, 그걸 또 눌러야 옮겨졌다(화면 규칙 5, 한백 지시 2026-08-25).
+        *
+        * ★여부는 단계가 말하고, 날짜는 곁들인다.★ 그 칸을 건너뛰어 지나간 현장(옛 데이터·
+        * 스테퍼 점프)은 날짜가 없어도 제출된 것이다 — 날짜로만 판정하면 착공한 현장이
+        * 「미제출」로 보인다.
+        */}
       {edit === 'all' && (
         <div className="flex items-baseline gap-1.5">
           <dt className="text-tiny font-bold tracking-[0.04em] text-slate-400">운영사 계약서 제출</dt>
-          <dd>
-            <label className="flex cursor-pointer items-center gap-1.5">
-              <input
-                type="checkbox"
-                aria-label="운영사 계약서 제출"
-                checked={Boolean(process.cpoSubmitDate)}
-                disabled={busyKey === 'cpoSubmitDate'}
-                onChange={(e) => save('cpoSubmitDate', e.target.checked ? today() : null)}
-              />
-              <span className={`font-bold ${process.cpoSubmitDate ? 'text-slate-800' : 'text-amber-700'}`}>
-                {process.cpoSubmitDate ? '제출됨' : '미제출'}
-              </span>
-            </label>
+          <dd className={`font-bold ${cpoSubmitted ? 'text-slate-800' : 'text-amber-700'}`}>
+            {cpoSubmitted
+              ? process.cpoSubmitDate ? `제출됨 · ${process.cpoSubmitDate}` : '제출됨'
+              : '미제출'}
           </dd>
         </div>
       )}

@@ -245,6 +245,9 @@ function Card({
       ? PROCESS_STATUSES[statusIndex(p.status) - 1] ?? null
       : null;
 
+  /** 협력사가 기다리는 대상 — 한백에게는 없다(조작할 사람이 자기다) */
+  const waiting = !canMove && next ? partnerWaitingOf(next.status) : null;
+
   return (
     <article
       role="link"
@@ -305,13 +308,17 @@ function Card({
            * 협력사에게는 조작 이름 대신 기다리는 대상을 적는다 — 「다음: 제출 체크」는
            * 한백이 누를 것의 이름이라, 협력사는 자기가 체크해야 하는 줄 읽는다
            * (한백 지시 2026-08-24). 판정은 lib/board 가 한다.
+           *
+           * ★기다리는 말은 협력사에게만이라, 한백이면 아예 세지 않는다.★ 예전에는
+           * `(!canMove && partnerWaitingOf(...)) ?? ...` 였는데, ?? 는 null·undefined 만
+           * 받는다 — 한백(canMove)일 때 앞이 false 가 되어 그대로 false 를 그렸고,
+           * 조건이 안 찬 카드에서 「다음: …」이 통째로 안 보였다.
            */
           <p className={`mt-2 text-micro font-semibold ${
-            !canMove && partnerWaitingOf(next.status) ? 'text-slate-500'
+            waiting ? 'text-slate-500'
               : next.ready ? 'text-brand-700' : 'text-amber-700'
           }`}>
-            {(!canMove && partnerWaitingOf(next.status))
-              ?? (next.ready ? `${next.status} 준비됨` : `다음: ${next.need}`)}
+            {waiting ?? (next.ready ? `${next.status} 준비됨` : `다음: ${next.need}`)}
           </p>
         )
       )}

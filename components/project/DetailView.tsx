@@ -311,13 +311,11 @@ function SiteHeader({
    * 여기 남는 것은 서류 구역이 답할 수 없는 것들이다(보류·반려·멈춘 날수).
    */
   // 단가 미지정은 머리말에 안 띄운다(한백 확인) — 정산 탭의 지정 자리가 그 말을 한다
-  if (stalledDays >= 14) {
-    blockers.push({
-      // 「그대로」는 상태를 말하지 않는다 — 손대지 않은 것이 아니라 안 풀린 것이다(한백 지시)
-      label: `${stalledDays}일째 미해결`,
-      tone: stalledDays >= 30 ? 'stop' : 'warn',
-    });
-  }
+  /*
+   * 「N일째 미해결」도 여기 없다 — 진행현황 머리로 옮겼다(한백 지시 2026-08-25).
+   * 이 줄은 지금 무엇이 막고 있나(보류·반려)를 말하고, 날수는 막는 것이 아니라 흐른
+   * 시간이다. 그 시간의 기준은 마지막 진척이라 진척을 적는 자리에 선다(ProgressLog).
+   */
 
   return (
     <div className="rounded-panel border border-slate-200 bg-white p-5 sm:p-6">
@@ -417,7 +415,12 @@ function SiteHeader({
       </div>
 
       <div className="mt-5 min-w-0 border-t border-slate-100 pt-4">
-        <ProgressLog projectId={project.id} notes={detail.notes} author={noteAuthor} />
+        <ProgressLog
+          projectId={project.id}
+          notes={detail.notes}
+          author={noteAuthor}
+          stalledDays={stalledDays}
+        />
       </div>
     </div>
   );

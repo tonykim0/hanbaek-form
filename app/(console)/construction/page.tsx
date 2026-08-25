@@ -4,7 +4,7 @@ import { redirect } from 'next/navigation';
 import ProjectsView from '@/components/ProjectsView';
 import { phaseOfProject } from '@/lib/board';
 
-export const metadata = { title: '시공 — 한백 전기차사업관리' };
+export const metadata = { title: '시공관리 — 한백 전기차사업관리' };
 
 /**
  * 시공 화면 — 계약이 끝난 현장들. 보드와 표, 같은 자료의 두 가지 보기.
@@ -21,7 +21,7 @@ export default async function ConstructionPage() {
 
   return (
     <>
-      <h1 className="mb-5 text-h1 font-black text-slate-900">시공</h1>
+      <h1 className="mb-5 text-h1 font-black text-slate-900">시공관리</h1>
 
       <ProjectsView projects={projects} band="시공" canMove={session.role === 'admin'} />
 

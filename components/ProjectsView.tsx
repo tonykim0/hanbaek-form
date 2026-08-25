@@ -219,6 +219,39 @@ export default function ProjectsView({
         <Tabs view={view} onChange={changeView} />
 
         {/*
+          * 필터는 보기 전환 바로 옆, 왼쪽 위다(한백 지시 2026-08-25).
+          *
+          * 검색칸(flex-1) 뒤에 있어서 창이 넓으면 화면 오른쪽 끝까지 밀려나 있었다 —
+          * 거르는 일은 보드·표를 보면서 하는 일인데, 누를 것이 시선에서 가장 먼 자리에
+          * 있었다. 보드에서도 걸리게 되면서 더 그렇다.
+          *
+          * 보드에서도 건다 — 운영사·영업사·시공사로 좁혀 보는 일이 두 보기 모두의 질문이다.
+          */}
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          aria-expanded={open}
+          className={`shrink-0 rounded-ctl border px-3.5 py-2 text-lead font-bold transition ${
+            open || activeCount > 0
+              ? 'border-brand-300 bg-brand-50 text-brand-800'
+              : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
+          }`}
+        >
+          필터{activeCount > 0 && <span className="ml-1 tabular-nums">{activeCount}</span>}
+        </button>
+
+        {/* 거는 자리 곁에 푸는 자리를 둔다(화면 규칙 7) — 조건·검색을 통째로 지운다 */}
+        {activeCount > 0 && (
+          <button
+            type="button"
+            onClick={clear}
+            className="shrink-0 rounded-ctl px-2.5 py-2 text-lead font-semibold text-slate-500 transition hover:text-slate-800"
+          >
+            지우기
+          </button>
+        )}
+
+        {/*
           * 사업연도는 범위라서 접는 필터 막대에 넣지 않는다 — 늘 보여야 한다.
           *
           * 탭이었는데 드롭다운으로 바꿨다(한백 지시 2026-08-25). 해가 쌓이면 탭이 가로로
@@ -250,29 +283,6 @@ export default function ProjectsView({
           />
         </label>
 
-        {/* 보드에서도 건다 — 운영사·영업사·시공사로 좁혀 보는 일이 두 보기 모두의 질문이다 */}
-        <button
-          type="button"
-          onClick={() => setOpen((v) => !v)}
-          aria-expanded={open}
-          className={`shrink-0 rounded-ctl border px-3.5 py-2 text-lead font-bold transition ${
-            open || activeCount > 0
-              ? 'border-brand-300 bg-brand-50 text-brand-800'
-              : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
-          }`}
-        >
-          필터{activeCount > 0 && <span className="ml-1 tabular-nums">{activeCount}</span>}
-        </button>
-
-        {activeCount > 0 && (
-          <button
-            type="button"
-            onClick={clear}
-            className="shrink-0 rounded-ctl px-2.5 py-2 text-lead font-semibold text-slate-500 transition hover:text-slate-800"
-          >
-            지우기
-          </button>
-        )}
       </div>
 
       {open && (

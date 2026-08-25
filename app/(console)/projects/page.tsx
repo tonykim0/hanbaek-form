@@ -4,7 +4,7 @@ import { redirect } from 'next/navigation';
 import ProjectsView from '@/components/ProjectsView';
 import { phaseOfProject } from '@/lib/board';
 
-export const metadata = { title: '계약 — 한백 전기차사업관리' };
+export const metadata = { title: '계약관리 — 한백 전기차사업관리' };
 
 /**
  * 계약 화면 — 계약이 아직 안 끝난 현장들. 보드와 표, 같은 자료의 두 가지 보기.
@@ -31,7 +31,7 @@ export default async function ProjectsPage() {
         건수는 필터 막대 아래에 이미 있다(ProjectsView) — 여기 또 적으면 두 곳이
         같은 말을 하고, 필터를 걸면 둘이 다른 숫자를 말한다.
       */}
-      <h1 className="mb-5 text-h1 font-black text-slate-900">계약</h1>
+      <h1 className="mb-5 text-h1 font-black text-slate-900">계약관리</h1>
 
       <ProjectsView projects={projects} band="계약" canMove={session.role === 'admin'} />
 

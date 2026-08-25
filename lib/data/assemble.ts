@@ -60,13 +60,13 @@ export type RuleMap = Map<string, PricingRule>;
 export type SettleMap = Map<string, SettlementRule>;
 
 /**
- * 접수 서류 16종 (INTAKE_SPEC §3 + 설치승인서). 번호가 아니라 종류로 다룬다.
+ * 접수 서류 17종 (INTAKE_SPEC §3 + 설치승인서 + SK 자체투자 견적서). 번호가 아니라 종류로 다룬다.
  * 순서는 화면에 그려지는 순서이므로 lib/doc-rules.ts 의 SPECS 와 맞춰 둔다.
  */
 export const ALL_DOC_KEYS = [
   'contract', 'agreement', 'sealuse', 'privacy', 'apply', 'consult',
   'minutes', 'kepcobill', 'bldgreg', 'bizreg', 'survey', 'legacylog', 'legacyev',
-  'etc', 'checklist2', 'approval',
+  'etc', 'checklist2', 'approval', 'quote',
 ];
 
 /** 공정 서류 종류 (PROCESS_DOCS 의 key) */

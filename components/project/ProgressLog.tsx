@@ -77,14 +77,20 @@ export function ProgressLog({
         <Btn size="sm" disabled={!body.trim()} busy={busy} busyLabel="남기는 중…" onClick={save}>
           남기기
         </Btn>
-        {/* 누구 이름으로 남는지 — 버튼 옆에 둔다. 위에 따로 줄을 만들 값이 아니다. */}
-        <span
-          className={`rounded-tag px-1.5 py-0.5 text-micro font-black ${
-            isHanbaek ? 'bg-slate-900 text-white' : 'bg-brand-600 text-white'
-          }`}
-        >
-          {author}
-        </span>
+        {/*
+          * 누구 이름으로 남는지 — 버튼 옆에 둔다. 위에 따로 줄을 만들 값이 아니다.
+          * 적기 시작할 때만 나온다 (한백 지시 2026-08-25) — 빈 칸 옆의 이름표는 남길 것이
+          * 없는데도 누가 남기는지를 말하고 있어서, 칸이 비어 보이지 않게만 한다.
+          */}
+        {body.trim() && (
+          <span
+            className={`rounded-tag px-1.5 py-0.5 text-micro font-black ${
+              isHanbaek ? 'bg-slate-900 text-white' : 'bg-brand-600 text-white'
+            }`}
+          >
+            {author}
+          </span>
+        )}
         <Err>{error}</Err>
       </div>
 

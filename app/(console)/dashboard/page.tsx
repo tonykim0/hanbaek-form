@@ -5,6 +5,8 @@ import { getRepository } from '@/lib/data';
 import { getSessionUser, viewerOf } from '@/lib/auth/session';
 import { isHanbaek } from '@/lib/roles';
 import { ATTRS, EMPTY, optionsOf, type AttrKey } from '@/lib/project-filter';
+import { businessYearsOf, inBusinessYear } from '@/lib/business-year';
+import YearTabs from '@/components/YearTabs';
 import { Blank, PANEL } from '@/components/ui';
 import type { ProjectSummary } from '@/types/project';
 import type { ReactNode } from 'react';
@@ -39,10 +41,18 @@ export default async function DashboardPage({
   const isAdmin = isHanbaek(session.role);
   const thisMonth = seoulMonth();
   const thisYear = thisMonth.slice(0, 4);
-  const years = [...new Set(all.map((p) => p.createdAt.slice(0, 4)))].sort().reverse();
-  const fallbackYear = years[0] ?? thisYear;
+  /*
+   * 고를 수 있는 해에는 올해를 늘 넣는다 — 자료에 있는 해만 내면 첫 해에는 탭이 아예
+   * 안 뜨고(고를 것이 하나뿐), 연도별로 볼 수 있는 화면인 줄 모른다.
+   *
+   * 다만 ★기본값은 자료가 있는 마지막 해★다. 올해로 잡으면 해가 바뀐 1월에 빈 화면이
+   * 열린다 — 아직 접수가 없을 뿐인데 수주가 없어진 것처럼 보인다.
+   */
+  const dataYears = businessYearsOf(all);
+  const years = [...new Set([thisYear, ...dataYears])].sort().reverse();
+  const fallbackYear = dataYears[0] ?? thisYear;
   const year = searchParams.year && years.includes(searchParams.year) ? searchParams.year : fallbackYear;
-  const projects = all.filter((p) => p.createdAt.startsWith(year));
+  const projects = inBusinessYear(all, year);
 
   if (all.length === 0) {
     return (
@@ -144,28 +154,13 @@ function PageHeader({ year, years, period }: { year: string; years: string[]; pe
   return (
     <header className="flex flex-wrap items-end justify-between gap-4">
       <div>
-        <p className="mb-1 text-small font-bold text-brand-700">{year}년 · {period}</p>
+        {/* 연도는 옆 탭이 말한다 — 같은 값을 한 화면에 두 번 두지 않는다(화면 규칙 5) */}
+        <p className="mb-1 text-small font-bold text-brand-700">{period}</p>
         <h1 className="text-h1 font-black text-slate-900">수주 현황</h1>
       </div>
 
-      {years.length > 1 ? (
-        <nav aria-label="사업연도" className="flex rounded-ctl border border-slate-200 bg-white p-0.5">
-          {years.map((candidate) => (
-            <Link
-              key={candidate}
-              href={`/dashboard?year=${candidate}`}
-              aria-current={candidate === year ? 'page' : undefined}
-              className={`rounded-[6px] px-3.5 py-1.5 text-small font-bold transition ${
-                candidate === year
-                  ? 'bg-brand-700 text-white'
-                  : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'
-              }`}
-            >
-              {candidate}년
-            </Link>
-          ))}
-        </nav>
-      ) : null}
+      {/* 한 해의 보고서라 「전체」를 두지 않는다 — 월별·누적이 한 해 안에서만 뜻이 있다 */}
+      <YearTabs years={years} value={year} hrefBase="/dashboard" />
     </header>
   );
 }

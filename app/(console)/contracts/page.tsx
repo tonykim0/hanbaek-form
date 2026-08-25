@@ -1,5 +1,4 @@
 import { redirect } from 'next/navigation';
-import Link from 'next/link';
 import { getSessionUser } from '@/lib/auth/session';
 import { canWrite } from '@/lib/roles';
 
@@ -13,14 +12,17 @@ export const metadata = { title: '계약서 작성 — 한백 전기차사업관
  *
  * 대신 들어가는 자리를 시스템 안에 두고 소속을 실어 보낸다. 예전처럼 사이드바에서
  * 남의 사이트로 튕기면, 협력사는 자기가 어느 시스템에 있는지 모르고 돌아올 길도 없다.
+ *
+ * 고를 것만 둔다 — 부제·단계 표시·아래 설명문을 걷었다(한백 지시 2026-08-25). 새 탭에서
+ * 열리는 것은 눌러 보면 알고, 접수로 가는 길은 사이드바에 있다(화면 규칙 2).
+ * SK 자체투자·공동주택관리정보시스템 양식은 이 목록에서 뺐다 — 양식은 포털에 그대로
+ * 있다. 단지조회는 콘솔의 /apartments 가 같은 화면이다.
  */
 const FORMS: Array<{ path: string; cpo: string; note: string }> = [
   { path: '/hec', cpo: '현대엔지니어링', note: '설치신청서 · 사전현장컨설팅결과서' },
   { path: '/nice', cpo: '나이스인프라', note: '설치신청서 · 사전현장컨설팅결과서' },
   { path: '/sk', cpo: 'SK일렉링크', note: '설치신청서 · 사전현장컨설팅결과서' },
   { path: '/pluglink', cpo: '플러그링크', note: '설치신청서 · 사전현장컨설팅결과서' },
-  { path: '/sk-invest', cpo: 'SK일렉링크 (자체투자)', note: '자체투자 양식' },
-  { path: '/kapt', cpo: '공동주택관리정보시스템', note: '입주자 동의 관련 양식' },
 ];
 
 export default async function ContractsPage() {
@@ -28,30 +30,10 @@ export default async function ContractsPage() {
   if (!session) redirect('/login?next=/contracts');
   // 만들어서 내는 자리다 — 열람 전용은 들어오지 않는다
   if (!canWrite(session.role)) redirect('/projects');
-  /*
-   * 관리자도 이 화면을 본다. 예전에는 관리자를 /admin/reissue 로 보내서
-   * 「계약서 작성」을 누르면 서류 재발행이 떴다 — 메뉴 이름과 뜨는 화면이 달랐다.
-   * 재발행은 관리 메뉴에 자기 자리가 따로 있다.
-   */
-  const isAdmin = session.role === 'admin';
 
   return (
     <>
-      <div className="mb-6">
-        <h1 className="text-h1 font-black text-slate-900">계약서 작성</h1>
-        <p className="mt-1.5 text-base text-slate-500">
-          {/* 관리자는 소속이 없다 — 「소속 없음」이라고 적으면 빠뜨린 것처럼 읽힌다 */}
-          {isAdmin ? '' : `${session.org ?? '소속 없음'} · `}운영사 양식을 골라 작성하고, 만든 서류는 접수에서 냅니다
-        </p>
-      </div>
-
-      <ol className="mb-5 flex flex-wrap items-center gap-2 text-small font-bold">
-        <Step n={1} label="계약서 작성" now />
-        <Arrow />
-        <Step n={2} label="서류 접수" href="/projects/new" />
-        <Arrow />
-        <Step n={3} label="계약접수 칸" href="/projects" />
-      </ol>
+      <h1 className="mb-6 text-h1 font-black text-slate-900">계약서 작성</h1>
 
       <div className="grid max-w-[880px] gap-2 sm:grid-cols-2">
         {FORMS.map((f) => (
@@ -71,31 +53,6 @@ export default async function ContractsPage() {
           </a>
         ))}
       </div>
-
-      <p className="mt-4 max-w-[880px] text-small leading-relaxed text-slate-400">
-        양식은 새 탭에서 열립니다 — 로그인 없이 쓰는 화면이라 아직 이 시스템 안으로 들어와
-        있지 않습니다. {session.org ? `소속(${session.org})은 주소에 실어 보냅니다. ` : ''}작성한 서류는
-        내려받아 <Link href="/projects/new" className="font-bold text-brand-700 hover:underline">서류 접수</Link>
-        에서 올리면 됩니다.
-      </p>
     </>
   );
-}
-
-function Step({ n, label, now, href }: { n: number; label: string; now?: boolean; href?: string }) {
-  const body = (
-    <span
-      className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 ${
-        now ? 'bg-brand-600 text-white' : 'bg-white text-slate-500 ring-1 ring-slate-200'
-      }`}
-    >
-      <span className={now ? 'text-brand-200' : 'text-slate-300'}>{n}</span>
-      {label}
-    </span>
-  );
-  return href ? <li><Link href={href} className="hover:opacity-80">{body}</Link></li> : <li>{body}</li>;
-}
-
-function Arrow() {
-  return <li aria-hidden className="text-slate-300">›</li>;
 }

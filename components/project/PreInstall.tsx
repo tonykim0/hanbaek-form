@@ -104,7 +104,7 @@ export function PreInstall({
                   hasFile={Boolean(doc?.blobUrl)}
                 />
                 {canReview && doc && doc.status !== 'none' && (
-                  <DocReview projectId={project.id} kind={d.key} status={doc.status} />
+                  <DocReview projectId={project.id} kind={d.key} status={doc.status} hasFile={Boolean(doc.blobUrl)} />
                 )}
                 {canReview && doc && doc.status !== 'none' && (
                   <DocDelete projectId={project.id} kind={d.key} label={d.label} filename={doc.filename} />

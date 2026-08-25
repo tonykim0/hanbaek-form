@@ -61,7 +61,15 @@ export function contractStateOf(input: {
 
   const required = evaluated.filter((d) => d.req === 'm');
   const satisfied = required.filter((d) => passes(d.key)).length;
-  const docsFilled = required.every((d) => (byKind.get(d.key)?.status ?? 'none') !== 'none');
+  /*
+   * 칸이 찼다 = ★파일이 있다★. 상태로 세지 않는다.
+   *
+   * 예전에는 status !== 'none' 으로 셌다. 그런데 「누락 서류 보완요청」이 생기면서
+   * (한백 지시 2026-08-25) 파일이 없는데 status='rejected' 인 칸이 있다 — 제출을
+   * 기다리는 칸이다. 상태로 세면 그 칸이 「찼다」로 잡혀서, 아무것도 올리지 않은
+   * 협력사가 「계약서 접수하기」를 누를 수 있게 된다.
+   */
+  const docsFilled = required.every((d) => Boolean(byKind.get(d.key)?.blobUrl));
   const rejected = input.documents.filter((d) => d.status === 'rejected').length;
   const allPriced = input.lines.length > 0 && input.lines.every((l) => l.pricingRuleId);
 

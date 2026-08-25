@@ -197,15 +197,24 @@ export function DocDelete({
  * 서류가 반려·재업로드로 계속 바뀌기 때문이다 — 만들어 둔 묶음은 금방 옛것이 된다.
  */
 export function DownloadAll({
-  docs, siteName, labelOf,
+  docs, siteName, labelOf, extra = [],
 }: {
   docs: ProjectDocument[];
   siteName: string;
   labelOf: (kind: string) => string;
+  /**
+   * 파일이 아닌 값도 같이 묶는다 — 화면에만 있는 것을 묶음에서 빠뜨리지 않기 위해서다.
+   *
+   * 기설치 조사 내역이 그렇다(한백 지시 2026-08-25): 대수·kW·운영사가 적힌 조사 결과는
+   * 올린 파일이 아니라 입력값이라, 서류를 다 받아도 그 내역만 화면에 남아 따로 옮겨
+   * 적어야 했다. 여기서 글자를 그대로 .txt 로 만들어 같은 zip 에 넣는다.
+   */
+  extra?: Array<{ name: string; text: string }>;
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const withFiles = docs.filter((d) => d.blobUrl);
+  const total = withFiles.length + extra.length;
 
   async function run() {
     setBusy(true);
@@ -213,6 +222,11 @@ export function DownloadAll({
     try {
       const zip = new JSZip();
       const failed: string[] = [];
+      /*
+       * 파일 아닌 값을 먼저 넣는다 — 받아올 것이 없어 실패할 수 없다.
+       * BOM 을 앞에 붙인다: 없으면 윈도우 메모장·엑셀이 한글을 깨뜨려 읽는다.
+       */
+      for (const e of extra) zip.file(`${safe(siteName)}_${safe(e.name)}.txt`, `\uFEFF${e.text}`);
       for (const d of withFiles) {
         try {
           const res = await fetch(d.blobUrl!);
@@ -241,11 +255,11 @@ export function DownloadAll({
     <div className="flex flex-wrap items-center gap-2">
       <button
         type="button"
-        disabled={busy || withFiles.length === 0}
+        disabled={busy || total === 0}
         onClick={run}
         className="rounded-ctl border border-slate-300 bg-white px-2.5 py-1.5 text-small font-bold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-300"
       >
-        {busy ? '묶는 중…' : `전체 다운로드 (${withFiles.length})`}
+        {busy ? '묶는 중…' : `전체 다운로드 (${total})`}
       </button>
       {error && <span className="text-tiny font-semibold text-amber-700">{error}</span>}
     </div>
@@ -386,7 +400,7 @@ export function DocUpload({
           ? `업로드 중 ${pct}%`
           : dropOpen
             ? '여기에 놓기'
-            : rejected ? '다시 업로드' : hasFile ? '파일 바꾸기' : '파일 업로드'}
+            : rejected && hasFile ? '다시 업로드' : hasFile ? '파일 바꾸기' : '파일 업로드'}
         <input type="file" className="hidden" onChange={onPick} disabled={busy} />
       </label>
       <Err className="mt-1 block">{error}</Err>

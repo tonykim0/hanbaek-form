@@ -212,6 +212,27 @@ export interface ProjectRepository {
   confirmContract(projectId: string, confirmed: boolean, actor: Actor): Promise<void>;
 
   /**
+   * 누락 서류 보완요청 · 그 취소. [한백]
+   *
+   * 검토에 올라온 계약에 필수 서류가 여러 칸 비어 있을 때, 그 칸들을 한 번에 반려로
+   * 세워 계약보완으로 내린다(한백 지시 2026-08-25). 예전에는 길이 없었다 — 서류 한 장의
+   * 반려는 올라온 파일에만 걸리고(setDocumentStatus 가 미제출을 거절한다), 안 낸 서류는
+   * 반려할 대상이 없어서 「서류가 없는데 검토 칸에 서 있는 계약」을 되돌릴 수 없었다.
+   *
+   * 파일을 요구하지 않는 대신 ★파일이 없는 칸만★ 겨냥한다. 올라온 서류의 문제는
+   * 그 칸의 반려가 다룬다 — 두 길이 같은 칸을 건드리면 사유가 서로를 지운다.
+   *
+   * ask=false 는 되돌리기다 — 파일 없이 반려로 서 있는 칸을 미제출로 되돌린다.
+   * 잘못 눌렀을 때 길이 없으면 DB 를 직접 만져야 한다(화면 규칙 7).
+   */
+  askMissingDocs(
+    projectId: string,
+    ask: boolean,
+    reason: string | null,
+    actor: Actor
+  ): Promise<{ kinds: string[] }>;
+
+  /**
    * 계약서 접수 선언 — 협력사가 「다 냈다」고 누른다(그 현장의 협력사와 한백).
    *
    * 이것이 계약접수와 계약검토를 가른다(lib/board.ts). 필수 서류 칸이 차는 것만으로

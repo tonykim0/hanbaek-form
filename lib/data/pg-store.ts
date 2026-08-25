@@ -41,10 +41,12 @@ import {
   payoutStepsOf, settlementRuleIdOf, settlementRuleNameOf, settlementStepsKeyOf,
 } from '@/lib/settlement';
 import {
-  ALL_DOC_KEYS, byStalled, contractStateFor, isProcessDocKind, payoutPlansOf, payoutRowsOf, redactForViewer,
+  ALL_DOC_KEYS, byStalled, contractStateFor, isProcessDocKind, missingRequiredDocs,
+  payoutPlansOf, payoutRowsOf, redactForViewer,
   payoutMilestonesFor, settlementSummaryOf,
   summaryOf, toDetail, type ProjectRecord, type RuleMap, type SettleMap,
 } from './assemble';
+import { docsOutsideConsole } from '@/lib/stage';
 
 /** 트랜잭션 핸들. db 와 같은 질의 인터페이스를 갖는다. */
 type TxLike = Parameters<Parameters<ReturnType<typeof getDb>['transaction']>[0]>[0];
@@ -118,6 +120,7 @@ function toProject(r: ProjectRow): Project {
     envQueueNo: r.envQueueNo,
     note: r.note,
     contractConfirmedAt: r.contractConfirmedAt,
+    contractFixAskedAt: r.contractFixAskedAt,
     contractSubmittedAt: r.contractSubmittedAt,
     createdAt: dayOf(r.createdAt),
     settlementRuleId: r.settlementRuleId,
@@ -636,6 +639,14 @@ export const pgRepository: ProjectRepository = {
       if (!row || row.status === 'none') {
         throw new Error('제출되지 않은 서류는 검수할 수 없습니다.');
       }
+      /*
+       * 파일 없이 반려로 서 있는 칸(누락 서류 보완요청, askMissingDocs)은 통과시킬 수 없다.
+       * 통과 상태로 만들면 satisfied 가 그 칸을 센다 — 파일 한 장 없는 계약이 확인 가능해진다.
+       * 되돌리는 길은 보완요청 취소다(askMissingDocs ask=false).
+       */
+      if (input.status !== 'rejected' && !row.blobUrl) {
+        throw new Error('파일이 없는 칸은 통과시킬 수 없습니다 — 제출을 기다리는 자리입니다.');
+      }
       if (row.status === input.status && (row.rejectReason ?? null) === (input.reason?.trim() || null)) {
         return; // 같은 값이면 로그를 남기지 않는다
       }
@@ -656,15 +667,30 @@ export const pgRepository: ProjectRepository = {
        * 그 확인을 무효로 만든다 — 보완한 뒤 한백이 다시 봐야 한다. 안 지우면 협력사가
        * 서류를 다시 올리는 순간 아무도 안 본 계약이 계약완료로 되돌아간다.
        *
+       * 접수 선언(contract_submitted_at)은 지우지 않는다 — 협력사가 이미 다 냈다고 한
+       * 말이고, 보완은 그 안에서 오가는 왕복이다. 대신 ★보완요청이 있었다는 사실★을
+       * 남긴다 — 첫 번째 것만(coalesce). 반려는 재업로드로 풀려서 흔적이 없어지는데,
+       * 그 흔적이 없으면 접수 선언이 없는 현장(노션 이관분·한백이 바로 확인한 것)이
+       * 처음 서류를 모으는 자리(계약접수)로 떨어진다. 보완요청을 받은 계약은 접수 선언이
+       * 없어도 계약검토에 선다(lib/board.ts) — 그것을 볼 사람은 한백이다.
+       * 지우지 않는 값이다 — 몇 번을 돌아도 첫 보완요청일이다.
+       *
        * 반려하면 공도 영업사로 넘어간다 — 보완할 차례다. 다시 올라오면 uploadDocument 가
        * 공을 한백으로 되돌린다. 이 한쪽이 없으면 반려한 뒤에도 공 차례가 「한백」으로 남아,
        * 협력사를 기다리는 현장이 한백이 막고 있는 것처럼 보인다.
        */
+      const day = today();
       await tx
         .update(projects)
         .set({
-          lastProgressAt: today(),
-          ...(input.status === 'rejected' ? { contractConfirmedAt: null, court: '영업사' } : {}),
+          lastProgressAt: day,
+          ...(input.status === 'rejected'
+            ? {
+                contractConfirmedAt: null,
+                contractFixAskedAt: sql`coalesce(${projects.contractFixAskedAt}, ${day})`,
+                court: '영업사',
+              }
+            : {}),
         })
         .where(eq(projects.id, input.projectId));
 
@@ -1808,6 +1834,117 @@ export const pgRepository: ProjectRepository = {
         field: 'contractConfirmedAt', oldValue: before, newValue: after,
       });
     });
+  },
+
+  /**
+   * 누락 서류 보완요청 · 취소 — 파일이 없는 필수 칸을 한 번에 반려로 세운다.
+   *
+   * 서류 한 장의 반려(setDocumentStatus)는 올라온 파일에만 걸린다 — 안 낸 서류는 반려할
+   * 대상이 없어서, 필수 서류가 여러 칸 빈 채로 검토에 올라온 계약을 되돌릴 길이 없었다
+   * (한백 지시 2026-08-25). 그 계약을 계약보완으로 내리는 일을 여기서 한 번에 한다.
+   *
+   * 겨냥은 ★파일이 없는 필수 칸★뿐이다(missingRequiredDocs). 올라온 서류의 문제는 그 칸의
+   * 반려가 다룬다 — 두 길이 같은 칸을 건드리면 나중 것이 앞 사유를 지운다.
+   *
+   * 반려 하나와 같은 일이 프로젝트에도 일어난다: 계약 확인을 지우고(반려는 그 확인을
+   * 무효로 만든다) 공을 영업사로 넘기고 보완요청 이력을 남긴다.
+   */
+  async askMissingDocs(projectId, ask, reason, actor): Promise<{ kinds: string[] }> {
+    assertAdmin(actor, '누락 서류 보완요청');
+
+    const rows = await getDb().select().from(projects).where(eq(projects.id, projectId)).limit(1);
+    if (!rows[0]) throw new Error('현장을 찾을 수 없습니다.');
+    const [record] = await recordsOf(rows);
+    if (!record) throw new Error('현장을 찾을 수 없습니다.');
+
+    /*
+     * 보완요청은 ★검토에 올라온 계약★에만 건다 — 협력사가 접수했거나(contractSubmittedAt)
+     * 이미 보완요청을 받은 적이 있는 계약이다(lib/board.ts 의 계약검토 판정과 같은 값).
+     * 아직 모으는 중인 계약(계약접수)에 걸면, 협력사가 다 냈다고 말하기도 전에 「안 냈다」고
+     * 반려하는 것이 된다 — 그 칸은 원래 협력사 차례다.
+     */
+    if (ask) {
+      const inReview =
+        record.project.contractSubmittedAt !== null || record.project.contractFixAskedAt !== null;
+      if (!inReview) {
+        throw new Error('계약검토에 올라온 계약에만 보완요청할 수 있습니다 — 접수 전에는 협력사가 모으는 중입니다.');
+      }
+      /*
+       * 노션 이관 현장은 겨냥하지 않는다 — 그 현장의 계약서·회의록·사진대지는 노션에 있고
+       * 콘솔에는 0건이다(lib/stage docsOutsideConsole). 그것을 누락으로 세면 있을 수 없는
+       * 증거를 요구하는 것이고, 이관 140건이 한 번에 계약보완으로 내려간다.
+       */
+      if (docsOutsideConsole(record.project.mgmtNo)) {
+        throw new Error('노션 이관 현장은 서류가 콘솔에 없습니다 — 보완요청 대상이 아닙니다.');
+      }
+    }
+
+    const day = today();
+    const why = reason?.trim() || '미제출 — 제출해주세요';
+
+    /*
+     * 겨냥하는 칸: 요청이면 「필수인데 파일 없음」, 취소면 「파일 없이 반려로 서 있는 것」.
+     * 취소가 필수 여부를 다시 묻지 않는 이유는, 요청한 뒤에 조건이 바뀌어(수전방식·운영사)
+     * 그 칸이 필수에서 빠질 수 있기 때문이다 — 그러면 되돌릴 수 없는 반려가 남는다.
+     */
+    const kinds = ask
+      ? missingRequiredDocs(record).map((d) => d.kind)
+      : record.documents.filter((d) => d.status === 'rejected' && !d.blobUrl).map((d) => d.kind);
+
+    if (kinds.length === 0) {
+      throw new Error(ask ? '누락된 필수 서류가 없습니다.' : '되돌릴 보완요청이 없습니다.');
+    }
+
+    const db = getDb();
+    await db.transaction(async (tx) => {
+      for (const kind of kinds) {
+        const row = {
+          projectId,
+          kind,
+          filename: null,
+          blobUrl: null,
+          status: ask ? 'rejected' : 'none',
+          rejectReason: ask ? why : null,
+          uploadedBy: null,
+          uploadedAt: null,
+        };
+        await tx
+          .insert(documents)
+          .values(row)
+          .onConflictDoUpdate({
+            target: [documents.projectId, documents.kind],
+            // 파일 칸은 건드리지 않는다 — 겨냥한 것이 「파일 없는 칸」이라 비어 있지만,
+            // 덮어쓰기로 남의 파일을 지우는 길을 열어두지 않는다.
+            set: { status: row.status, rejectReason: row.rejectReason },
+          });
+      }
+
+      await tx
+        .update(projects)
+        .set({
+          lastProgressAt: day,
+          ...(ask
+            ? {
+                // 반려와 같은 일이다 — 확인을 무효로 만들고, 공은 보완할 쪽으로
+                contractConfirmedAt: null,
+                contractFixAskedAt: sql`coalesce(${projects.contractFixAskedAt}, ${day})`,
+                court: '영업사',
+              }
+            : // 되돌리면 볼 차례는 다시 한백이다. 확인은 사람이 다시 눌러야 한다.
+              { court: '한백' }),
+        })
+        .where(eq(projects.id, projectId));
+
+      await writeAudit(tx, {
+        projectId, actor,
+        action: ask ? '누락 서류 보완요청' : '누락 서류 보완요청 취소',
+        field: 'documents',
+        oldValue: null,
+        newValue: `${kinds.join(', ')}${ask ? ` — ${why}` : ''}`,
+      });
+    });
+
+    return { kinds };
   },
 
   async listLineAxes(actor): Promise<LineAxes[]> {

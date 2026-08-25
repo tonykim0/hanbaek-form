@@ -26,10 +26,19 @@ export function DocReview({
   projectId,
   kind,
   status,
+  hasFile = true,
 }: {
   projectId: string;
   kind: string;
   status: ProjectDocument['status'];
+  /**
+   * 이 칸에 파일이 있는가.
+   *
+   * 파일 없이 반려로 서 있는 칸이 있다 — 「누락 서류 보완요청」(askMissingDocs)이 세운
+   * 자리다. 거기서 반려를 풀면 파일 한 장 없는 칸이 통과 상태가 되므로 그 단추를 두지
+   * 않는다(저장소도 거절한다). 되돌리는 자리는 서류 구역 맨 위의 보완요청 취소다.
+   */
+  hasFile?: boolean;
 }) {
   const { busy, error, setError, run } = useAction();
   const [rejecting, setRejecting] = useState(false);
@@ -89,9 +98,11 @@ export function DocReview({
         */}
         {status === 'rejected' ? (
           <>
-            <Btn size="sm" busy={busy} onClick={() => send('uploaded')}>
-              반려 해제
-            </Btn>
+            {hasFile && (
+              <Btn size="sm" busy={busy} onClick={() => send('uploaded')}>
+                반려 해제
+              </Btn>
+            )}
             <Btn size="sm" kind="undo" disabled={busy} onClick={() => setRejecting(true)}>
               사유 수정
             </Btn>

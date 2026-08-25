@@ -174,6 +174,8 @@ export const projects = pgTable('projects', {
    * 서류가 반려되면 지워진다 — 보완 뒤 다시 확인해야 한다.
    */
   contractConfirmedAt: text('contract_confirmed_at'),
+  /** 한백이 처음 보완요청(서류 반려)을 한 날 — 지우지 않는다 (migrations/0020) */
+  contractFixAskedAt: text('contract_fix_asked_at'),
   /**
    * 협력사가 「계약서 접수하기」를 누른 날 (YYYY-MM-DD). null 이면 아직 모으는 중이다.
    * 확인일과 짝이다 — 이쪽은 협력사가 「다 냈다」, 저쪽은 한백이 「봤다」.

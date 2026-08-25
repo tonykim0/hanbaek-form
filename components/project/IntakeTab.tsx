@@ -6,14 +6,15 @@
  * 서류는 필수·조건부·선택 세 묶음으로 나눈다. 「해당없음」칸도 지우지 않는다 —
  * 빠뜨린 것과 원래 필요 없는 것을 구별해야 한다(lib/doc-rules).
  */
+import { useState } from 'react';
 import type { ContractState, ProjectDetail, ProjectDocument } from '@/types/project';
-import { evaluateDocs, type DocReq } from '@/lib/doc-rules';
+import { evaluateDocs, needsPreInstallCheck, type DocReq } from '@/lib/doc-rules';
 import { DocDelete, DocFileActions, DocUpload, DownloadAll } from '@/components/DocFiles';
 import { useAction } from '@/lib/use-action';
 import { DocReview } from './DocReview';
 import { PreInstall } from './PreInstall';
 import { docState } from './parts';
-import { Btn, Err, Note, Tag } from '@/components/ui';
+import { Btn, Err, FIELD, Note, Tag } from '@/components/ui';
 
 // ── 계약 탭 ─────────────────────────────────────────────────────
 /**
@@ -68,7 +69,11 @@ function SiteFacts({ project }: { project: ProjectDetail['project'] }) {
      * 이관 현장은 접수일과 확인일이 같은 값이다(노션에는 수령일만 있었다).
      */
     ['계약서 수령일', project.createdAt],
-    ['계약서 접수', project.contractSubmittedAt],
+    /*
+     * 보완요청을 받은 계약에서는 이 날짜가 「접수」가 아니라 「재검토 요청」이다
+     * (한백 지시 2026-08-25) — 협력사가 누른 단추 이름과 같아야 한다.
+     */
+    [project.contractFixAskedAt ? '재검토 요청' : '계약서 접수', project.contractSubmittedAt],
     ['계약 확인', project.contractConfirmedAt],
   ];
 
@@ -153,6 +158,42 @@ export function IntakeTab({
     project.contractConfirmedAt === null &&
     requiredHere.some((d) => (byKind.get(d.key)?.status ?? 'none') === 'none');
 
+  /*
+   * 「누락 서류 보완요청」이 겨냥하는 칸 — 필수인데 ★파일이 없는★ 칸이다.
+   *
+   * 기설치 서류(설치이력·증빙)도 센다 — 화면 구역이 다른 것과 필수 여부는 별개다.
+   * 판정 규칙은 저장소와 같다(lib/data/assemble.ts missingRequiredDocs) — 목록을 보내지
+   * 않고 서버가 다시 세므로 「단추는 눌리는데 저장이 거절되는」 일이 없다.
+   */
+  const missing = evaluated.filter((d) => d.req === 'm' && !byKind.get(d.key)?.blobUrl);
+  /* 지금 서 있는 보완요청 — 파일 없이 반려로 세워진 칸 (되돌릴 수 있어야 한다) */
+  const asked = evaluated.filter((d) => {
+    const doc = byKind.get(d.key);
+    return doc?.status === 'rejected' && !doc.blobUrl;
+  });
+
+  /*
+   * 기설치 조사 내역을 서류 묶음에 같이 넣는다 (한백 지시 2026-08-25).
+   *
+   * 조사 결과(있음/없음 · 대수·kW·운영사)는 올린 파일이 아니라 입력값이라 zip 에 들어갈
+   * 것이 없었다 — 서류를 전부 받아도 이 내역만 화면에 남아 사람이 옮겨 적어야 했다.
+   * 설치이력·증빙 파일은 이미 들어간다(아래 DownloadAll 이 evaluated 전체를 본다).
+   *
+   * 자체투자는 조사를 하지 않으므로 넣을 것이 없다 — 「해당없음」인 구역의 빈 파일을
+   * 묶음에 끼우면 받는 쪽이 조사를 빠뜨린 것으로 읽는다.
+   */
+  const surveyText = needsPreInstallCheck(project.bizType)
+    ? [
+        `${siteName} — 기설치 조사`,
+        '',
+        `기설치: ${project.preChecked ? project.preInstall : '미조사'}`,
+        ...(project.preRejectReason ? [`조사 반려: ${project.preRejectReason}`] : []),
+        '',
+        '조사 내역',
+        project.preNote?.trim() || '(비어 있음)',
+      ].join('\n')
+    : null;
+
   /* 반려된 것은 사유까지 보여줘야 해서 목록으로 따로 모은다 — 개수는 contract.rejected 다 */
   const rejected = evaluated
     .map((d) => ({ key: d.key, label: d.label, doc: byKind.get(d.key) }))
@@ -173,6 +214,7 @@ export function IntakeTab({
         projectId={projectId}
         submittedAt={project.contractSubmittedAt}
         confirmedAt={project.contractConfirmedAt}
+        fixAsked={project.contractFixAskedAt !== null}
         canSubmit={canSubmit}
         canReview={canReview}
       />
@@ -206,15 +248,26 @@ export function IntakeTab({
               docs={evaluated.map((d) => byKind.get(d.key)).filter((d): d is ProjectDocument => Boolean(d))}
               siteName={siteName}
               labelOf={(kind) => evaluated.find((d) => d.key === kind)?.label ?? kind}
+              extra={surveyText ? [{ name: '기설치 조사내역', text: surveyText }] : []}
             />
           </div>
         </div>
 
         {rejected.length > 0 && (
           <Note tone="stop" className="mb-3">
-            <p className="font-black">
-              반려된 서류 {rejected.length}건{canReview ? '' : ' — 다시 올려주세요'}
-            </p>
+            <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+              <p className="font-black">
+                반려된 서류 {rejected.length}건{canReview ? '' : ' — 다시 올려주세요'}
+              </p>
+              {/*
+                * 보완요청을 되돌리는 자리 — 그 상태가 적힌 자리 옆, 반대쪽 끝이다
+                * (화면 규칙 7·8). 파일이 올라온 반려는 칸마다 「반려 해제」가 있고,
+                * 파일 없이 세운 칸은 여기서 한 번에 되돌린다.
+                */}
+              {canReview && asked.length > 0 && (
+                <AskMissingDocs projectId={projectId} labels={[]} standing={asked.length} />
+              )}
+            </div>
             <ul className="mt-1.5 flex flex-col gap-1">
               {rejected.map((d) => (
                 <li key={d.key} className="text-small leading-relaxed">
@@ -380,11 +433,38 @@ export function IntakeTab({
           * 이미 끝낸 것은 단추를 두지 않는다 — 그 상태와 되돌리는 자리는 맨 위에 있다.
           */}
         {canSubmit && !project.contractConfirmedAt && !project.contractSubmittedAt && (
-          <SubmitContract projectId={projectId} contract={contract} />
+          <SubmitContract
+            projectId={projectId}
+            contract={contract}
+            fixAsked={project.contractFixAskedAt !== null}
+          />
         )}
 
         {canReview && !project.contractConfirmedAt && (
           <ConfirmContract projectId={projectId} contract={contract} />
+        )}
+
+        {/*
+          * 막는 것 옆에 그것을 처리하는 길을 둔다 — 「필수 서류 미충족 — 계약 확인 불가」
+          * 바로 아래다. 안 낸 서류는 칸마다 반려할 수 없어서(올라온 파일에만 걸린다)
+          * 검토에 올라온 계약을 되돌릴 길이 없었다(한백 지시 2026-08-25).
+          */}
+        {canReview
+          && !project.contractConfirmedAt
+          && asked.length === 0
+          && missing.length > 0
+          /*
+           * 검토에 올라온 계약만 — 모으는 중인 계약(계약접수)에 걸면 협력사가 다 냈다고
+           * 말하기도 전에 「안 냈다」고 반려하는 것이 된다. 저장소도 같은 값을 본다.
+           */
+          && (project.contractSubmittedAt !== null || project.contractFixAskedAt !== null)
+          /* 노션 이관 현장은 서류가 콘솔에 0건이다 — 있을 수 없는 증거를 요구하지 않는다 */
+          && !contract.docsExempt && (
+          <AskMissingDocs
+            projectId={projectId}
+            labels={missing.map((d) => d.label)}
+            standing={0}
+          />
         )}
       </section>
 
@@ -404,9 +484,12 @@ export function IntakeTab({
 function SubmitContract({
   projectId,
   contract,
+  fixAsked,
 }: {
   projectId: string;
   contract: ContractState;
+  /** 한백이 보완요청을 한 적이 있는가 — 그 뒤로 이것은 접수가 아니라 재검토 요청이다 */
+  fixAsked: boolean;
 }) {
   const { busy, error, run } = useAction();
 
@@ -419,16 +502,24 @@ function SubmitContract({
 
   /* 막는 것을 단추 이름에 적는다 — 반려는 다시 올리면 풀리므로 여기서 막지 않는다 */
   const missing = contract.requiredTotal - contract.satisfied;
+  /*
+   * 보완요청을 받은 뒤부터는 「접수」가 아니라 「재검토 요청」이다 (한백 지시 2026-08-25).
+   * 접수는 처음 서류를 모아 내는 일이고, 이것은 고친 것을 다시 봐 달라고 하는 일이다 —
+   * 같은 이름을 쓰면 협력사에게 처음으로 되돌아간 것처럼 읽힌다.
+   */
+  const act = fixAsked ? '재검토 요청' : '접수';
   return (
     <div className="mt-4 flex flex-col gap-1.5">
       <Btn
         disabled={!contract.docsFilled}
         busy={busy}
-        busyLabel="접수 중…"
+        busyLabel={`${act} 중…`}
         onClick={send}
         className="self-start"
       >
-        {contract.docsFilled ? '계약서 접수하기' : `필수 서류 ${missing}건 남음 — 접수 불가`}
+        {contract.docsFilled
+          ? (fixAsked ? '계약 재검토 요청하기' : '계약서 접수하기')
+          : `필수 서류 ${missing}건 남음 — ${act} 불가`}
       </Btn>
       <Err>{error}</Err>
     </div>
@@ -449,11 +540,13 @@ function SubmitContract({
  * 말이고, 되돌리는 자리도 확인 취소 하나로 모인다(화면 규칙 5).
  */
 function ContractStatus({
-  projectId, submittedAt, confirmedAt, canSubmit, canReview,
+  projectId, submittedAt, confirmedAt, fixAsked, canSubmit, canReview,
 }: {
   projectId: string;
   submittedAt: string | null;
   confirmedAt: string | null;
+  /** 보완요청을 받은 적이 있는가 — 접수 선언의 이름이 재검토 요청으로 바뀐다 */
+  fixAsked: boolean;
   canSubmit: boolean;
   canReview: boolean;
 }) {
@@ -488,7 +581,9 @@ function ContractStatus({
 
       {showSubmitted && (
         <Note tone="ok" className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-          <span className="font-bold">계약서 접수 완료 · {submittedAt}</span>
+          <span className="font-bold">
+            {fixAsked ? '재검토 요청 완료' : '계약서 접수 완료'} · {submittedAt}
+          </span>
           <Btn
             kind="undo"
             busy={submit.busy}
@@ -500,7 +595,7 @@ function ContractStatus({
               fail: '처리에 실패했습니다.',
             })}
           >
-            접수 취소
+            {fixAsked ? '요청 취소' : '접수 취소'}
           </Btn>
           <Err className="w-full">{submit.error}</Err>
         </Note>
@@ -564,6 +659,114 @@ function ConfirmContract({
         {/* 막는 것을 단추 이름에 적는다 — 흐린 단추만으로는 왜 안 되는지 알 수 없다 */}
         {reason ? `${reason} — 계약 확인 불가` : '계약 확인 완료'}
       </Btn>
+      <Err>{error}</Err>
+    </div>
+  );
+}
+
+/**
+ * 누락 서류 보완요청 — 한백만.
+ *
+ * ★안 낸 서류는 칸마다 반려할 수 없다.★ 반려는 올라온 파일에 대한 판정이고, 저장소는
+ * 미제출 검수를 거절한다(「제출되지 않은 서류는 검수할 수 없습니다」). 그래서 필수 서류가
+ * 여러 칸 빈 채로 검토에 올라온 계약을 계약보완으로 내릴 길이 없었다(한백 지시 2026-08-25) —
+ * 한백이 할 수 있는 일은 계약 확인을 안 누르고 두는 것뿐이었고, 그 현장은 검토 칸에
+ * 그대로 서서 협력사에게는 아무 말도 가지 않았다.
+ *
+ * 여기서 그 칸들을 한 번에 반려로 세운다. 그러면 반려 한 장과 같은 일이 일어난다 —
+ * 계약보완으로 내려가고, 공이 영업사로 넘어가고, 협력사 화면의 반려 띠에 무엇이 없는지
+ * 서류 이름으로 적힌다.
+ *
+ * 목록은 서버에 보내지 않는다 — 저장소가 필수·미제출을 다시 판정한다. 여기 보이는 이름은
+ * 「무엇이 반려될지」를 누르기 전에 보여주기 위한 것이다.
+ *
+ * 되돌릴 수 있다(화면 규칙 7) — 파일 없이 세운 칸은 한 번에 미제출로 돌아간다.
+ */
+function AskMissingDocs({
+  projectId, labels, standing,
+}: {
+  projectId: string;
+  /** 반려될 서류 이름들 — 누르기 전에 보여준다 */
+  labels: string[];
+  /** 이미 서 있는 보완요청 칸 수. 0 이 아니면 이 자리는 되돌리는 자리다. */
+  standing: number;
+}) {
+  const { busy, error, setError, run } = useAction();
+  const [open, setOpen] = useState(false);
+  const [reason, setReason] = useState('');
+
+  const send = (ask: boolean, why?: string) =>
+    void run({
+      url: `/api/projects/${projectId}/docs-missing`,
+      body: { ask, reason: why?.trim() || null },
+      fail: ask ? '보완요청에 실패했습니다.' : '되돌리지 못했습니다.',
+    }).then((ok) => {
+      if (ok) { setOpen(false); setReason(''); }
+    });
+
+  /* 되돌리는 자리 — 글자 단추다(확정이 아니다, 화면 규칙 12) */
+  if (standing > 0) {
+    return (
+      <span className="ml-auto flex flex-col items-end gap-1">
+        <Btn
+          kind="undo"
+          size="sm"
+          busy={busy}
+          busyLabel="되돌리는 중…"
+          onClick={() => send(false)}
+        >
+          보완요청 취소 ({standing})
+        </Btn>
+        <Err>{error}</Err>
+      </span>
+    );
+  }
+
+  if (!open) {
+    return (
+      <div className="mt-2 flex flex-col gap-1.5">
+        {/* 여는 자리는 빨간 글자, 확정만 빨간 배경(화면 규칙 12) */}
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => setOpen(true)}
+          className="self-start text-small font-bold text-red-700 underline decoration-red-300 transition hover:text-red-900 disabled:text-slate-300"
+        >
+          누락 서류 {labels.length}건 보완요청
+        </button>
+        <Err>{error}</Err>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-2 flex max-w-xl flex-col gap-2 rounded-box border border-red-200 bg-red-50 px-3.5 py-3">
+      <p className="text-small font-black text-red-900">
+        아래 {labels.length}건을 반려하고 계약보완으로 내립니다
+      </p>
+      {/* 무엇이 반려될지 이름으로 보여준다 — 개수만으로는 눌러도 되는지 알 수 없다 */}
+      <ul className="flex flex-wrap gap-1.5">
+        {labels.map((l) => (
+          <li key={l} className="rounded-tag bg-white px-2 py-0.5 text-tiny font-bold text-red-800">
+            {l}
+          </li>
+        ))}
+      </ul>
+      <textarea
+        value={reason}
+        onChange={(e) => setReason(e.target.value)}
+        rows={2}
+        placeholder="사유 — 비우면 「미제출 — 제출해주세요」로 갑니다"
+        className={`${FIELD} leading-snug`}
+      />
+      <div className="flex flex-wrap gap-1.5">
+        <Btn size="sm" kind="stop" busy={busy} busyLabel="처리 중…" onClick={() => send(true, reason)}>
+          보완요청 확정
+        </Btn>
+        <Btn size="sm" kind="side" disabled={busy} onClick={() => { setOpen(false); setReason(''); setError(null); }}>
+          취소
+        </Btn>
+      </div>
       <Err>{error}</Err>
     </div>
   );

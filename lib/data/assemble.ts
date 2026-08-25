@@ -28,7 +28,7 @@ import type {
   SettlementSummary,
 } from '@/types/project';
 import { bizTypeOfRepl } from '@/types/project';
-import { buildDocContext, PROCESS_DOCS } from '@/lib/doc-rules';
+import { buildDocContext, evaluateDocs, PROCESS_DOCS } from '@/lib/doc-rules';
 import { entryTypeOf, payoutSideOf, settlementForProject } from '@/lib/settlement';
 import { contractStateOf, deriveStage, docsOutsideConsole, stalledDaysSince } from '@/lib/stage';
 import { canEnter, entryOkOf } from '@/lib/process';
@@ -184,6 +184,19 @@ export function contractStateFor(r: ProjectRecord) {
   });
 }
 
+/**
+ * 필수인데 파일이 없는 서류 — 「누락 서류 보완요청」이 겨냥하는 칸들.
+ *
+ * 기설치 구역의 서류(설치이력·증빙)도 같이 본다 — 화면에서 구역이 다른 것과
+ * 필수 여부는 별개다. 필수 판정은 lib/doc-rules 한 곳이다.
+ */
+export function missingRequiredDocs(r: ProjectRecord): Array<{ kind: string; label: string }> {
+  const byKind = new Map(r.documents.map((d) => [d.kind, d]));
+  return evaluateDocs(docCtxOf(r))
+    .filter((d) => d.req === 'm' && !byKind.get(d.key)?.blobUrl)
+    .map((d) => ({ kind: d.key, label: d.label }));
+}
+
 /** 지급 화면과 저장소 검증이 같이 보는 회차 트리거 날짜. */
 export function payoutMilestonesFor(r: ProjectRecord): PayoutMilestones {
   return {
@@ -277,6 +290,7 @@ export function summaryOf(r: ProjectRecord, rules: RuleMap, settles: SettleMap):
     rejectedDocs: d.contract.rejected,
     docsFilled: d.contract.docsFilled,
     submitted: d.project.contractSubmittedAt !== null,
+    fixAsked: d.project.contractFixAskedAt !== null,
     entryOk: entryOkOf(d.process),
     nextStep: nextStepOf(d.process),
     milestones: {

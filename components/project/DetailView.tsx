@@ -289,6 +289,7 @@ function SiteHeader({
     rejectedDocs: contract.rejected,
     docsFilled: contract.docsFilled,
     submitted: project.contractSubmittedAt !== null,
+    fixAsked: project.contractFixAskedAt !== null,
   });
   const band = bandOfColumn(column);
   const qty = lines.reduce((s, l) => s + l.qty, 0);

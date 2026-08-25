@@ -177,6 +177,19 @@ export interface Project {
    * 칸은 그 기록에서 유도된다(lib/board.ts).
    */
   contractSubmittedAt: string | null;
+  /**
+   * 한백이 이 계약에 처음 보완요청(서류 반려)을 한 날. null 이면 한 번도 없었다.
+   *
+   * ★왜 저장하는가★ 반려된 서류를 다시 올리면 반려가 풀려서(pg-store uploadDocument)
+   * 보완이 끝난 순간 「되돌려진 적이 있다」는 흔적이 없어진다. 그러면 그 현장이
+   * 계약접수 — 처음 서류를 모으는 자리 — 로 떨어진다. 계약완료였다가 보완요청을 받은
+   * 현장이 처음 접수하는 현장과 같은 칸에 서는 것은 실제와 어긋난다(한백 지적
+   * 2026-08-25): 그 협력사가 할 일은 접수가 아니라 재검토 요청이다.
+   *
+   * 한 번 서면 지우지 않는다 — 보완을 몇 번 돌아도 「한 번 되돌려졌다」는 사실은 같다.
+   * 그래서 첫 보완요청일이다.
+   */
+  contractFixAskedAt: string | null;
   createdAt: string;
   /** 한백이 현장별로 적용하는 정산 규칙. 미지정이면 기성이 계산되지 않는다. */
   settlementRuleId: string | null;
@@ -723,6 +736,11 @@ export interface ProjectSummary {
   docsFilled: boolean;
   /** 협력사가 계약서 접수를 마쳤다고 눌렀는가 — 계약접수와 계약검토를 가른다 */
   submitted: boolean;
+  /**
+   * 한백이 보완요청을 한 적이 있는가 (project.contractFixAskedAt).
+   * 그 뒤로 협력사가 내는 것은 접수가 아니라 재검토 요청이다 — 칸 이름이 갈린다.
+   */
+  fixAsked: boolean;
   /**
    * 지금 넘어갈 수 있는 공정 단계.
    * 보드가 놓을 수 없는 칸을 미리 가리는 데 쓴다 — 조건은 lib/process.ts 가 정한다.

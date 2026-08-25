@@ -415,7 +415,12 @@ function ConfirmContract({
    */
   const reason = contract.rejected > 0
     ? `반려 ${contract.rejected}건`
-    : contract.satisfied < contract.requiredTotal
+    /*
+     * 서류가 콘솔 밖에 있는 현장(노션 이관분)은 서류로 막지 않는다 — ready 가 열려 있는데
+     * 이름만 「계약 확인 불가」로 두면 눌리는 단추가 못 한다고 말한다. 판정은 lib/stage 가
+     * 하고 여기는 그 값을 본다.
+     */
+    : !contract.docsExempt && contract.satisfied < contract.requiredTotal
       ? '필수 서류 미충족'
       : !contract.allPriced
         ? '단가 미지정'

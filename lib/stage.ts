@@ -8,6 +8,17 @@ import { daysSince } from '@/lib/date';
 import type { ProjectDocument } from '@/types/project';
 
 /**
+ * 필수 서류가 콘솔 밖에 있는 현장인가 — 노션 이관분.
+ *
+ * mgmt_no 가 숫자면 노션 번호다(콘솔 접수분은 HB-*). migrations/0016·0019 와 같은 겨냥이다.
+ * 이관은 서류 파일을 옮기지 않았다 — scripts/import-notion-2026.ts 에 insert(documents) 가
+ * 없다. 그 현장의 계약서·회의록·사진대지는 노션에 있다.
+ */
+export function docsOutsideConsole(mgmtNo: string | null | undefined): boolean {
+  return /^\d+$/.test(mgmtNo?.trim() ?? '');
+}
+
+/**
  * 계약이 어디까지 왔고 무엇에 막혀 있는가 — 한 번 계산해서 화면·보드·저장소가 같이 본다.
  *
  * ★한 곳에 모은 이유★
@@ -25,6 +36,21 @@ export function contractStateOf(input: {
   docCtx: DocContext;
   documents: ProjectDocument[];
   lines: Array<Pick<ContractLine, 'pricingRuleId'>>;
+  /**
+   * 서류 조건을 묻지 않는다 — 노션 이관분(docsOutsideConsole).
+   *
+   * ★있을 수 없는 증거를 요구하면 문이 아니라 벽이다.★ 이관 현장의 필수 서류는 콘솔에
+   * 0건이라 satisfied 가 영원히 requiredTotal 에 못 닿는다. 그 상태로 확인을 막으면
+   * 계약검토가 막다른 골목이 된다(실사고 2026-08-25 — migrations/0019 가 확인일을 비운 뒤
+   * 이관 현장 전부가 그 자리에 갇혔다).
+   *
+   * 면제는 서류 조건 하나뿐이다. 반려와 단가는 그대로 본다 — 반려는 콘솔에서 생기는
+   * 일이고, 단가는 이관이 붙여 준 값이라 둘 다 물을 수 있는 조건이다.
+   *
+   * 셈은 정직하게 남긴다(satisfied·docsFilled 를 부풀리지 않는다) — 화면이 「11건 중 0건」을
+   * 그대로 보여야 무엇이 콘솔에 없는지 알 수 있다.
+   */
+  docsExempt?: boolean;
 }): ContractState {
   const evaluated = evaluateDocs(input.docCtx);
   const byKind = new Map(input.documents.map((d) => [d.kind, d]));
@@ -39,13 +65,16 @@ export function contractStateOf(input: {
   const rejected = input.documents.filter((d) => d.status === 'rejected').length;
   const allPriced = input.lines.length > 0 && input.lines.every((l) => l.pricingRuleId);
 
+  const docsExempt = input.docsExempt === true;
+
   return {
     requiredTotal: required.length,
     satisfied,
     docsFilled,
     rejected,
     allPriced,
-    ready: rejected === 0 && satisfied === required.length && allPriced,
+    docsExempt,
+    ready: rejected === 0 && (docsExempt || satisfied === required.length) && allPriced,
     feeMissing: evaluated.filter((d) => d.fee && d.req === 'm' && !passes(d.key)).map((d) => d.label),
   };
 }

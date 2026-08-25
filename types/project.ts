@@ -942,6 +942,13 @@ export interface BatchFinal {
 }
 
 export interface ContractState {
+  /**
+   * 서류 조건을 면제받는 현장인가 — 노션 이관분(lib/stage docsOutsideConsole).
+   *
+   * 셈(requiredTotal·satisfied)은 정직하게 남고 ready 만 열린다. 화면이 막는 이유를 적을 때
+   * 이 값을 봐야 한다 — 안 보면 「눌리는데 이름은 계약 확인 불가」가 된다.
+   */
+  docsExempt: boolean;
   /** 이 현장에 필요한 필수 서류 칸 수 */
   requiredTotal: number;
   /** 그중 통과한 것 (제출됐고 반려 안 됨) */

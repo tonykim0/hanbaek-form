@@ -30,7 +30,7 @@ import type {
 import { bizTypeOfRepl } from '@/types/project';
 import { buildDocContext, PROCESS_DOCS } from '@/lib/doc-rules';
 import { entryTypeOf, payoutSideOf, settlementForProject } from '@/lib/settlement';
-import { contractStateOf, deriveStage, stalledDaysSince } from '@/lib/stage';
+import { contractStateOf, deriveStage, docsOutsideConsole, stalledDaysSince } from '@/lib/stage';
 import { canEnter, entryOkOf } from '@/lib/process';
 import { PROCESS_STATUSES } from '@/types/project';
 import { effectiveVisibility, type Visibility } from '@/lib/roles';
@@ -176,7 +176,12 @@ function docCtxOf(r: ProjectRecord) {
  * 상태가 생긴다.
  */
 export function contractStateFor(r: ProjectRecord) {
-  return contractStateOf({ docCtx: docCtxOf(r), documents: r.documents, lines: r.lines });
+  return contractStateOf({
+    docCtx: docCtxOf(r),
+    documents: r.documents,
+    lines: r.lines,
+    docsExempt: docsOutsideConsole(r.project.mgmtNo),
+  });
 }
 
 /** 지급 화면과 저장소 검증이 같이 보는 회차 트리거 날짜. */
@@ -204,7 +209,12 @@ export function toDetail(r: ProjectRecord, rules: RuleMap, settles: SettleMap): 
     lines, settlementRule, r.process, r.settlementRaw.cpoCloseDate, r.collected
   );
   const settlement: Settlement = { ...r.settlementRaw, steps };
-  const contract = contractStateOf({ docCtx, documents: r.documents, lines: r.lines });
+  const contract = contractStateOf({
+    docCtx,
+    documents: r.documents,
+    lines: r.lines,
+    docsExempt: docsOutsideConsole(r.project.mgmtNo),
+  });
   const stage = deriveStage({
     settlement,
     contractConfirmedAt: r.project.contractConfirmedAt,

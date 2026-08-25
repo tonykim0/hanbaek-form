@@ -146,5 +146,11 @@ function whatOf(column: ReturnType<typeof boardColumnOf>, p: {
   if (column === '계약보완') return `반려 ${p.rejectedDocs}건 보완`;
   if (column === '계약접수') return '필수 서류 제출';
   if (column === '계약검토') return '검수 · 계약 확인';
-  return column; // 공정 칸 이름이 곧 지금 서 있는 일이다
+  /*
+   * 「계약완료」는 상태이지 일이 아니다 — 그 자리에서 할 일은 운영사에 계약서를 내는 것이고
+   * 그것은 한백의 일이다(COURT_AFTER_STATUS). 칸 이름을 그대로 적으면 할 일 목록에
+   * 「계약완료」라는 줄이 서서, 무엇을 하라는 것인지 알 수 없다.
+   */
+  if (column === '계약완료') return '운영사에 계약서 제출';
+  return column; // 그 밖의 공정 칸 이름은 곧 지금 서 있는 일이다
 }

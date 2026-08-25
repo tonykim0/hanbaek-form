@@ -1963,8 +1963,18 @@ export const pgRepository: ProjectRepository = {
         .update(projects)
         .set({
           contractConfirmedAt: after,
-          // 계약이 끝났다는 것은 다음 손이 시공사라는 뜻이다. 되돌리면 공도 한백으로 돌아온다.
-          court: confirmed ? '시공사' : '한백',
+          /*
+           * ★공 차례는 그 단계가 정한다★ (한백 지시 2026-08-25).
+           *
+           * 여기서 '시공사' 를 적고 있었다 — 「계약이 끝났으면 다음 손은 시공사」라고 봤는데,
+           * 계약완료 다음 일은 ★우리가 운영사에 계약서를 내는 것★이다(COURT_AFTER_STATUS
+           * 은 처음부터 '한백' 이라고 적어 두었다). 그 바람에 협력사의 할 일 목록에
+           * 「계약완료」가 떴다 — 표시만 있고 할 것이 없는 줄이다.
+           *
+           * 단계로 판정하면 이관 현장처럼 공정이 이미 진행된 채 확인을 누르는 경우도 맞는다.
+           * 되돌리면 다시 볼 사람이 한백이다.
+           */
+          court: confirmed ? COURT_AFTER_STATUS[record.process.status] : '한백',
           lastProgressAt: today(),
         })
         .where(eq(projects.id, projectId));

@@ -62,7 +62,7 @@ const NOTE: Record<Tone, string> = {
  * `busy` 를 주면 눌리지 않고 이름이 「…중」으로 바뀐다 — 누른 뒤 무엇이 되고 있는지
  * 그 자리에 보여야 한다(화면 규칙 9번).
  */
-type BtnKind = 'do' | 'side' | 'stop' | 'quiet' | 'undo';
+type BtnKind = 'do' | 'side' | 'stop' | 'quiet' | 'undo' | 'warn';
 
 const BTN: Record<BtnKind, string> = {
   do: 'rounded-ctl bg-brand-600 font-bold text-white transition hover:bg-brand-700 disabled:bg-slate-200 disabled:text-slate-400',
@@ -75,6 +75,15 @@ const BTN: Record<BtnKind, string> = {
   quiet:
     'rounded-ctl border border-slate-200 bg-white font-bold text-slate-500 transition hover:border-brand-300 hover:text-brand-800 disabled:border-slate-100 disabled:text-slate-300',
   undo: 'font-bold text-slate-400 underline decoration-slate-300 transition hover:text-red-700 disabled:text-slate-300 disabled:no-underline',
+  /*
+   * 되돌리는 쪽의 ★여는★ 단추 — 「누락 서류 N건 보완요청」이 그 자리다(한백 지시 2026-08-25).
+   *
+   * 주 단추(do) 옆에 나란히 서면서 같은 무게로 읽히면 안 된다. 그렇다고 글자 단추(undo)로
+   * 두면 주 단추 옆에서 배경으로 읽혀 아예 안 보인다 — 실제로 그래서 못 찾았다.
+   * 테두리와 글자만 붉게 둔다: 배경 빨강은 되돌릴 수 없는 것을 확정할 때만이다(화면 규칙 12).
+   */
+  warn:
+    'rounded-ctl border border-red-300 bg-white font-bold text-red-700 transition hover:bg-red-50 disabled:border-slate-200 disabled:text-slate-300',
 };
 
 /** 글자만인 단추(undo)는 패딩이 없다 — 안쪽 여백을 주면 눌리는 상자처럼 보인다 */

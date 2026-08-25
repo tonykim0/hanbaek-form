@@ -448,15 +448,17 @@ export function IntakeTab({
           />
         )}
 
+        {/*
+          * ★검토의 두 갈래를 한 줄에 나란히 둔다★ (한백 지시 2026-08-25).
+          * 계약 확인이냐 보완요청이냐 — 서류를 다 보고 나서 고르는 것이 이 둘이고,
+          * 아래위로 떨어져 있으면 한쪽만 보인다. 색으로 가른다: 확인은 주 단추(brand),
+          * 보완요청은 붉은 테두리(kind="warn") — 배경 빨강은 확정에만 쓴다(화면 규칙 12).
+          */}
+        <div className="mt-4 flex flex-wrap items-start gap-2">
         {canReview && !project.contractConfirmedAt && (
           <ConfirmContract projectId={projectId} contract={contract} />
         )}
 
-        {/*
-          * 막는 것 옆에 그것을 처리하는 길을 둔다 — 「필수 서류 미충족 — 계약 확인 불가」
-          * 바로 아래다. 안 낸 서류는 칸마다 반려할 수 없어서(올라온 파일에만 걸린다)
-          * 검토에 올라온 계약을 되돌릴 길이 없었다(한백 지시 2026-08-25).
-          */}
         {canReview
           && !project.contractConfirmedAt
           && asked.length === 0
@@ -481,6 +483,7 @@ export function IntakeTab({
             docsExempt={contract.docsExempt}
           />
         )}
+        </div>
       </section>
 
     </div>
@@ -663,8 +666,9 @@ function ConfirmContract({
       fail: '처리에 실패했습니다.',
     });
 
+  /* 여백은 줄을 쥔 쪽(위 flex)이 준다 — 나란히 서는 단추가 자기 mt 를 갖고 있으면 어긋난다 */
   return (
-    <div className="mt-4 flex flex-col gap-1.5">
+    <div className="flex flex-col gap-1.5">
       <Btn
         disabled={!contract.ready}
         busy={busy}
@@ -741,23 +745,23 @@ function AskMissingDocs({
 
   if (!open) {
     return (
-      <div className="mt-2 flex flex-col gap-1.5">
-        {/* 여는 자리는 빨간 글자, 확정만 빨간 배경(화면 규칙 12) */}
-        <button
-          type="button"
-          disabled={busy}
-          onClick={() => setOpen(true)}
-          className="self-start text-small font-bold text-red-700 underline decoration-red-300 transition hover:text-red-900 disabled:text-slate-300"
-        >
+      <div className="flex flex-col gap-1.5">
+        {/*
+          * 계약 확인 옆에 같은 크기로 선다 — 붉은 테두리 단추다(kind="warn").
+          * 글자 단추였을 때는 주 단추 옆에서 배경으로 읽혀 못 찾았다(한백 지적).
+          * 배경 빨강은 아래 「보완요청 확정」에만 쓴다(화면 규칙 12).
+          */}
+        <Btn kind="warn" disabled={busy} onClick={() => setOpen(true)}>
           누락 서류 {labels.length}건 보완요청
-        </button>
+        </Btn>
         <Err>{error}</Err>
       </div>
     );
   }
 
+  /* 열면 줄을 통째로 쓴다(w-full) — 확인 단추 옆에 끼면 서류 이름을 읽을 자리가 없다 */
   return (
-    <div className="mt-2 flex max-w-xl flex-col gap-2 rounded-box border border-red-200 bg-red-50 px-3.5 py-3">
+    <div className="flex w-full max-w-xl flex-col gap-2 rounded-box border border-red-200 bg-red-50 px-3.5 py-3">
       <p className="text-small font-black text-red-900">
         아래 {labels.length}건을 반려하고 계약보완으로 내립니다
       </p>

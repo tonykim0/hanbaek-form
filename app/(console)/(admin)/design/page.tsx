@@ -145,6 +145,7 @@ export default function DesignPage() {
           <Part label="단추">
             <Btn>하는 일</Btn>
             <Btn kind="side">다른 길</Btn>
+            <Btn kind="warn">누락 서류 4건 보완요청</Btn>
             <Btn kind="stop">반려 확정</Btn>
             <Btn kind="quiet">고치기</Btn>
             <Btn kind="undo">확인 취소</Btn>
@@ -155,6 +156,7 @@ export default function DesignPage() {
           <Part label="좁은 자리">
             <Btn size="sm">올리기</Btn>
             <Btn size="sm" kind="side">닫기</Btn>
+            <Btn size="sm" kind="warn">보완요청</Btn>
             <Btn size="sm" kind="stop">반려 확정</Btn>
             <Btn size="sm" kind="quiet">입력</Btn>
             <Btn size="sm" kind="undo">삭제</Btn>

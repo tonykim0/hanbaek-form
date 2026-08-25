@@ -19,9 +19,9 @@ import {
   ACCOUNT_DIGITS_MAX,
   ACCOUNT_DIGITS_MIN,
   isValidAccountNo,
-  isValidBizRegNo,
   normalizeAccountNo,
 } from '@/lib/bank-account';
+import { isValidKoreanBizId } from '@/lib/bizid';
 
 export interface PartnerDetailsView {
   bizRegNo: string | null;
@@ -141,7 +141,7 @@ export async function savePartnerFields(
     if (field === 'bizRegNo' && value) {
       const digits = value.replace(/\D/g, '');
       // 국세청 검증 숫자까지 본다 — 자리 바뀜·한 자리 오타를 접수 시점에 잡는다
-      if (!isValidBizRegNo(digits)) {
+      if (!isValidKoreanBizId(digits)) {
         throw new Error('사업자등록번호가 올바르지 않습니다 — 숫자 10자리, 검증 숫자 불일치.');
       }
       next[field] = digits;

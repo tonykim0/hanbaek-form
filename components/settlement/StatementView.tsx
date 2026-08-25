@@ -31,7 +31,7 @@ import { useRouter } from 'next/navigation';
 import type { PayoutKind, PayoutRow, TaxInvoice } from '@/types/project';
 import type { PartnerDetailsView } from '@/lib/auth/partner-details';
 import { HANBAEK } from '@/lib/hanbaek';
-import { formatBizRegNo } from '@/lib/bank-account';
+import { formatKoreanBizIdInput } from '@/lib/bizid';
 import { batchStateOf } from '@/lib/payout-board';
 import { useAction } from '@/lib/use-action';
 import { Badge, Btn, Empty, Err, FIELD_CELL, Saved } from '@/components/ui';
@@ -133,7 +133,7 @@ export default function StatementView({
           <Party
             role="공급자"
             name={org}
-            bizRegNo={partner?.bizRegNo ? formatBizRegNo(partner.bizRegNo) : null}
+            bizRegNo={partner?.bizRegNo ? formatKoreanBizIdInput(partner.bizRegNo) : null}
             ceo={partner?.ceo ?? null}
             addr={partner?.addr ?? null}
           />

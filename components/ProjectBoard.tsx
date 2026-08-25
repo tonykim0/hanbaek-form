@@ -229,6 +229,19 @@ function Card({
   /** 협력사가 기다리는 대상 — 한백에게는 없다(조작할 사람이 자기다) */
   const waiting = !canMove && next ? partnerWaitingOf(next.status) : null;
 
+  /*
+   * 카드 밑에 적을 한 줄. 없으면 아무것도 안 적는다.
+   *
+   * ★「X 준비됨」을 지웠다(한백 지시 2026-08-26).★ 협력사 화면에서만 나오던 말이다 —
+   * 한백은 준비되면 그 자리에 넘기는 단추가 뜨니까. 운영사 계약서 제출 칸의 협력사가
+   * 「행위신고 준비됨」을 읽고 있었는데, 단계를 옮기는 것은 한백이라 그 말로 할 수 있는
+   * 일이 없다. 조건이 없어서 열려 있다는 것은 우리 사정이지 그쪽의 다음 걸음이 아니다.
+   *
+   * 남는 것은 둘이다. 기다리는 대상(운영사 접수 대기 중)과, 아직 안 찬 조건
+   * (다음: 운영사 시공승인일 · 행위신고 완료 체크) — 뒤엣것은 대개 그쪽이 할 일이다.
+   */
+  const hint = waiting ?? (next && !next.ready ? `다음: ${next.need}` : null);
+
   return (
     <article
       role="link"
@@ -289,18 +302,14 @@ function Card({
            * 협력사에게는 조작 이름 대신 기다리는 대상을 적는다 — 「다음: 제출 체크」는
            * 한백이 누를 것의 이름이라, 협력사는 자기가 체크해야 하는 줄 읽는다
            * (한백 지시 2026-08-24). 판정은 lib/board 가 한다.
-           *
-           * ★기다리는 말은 협력사에게만이라, 한백이면 아예 세지 않는다.★ 예전에는
-           * `(!canMove && partnerWaitingOf(...)) ?? ...` 였는데, ?? 는 null·undefined 만
-           * 받는다 — 한백(canMove)일 때 앞이 false 가 되어 그대로 false 를 그렸고,
-           * 조건이 안 찬 카드에서 「다음: …」이 통째로 안 보였다.
            */
-          <p className={`mt-2 text-micro font-semibold ${
-            waiting ? 'text-slate-500'
-              : next.ready ? 'text-brand-700' : 'text-amber-700'
-          }`}>
-            {waiting ?? (next.ready ? `${next.status} 준비됨` : `다음: ${next.need}`)}
-          </p>
+          hint && (
+            <p className={`mt-2 text-micro font-semibold ${
+              waiting ? 'text-slate-500' : 'text-amber-700'
+            }`}>
+              {hint}
+            </p>
+          )
         )
       )}
 

@@ -465,13 +465,20 @@ export function IntakeTab({
            * 검토에 올라온 계약만 — 모으는 중인 계약(계약접수)에 걸면 협력사가 다 냈다고
            * 말하기도 전에 「안 냈다」고 반려하는 것이 된다. 저장소도 같은 값을 본다.
            */
-          && (project.contractSubmittedAt !== null || project.contractFixAskedAt !== null)
-          /* 노션 이관 현장은 서류가 콘솔에 0건이다 — 있을 수 없는 증거를 요구하지 않는다 */
-          && !contract.docsExempt && (
+          && (project.contractSubmittedAt !== null || project.contractFixAskedAt !== null) && (
+          /*
+           * ★노션 이관 현장도 대상이다★ (한백 지적 2026-08-25 — 단추가 안 보였다).
+           * 처음에는 막아뒀다: 이관분은 서류가 콘솔에 0건이라(docsExempt) 「있을 수 없는
+           * 증거를 요구하는 것」으로 봤다. 그런데 이관 140건이 전부 계약검토에 서 있고
+           * (migrations/0019) 지금 보완요청이 필요한 것이 바로 그 현장들이다 —
+           * 노션에 있는 서류를 콘솔로 받아오는 것이 이관의 방향이라, 요구할 수 있는 증거다.
+           * 다만 무엇을 요구하는지는 상자에서 말한다.
+           */
           <AskMissingDocs
             projectId={projectId}
             labels={missing.map((d) => d.label)}
             standing={0}
+            docsExempt={contract.docsExempt}
           />
         )}
       </section>
@@ -691,13 +698,15 @@ function ConfirmContract({
  * 되돌릴 수 있다(화면 규칙 7) — 파일 없이 세운 칸은 한 번에 미제출로 돌아간다.
  */
 function AskMissingDocs({
-  projectId, labels, standing,
+  projectId, labels, standing, docsExempt = false,
 }: {
   projectId: string;
   /** 반려될 서류 이름들 — 누르기 전에 보여준다 */
   labels: string[];
   /** 이미 서 있는 보완요청 칸 수. 0 이 아니면 이 자리는 되돌리는 자리다. */
   standing: number;
+  /** 노션 이관 현장인가 — 서류가 콘솔에 없다. 요구하는 것이 무엇인지 달라진다. */
+  docsExempt?: boolean;
 }) {
   const { busy, error, setError, run } = useAction();
   const [open, setOpen] = useState(false);
@@ -752,6 +761,16 @@ function AskMissingDocs({
       <p className="text-small font-black text-red-900">
         아래 {labels.length}건을 반려하고 계약보완으로 내립니다
       </p>
+      {/*
+        * 이관 현장에서는 「없다」가 아니라 「콘솔에 없다」다 — 노션에 있는 서류를 콘솔로
+        * 올려달라는 요구다. 그 말을 안 적으면 협력사가 이미 낸 서류를 다시 만들려 한다.
+        */}
+      {docsExempt && (
+        <p className="text-tiny font-bold leading-snug text-red-800">
+          노션 이관 현장입니다 — 이 서류들은 콘솔에 없습니다. 협력사에게 콘솔로 다시
+          올려달라는 요청이 됩니다.
+        </p>
+      )}
       {/* 무엇이 반려될지 이름으로 보여준다 — 개수만으로는 눌러도 되는지 알 수 없다 */}
       <ul className="flex flex-wrap gap-1.5">
         {labels.map((l) => (

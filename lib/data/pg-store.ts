@@ -46,7 +46,6 @@ import {
   payoutMilestonesFor, settlementSummaryOf,
   summaryOf, toDetail, type ProjectRecord, type RuleMap, type SettleMap,
 } from './assemble';
-import { docsOutsideConsole } from '@/lib/stage';
 
 /** 트랜잭션 핸들. db 와 같은 질의 인터페이스를 갖는다. */
 type TxLike = Parameters<Parameters<ReturnType<typeof getDb>['transaction']>[0]>[0];
@@ -2011,13 +2010,17 @@ export const pgRepository: ProjectRepository = {
         throw new Error('계약검토에 올라온 계약에만 보완요청할 수 있습니다 — 접수 전에는 협력사가 모으는 중입니다.');
       }
       /*
-       * 노션 이관 현장은 겨냥하지 않는다 — 그 현장의 계약서·회의록·사진대지는 노션에 있고
-       * 콘솔에는 0건이다(lib/stage docsOutsideConsole). 그것을 누락으로 세면 있을 수 없는
-       * 증거를 요구하는 것이고, 이관 140건이 한 번에 계약보완으로 내려간다.
+       * ★노션 이관 현장도 거절하지 않는다★ (한백 지적 2026-08-25).
+       *
+       * 처음에는 막았다 — 이관분의 계약서·회의록은 노션에 있고 콘솔에는 0건이라
+       * (docsOutsideConsole) 그것을 누락으로 세는 것이 「있을 수 없는 증거를 요구하는 일」로
+       * 보였다. 그런데 이관 140건이 전부 계약검토에 서 있고(migrations/0019) 보완요청이
+       * 필요한 것이 바로 그 현장들이다. 노션에 있는 것을 콘솔로 받아오는 것이 이관의
+       * 방향이라 요구할 수 있는 증거다 — 한 현장씩 사람이 눌러서 한다.
+       *
+       * 계약 확인이 서류 조건을 면제받는 것(contractStateOf docsExempt)과 어긋나지 않는다:
+       * 면제는 「없어도 확인할 수 있다」이고, 이것은 「받아오기로 한다」는 판단이다.
        */
-      if (docsOutsideConsole(record.project.mgmtNo)) {
-        throw new Error('노션 이관 현장은 서류가 콘솔에 없습니다 — 보완요청 대상이 아닙니다.');
-      }
     }
 
     const day = today();

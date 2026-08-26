@@ -54,7 +54,7 @@ export const STATUS_GATES: Record<ProcessStatus, StatusGate | null> = {
    * 행위신고는 승인을 기다리는 동안 미리 해놓는 일이고(1~2주), 끝나지 않았으면
    * 시공을 시작할 수 없다(한백 확인). 파일이 있다고 통과가 아니라 사람이 완료를 선언한다.
    */
-  '시공진행필요': {
+  '충전기 발주': {
     /*
      * 행위신고는 ★했거나 대상이 아니거나★ 둘 중 하나면 된다 (한백 지시 2026-08-26).
      * 신고 없이 시공으로 가는 현장이 있는데, 그 현장이 「완료」밖에 없으면 안 한 일을
@@ -65,19 +65,30 @@ export const STATUS_GATES: Record<ProcessStatus, StatusGate | null> = {
     need: '운영사 시공승인일 · 행위신고 대상 여부',
     met: (p) => Boolean(p.cpoApprovalDate) && (Boolean(p.notifyDoneAt) || Boolean(p.notifySkippedAt)),
   },
-  // 충전기가 현장에 왔다 — 수령 완료 체크가 그 선언이다
+  /*
+   * ★발주와 수령을 두 칸으로 갈랐다★ (한백 지시 2026-08-26) — 한 칸에 두면 차례를 넘길
+   * 자리가 없다. 발주는 한백이 하고 수령은 현장이 확인하는데, 같은 칸에 있으면 「누가
+   * 다음 일을 하는가」가 칸으로 드러나지 않았다.
+   *
+   * 그래서 조건도 한 칸씩 내려왔다: 수령 칸에 들어가는 조건은 발주가 끝난 것이고,
+   * 착공 칸에 들어가는 조건은 수령이 끝난 것이다. 착공일은 착공 칸에서 적는다.
+   */
   '충전기 수령': {
+    need: '충전기 발주일 · 출고일 · 모델 · 발주 수량',
+    met: (p) => Boolean(p.chargerOrderDate) && Boolean(p.chargerShipDate)
+      && Boolean(p.chargerModelId)
+      && p.chargerOrderQty !== null && p.modemOrderQty !== null,
+  },
+  // 충전기가 현장에 왔다 — 수령 완료 체크가 그 선언이다
+  '착공': {
     need: '충전기 수령 완료 체크',
     met: (p) => Boolean(p.chargerDoneAt),
   },
-  // 공사가 실제로 시작됐다 — 수령은 앞 단계(충전기 수령)가 이미 확인했다
-  '착공': {
-    need: '착공일',
-    met: (p) => Boolean(p.startActualDate),
-  },
+  // 공사가 돌았다 — 착공일은 착공 칸에서 적고, 설치 사진과 완료 선언이 이 칸을 연다
   '설치완료': {
-    need: '설치완료 사진 · 설치 완료 체크',
-    met: (p) => docApproved(p, 'photoDone') && Boolean(p.installConfirmedAt),
+    need: '착공일 · 설치완료 사진 · 설치 완료 체크',
+    met: (p) => Boolean(p.startActualDate) && docApproved(p, 'photoDone')
+      && Boolean(p.installConfirmedAt),
   },
   // 전기사용신청 → 점검 → 통신까지 끝났다. 개통 체크가 여기로 왔다(단계를 쪼개면서).
   '개통완료': {
@@ -203,10 +214,11 @@ export type ProcessEdit = 'all' | 'partner' | 'none';
  * 됐는데 시공승인일이 없음) 체크만 남고, 조건이 차면 보드 카드의 넘기기가 민다.
  */
 export const CHECK_ADVANCES = {
-  notifyDoneAt: '시공진행필요',
+  notifyDoneAt: '충전기 발주',
   // 불필요도 같은 걸음이다 — 「이 구간 끝났다」는 선언인 것은 같다
-  notifySkippedAt: '시공진행필요',
-  chargerDoneAt: '충전기 수령',
+  notifySkippedAt: '충전기 발주',
+  // 수령 완료는 「착공」을 연다 — 수령 칸에 서서 수령을 확인하고 넘어간다
+  chargerDoneAt: '착공',
   installConfirmedAt: '설치완료',
   openDoneAt: '개통완료',
   completionSubmitAt: '준공서류 접수/검토',
@@ -223,8 +235,8 @@ export const COURT_AFTER_STATUS: Record<ProcessStatus, Court> = {
   '계약완료': '한백',             // 다음 일: 운영사에 계약서 제출 — 한백이 한다
   '운영사 계약서 제출': '운영사', // 시공승인 회신을 기다린다
   '행위신고': '시공사',           // 시공팀이 접수한다 (1~2주)
-  '시공진행필요': '시공사',
-  '충전기 수령': '시공사',        // 다음 일: 착공일 입력
+  '충전기 발주': '한백',          // 발주·출고·모델·발주 수량은 한백이 적는다
+  '충전기 수령': '시공사',        // 충전기를 받고 수량을 세는 것은 현장이다
   '착공': '시공사',               // 공사 중
   '설치완료': '시공사',           // 개통 절차 진행
   '개통완료': '시공사',           // 준공서류 준비

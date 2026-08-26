@@ -256,7 +256,7 @@ export const processes = pgTable('processes', {
   envApprovalDate: text('env_approval_date'),        // 환경부 승인 트리거
   /** 운영사에 계약서를 낸 날 — 「운영사 계약서 제출」의 근거. 우리가 하는 일이다. */
   cpoSubmitDate: text('cpo_submit_date'),
-  /** 운영사 시공승인일 — 따로 통보받는다. 「시공진행필요」의 근거 */
+  /** 운영사 시공승인일 — 따로 통보받는다. 「충전기 발주」의 근거 */
   cpoApprovalDate: text('cpo_approval_date'),
   chargerOrderDate: text('charger_order_date'),
   chargerShipDate: text('charger_ship_date'),

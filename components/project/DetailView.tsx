@@ -265,7 +265,7 @@ export default function ProjectDetailView({
  *
  * ★단계는 보드와 같은 말을 쓴다.★ 예전에는 여기가 「계약·시공·정산 / 완료·진행 중·대기」
  * 였는데, 그것은 바로 아래 탭이 이미 하는 말이고, 정작 보드에서 부르는 이름
- * (계약보완·시공진행필요·준공서류 접수/검토…)과 달라서 같은 현장을 두 이름으로 부르게 됐다.
+ * (계약보완·충전기 발주·준공서류 접수/검토…)과 달라서 같은 현장을 두 이름으로 부르게 됐다.
  *
  * 걸림돌은 여기 모은다. 무엇이 이 현장을 세우고 있는지는 탭을 열기 전에 보여야 한다.
  */
@@ -510,7 +510,7 @@ function ApprovalFacts({
         canEdit={edit !== 'none'}
         busy={busyKey === 'cpoApprovalDate'}
         onSave={(v) => save('cpoApprovalDate', v)}
-        hint="넣으면 「시공진행필요」로 넘길 수 있습니다"
+        hint="넣으면 「충전기 발주」로 넘길 수 있습니다"
       />
       <Err>{error}</Err>
     </dl>

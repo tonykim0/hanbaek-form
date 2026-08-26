@@ -3,7 +3,7 @@
 /**
  * 시공 탭 — 세로 타임라인 하나.
  *
- * 예전에는 진행현황 칩(단계)과 공정 묶음(일)이 두 벌로 쌓여 있어서, 「시공진행필요
+ * 예전에는 진행현황 칩(단계)과 공정 묶음(일)이 두 벌로 쌓여 있어서, 「충전기 발주
  * 상태」와 「착공·설치 묶음」을 사람이 머릿속에서 이어야 했다. 단계 노드 사이에 그
  * 구간의 일(날짜·서류·완료 체크)이 끼워지는 타임라인 하나로 합친다.
  *
@@ -79,7 +79,17 @@ interface Group {
    * (한백 지시 2026-08-26). 조건이 안 찼으면 흐린 채로 무엇이 없는지 이름에 적는다
    * (화면 규칙 3) — 단추가 사라지면 무엇을 더 해야 다음으로 가는지 알 수 없다.
    */
-  advance?: { label: string; field: CheckField; ready: boolean; blocked: string };
+  advance?: {
+    label: string;
+    /** 누르면 찍히는 완료 선언 — 저장소가 다음 칸을 연다(CHECK_ADVANCES) */
+    field?: CheckField;
+    /** 선언 칸이 없는 구간은 단계를 바로 옮긴다 — 발주처럼 한백이 넘기는 자리다 */
+    move?: ProcessStatus;
+    ready: boolean;
+    blocked: string;
+  };
+  /** 이 상자가 담은 일이 「다음 구간」의 것인가 — 이름을 「다음 — …」으로 적는다 */
+  opensNext?: boolean;
 }
 
 export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit: ProcessEdit }) {
@@ -157,21 +167,6 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
   };
 
   /*
-   * 충전기 구간에서 아직 비어 있는 것 — 「수령 완료」 단추가 이것으로 막힌다.
-   * 순서는 실무 순서다(모델 → 발주 → 출고 → 수령). 첫 번째 것을 단추에 적는다.
-   */
-  const chargerReady = [
-    !p.chargerModelId && '충전기 모델',
-    !p.chargerOrderDate && '발주일',
-    !p.chargerShipDate && '출고일',
-    p.chargerOrderQty === null && '발주 수량',
-    p.modemOrderQty === null && '발주 모뎀 수량',
-    !p.chargerRecvDate && '수령일',
-    p.chargerQty === null && '수령 수량',
-    p.modemQty === null && '수령 모뎀 수량',
-  ].filter((x): x is string => typeof x === 'string');
-
-  /*
    * 단계 구간마다 그 구간의 일. 승인 값(환경부 승인일·계약서 제출·시공승인일)은
    * 머리말에 있다 — 같은 값을 두 곳에 두지 않는다(화면 규칙 5).
    * 행위신고는 계약완료 직후 — 승인을 기다리는 동안 미리 해놓는다(1~2주, 한백 확인).
@@ -217,7 +212,7 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
         /*
          * ★필요여부를 먼저 고른다★ (한백 지시 2026-08-26) — 「필요」·「불필요」 두 단추다.
          * 서류로 확인할 수 있는 일이 아니라 사람이 내리는 판정이라 조건을 두지 않는다.
-         * 불필요를 고르면 그 자리에서 「시공진행필요」가 열리고(lib/process CHECK_ADVANCES),
+         * 불필요를 고르면 그 자리에서 「충전기 발주」가 열리고(lib/process CHECK_ADVANCES),
          * 필요를 고르면 아래 줄(신고일·서류·완료)이 열린다.
          *
          * 예전에는 「행위신고 불필요」라는 이름의 체크 한 줄이었다 — 이름과 단추가 같은 말을
@@ -229,31 +224,48 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
         },
       },
     ],
-    // 시공 준비 — 충전기가 오고 착공일이 정해지면 「착공」이 열린다
-    '시공진행필요': [
+    /*
+     * ★발주 칸은 한백의 일만 담는다★ (한백 지시 2026-08-26) — 발주와 수령이 한 칸에 있으면
+     * 차례를 넘길 자리가 없다. 여기를 다 채우면 수령 칸으로 넘기고, 차례가 현장으로 간다.
+     */
+    '충전기 발주': [
       {
-        title: '충전기',
+        title: '충전기 발주',
         rows: [
           { label: '충전기 발주일', field: 'chargerOrderDate', value: p.chargerOrderDate },
           { label: '충전기 출고일', field: 'chargerShipDate', value: p.chargerShipDate },
-          { label: '충전기 수령일', field: 'chargerRecvDate', value: p.chargerRecvDate },
         ],
         docs: [],
-        /*
-         * ★그 구간의 정보가 다 차야 다음으로 넘어간다★ (한백 지시 2026-08-26).
-         * 발주 쪽(모델·발주일·출고일·발주 수량)은 한백이, 수령 쪽(수령일·수령 수량)은
-         * 협력사가 채운다 — 한쪽만 채워도 넘어가면 무엇이 왔는지 대조할 수 없다.
-         * 막는 것을 단추 이름에 적으므로 무엇이 비었는지 그 자리에서 읽힌다.
-         */
-        check: {
-          field: 'chargerDoneAt', label: '수령 완료',
-          ready: chargerReady.length === 0,
-          blocked: `${chargerReady[0] ?? ''} 필요`,
+        advance: {
+          label: '다음 단계로 진행',
+          move: '충전기 수령',
+          ready: Boolean(p.chargerOrderDate) && Boolean(p.chargerShipDate)
+            && Boolean(p.chargerModelId)
+            && p.chargerOrderQty !== null && p.modemOrderQty !== null,
+          blocked: !p.chargerOrderDate ? '발주일 필요'
+            : !p.chargerShipDate ? '출고일 필요'
+              : !p.chargerModelId ? '충전기 모델 필요'
+                : p.chargerOrderQty === null ? '충전기 발주 수량 필요' : '모뎀 발주 수량 필요',
         },
       },
     ],
-    // 충전기가 현장에 있다 — 착공일이 적히면 「착공」이 열린다
+    // 충전기가 현장에 왔다 — 받은 것을 세고 넘긴다(현장 차례)
     '충전기 수령': [
+      {
+        title: '충전기 수령',
+        rows: [{ label: '충전기 수령일', field: 'chargerRecvDate', value: p.chargerRecvDate }],
+        docs: [],
+        advance: {
+          label: '다음 단계로 진행',
+          field: 'chargerDoneAt',
+          ready: Boolean(p.chargerRecvDate) && p.chargerQty !== null && p.modemQty !== null,
+          blocked: !p.chargerRecvDate ? '수령일 필요'
+            : p.chargerQty === null ? '충전기 수령 수량 필요' : '모뎀 수령 수량 필요',
+        },
+      },
+    ],
+    // 공사 중 — 착공일을 여기서 적는다(수령 칸에 있던 것을 옮겼다). 설치가 끝나면 넘어간다
+    '착공': [
       {
         /*
          * 착공예정일과 실착공일을 구분하지 않는다 — 시공팀이 착공일 하나만 적는다(한백 확인).
@@ -263,17 +275,17 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
         rows: [{ label: '착공일', field: 'startActualDate', value: p.startActualDate, trigger: '착공' }],
         docs: [],
       },
-    ],
-    // 공사 중 — 설치가 끝나고 완료 체크가 되면 「설치완료」가 열린다
-    '착공': [
       {
         title: '설치',
+        opensNext: true,
         rows: [{ label: '설치완료일', field: 'installDoneDate', value: p.installDoneDate }],
         docs: ['photoDone'],
-        check: {
-          field: 'installConfirmedAt', label: '설치 완료',
-          ready: Boolean(p.installDoneDate) && uploaded('photoDone'),
-          blocked: '설치완료일·사진 필요 — 완료 불가',
+        advance: {
+          label: '다음 단계로 진행',
+          field: 'installConfirmedAt',
+          ready: Boolean(p.startActualDate) && Boolean(p.installDoneDate) && uploaded('photoDone'),
+          blocked: !p.startActualDate ? '착공일 필요'
+            : !p.installDoneDate ? '설치완료일 필요' : '설치완료 사진 필요',
         },
       },
     ],
@@ -281,15 +293,17 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
     '설치완료': [
       {
         title: '개통',
+        opensNext: true,
         rows: [
           { label: '통신완료일', field: 'commDoneDate', value: p.commDoneDate },
           { label: '개통완료일', field: 'openDate', value: p.openDate },
         ],
         docs: ['elecapply', 'kepcofee', 'safety', 'comm'],
-        check: {
-          field: 'openDoneAt', label: '개통 완료',
+        advance: {
+          label: '다음 단계로 진행',
+          field: 'openDoneAt',
           ready: Boolean(p.commDoneDate) && Boolean(p.openDate),
-          blocked: '통신완료일·개통완료일 미입력 — 완료 불가',
+          blocked: !p.commDoneDate ? '통신완료일 필요' : '개통완료일 필요',
         },
       },
     ],
@@ -508,7 +522,7 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
                         * 준공서류 검토는 뺀다 — 그 다음은 「준공보완」이라, 상자 이름에 적으면
                         * 보완이 예정된 것처럼 읽힌다. 거기는 검토 판정이 다음 걸음이다.
                         */}
-                      {selNext && selected !== '준공서류 접수/검토'
+                      {g.opensNext && selNext && selected !== '준공서류 접수/검토'
                         ? `다음 — ${selNext}`
                         : g.title}
                     </h3>
@@ -647,9 +661,17 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
                     {g.advance && selState === 'current' && (
                       <AdvanceRow
                         advance={g.advance}
-                        canEdit={canEdit}
-                        busy={busyKey === g.advance.field}
-                        onGo={(field) => saveCheck(field, true)}
+                        /*
+                         * 선언 칸(체크)이 있는 구간은 그 현장의 시공사도 누른다 — 체크가
+                         * 곧 전이다. 선언 칸이 없는 발주 칸은 단계를 직접 옮기므로 한백만이다
+                         * (status 라우트가 한백 전용이다).
+                         */
+                        canEdit={g.advance.field ? canEdit : edit === 'all'}
+                        busy={busyKey === (g.advance.field ?? 'status')}
+                        onGo={() => {
+                          if (g.advance?.field) saveCheck(g.advance.field, true);
+                          else if (g.advance?.move) moveStatus(g.advance.move);
+                        }}
                       />
                     )}
 
@@ -1052,10 +1074,12 @@ function OwnerHead({ label }: { label: string }) {
 function AdvanceRow({
   advance, canEdit, busy, onGo,
 }: {
-  advance: { label: string; field: CheckField; ready: boolean; blocked: string };
+  advance: {
+    label: string; field?: CheckField; move?: ProcessStatus; ready: boolean; blocked: string;
+  };
   canEdit: boolean;
   busy: boolean;
-  onGo: (field: CheckField) => void;
+  onGo: () => void;
 }) {
   if (!canEdit) return null;
   return (
@@ -1064,7 +1088,7 @@ function AdvanceRow({
         disabled={!advance.ready}
         busy={busy}
         busyLabel="넘기는 중…"
-        onClick={() => onGo(advance.field)}
+        onClick={onGo}
       >
         {advance.ready ? `${advance.label} →` : advance.blocked}
       </Btn>

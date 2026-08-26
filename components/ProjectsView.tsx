@@ -91,7 +91,7 @@ export default function ProjectsView({
    * 판에 펼 축 — 정해 둔 넷(사업유형·운영사·영업사·시공사)에, 표의 열 머리글에서 걸어 둔
    * 나머지 축이 있으면 그것도 같이 편다. 걸려 있는데 판에 없으면 푸는 자리가 없다.
    */
-  const panelKeys = useMemo(() => panelAttrKeys(attrs), [attrs]);
+  const panelKeys = useMemo(() => panelAttrKeys(attrs, band), [attrs, band]);
 
   /** 옮기는 중인 카드의 임시 위치 — 서버가 다시 그려주기 전까지 손을 따라간다 */
   const [moved, setMoved] = useState<Record<string, ProcessStatus>>({});
@@ -288,6 +288,30 @@ export default function ProjectsView({
             지우기
           </button>
         )}
+
+        {/*
+          * 건수는 이 줄 오른쪽 끝이다 (한백 지시 2026-08-26 — 필터와 표 사이가 너무 넓었다).
+          *
+          * 혼자 한 줄을 쓰고 있었다. 읽고 지나가는 값 하나가 줄을 차지하니 필터와 표 사이가
+          * 두 줄만큼 벌어졌다. 자리는 그대로 오른쪽 끝이고(거르는 자리와 다투지 않는다)
+          * 줄만 합친다.
+          *
+          * 「전체」는 고른 해의 건수다 — 연도는 필터가 아니라 범위다. 연도를 걸어 둔 채
+          * 전체를 전 기간으로 적으면 두 숫자가 무엇의 비율인지 알 수 없다.
+          */}
+        <p className="ml-auto shrink-0 text-small font-semibold text-slate-500">
+          {activeCount > 0 ? (
+            <>
+              {filtered.length}건 · {num(filteredUnits)}기{' '}
+              <span className="font-normal text-slate-400">
+                / 전체 {scoped.length}건 · {num(scopedUnits)}기
+              </span>
+            </>
+          ) : (
+            <>전체 {scoped.length}건 · {num(scopedUnits)}기</>
+          )}
+          {year !== ALL_YEARS && <span className="font-normal text-slate-400"> · {year}년</span>}
+        </p>
       </div>
 
       {open && (
@@ -324,26 +348,6 @@ export default function ProjectsView({
           )}
         </div>
       )}
-
-      {/*
-        「전체」는 고른 해의 건수다 — 연도는 필터가 아니라 범위다. 연도를 걸어 둔 채
-        전체를 전 기간으로 적으면 두 숫자가 무엇의 비율인지 알 수 없다.
-      */}
-      {/* 오른쪽 끝에 세운다(한백 지시 2026-08-26) — 규모는 읽고 지나가는 값이라 왼쪽의
-          거르는 자리와 자리를 다투지 않는다 */}
-      <p className="mb-3 text-right text-small font-semibold text-slate-500">
-        {activeCount > 0 ? (
-          <>
-            {filtered.length}건 · {num(filteredUnits)}기{' '}
-            <span className="font-normal text-slate-400">
-              / 전체 {scoped.length}건 · {num(scopedUnits)}기
-            </span>
-          </>
-        ) : (
-          <>전체 {scoped.length}건 · {num(scopedUnits)}기</>
-        )}
-        {year !== ALL_YEARS && <span className="font-normal text-slate-400"> · {year}년</span>}
-      </p>
 
       {error && <Note tone="stop" className="mb-4">{error}</Note>}
 

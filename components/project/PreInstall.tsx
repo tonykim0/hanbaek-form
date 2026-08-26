@@ -75,7 +75,11 @@ export function PreInstall({
         * 것도 없으니 단추를 두지 않는다. 협력사가 조사를 다시 저장하면 반려가 풀린다.
         */}
       {canReview && project.preChecked && (
-        <SurveyReview projectId={project.id} rejected={project.preRejectReason !== null} />
+        <SurveyReview
+          projectId={project.id}
+          rejected={project.preRejectReason !== null}
+          current={project.preRejectReason}
+        />
       )}
 
       <div className="mt-3 grid gap-1.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -156,10 +160,35 @@ export function PreInstall({
  * 골라내는 것뿐이다(검수 규칙). 사유를 받는다: 사유 없이 되돌리면 협력사가 무엇을
  * 다시 조사해야 할지 알 수 없다. 서버도 같은 검사를 한다(preinstall 라우트).
  */
-function SurveyReview({ projectId, rejected }: { projectId: string; rejected: boolean }) {
+/**
+ * 조사 반려의 기본 사유 — 열면 이 문장이 적혀 있다 (한백 지시 2026-08-26).
+ *
+ * 열 번 중 아홉 번이 같은 말이라 매번 다시 치고 있었다. 빈 칸으로 두면 「보완해주세요」
+ * 같은 한 마디만 가서 협력사가 무엇을 내야 하는지 모른다 — 기본값이 곧 그 답이다.
+ * 고칠 수 있다: 다른 이유면 지우고 쓴다.
+ */
+const DEFAULT_SURVEY_REJECT = '기설치 이력엑셀 파일/증빙자료 필요';
+
+function SurveyReview({
+  projectId, rejected, current,
+}: {
+  projectId: string;
+  rejected: boolean;
+  /** 지금 걸려 있는 반려 사유 — 「사유 수정」으로 열면 이것이 들어온다 */
+  current: string | null;
+}) {
   const { busy, error, setError, run } = useAction();
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState('');
+
+  /*
+   * 여는 순간 칸을 채운다. 고칠 때는 지금 사유, 처음이면 기본 사유다 —
+   * 수정을 누르고 빈 칸이 나오면 원래 뭐라고 적었는지 보려고 화면을 다시 봐야 한다.
+   */
+  const openWith = () => {
+    setReason(current ?? DEFAULT_SURVEY_REJECT);
+    setOpen(true);
+  };
 
   async function send(why: string | null) {
     const ok = await run({
@@ -204,7 +233,7 @@ function SurveyReview({ projectId, rejected }: { projectId: string; rejected: bo
           <Btn size="sm" busy={busy} onClick={() => void send(null)}>
             반려 해제
           </Btn>
-          <Btn size="sm" kind="undo" disabled={busy} onClick={() => setOpen(true)}>
+          <Btn size="sm" kind="undo" disabled={busy} onClick={openWith}>
             사유 수정
           </Btn>
         </>
@@ -213,7 +242,7 @@ function SurveyReview({ projectId, rejected }: { projectId: string; rejected: bo
         <button
           type="button"
           disabled={busy}
-          onClick={() => setOpen(true)}
+          onClick={openWith}
           className="text-tiny font-bold text-red-700 underline decoration-red-300 transition hover:text-red-900 disabled:text-slate-300"
         >
           조사 반려

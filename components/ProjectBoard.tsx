@@ -266,6 +266,14 @@ function Card({
         {p.rejectedDocs > 0 && (
           <Tag tone="stop">반려 {p.rejectedDocs}</Tag>
         )}
+        {/*
+          * 기설치 조사 반려는 서류가 아니라 「반려 N」에 안 세어진다(한백 지시 2026-08-26).
+          * 세지 않고 이름으로 적는다 — 건수에 얹으면 반려 카드가 없는 1건이 생기고,
+          * 안 적으면 계약보완 칸에 이유 없이 서 있는 현장이 된다.
+          */}
+        {p.preRejected && (
+          <Tag tone="stop">기설치 조사 반려</Tag>
+        )}
         {!p.priced && (
           <Tag>단가 미지정</Tag>
         )}

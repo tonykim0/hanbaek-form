@@ -265,9 +265,9 @@ function ContractLines({ lines, vis }: { lines: ProjectDetail['lines']; vis: Vis
               <tr key={l.id}>
                 <td className="whitespace-nowrap px-3 py-2 font-bold text-slate-800">
                   {l.termYears}년 × {l.qty}대
-                  {l.powerType && (
+                  {[l.replType, l.powerType].filter(Boolean).length > 0 && (
                     <span className="ml-1.5 text-tiny font-semibold text-slate-400">
-                      {l.powerType}
+                      {[l.replType, l.powerType].filter(Boolean).join(' · ')}
                     </span>
                   )}
                 </td>
@@ -346,6 +346,12 @@ function PayConditions({
                 <span className="whitespace-nowrap text-base font-bold text-slate-800">
                   {l.termYears}년 × {l.qty}대
                 </span>
+                {/*
+                  * 교체유형을 적는다 — 라인이 갈리는 축이 연수·수전방식·교체유형 셋인데
+                  * 앞의 둘만 보였다. 자투 11기가 「10대 · 1대」 두 줄로 서 있고 두 줄이
+                  * 똑같아 보이면, 왜 갈렸는지 화면에 없다(한백 2026-08-26).
+                  */}
+                {l.replType && <Tag>{l.replType}</Tag>}
                 {l.powerType && <Tag>{l.powerType}</Tag>}
                 <select
                   value={l.pricingRuleId ?? ''}

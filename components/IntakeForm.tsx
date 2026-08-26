@@ -29,6 +29,7 @@ import { bizTypeOfRepl, docContentType, replLabel, SPLITS_SELF_REPL } from '@/ty
 import { buildDocContext, evaluateDocs } from '@/lib/doc-rules';
 import { checkDraft } from '@/lib/intake-validate';
 import { regionPrefixOf, withRegionPrefix } from '@/lib/region';
+import { useLeaveGuard } from '@/lib/use-leave-guard';
 import type { DocFinding, DocReview, AutoIntakeResult } from '@/types/intake-auto';
 
 const CPOS: CpoName[] = ['플러그링크', '나이스인프라', '현대엔지니어링', 'SK일렉링크', '에버온'];
@@ -153,6 +154,18 @@ export default function IntakeForm({ org, isAdmin = false, knownOrgs = [] }: {
   /** 이미 만든 현장 번호 — 서류 붙이기가 끊겨 다시 누를 때 현장을 또 만들지 않는다 */
   const [madeId, setMadeId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  /*
+   * 올려 두고 나가려 하면 한 번 묻는다 (한백 지시 2026-08-26).
+   *
+   * 파일은 저장소에 이미 올라가 있지만 접수 단추를 누르기 전에는 현장이 없다 — 그대로
+   * 나가면 올린 사람은 낸 줄 알고, 콘솔에는 아무것도 없다. 현장이 만들어진 뒤에는(madeId)
+   * 묻지 않는다: 그때부터는 나가도 남는다.
+   */
+  useLeaveGuard(
+    !madeId && Object.keys(staged).length > 0,
+    '올린 서류가 아직 접수되지 않았습니다. 이 페이지를 벗어나면 사라집니다 — 나가시겠습니까?'
+  );
 
   /** 자동으로 채운 뒤 사람이 만진 칸을 표시에서 뺀다 */
   const touched = (key: string) => setAuto((a) => {

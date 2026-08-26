@@ -16,11 +16,11 @@ import { getSessionUser } from '@/lib/auth/session';
 import { canWrite } from '@/lib/roles';
 import { isKnownDocKind } from '@/lib/data/assemble';
 import { stagePrefix } from '@/lib/intake-stage';
-import { DOC_FILE_TYPES } from '@/types/project';
+import { DOC_FILE_TYPES, MAX_DOC_BYTES } from '@/types/project';
 
 /** 받는 형식은 types/project.ts 한 곳에 있다 — 접수와 서류 칸이 같은 목록을 봐야 한다 */
 const ALLOWED_TYPES = [...DOC_FILE_TYPES];
-const MAX_BYTES = 30 * 1024 * 1024;
+const MAX_BYTES = MAX_DOC_BYTES;
 /** 파일이름에서 확장자만 딴다. 나머지 글자는 경로에 쓰지 않는다 — 한글·공백이 섞인다. */
 const EXT_RE = /^[a-z0-9]{1,5}$/;
 

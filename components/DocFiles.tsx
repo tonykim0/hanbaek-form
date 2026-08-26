@@ -12,7 +12,7 @@ import { useRouter } from 'next/navigation';
 import { useAction } from '@/lib/use-action';
 import { Btn, Err } from '@/components/ui';
 import JSZip from 'jszip';
-import type { DocFile, ProjectDocument } from '@/types/project';
+import { DOC_FILE_TYPES, MAX_DOC_BYTES, type DocFile, type ProjectDocument } from '@/types/project';
 import { downloadBlob } from '@/lib/download';
 
 /** 파일 이름에 쓸 수 없는 문자를 지운다 */
@@ -89,6 +89,8 @@ function extOf(file: DocFile): string {
 
 /** 브라우저가 탭에서 그려주는 형식 — 그 밖(엑셀·워드·한글)은 내려받아야 열린다 */
 const PREVIEWABLE = ['pdf', 'jpg', 'jpeg', 'png', 'gif', 'webp', 'txt'];
+/** 사람이 읽는 크기 — 소수 한 자리면 「29.7MB 인데 왜 막히나」가 안 생긴다 */
+const mb = (bytes: number): string => (bytes / 1024 / 1024).toFixed(1).replace(/\.0$/, '');
 export const canPreview = (file: DocFile): boolean => PREVIEWABLE.includes(extOf(file));
 
 /**
@@ -427,6 +429,21 @@ export function DocUpload({
     setBusy(true);
     setError(null);
     setPct(0);
+    /*
+     * 왜 안 되는지를 여기서 적는다 — 크기·형식은 Blob 이 올리는 도중에 거절하고,
+     * 그 실패는 아래 catch 에서 「오류가 났습니다」 한 줄로 뭉개졌다. 30MB 를 넘는
+     * 사진대지 엑셀이 실제로 그렇게 튕겼고, 화면만 봐서는 형식 탓인지 알 수 없었다.
+     */
+    const tooBig = file.size > MAX_DOC_BYTES;
+    // 형식을 모르는 파일(.hwp 등)은 브라우저가 빈 값을 준다 — 그건 막지 않는다
+    const badType = file.type !== '' && !(DOC_FILE_TYPES as readonly string[]).includes(file.type);
+    if (tooBig || badType) {
+      setError(tooBig
+        ? `${mb(file.size)}MB — 한 파일은 ${mb(MAX_DOC_BYTES)}MB 까지입니다. 사진을 줄이거나 나눠서 올려 주세요.`
+        : `${file.type} 은 받지 않는 형식입니다 — PDF · 엑셀 · 워드 · 사진(JPG·PNG).`);
+      setBusy(false);
+      return false;
+    }
     try {
       const ext = (file.name.split('.').pop() ?? 'pdf').toLowerCase();
       // 경로는 서버가 검사한다. 시각을 붙여 이전 파일을 덮지 않게 한다.
@@ -470,8 +487,9 @@ export function DocUpload({
        */
       router.refresh();
       return true;
-    } catch {
-      setError('업로드 중 오류가 났습니다.');
+    } catch (err) {
+      // 삼키지 않는다 — Blob 이 거절한 이유(크기·형식)가 여기에만 남는다
+      setError(`업로드에 실패했습니다 — ${(err as Error).message}`);
       return false;
     } finally {
       setBusy(false);

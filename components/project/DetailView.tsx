@@ -269,6 +269,18 @@ export default function ProjectDetailView({
  *
  * 걸림돌은 여기 모은다. 무엇이 이 현장을 세우고 있는지는 탭을 열기 전에 보여야 한다.
  */
+/**
+ * 머리말 사실의 격자 — 네 묶음이 전부 같은 열을 쓴다.
+ *
+ * 한 묶음마다 열 수를 따로 주면(4칸 묶음은 4열, 5칸 묶음은 5열) 위아래 값이 어긋나서
+ * 격자로 만든 뜻이 없어진다. 넓은 화면에서 다섯 열로 서면 사업연도·사업구분이,
+ * 운영사·계약대수가 같은 열에 선다 — 네 칸짜리 묶음의 마지막 열은 비워 둔다.
+ *
+ * 값이 없어 칸이 빠지면(Fact 는 null 이면 자리를 비운다) 뒤 칸이 한 칸씩 당겨진다.
+ * 접수 직후처럼 사업구분·계약연수가 아직 없는 현장에서 그렇다.
+ */
+const FACT_GRID = 'grid grid-cols-2 gap-x-5 gap-y-3 text-base sm:grid-cols-4 lg:grid-cols-5';
+
 function SiteHeader({
   detail, contract, canReview, noteAuthor, knownOrgs, processEdit,
 }: {
@@ -349,16 +361,21 @@ function SiteHeader({
       {project.addr && <p className="mt-1 text-base text-slate-500">{project.addr}</p>}
 
       {/*
-        * 네 줄로 나눈다 (한백 확인 2026-08-21). 선 없이 여백만으로 줄을 가른다.
+        * 네 줄로 나눈다 (한백 확인 2026-08-21).
         *
         *   1줄 — 누구의 일인가: 사업연도 · 운영사 · 영업사 · 시공사
         *   2줄 — 계약의 뼈대: 사업구분 · 계약대수 · 계약연수 · 수전방식 · 계약접수일
         *   3·4줄 — 승인 흐름 (ApprovalFacts): 제출 · 대기번호 / 승인일 · 시공승인일
         *
-        * 아홉 칸을 한 줄에 늘어놓으면 어디까지가 무엇인지 눈이 못 찾는다.
+        * ★구성은 그대로 두고 읽히는 꼴만 고쳤다 (2026-08-27).★ 전에는 네 줄이 다
+        * flex-wrap 이었는데, 줄 안 간격(gap-y-1.5)과 줄 사이 간격(mt-2)이 거의 같아서
+        * 창이 좁거나 업체 이름이 길어 한 줄이 접히는 순간 네 묶음이 한 덩어리로 뭉쳤다.
+        * 지금은 넷 다 같은 격자(FACT_GRID)를 쓴다 — 값이 열에 서고, 묶음 사이는 여백이,
+        * 승인 흐름 앞은 얇은 선이 가른다(화면 규칙 1: 여백 → 얇은 선 → 배경 → 테두리).
+        *
         * 나머지 현장 정보는 계약 탭의 「현장 정보」에 있다.
         */}
-      <dl className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-1.5 text-base">
+      <dl className={`mt-4 ${FACT_GRID}`}>
         {/* 접수 연도가 기본값 — 이월 현장(작년 사업이 올해 접수)만 고친다 */}
         <EditableFact
           label="사업연도"
@@ -393,7 +410,7 @@ function SiteHeader({
         />
       </dl>
 
-      <dl className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-1.5 text-base">
+      <dl className={`mt-5 ${FACT_GRID}`}>
         <Fact label="사업구분" value={project.bizType} />
         <Fact label="계약대수" value={`${qty}대`} />
         <Fact label="계약연수" value={terms.length ? `${terms.join('·')}년` : null} />
@@ -460,8 +477,14 @@ function ApprovalFacts({
   const cpoSubmitted = statusIndex(process.status) >= statusIndex('운영사 계약서 제출');
 
   return (
-    <>
-    <dl className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-1.5 text-base">
+    /*
+     * 승인 흐름은 얇은 선으로 가른다 (2026-08-27). 위는 굳은 사실이고 여기는 기다리는
+     * 값이다 — 「아직 안 왔다(—)」가 대부분이고, 오면 그 자리에서 적는다. 같은 모양으로
+     * 이어 붙여 두면 「미제출」·「—」가 운영사·대수와 같은 무게로 읽혀 눈이 안 멈춘다.
+     * 상자를 하나 더 두르지 않는다 — 층을 나눌 때는 약한 것부터다(화면 규칙 1).
+     */
+    <div className="mt-5 border-t border-slate-100 pt-4">
+    <dl className={FACT_GRID}>
       {/*
         * 적는 자리가 아니라 보는 자리다 — 보드에서 「운영사 계약서 제출 로 넘기기」를
         * 누르면 저장소가 옮기면서 찍고(pg-store setProcessStatus), 여기는 그 결과만 읽는다.
@@ -473,9 +496,9 @@ function ApprovalFacts({
         * 「미제출」로 보인다.
         */}
       {edit === 'all' && (
-        <div className="flex items-baseline gap-1.5">
+        <div className="min-w-0">
           <dt className="text-tiny font-bold tracking-[0.04em] text-slate-400">운영사 계약서 제출</dt>
-          <dd className={`font-bold ${cpoSubmitted ? 'text-slate-800' : 'text-amber-700'}`}>
+          <dd className={`mt-0.5 break-keep font-bold ${cpoSubmitted ? 'text-slate-800' : 'text-amber-700'}`}>
             {cpoSubmitted
               ? process.cpoSubmitDate ? `제출됨 · ${process.cpoSubmitDate}` : '제출됨'
               : '미제출'}
@@ -495,7 +518,7 @@ function ApprovalFacts({
       />
     </dl>
 
-    <dl className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-1.5 text-base">
+    <dl className={`mt-4 ${FACT_GRID}`}>
       <DateFact
         label="환경부 승인일"
         value={process.envApprovalDate}
@@ -512,9 +535,10 @@ function ApprovalFacts({
         onSave={(v) => save('cpoApprovalDate', v)}
         hint="넣으면 「충전기 발주」로 넘길 수 있습니다"
       />
-      <Err>{error}</Err>
+      {/* 실패 문구는 누른 칸 옆이 아니라 그 줄 끝이다 — 격자 한 칸에 들어가면 잘린다 */}
+      <Err className="col-span-full self-center">{error}</Err>
     </dl>
-    </>
+    </div>
   );
 }
 
@@ -530,11 +554,13 @@ function DateFact({
   hint?: string;
 }) {
   const [editing, setEditing] = useState(false);
+  const open = editing && canEdit;
   return (
-    <div className="flex items-baseline gap-1.5" title={hint}>
+    // 달력이 열리면 격자의 한 칸으로는 좁다 — 그때만 한 줄을 쓴다(EditableFact 와 같다)
+    <div className={`min-w-0 ${open ? 'col-span-full' : ''}`} title={hint}>
       <dt className="text-tiny font-bold tracking-[0.04em] text-slate-400">{label}</dt>
-      {editing && canEdit ? (
-        <dd className="flex items-center gap-1.5">
+      {open ? (
+        <dd className="mt-0.5 flex flex-wrap items-center gap-1.5">
           <DatePicker
             ariaLabel={label}
             value={value}
@@ -547,15 +573,15 @@ function DateFact({
           <Btn size="sm" kind="quiet" disabled={busy} onClick={() => setEditing(false)}>취소</Btn>
         </dd>
       ) : (
-        <>
+        <dd className="mt-0.5 flex flex-wrap items-baseline gap-1.5">
           {/* 승인일은 기다리는 값이다 — 비어 있음은 「아직 올 때가 아님」(—) */}
-          <dd>{value ? <Val value={value} /> : <Empty kind="wait" />}</dd>
+          {value ? <Val value={value} /> : <Empty kind="wait" />}
           {canEdit && (
             <Btn size="sm" kind="quiet" onClick={() => setEditing(true)}>
               {value ? '수정' : '입력'}
             </Btn>
           )}
-        </>
+        </dd>
       )}
     </div>
   );

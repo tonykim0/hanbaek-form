@@ -9,12 +9,20 @@
 import type { ProjectDocument } from '@/types/project';
 import type { DocReq } from '@/lib/doc-rules';
 
+/**
+ * 머리말의 사실 한 칸 — 라벨 위, 값 아래 (2026-08-27).
+ *
+ * 라벨과 값을 옆으로 붙여 두면 칸 너비가 값 길이를 따라가서, 아무리 격자에 넣어도 열이
+ * 안 맞는다. 그래서 사실 아홉 개가 줄이 접힐 때마다 다른 자리로 가고, 「운영사가 어디
+ * 적혀 있더라」를 매번 다시 찾아야 했다. 세로로 쌓으면 값이 한 열에 서서 눈이 자리를
+ * 기억한다 — 머리말의 모든 사실이 같은 격자(FACT_GRID)를 쓴다.
+ */
 export function Fact({ label, value }: { label: string; value: string | null }) {
   if (!value) return null;
   return (
-    <div className="flex items-baseline gap-1.5">
+    <div className="min-w-0">
       <dt className="text-tiny font-bold tracking-[0.04em] text-slate-400">{label}</dt>
-      <dd className="font-bold text-slate-800">{value}</dd>
+      <dd className="mt-0.5 break-keep font-bold text-slate-800">{value}</dd>
     </div>
   );
 }

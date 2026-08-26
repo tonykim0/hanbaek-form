@@ -70,16 +70,17 @@ export function EditableFact({
 
   if (na) {
     return (
-      <div className="flex items-baseline gap-1.5">
+      <div className="min-w-0">
         <dt className="text-tiny font-bold tracking-[0.04em] text-slate-400">{label}</dt>
-        <dd><Empty kind="na" /></dd>
+        <dd className="mt-0.5"><Empty kind="na" /></dd>
       </div>
     );
   }
 
+  // 고칠 때는 격자의 한 칸이 아니라 한 줄을 통째로 쓴다 — 좁은 칸에 입력창·후보가 눌린다
   if (editing) {
     return (
-      <div className="flex w-full flex-col gap-1.5 py-1">
+      <div className="col-span-full flex w-full flex-col gap-1.5 py-1">
         <dt className="text-micro font-bold tracking-[0.04em] text-slate-400">{label}</dt>
         <dd className="flex flex-col gap-1.5">
           <input
@@ -123,17 +124,18 @@ export function EditableFact({
   }
 
   return (
-    <div className="flex items-baseline gap-1.5">
+    <div className="min-w-0">
       <dt className="text-tiny font-bold tracking-[0.04em] text-slate-400">{label}</dt>
-      <dd>
+      {/* 고치는 칩은 값 옆에 붙는다 — 라벨 줄에 두면 라벨이 값보다 길어져 열이 어긋난다 */}
+      <dd className="mt-0.5 flex flex-wrap items-baseline gap-1.5 break-keep">
         {/* 비어 있음은 「빠뜨린 것」이라 노랑이다 — 아직 올 때가 아닌 것(—)과 다른 말이다 */}
         {value ? <Val value={value} /> : <Empty kind="miss" label={empty === '—' ? undefined : empty} />}
+        {canEdit && (
+          <Btn size="sm" kind="quiet" onClick={() => { setDraft(value ?? ''); setEditing(true); }}>
+            {value ? '수정' : '입력'}
+          </Btn>
+        )}
       </dd>
-      {canEdit && (
-        <Btn size="sm" kind="quiet" onClick={() => { setDraft(value ?? ''); setEditing(true); }}>
-          {value ? '수정' : '입력'}
-        </Btn>
-      )}
     </div>
   );
 }

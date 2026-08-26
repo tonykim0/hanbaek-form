@@ -16,7 +16,11 @@ const navItems: Array<{
   section: ActiveSection;
 }> = [
   { href: '/#contracts', label: '계약서 작성', shortLabel: '계약서', section: 'contracts' },
-  { href: '/intake', label: '계약서 접수', shortLabel: '접수', section: 'intake' },
+  /*
+   * 접수는 콘솔에서 받는다 (한백 지시 2026-08-26) — 메뉴에서 내린다.
+   * 주소(/intake)는 남는다: 돌아다니는 링크로 들어온 사람에게 어디로 가야 하는지
+   * 말해주는 안내 화면이다. 메뉴에까지 두면 아직 여기서 받는 것처럼 읽힌다.
+   */
   { href: '/materials', label: '자료실', shortLabel: '자료실', section: 'materials' },
   {
     href: '/charger-history',

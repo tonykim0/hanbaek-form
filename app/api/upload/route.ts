@@ -8,15 +8,18 @@
 import { generateClientTokenFromReadWriteToken } from '@vercel/blob/client';
 import { NextResponse } from 'next/server';
 
-const INTAKE_UPLOAD_PATH_RE = /^intake-\d+\.zip$/;
+/*
+ * ★접수 ZIP 토큰은 더 내주지 않는다★ (한백 지시 2026-08-26 — 포털 접수를 닫았다).
+ *
+ * 로그인 없이 100MB 를 우리 저장소에 올릴 수 있는 문이었다. 접수 화면을 안내로 바꿔도
+ * 이 문이 열려 있으면 주소만 알면 계속 올릴 수 있다(REFACTOR_PLAN_2 의 B — 무로그인 API
+ * 남용 방지). 콘솔 접수는 자기 문으로 올린다(/api/projects/intake-zip, 로그인 필요).
+ *
+ * 남는 것은 계약서 작성 폼의 스캔 PDF 하나뿐이다 — 포털은 그 입구로 계속 열려 있다.
+ */
 /** 계약서류 스캔 PDF → 입력폼 역추출 (/api/import-form) 용 업로드 */
 const FORM_IMPORT_PATH_RE = /^form-import-\d+\.pdf$/;
 
-const ZIP_CONTENT_TYPES = [
-  'application/zip',
-  'application/x-zip-compressed',
-  'application/octet-stream',
-];
 const PDF_CONTENT_TYPES = ['application/pdf', 'application/octet-stream'];
 
 export async function POST(request: Request) {
@@ -25,10 +28,9 @@ export async function POST(request: Request) {
       pathname?: string;
     };
 
-    const isIntake = !!pathname && INTAKE_UPLOAD_PATH_RE.test(pathname);
     const isFormImport = !!pathname && FORM_IMPORT_PATH_RE.test(pathname);
 
-    if (!pathname || (!isIntake && !isFormImport)) {
+    if (!pathname || !isFormImport) {
       return NextResponse.json(
         { error: '업로드 경로가 올바르지 않습니다.' },
         { status: 400 }
@@ -42,10 +44,9 @@ export async function POST(request: Request) {
       token: process.env.BLOB_READ_WRITE_TOKEN!,
       pathname,
       validUntil,
-      allowedContentTypes: isFormImport ? PDF_CONTENT_TYPES : ZIP_CONTENT_TYPES,
-      maximumSizeInBytes: isFormImport
-        ? 30 * 1024 * 1024 // 스캔 PDF — Claude 입력 한도에 맞춘 상한
-        : 100 * 1024 * 1024,
+      allowedContentTypes: PDF_CONTENT_TYPES,
+      // 스캔 PDF — Claude 입력 한도에 맞춘 상한
+      maximumSizeInBytes: 30 * 1024 * 1024,
     });
 
     return NextResponse.json({ token: clientToken });

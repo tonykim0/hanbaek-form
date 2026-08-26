@@ -1,385 +1,69 @@
-'use client';
-
-import type { Dispatch, SetStateAction } from 'react';
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import SalesRepForm from '@/components/SalesRepForm';
-import UploadZone from '@/components/UploadZone';
-import FilePreview from '@/components/FilePreview';
+import type { Metadata } from 'next';
 import SiteHeader from '@/components/SiteHeader';
-import { startIntakeSession, uploadIntakeZip } from '@/lib/intake-client';
-import type { IntakeStreamEvent } from '@/types/intake';
+import { CONSOLE_URL } from '@/lib/portal-intake';
 
-interface ProgressState {
-  phase: 'idle' | 'uploading' | 'extracting' | 'classifying' | 'splitting' | 'notion' | 'attaching';
-  message: string;
-  uploadPercent: number;     // 0~100 (uploading 단계)
-  current: number;           // 현재 파일 번호 (attaching 단계)
-  total: number;             // 총 파일 수
-}
-
-const INITIAL_PROGRESS: ProgressState = {
-  phase: 'idle',
-  message: '',
-  uploadPercent: 0,
-  current: 0,
-  total: 0,
+export const metadata: Metadata = {
+  title: '접수는 콘솔에서 받습니다 | 한백 전기차충전사업',
+  description: '포털 접수는 닫혔습니다. 계약 서류는 콘솔에서 접수합니다.',
+  other: { build: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? 'local' },
 };
 
-export default function IntakePage() {
-  const router = useRouter();
-  const [name, setName] = useState('');
-  const [company, setCompany] = useState('');
-  const [note, setNote] = useState('');
-  const [files, setFiles] = useState<File[]>([]);
-  const [submitting, setSubmitting] = useState(false);
-  const [progress, setProgress] = useState<ProgressState>(INITIAL_PROGRESS);
-
-  const canSubmit =
-    name.trim().length > 0
-    && company.trim().length > 0
-    && files.length > 0;
-
-  const handleRemoveFile = (index: number) => {
-    setFiles((prev) => prev.filter((_, i) => i !== index));
-  };
-
-  const handleSubmit = async () => {
-    if (!canSubmit || submitting) return;
-    setSubmitting(true);
-    setProgress({ ...INITIAL_PROGRESS, phase: 'uploading', message: '파일 업로드 중...' });
-
-    try {
-      const file = files[0];
-      const blobUrl = await uploadIntakeZip({
-        file,
-        onProgress: (percentage) => {
-          setProgress((prev) => ({
-            ...prev,
-            uploadPercent: percentage,
-            message: `파일 업로드 중... ${percentage}%`,
-          }));
-        },
-      });
-
-      await startIntakeSession({
-        salesRepName: name.trim(),
-        salesRepCompany: company.trim(),
-        blobUrl,
-        note: note.trim(),
-        onEvent: (event) => {
-          const route = handleIntakeEvent(event, setProgress);
-          if (route === 'complete' && event.phase === 'done') {
-            sessionStorage.setItem('intake_result', JSON.stringify(event.data));
-            router.push('/intake/complete');
-          }
-          if (route === 'error' && event.phase === 'error') {
-            sessionStorage.setItem(
-              'intake_error',
-              JSON.stringify({ error: event.error, code: event.code })
-            );
-            router.push('/intake/error');
-          }
-        },
-      });
-    } catch (err) {
-      sessionStorage.setItem(
-        'intake_error',
-        JSON.stringify({
-          error: err instanceof Error ? err.message : '네트워크 오류가 발생했습니다',
-          code: 'NETWORK_ERROR',
-        })
-      );
-      router.push('/intake/error');
-    } finally {
-      setSubmitting(false);
-      setProgress(INITIAL_PROGRESS);
-    }
-  };
-
+/**
+ * 접수 안내 — 포털 접수를 닫았다 (한백 지시 2026-08-26).
+ *
+ * ★주소를 없애지 않는다.★ 이 주소는 협력사에게 카톡·메일로 돌아다닌다. 404 로 두면
+ * 「사이트가 죽었나」로 읽히고 물어볼 곳도 안 보인다 — 닫혔다는 것과 어디로 가야 하는지를
+ * 그 자리에서 말한다(화면 규칙 3 과 같은 이치: 막는 것을 막힌 자리에 적는다).
+ *
+ * 접수 양식(ZIP 업로드 → 자동분류 → 노션)은 걷어냈다. 그 흐름은 콘솔의 접수 화면이
+ * 이어받는다 — 거기는 로그인한 소속으로 들어와 콘솔 DB 에 바로 남는다(dual-write 금지).
+ * 열려 있던 문 둘도 같이 닫았다: POST /api/intake, /api/upload 의 intake ZIP 토큰.
+ */
+export default function IntakeClosedPage() {
   return (
     <div className="min-h-screen bg-[#f7f8f4]">
       <SiteHeader active="intake" />
-      <main className="mx-auto max-w-2xl px-5 py-8 sm:px-6 sm:py-10">
+      <main className="mx-auto max-w-3xl px-5 py-8 sm:px-6 sm:py-10">
         <header className="mb-7">
-          <p className="text-xs font-bold tracking-[0.14em] text-brand-700">DOCUMENT INTAKE</p>
-          <h1 className="mt-1 text-3xl font-black tracking-[-0.04em] text-slate-900">계약서 접수</h1>
+          <p className="text-xs font-bold tracking-[0.14em] text-amber-700">INTAKE</p>
+          <h1 className="mt-1 text-3xl font-black tracking-[-0.04em] text-slate-900">
+            접수는 콘솔에서 받습니다
+          </h1>
           <p className="mt-2 text-sm leading-6 text-slate-500">
-            한 현장의 완료 서류를 ZIP 파일 하나로 묶어 접수해주세요.
+            포털 접수(ZIP 업로드)는 닫혔습니다. 계약 서류는 콘솔에 로그인해서 접수해주세요 —
+            낸 서류가 그 자리에서 검수·계약 진행으로 이어지고, 진행 상황도 같은 화면에서
+            보입니다.
           </p>
-          <ol className="mt-5 flex flex-wrap gap-2 text-xs font-semibold text-slate-500">
-            <li className="rounded-full bg-white px-3 py-1.5 ring-1 ring-slate-200">1. 접수자 정보</li>
-            <li className="rounded-full bg-white px-3 py-1.5 ring-1 ring-slate-200">2. ZIP 업로드</li>
-            <li className="rounded-full bg-white px-3 py-1.5 ring-1 ring-slate-200">3. 자동 분류</li>
-          </ol>
         </header>
 
-        {/* 접수 전 필수 안내 (최상단 배너) */}
-        <div className="mb-6 overflow-hidden rounded-2xl border border-amber-200 bg-[#fffaf0]">
-          <div className="flex items-center gap-2 border-b border-amber-200 bg-amber-100/60 px-5 py-3.5 text-sm font-bold text-amber-950">
-            <span aria-hidden className="flex h-6 w-6 items-center justify-center rounded-full bg-amber-400 text-xs">!</span>
-            접수 전 꼭 확인해주세요
-          </div>
-          <ul className="grid gap-3 px-5 py-5 text-sm leading-6 text-amber-950 sm:grid-cols-2">
-            <li className="flex gap-2">
-              <span aria-hidden className="mt-px text-amber-500">•</span>
-              <span>
-                모든 서류를 <strong className="font-semibold">하나의 ZIP</strong>으로 압축해 올려주세요.
-                ZIP이 아닌 파일은 받지 않습니다.
-              </span>
-            </li>
-            <li className="flex gap-2">
-              <span aria-hidden className="mt-px text-amber-500">•</span>
-              <span>
-                모든 서류는 <strong className="font-semibold">스캔본</strong>으로 부탁드립니다.
-                사진촬영본은 무조건{' '}
-                <span className="font-semibold underline decoration-2 underline-offset-2">
-                  보완요청
-                </span>{' '}
-                드리며, 글자가 희미하거나 안 보이는 경우에도 보완요청 드립니다.
-              </span>
-            </li>
-            <li className="flex gap-2">
-              <span aria-hidden className="mt-px text-amber-500">•</span>
-              <span>
-                <strong className="font-semibold">한 현장씩</strong> 올려주세요.
-                여러 현장은 ZIP을 분리해 각각 접수해주세요.
-              </span>
-            </li>
-            <li className="flex gap-2">
-              <span aria-hidden className="mt-px text-amber-500">•</span>
-              <span>
-                <strong className="font-semibold">사전현장컨설팅 결과서</strong>와{' '}
-                <strong className="font-semibold">사진대지</strong>는 반드시 함께 올려야 정상 접수로 인정됩니다.{' '}
-                <span className="inline-block rounded bg-red-600 px-1.5 py-0.5 text-xs font-bold text-white align-middle">
-                  영업비 지급 조건
-                </span>
-                <br />
-                <span className="text-amber-800">
-                  단, <strong className="font-semibold">플러그링크·나이스인프라</strong>는 사진대지 대신 실사보고서를 제출합니다.
-                </span>
-              </span>
-            </li>
-          </ul>
-          <div className="border-t border-amber-200 bg-amber-100/70 px-5 py-3 text-sm font-bold text-red-700">
-            <span className="underline decoration-2 underline-offset-2">
-              서류가 누락되면 영업비 지급조건에 미달되어 정산 대상이 아닙니다.
-            </span>
-          </div>
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6">
+          <h2 className="text-lg font-black tracking-[-0.02em] text-slate-900">접수하는 곳</h2>
+          <p className="mt-1.5 text-sm leading-6 text-slate-600">
+            콘솔에 로그인한 뒤 <b className="font-bold text-slate-900">서류 접수</b> 에서
+            현장 정보와 서류를 냅니다. 소속은 로그인 계정으로 붙습니다.
+          </p>
+          <a
+            href={`${CONSOLE_URL}/projects/new`}
+            className="mt-4 inline-flex items-center gap-1 rounded-xl bg-brand-700 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-brand-800"
+          >
+            콘솔에서 접수하기
+            <span aria-hidden>→</span>
+          </a>
+
+          <p className="mt-5 border-t border-slate-100 pt-4 text-sm leading-6 text-slate-500">
+            계정이 아직 없으면 한백 담당자에게 요청해주세요. 업체마다 계정 하나를 드리고,
+            그 계정으로는 <b className="font-bold text-slate-700">자기 현장만</b> 보입니다.
+          </p>
         </div>
 
-        <div className="space-y-7 rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_18px_50px_-38px_rgba(15,23,42,0.55)] sm:p-6">
-          {/* 영업자 정보 */}
-          <section>
-            <h2 className="text-sm font-semibold text-gray-800 mb-3">
-              영업자 정보
-            </h2>
-            <SalesRepForm
-              name={name}
-              company={company}
-              onNameChange={setName}
-              onCompanyChange={setCompany}
-            />
-          </section>
-
-          {/* 특이사항 (접수자 메모) */}
-          <section>
-            <h2 className="text-sm font-semibold text-gray-800 mb-2">
-              특이사항 <span className="font-normal text-gray-400">(선택)</span>
-            </h2>
-            <textarea
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              rows={3}
-              placeholder="담당자에게 전달할 특이사항이 있으면 적어주세요. (예: 누락 서류 사유, 현장 특이사항 등)"
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-800 placeholder:text-gray-400 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 resize-y"
-            />
-          </section>
-
-          {/* 파일 업로드 */}
-          <section>
-            <h2 className="text-sm font-semibold text-gray-800 mb-2">
-              서류 업로드
-            </h2>
-            <UploadZone files={files} onFilesChange={setFiles} />
-            <div className="mt-3">
-              <FilePreview files={files} onRemove={handleRemoveFile} />
-            </div>
-          </section>
-
-          {/* 접수 버튼 / 진행 상태 */}
-          {submitting ? (
-            <ProgressDisplay progress={progress} />
-          ) : (
-            <>
-              <button
-                onClick={handleSubmit}
-                disabled={!canSubmit}
-                className="w-full rounded-xl bg-brand-700 py-3.5 font-semibold text-white shadow-sm transition hover:bg-brand-800 disabled:cursor-not-allowed disabled:bg-slate-300"
-              >
-                접수하기
-              </button>
-            </>
-          )}
-        </div>
-
-        <footer className="mt-8 text-center text-xs text-slate-400">
-          한백 EV Infra Solutions
-        </footer>
+        {/*
+          * 계약서 작성은 그대로 열려 있다 — 포털은 협력사의 로그인 없는 입구로 남는다.
+          * 닫은 것은 「작성한 서류를 내는 자리」 하나다.
+          */}
+        <p className="mt-5 text-sm leading-6 text-slate-500">
+          계약서 작성·자료실·이력조회는 그대로입니다 — 로그인 없이 씁니다.
+        </p>
       </main>
-    </div>
-  );
-}
-
-// ── 진행 상태 UI ──────────────────────────────────────────────────
-
-function ProgressDisplay({ progress }: { progress: ProgressState }) {
-  const { phase, message, uploadPercent, current, total } = progress;
-
-  // 전체 진행률 계산 (대략적)
-  const overallPercent = (() => {
-    switch (phase) {
-      case 'uploading':   return Math.round(uploadPercent * 0.3);          // 0~30%
-      case 'extracting':  return 32;
-      case 'classifying': return 40;
-      case 'splitting':   return 55;
-      case 'notion':      return 60;
-      case 'attaching':   return total > 0
-        ? 60 + Math.round((current / total) * 38)                         // 60~98%
-        : 65;
-      default: return 0;
-    }
-  })();
-
-  return (
-    <div className="space-y-4">
-      {/* 전체 진행률 바 */}
-      <div>
-        <div className="flex justify-between text-sm mb-1">
-          <span className="font-medium text-gray-700">{message}</span>
-          <span className="text-gray-500">{overallPercent}%</span>
-        </div>
-        <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
-          <div
-            className="bg-brand-600 h-full rounded-full transition-all duration-500"
-            style={{ width: `${overallPercent}%` }}
-          />
-        </div>
-      </div>
-
-      {/* 단계별 상세 */}
-      <div className="space-y-1.5">
-        <StepIndicator label="파일 업로드" done={phase !== 'uploading'} active={phase === 'uploading'}
-          detail={phase === 'uploading' ? `${uploadPercent}%` : undefined} />
-        <StepIndicator label="PDF 추출" done={phaseIndex(phase) > 1} active={phase === 'extracting'}
-          detail={total > 0 && phaseIndex(phase) >= 1 ? `${total}개` : undefined} />
-        <StepIndicator label="AI 분류" done={phaseIndex(phase) > 2} active={phase === 'classifying'} />
-        <StepIndicator label="파일 준비" done={phaseIndex(phase) > 3} active={phase === 'splitting'}
-          detail={total > 0 && phaseIndex(phase) >= 3 ? `${total}개 파일` : undefined} />
-        <StepIndicator label="노션 저장" done={phaseIndex(phase) > 4} active={phase === 'notion'} />
-        <StepIndicator label="파일 첨부" done={false} active={phase === 'attaching'}
-          detail={phase === 'attaching' ? `${current}/${total}` : undefined} />
-      </div>
-
-      <p className="text-xs text-gray-400 text-center">
-        최대 1분 소요될 수 있습니다
-      </p>
-    </div>
-  );
-}
-
-function handleIntakeEvent(
-  event: IntakeStreamEvent,
-  setProgress: Dispatch<SetStateAction<ProgressState>>
-): 'complete' | 'error' | null {
-  switch (event.phase) {
-    case 'extracting':
-      setProgress((prev) => ({
-        ...prev,
-        phase: 'extracting',
-        message: event.message,
-        total: event.fileCount ?? prev.total,
-      }));
-      return null;
-
-    case 'classifying':
-      setProgress((prev) => ({
-        ...prev,
-        phase: 'classifying',
-        message: event.message,
-      }));
-      return null;
-
-    case 'splitting':
-      setProgress((prev) => ({
-        ...prev,
-        phase: 'splitting',
-        message: event.message,
-        total: event.totalFiles ?? prev.total,
-      }));
-      return null;
-
-    case 'notion':
-      setProgress((prev) => ({
-        ...prev,
-        phase: 'notion',
-        message: event.message,
-      }));
-      return null;
-
-    case 'attaching':
-      setProgress((prev) => ({
-        ...prev,
-        phase: 'attaching',
-        message: event.message,
-        current: event.current ?? prev.current,
-        total: event.total ?? prev.total,
-      }));
-      return null;
-
-    case 'done':
-      return 'complete';
-
-    case 'error':
-      return 'error';
-  }
-}
-
-function phaseIndex(phase: ProgressState['phase']): number {
-  const order = ['uploading', 'extracting', 'classifying', 'splitting', 'notion', 'attaching'];
-  return order.indexOf(phase);
-}
-
-function StepIndicator({
-  label,
-  done,
-  active,
-  detail,
-}: {
-  label: string;
-  done: boolean;
-  active: boolean;
-  detail?: string;
-}) {
-  return (
-    <div className="flex items-center gap-2 text-sm">
-      <span className="w-5 h-5 flex items-center justify-center flex-shrink-0">
-        {done ? (
-          <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-          </svg>
-        ) : active ? (
-          <span className="w-3 h-3 rounded-full bg-brand-500 animate-pulse" />
-        ) : (
-          <span className="w-3 h-3 rounded-full bg-gray-300" />
-        )}
-      </span>
-      <span className={done ? 'text-gray-400' : active ? 'text-gray-900 font-medium' : 'text-gray-400'}>
-        {label}
-      </span>
-      {detail && (
-        <span className="text-gray-500 text-xs ml-auto">{detail}</span>
-      )}
     </div>
   );
 }

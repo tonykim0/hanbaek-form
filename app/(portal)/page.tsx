@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import SiteHeader from '@/components/SiteHeader';
+import { CONSOLE_URL } from '@/lib/portal-intake';
 
 /** 계약서 작성 — 운영사별 */
 const cpos = [
@@ -254,8 +255,14 @@ export default function Home() {
           <aside className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1">
             <h2 className="sr-only">바로가기</h2>
 
-            <Link
-              href="/intake"
+            {/*
+              * 접수는 콘솔에서 받는다 (한백 지시 2026-08-26). 포털에서 ZIP 을 받던 자리다 —
+              * 그 문을 닫았으므로 여기서도 콘솔로 보낸다. 카드를 지우지 않는 이유는,
+              * 계약서를 작성한 사람이 다음에 할 일이 접수이기 때문이다: 다음 걸음이
+              * 안 보이면 어디로 가야 하는지 물어야 한다.
+              */}
+            <a
+              href={`${CONSOLE_URL}/projects/new`}
               className="group flex flex-col rounded-2xl bg-brand-700 p-5 text-white shadow-[0_16px_35px_-24px_rgba(34,69,45,0.9)] transition hover:bg-brand-800"
             >
               <span className="inline-flex self-start rounded-full bg-white/10 px-2.5 py-1 text-tiny font-bold text-brand-100">
@@ -263,15 +270,15 @@ export default function Home() {
               </span>
               <h3 className="mt-4 text-xl font-black tracking-[-0.03em]">작성 완료본 접수</h3>
               <p className="mt-2 text-sm leading-5 text-brand-100">
-                현장별 서류를 하나의 ZIP으로 묶어 접수합니다.
+                접수는 콘솔에서 받습니다. 로그인한 소속으로 서류를 냅니다.
               </p>
               <span className="mt-auto inline-flex items-center gap-1 pt-4 text-sm font-bold">
-                접수 시작
+                콘솔에서 접수
                 <span aria-hidden className="transition group-hover:translate-x-0.5">
                   →
                 </span>
               </span>
-            </Link>
+            </a>
 
             <FeatureCard
               href="/materials"

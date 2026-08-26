@@ -20,12 +20,25 @@ import {
   formatToday,
 } from '@/lib/notion';
 import type { IntakeSuccessResponse } from '@/types/intake';
+import { INTAKE_CLOSED } from '@/lib/portal-intake';
 
 // Vercel Pro: 대용량 ZIP·다파일 접수의 중간 종료(부분 저장) 방지를 위해 여유 확보
 export const maxDuration = 180;
 const ALLOWED_BLOB_HOST_RE = /(^|\.)blob\.vercel-storage\.com$/;
 
 export async function POST(request: NextRequest) {
+  /*
+   * ★포털 접수는 닫혔다★ (한백 지시 2026-08-26) — 접수는 콘솔에서만 받는다.
+   *
+   * 화면만 바꾸고 이 문을 열어 두면 로그인 없이 노션에 쓰는 자리가 그대로 남는다.
+   * 옛 탭이 그대로 열려 있다가 제출하는 경우가 있어서, 화면이 읽는 모양(SSE 오류 이벤트)
+   * 으로 돌려준다 — 「요청 파싱 실패」로 보이면 왜 안 되는지 알 수 없다.
+   *
+   * 아래 흐름(ZIP → 자동분류 → 노션)은 지우지 않고 둔다. 되살릴 일이 있어서가 아니라,
+   * 컷오버 뒤 죽은 코드를 걷는 것은 한 번에 하는 일이기 때문이다(REFACTOR_PLAN_2 의 C).
+   */
+  return errorResponse(INTAKE_CLOSED, 'INTAKE_CLOSED');
+
   // ── 1. JSON 파싱 + 유효성 검사 ────────────────────────────────
   let body: {
     salesRepName?: string;

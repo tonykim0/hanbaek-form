@@ -579,16 +579,22 @@ function SubmitContract({
    * 같은 이름을 쓰면 협력사에게 처음으로 되돌아간 것처럼 읽힌다.
    */
   const act = fixAsked ? '재검토 요청' : '접수';
+  /*
+   * 이관 현장은 서류 조건을 면제한다 — 필수 서류가 콘솔 밖에 있어서(한백이 나중에 채운다)
+   * 여기서 막으면 한 칸을 고쳐 올린 협력사가 「다 고쳤다」고 말할 자리가 영영 없다
+   * (한백 지시 2026-08-26). 서버도 같은 판정을 한다(pg-store submitContract).
+   */
+  const ready = contract.docsFilled || contract.docsExempt;
   return (
     <div className="mt-4 flex flex-col gap-1.5">
       <Btn
-        disabled={!contract.docsFilled}
+        disabled={!ready}
         busy={busy}
         busyLabel={`${act} 중…`}
         onClick={send}
         className="self-start"
       >
-        {contract.docsFilled
+        {ready
           ? (fixAsked ? '계약 재검토 요청하기' : '계약서 접수하기')
           : `필수 서류 ${missing}건 남음 — ${act} 불가`}
       </Btn>

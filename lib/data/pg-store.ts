@@ -2026,7 +2026,15 @@ export const pgRepository: ProjectRepository = {
      * 그때 다시 누르는 것이 보완의 끝이다.
      */
     const state = contractStateFor(record);
-    if (submitted && !state.docsFilled) {
+    /*
+     * ★이관 현장은 서류 조건을 면제한다★ (한백 지시 2026-08-26).
+     *
+     * 노션에서 온 현장은 필수 서류가 콘솔에 없다(서류는 이관하지 않았고 한백이 나중에
+     * 채운다). 계약 확인은 이미 그것을 면제하는데(contractStateOf docsExempt) 여기만
+     * 안 봐서, 한백이 한 칸을 반려해도 협력사가 그것을 고쳐 올린 뒤 「다 고쳤다」고
+     * 말할 자리가 없었다 — 나머지 칸이 영영 비어 있기 때문이다.
+     */
+    if (submitted && !state.docsFilled && !state.docsExempt) {
       throw new Error('필수 서류를 다 올려야 계약서를 접수할 수 있습니다.');
     }
 

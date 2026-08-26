@@ -70,6 +70,12 @@ interface Line {
 
 /** 자체투자 현장에서 갈리는 교체유형 두 가지 */
 const SELF_REPLS = ['자체투자 (제자리교체)', '자체투자 (신규위치)'] as const satisfies readonly ReplType[];
+/**
+ * 자체투자에서 제자리교체·신규위치가 단가를 가르는 운영사.
+ * 나머지는 금액이 같아 단가 케이스도 제자리교체 한 칸뿐이다 —
+ * 두 행을 펴면 한 현장이 두 라인으로 갈리기만 한다.
+ */
+const SPLITS_SELF_REPL = new Set<CpoName>(['에버온', 'SK일렉링크']);
 
 export default function IntakeForm({ org, isAdmin = false, knownOrgs = [] }: {
   /** 세션의 소속. 협력사는 화면에 적지 않는다 — 서버가 접수자의 소속으로 현장을 만든다. */
@@ -352,9 +358,19 @@ export default function IntakeForm({ org, isAdmin = false, knownOrgs = [] }: {
   }
 
   const mixed = powerType === '한전불입+모자분리';
-  /** 대수 칸의 행 — 사업구분이 정한다 */
+  /**
+   * 대수 칸의 행 — 사업구분이 정하고, 자체투자는 운영사가 한 번 더 정한다.
+   *
+   * ★교체유형을 가르는 운영사만 두 행이다★ (2026-08-26) — 에버온(140/150/160 대
+   * 170/180/190만)·SK일렉링크(위치변경 190~210만)는 제자리교체와 신규위치의 단가가 실제로
+   * 다르다. 나머지는 같은 금액이라 케이스도 한 칸으로 합쳤다(플러그링크와 같은 방식).
+   * 안 가르는 운영사에 두 행을 펴 두었더니 한 현장의 11기가 「10대 + 1대」 두 라인으로
+   * 갈렸다 — 강원 강릉 일송아파트가 그것이다(한백 확인).
+   */
   const replRows: ReplType[] =
-    bizType === '자체투자' ? [...SELF_REPLS] : bizType === '연동' ? ['연동'] : ['환경부 신규'];
+    bizType === '자체투자'
+      ? (SPLITS_SELF_REPL.has(cpo) ? [...SELF_REPLS] : [SELF_REPLS[0]])
+      : bizType === '연동' ? ['연동'] : ['환경부 신규'];
   /** 대수 칸의 열 — 수전방식이 정한다 */
   const powerCols: Array<Exclude<PowerType, '한전불입+모자분리'> | null> = mixed
     ? ['한전불입', '모자분리']

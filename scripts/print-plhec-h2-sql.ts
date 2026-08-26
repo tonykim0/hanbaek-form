@@ -10,7 +10,7 @@
  */
 import {
   HEC_KEEP_IDS, HEC_KEEP_POLICY,
-  PL_DROP_IDS, PL_KEEP, plPolicy, PL_RESTORE, plNewRules,
+  HEC_DROP_IDS, PL_DROP_IDS, PL_KEEP, plPolicy, PL_RESTORE, plNewRules,
 } from '../lib/pricing-policy-plhec-h2';
 import { checkPricingRule, pricingRuleId } from '../lib/pricing-match';
 import type { NewPricingRule } from '../types/project';
@@ -49,6 +49,14 @@ console.log('-- lib/pricing-policy-plhec-h2.ts 에서 생성 — 손으로 고�
 
 /* 1. v1.1 기준으로 넣었던 케이스를 걷어낸다 — 참조가 생겼으면 남긴다 */
 for (const id of PL_DROP_IDS) {
+  console.log(`delete from pricing_rules
+where id = '${id}'
+  and not exists (select 1 from contract_lines cl where cl.pricing_rule_id = pricing_rules.id);\n`);
+}
+
+/* 1-b. 현대엔지니어링 자체투자 신규위치 — 제자리교체와 한 글자도 다르지 않아 걷는다 */
+for (const id of HEC_DROP_IDS) {
+  console.log(`-- 걷어냄(제자리교체와 같은 케이스였다): ${id}`);
   console.log(`delete from pricing_rules
 where id = '${id}'
   and not exists (select 1 from contract_lines cl where cl.pricing_rule_id = pricing_rules.id);\n`);

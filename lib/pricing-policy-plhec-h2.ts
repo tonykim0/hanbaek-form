@@ -217,8 +217,19 @@ export const HEC_KEEP_POLICY = {
   miscTerms: HEC_MISC_COMMON,
 };
 
+/**
+ * 걷어낸 케이스 — 현대엔지니어링 자체투자 「신규위치」 (2026-08-26).
+ *
+ * ★왜★ 아래 hecNewRules 가 **같은 케이스를 replType 만 바꿔 두 벌** 만들고 있었다.
+ * 금액·조건이 한 글자도 다르지 않았다. 그런데 케이스가 둘이면 접수 화면의 자체투자
+ * 대수 표가 두 행으로 펴져 한 현장이 두 라인으로 갈린다(한백 2026-08-26).
+ * 플러그링크·나이스와 같이 제자리교체 한 칸에 담는다.
+ */
+export const HEC_DROP_IDS = ['hec-y7-10-mother-move-both-2026'] as const;
+
 export function hecNewRules(): NewPricingRule[] {
-  return (['자체투자 (제자리교체)', '자체투자 (신규위치)'] as const).map((replType) => ({
+  // 교체유형으로 갈리지 않는다 — 한 벌만 만든다(위 HEC_DROP_IDS)
+  return (['자체투자 (제자리교체)'] as const).map((replType) => ({
     caseName: `현대엔지니어링 (${HEC_START}) | 전체 | 7·10년 ${replType} | 모자분리`,
     cpo: '현대엔지니어링',
     bizType: '자체투자',

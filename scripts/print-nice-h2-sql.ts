@@ -12,7 +12,7 @@
  * 케이스 id 로 갱신한다. 8월 1일 케이스는 축에서 채번되므로 어느 DB 에서도 같은 id 다
  * (같은 축 + 겹침 없음). 없는 id 는 0건 갱신으로 조용히 지나간다.
  */
-import { niceH2Rules } from '../lib/pricing-policy-nice-h2';
+import { NICE_DROP_IDS, niceH2Rules } from '../lib/pricing-policy-nice-h2';
 import { pricingRuleId } from '../lib/pricing-match';
 
 const q = (v: string | null) => (v === null ? 'null' : `'${v.replace(/'/g, "''")}'`);
@@ -43,4 +43,12 @@ where id = '${id}';\n`);
  * 「note is not null 전부 비우기」가 방금 넣은 부기(한전불입 10기)까지 지우는 것을
  * 마이그레이션 0004 초안에서 실제로 겪었다. 옛 비고는 0002 가 이미 비웠다.
  */
-console.log(`-- 검산은 러너 밖에서: 나이스 8/1 케이스 7건의 charge_rate=295, note 있는 케이스 0건`);
+/* 자체투자 신규위치 — 금액이 제자리교체와 같아 한 칸으로 합쳤다. 참조가 생겼으면 남긴다 */
+for (const id of NICE_DROP_IDS) {
+  console.log(`-- 걷어냄(교체유형이 금액을 가르지 않는다): ${id}`);
+  console.log(`delete from pricing_rules
+where id = '${id}'
+  and not exists (select 1 from contract_lines cl where cl.pricing_rule_id = pricing_rules.id);\n`);
+}
+
+console.log(`-- 검산은 러너 밖에서: 나이스 8/1 케이스 5건의 charge_rate=295, note 있는 케이스 0건`);

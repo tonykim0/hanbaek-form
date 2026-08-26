@@ -168,17 +168,23 @@ const ROWS: PolicyRow[] = [
     feeSales: 0, feeCons: 2000 + 100,
     misc: REPLACE_MISC,
   },
-  {
-    replType: '자체투자 (신규위치)', powerType: '모자분리', term: 7,
-    feeSales: 0, feeCons: 2000,
-    misc: null,
-  },
-  {
-    replType: '자체투자 (신규위치)', powerType: '모자분리', term: 10,
-    feeSales: 0, feeCons: 2000 + 100,
-    misc: null,
-  },
 ];
+
+/**
+ * 걷어낸 케이스 — 자체투자 「신규위치」 7년·10년 (2026-08-26).
+ *
+ * ★왜★ 나이스는 제자리교체와 신규위치의 **금액이 같다**(공사 2,000 / 2,100). 축을 가를
+ * 이유가 없는데 케이스를 둘로 두었더니, 접수 화면의 자체투자 대수 표가 두 행으로 펴지고
+ * 한 현장의 11기가 「10대 + 1대」 두 라인으로 갈렸다(강원 강릉 일송아파트, 한백 2026-08-26).
+ * 플러그링크와 같은 방식으로 제자리교체 한 칸에 담는다 — 그쪽도 「문서는 그냥 교체다」로
+ * 한 칸이다. 에버온·SK일렉링크는 금액이 실제로 달라 그대로 둔다.
+ *
+ * 0002 가 넣은 두 행의 값은 위 ROWS 에서 지웠다 — 무엇이 있었는지는 이 id 와 0002 가 기록이다.
+ */
+export const NICE_DROP_IDS = [
+  'nice-y7-mother-move-apt-2026',
+  'nice-y10-mother-move-apt-2026',
+] as const;
 
 const won = (n: number) => n.toLocaleString('ko-KR');
 

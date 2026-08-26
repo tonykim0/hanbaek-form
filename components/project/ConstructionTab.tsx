@@ -35,7 +35,8 @@ type DateField =
 
 /** 묶음별 완료 체크 칸 */
 type CheckField =
-  | 'notifyDoneAt' | 'chargerDoneAt' | 'installConfirmedAt' | 'openDoneAt' | 'completionSubmitAt';
+  | 'notifyDoneAt' | 'notifySkippedAt' | 'chargerDoneAt' | 'installConfirmedAt' | 'openDoneAt'
+  | 'completionSubmitAt';
 
 /** 수량 칸 — 설치 실적(거점·기)과 수령 수량(충전기·모뎀) */
 type CountField = 'installedSpots' | 'installedUnits' | 'chargerQty' | 'modemQty';
@@ -47,12 +48,25 @@ interface MilestoneRow {
   trigger?: string;
 }
 
+/** 사람의 선언 한 줄 — 조건(ready)이 차야 체크할 수 있고, 막히면 그 이유를 적는다 */
+interface GroupCheck {
+  field: CheckField;
+  label: string;
+  ready: boolean;
+  blocked: string;
+}
+
 interface Group {
   title: string;
   rows: MilestoneRow[];
   docs: string[];
-  /** 이 묶음을 끝냈다는 사람의 선언 — 조건(ready)이 차야 체크할 수 있다 */
-  check?: { field: CheckField; label: string; ready: boolean; blocked: string };
+  /** 이 묶음을 끝냈다는 사람의 선언 */
+  check?: GroupCheck;
+  /**
+   * 이 묶음이 그 현장에는 해당 없다는 선언 — 완료와 나란히 서고, 같은 걸음을 연다.
+   * 안 하는 일을 「했다」고 체크하게 두지 않기 위한 자리다(화면 규칙 10).
+   */
+  skip?: GroupCheck;
 }
 
 export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit: ProcessEdit }) {
@@ -140,9 +154,25 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
         // 신고일은 파일을 올리면 그 날로 들어간다(비어 있을 때만) — 다르면 여기서 고친다
         rows: [{ label: '행위신고일', field: 'notifyDate', value: p.notifyDate }],
         docs: ['notify'],
+        /*
+         * 둘은 서로를 막는다 — 한 현장이 「했다」와 「필요 없다」를 같이 말할 수는 없다.
+         * 막는 이유를 그 자리에 적는다(화면 규칙 3): 완료가 켜져 있으면 불필요가
+         * 「완료로 표시됨」으로 잠기고, 반대도 같다. 풀려면 켠 것을 끄면 된다.
+         */
         check: {
           field: 'notifyDoneAt', label: '행위신고 완료',
-          ready: uploaded('notify'), blocked: '서류 미제출 — 완료 불가',
+          ready: uploaded('notify') && !p.notifySkippedAt,
+          blocked: p.notifySkippedAt ? '불필요로 표시됨' : '서류 미제출 — 완료 불가',
+        },
+        /*
+         * 행위신고가 필요 없는 현장이 있다 (한백 지시 2026-08-26) — 조건을 두지 않는다.
+         * 서류로 확인할 수 있는 일이 아니라 사람이 내리는 판정이고, 체크하는 순간
+         * 「시공진행필요」가 열린다(lib/process CHECK_ADVANCES).
+         */
+        skip: {
+          field: 'notifySkippedAt', label: '행위신고 불필요',
+          ready: !p.notifyDoneAt,
+          blocked: '완료로 표시됨',
         },
       },
     ],
@@ -458,6 +488,15 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
                         onToggle={saveCheck}
                       />
                     )}
+                    {g.skip && (
+                      <CheckRow
+                        check={g.skip}
+                        value={p[g.skip.field]}
+                        canEdit={canEdit}
+                        busy={busyKey === g.skip.field}
+                        onToggle={saveCheck}
+                      />
+                    )}
                   </div>
                 </div>
               ))}
@@ -691,7 +730,7 @@ function DocRow({
 function CheckRow({
   check, value, canEdit, busy, onToggle,
 }: {
-  check: NonNullable<Group['check']>;
+  check: GroupCheck;
   value: string | null;
   canEdit: boolean;
   busy: boolean;

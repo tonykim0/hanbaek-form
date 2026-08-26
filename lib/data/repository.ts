@@ -500,7 +500,8 @@ export type ProcessPatch = Partial<
     | 'installedSpots' | 'installedUnits'
     | 'commDoneDate' | 'openDate' | 'memo'
     | 'notifyDate' | 'chargerQty' | 'modemQty'
-    | 'notifyDoneAt' | 'chargerDoneAt' | 'installConfirmedAt' | 'openDoneAt' | 'completionSubmitAt'
+    | 'notifyDoneAt' | 'notifySkippedAt' | 'chargerDoneAt' | 'installConfirmedAt'
+    | 'openDoneAt' | 'completionSubmitAt'
   >
 >;
 

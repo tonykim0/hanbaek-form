@@ -557,6 +557,14 @@ export interface ProcessInfo {
    */
   notifyDate: string | null;
   notifyDoneAt: string | null;       // 행위신고 완료 → 「시공진행필요」 조건
+  /**
+   * 행위신고 불필요로 판정한 날 — 신고 없이 시공으로 가는 현장이 있다 (한백 지시 2026-08-26).
+   *
+   * ★완료와 한 칸에 담지 않는다.★ 안 하는 일을 「했다」고 체크하면 그 현장은 신고를 낸
+   * 것으로 남고, 나중에 「신고한 현장」을 세면 섞인다 — 「없음」과 「해당없음」은 다른
+   * 값이다(화면 규칙 10). 둘 중 하나면 「시공진행필요」의 조건이 찬다.
+   */
+  notifySkippedAt: string | null;
   /** 수령한 수량 — 충전기 몇 대, 모뎀 몇 개가 현장에 왔나. 시공사가 수령 때 센다. */
   chargerQty: number | null;
   modemQty: number | null;

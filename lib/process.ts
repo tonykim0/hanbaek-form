@@ -55,8 +55,13 @@ export const STATUS_GATES: Record<ProcessStatus, StatusGate | null> = {
    * 시공을 시작할 수 없다(한백 확인). 파일이 있다고 통과가 아니라 사람이 완료를 선언한다.
    */
   '시공진행필요': {
-    need: '운영사 시공승인일 · 행위신고 완료 체크',
-    met: (p) => Boolean(p.cpoApprovalDate) && Boolean(p.notifyDoneAt),
+    /*
+     * 행위신고는 ★했거나 필요 없거나★ 둘 중 하나면 된다 (한백 지시 2026-08-26).
+     * 신고 없이 시공으로 가는 현장이 있는데, 그 현장이 「완료」밖에 없으면 안 한 일을
+     * 했다고 체크해야 넘어갔다 — 두 값을 따로 두고 여기서 합친다(types notifySkippedAt).
+     */
+    need: '운영사 시공승인일 · 행위신고 완료(또는 불필요) 체크',
+    met: (p) => Boolean(p.cpoApprovalDate) && (Boolean(p.notifyDoneAt) || Boolean(p.notifySkippedAt)),
   },
   // 충전기가 현장에 왔다 — 수령 완료 체크가 그 선언이다
   '충전기 수령': {
@@ -188,6 +193,8 @@ export type ProcessEdit = 'all' | 'partner' | 'none';
  */
 export const CHECK_ADVANCES = {
   notifyDoneAt: '시공진행필요',
+  // 불필요도 같은 걸음이다 — 「이 구간 끝났다」는 선언인 것은 같다
+  notifySkippedAt: '시공진행필요',
   chargerDoneAt: '충전기 수령',
   installConfirmedAt: '설치완료',
   openDoneAt: '개통완료',

@@ -260,6 +260,8 @@ export const processes = pgTable('processes', {
   modemQty: integer('modem_qty'),
   /** 묶음별 완료 체크(체크한 날) — 단계 이동을 잠근다. types/project.ts ProcessInfo 주석 참조 */
   notifyDoneAt: text('notify_done_at'),
+  /** 행위신고 불필요로 판정한 날 — 완료와 다른 칸이다 (migrations/0024) */
+  notifySkippedAt: text('notify_skipped_at'),
   chargerDoneAt: text('charger_done_at'),
   installConfirmedAt: text('install_confirmed_at'),
   openDoneAt: text('open_done_at'),

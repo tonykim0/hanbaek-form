@@ -15,7 +15,8 @@ const DATE_FIELDS = [
   'envApprovalDate', 'cpoSubmitDate', 'cpoApprovalDate', 'chargerOrderDate', 'chargerShipDate',
   'chargerRecvDate', 'startPlanDate', 'startActualDate', 'installDoneDate', 'commDoneDate',
   'notifyDate',
-  'notifyDoneAt', 'chargerDoneAt', 'installConfirmedAt', 'openDoneAt', 'completionSubmitAt',
+  'notifyDoneAt', 'notifySkippedAt', 'chargerDoneAt', 'installConfirmedAt', 'openDoneAt',
+  'completionSubmitAt',
 ] as const;
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;

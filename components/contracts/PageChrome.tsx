@@ -18,15 +18,27 @@ export function ContractPageShell({
   title,
   children,
   footerText = '한백 EV Infra Solutions · Internal Tool',
+  subtitle = '필수 정보를 입력하면 운영사 양식에 맞는 계약서가 자동으로 생성됩니다.',
+  /**
+   * 가운데 기둥으로 세울지, 왼쪽에 붙일지.
+   *
+   * 계약서 작성은 그대로 가운데다(협력사가 쓰는 화면이라 건드리지 않는다).
+   * 재발행 화면만 왼쪽으로 붙인다 — 한백 지시 2026-08-26.
+   */
+  align = 'center',
 }: {
   title: string;
   children: ReactNode;
   footerText?: string;
+  /** null 이면 설명 줄을 두지 않는다 */
+  subtitle?: string | null;
+  align?: 'center' | 'left';
 }) {
+  const left = align === 'left';
   return (
     <div className="min-h-screen bg-[#f7f8f4]">
       <SiteHeader active="contracts" />
-      <main className="max-w-5xl mx-auto px-5 py-8 sm:px-6 sm:py-10">
+      <main className={`max-w-5xl px-5 py-8 sm:px-6 sm:py-10 ${left ? '' : 'mx-auto'}`}>
         <header className="mb-7">
           <Link
             href="/#contracts"
@@ -38,14 +50,12 @@ export function ContractPageShell({
           <h1 className="mt-1 text-2xl font-black tracking-[-0.035em] text-slate-900 sm:text-3xl">
             {title}
           </h1>
-          <p className="mt-2 text-sm text-slate-500">
-            필수 정보를 입력하면 운영사 양식에 맞는 계약서가 자동으로 생성됩니다.
-          </p>
+          {subtitle && <p className="mt-2 text-sm text-slate-500">{subtitle}</p>}
         </header>
 
         {children}
 
-        <footer className="mt-8 text-center text-xs text-slate-400">
+        <footer className={`mt-8 text-xs text-slate-400 ${left ? 'text-left' : 'text-center'}`}>
           <p>{footerText}</p>
         </footer>
       </main>

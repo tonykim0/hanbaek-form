@@ -15,7 +15,7 @@ import {
   Section,
 } from '@/components/contracts/FormControls';
 import type { Path, UseFormRegister } from 'react-hook-form';
-import CpoTwoPageAutoReissue from '@/components/contracts/NiceTwoPageAutoReissue';
+import CpoDocReissue from '@/components/contracts/CpoDocReissue';
 import {
   ContractPageShell,
   FormActions,
@@ -164,8 +164,8 @@ export default function HecPage() {
 
   if (internalMode) {
     return (
-      <ContractPageShell title="현대엔지니어링 2개 서류 자동 재발행">
-        <CpoTwoPageAutoReissue cpo="hec" />
+      <ContractPageShell title="현대엔지니어링 서류 재발행" subtitle={null} align="left">
+        <CpoDocReissue cpo="hec" />
       </ContractPageShell>
     );
   }

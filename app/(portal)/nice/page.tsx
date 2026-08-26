@@ -14,7 +14,7 @@ import {
   RadioField,
   Section,
 } from '@/components/contracts/FormControls';
-import CpoTwoPageAutoReissue from '@/components/contracts/NiceTwoPageAutoReissue';
+import CpoDocReissue from '@/components/contracts/CpoDocReissue';
 import {
   ContractPageShell,
   FormActions,
@@ -123,8 +123,8 @@ export default function NicePage() {
 
   if (internalMode) {
     return (
-      <ContractPageShell title="나이스인프라 2개 서류 자동 재발행">
-        <CpoTwoPageAutoReissue cpo="nice" />
+      <ContractPageShell title="나이스인프라 서류 재발행" subtitle={null} align="left">
+        <CpoDocReissue cpo="nice" />
       </ContractPageShell>
     );
   }

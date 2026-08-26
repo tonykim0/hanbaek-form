@@ -14,7 +14,7 @@ import {
   RadioField,
   Section,
 } from '@/components/contracts/FormControls';
-import CpoTwoPageAutoReissue from '@/components/contracts/NiceTwoPageAutoReissue';
+import CpoDocReissue from '@/components/contracts/CpoDocReissue';
 import {
   ContractPageShell,
   FormActions,
@@ -122,8 +122,8 @@ export default function SkPage() {
 
   if (internalMode) {
     return (
-      <ContractPageShell title="SK일렉링크 2개 서류 자동 재발행">
-        <CpoTwoPageAutoReissue cpo="sk" />
+      <ContractPageShell title="SK일렉링크 서류 재발행" subtitle={null} align="left">
+        <CpoDocReissue cpo="sk" />
       </ContractPageShell>
     );
   }

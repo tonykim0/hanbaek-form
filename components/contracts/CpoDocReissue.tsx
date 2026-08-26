@@ -1,5 +1,16 @@
 'use client';
 
+/**
+ * 서류 재발행 — 협력사가 보낸 옛 양식 스캔본을 최신 운영사 양식으로 다시 뽑는다.
+ *
+ * ★서류마다 따로 넣고 따로 받는다★ (한백 지시 2026-08-26). 설치신청서만 다시
+ * 필요한 일이 있고 결과서만 필요한 일이 따로 있어서, 둘을 한 파일로 묶어 주면
+ * 필요 없는 장을 사람이 지워야 했다. 두 칸은 서로를 기다리지 않는다.
+ *
+ * 판독은 그 서류 하나만 보고 한다 — 다른 서류에만 있는 칸(설치신청서의 모집대행사,
+ * 결과서의 조사자)은 그 서류를 넣었을 때만 채워지므로, 빈칸 보고도 서류별로 갈랐다.
+ */
+
 import { useState } from 'react';
 import { buildContractFilename, DEFAULT_YEAR } from '@/lib/contract-form';
 import { downloadBlob } from '@/lib/download';
@@ -11,12 +22,11 @@ import {
   type ImportedFieldKey,
 } from '@/lib/form-import';
 import { importFormFromPdf, type ImportPhase } from '@/lib/import-client';
+import type { DocumentSection } from '@/lib/slice-docx';
 import type { ContractFormData } from '@/lib/schema';
 import type { HecFormData } from '@/lib/schema-hec';
 import type { NiceFormData } from '@/lib/schema-nice';
 import type { SkFormData } from '@/lib/schema-sk';
-
-type Slot = 'application' | 'consulting';
 
 interface AutoReissueConfig {
   operatorName: string;
@@ -47,11 +57,10 @@ const CONFIG: Record<CpoKey, AutoReissueConfig> = {
   },
 };
 
-const REQUIRED_FOR_OUTPUT: readonly ImportedFieldKey[] = [
+/** 두 서류에 다 있는 칸 — 어느 쪽을 넣어도 채워져야 한다 */
+const SHARED_FIELDS: readonly ImportedFieldKey[] = [
   'custName',
-  'custBizId',
   'custAddr',
-  'custTel',
   'installAddr',
   'installQty',
   'contractYear',
@@ -59,22 +68,71 @@ const REQUIRED_FOR_OUTPUT: readonly ImportedFieldKey[] = [
   'contractDay',
   'parkingLotCount',
   'siteCategory',
-  'buildingType',
-  'ownership',
-  'ownerRelation',
-  'salesCompany',
-  'salesName',
-  'salesTel',
-  'surveyorCompany',
-  'surveyorName',
-  'surveyorTel',
-  'dupNone',
 ];
 
-export default function CpoTwoPageAutoReissue({ cpo }: { cpo: CpoKey }) {
+interface DocSpec {
+  section: DocumentSection;
+  /** 화면에 쓰는 이름 */
+  label: string;
+  /** 양식 번호 — 협력사가 부르는 이름이라 같이 적는다 */
+  formNo: string;
+  /** 파일 이름에 들어가는 이름 */
+  fileLabel: string;
+  /** 판독 결과에 이 서류가 있는지 보는 자리 */
+  detect: RegExp;
+  /** 이 서류를 뽑는 데 필요한 칸 */
+  required: readonly ImportedFieldKey[];
+}
+
+const DOCS: readonly DocSpec[] = [
+  {
+    section: 'application',
+    label: '설치신청서',
+    formNo: '별지5호',
+    fileLabel: '설치신청서',
+    detect: /별지제?5호|설치신청서/,
+    required: [...SHARED_FIELDS, 'custBizId', 'custTel', 'salesCompany', 'salesName', 'salesTel'],
+  },
+  {
+    section: 'consulting',
+    label: '사전현장컨설팅 결과서',
+    formNo: '별지7호',
+    fileLabel: '사전현장컨설팅결과서',
+    detect: /별지제?7호|사전현장컨설팅|컨설팅결과서/,
+    required: [
+      ...SHARED_FIELDS,
+      'buildingType',
+      'ownership',
+      'ownerRelation',
+      'surveyorCompany',
+      'surveyorName',
+      'surveyorTel',
+      'dupNone',
+    ],
+  },
+];
+
+export default function CpoDocReissue({ cpo }: { cpo: CpoKey }) {
   const config = CONFIG[cpo];
-  const [application, setApplication] = useState<File | null>(null);
-  const [consulting, setConsulting] = useState<File | null>(null);
+  return (
+    <div className="space-y-4 text-left">
+      {DOCS.map((doc) => (
+        <DocReissueCard key={doc.section} cpo={cpo} config={config} doc={doc} />
+      ))}
+    </div>
+  );
+}
+
+function DocReissueCard({
+  cpo,
+  config,
+  doc,
+}: {
+  cpo: CpoKey;
+  config: AutoReissueConfig;
+  doc: DocSpec;
+}) {
+  const [file, setFile] = useState<File | null>(null);
   const [phase, setPhase] = useState<ImportPhase | { kind: 'generating' } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<FormImportResult | null>(null);
@@ -82,43 +140,33 @@ export default function CpoTwoPageAutoReissue({ cpo }: { cpo: CpoKey }) {
 
   const busy = phase !== null;
 
-  const pick = (slot: Slot, selected: FileList | null) => {
-    const file = selected?.[0];
-    if (!file) return;
-    if (!file.name.toLowerCase().endsWith('.pdf') && file.type !== 'application/pdf') {
+  const pick = (selected: FileList | null) => {
+    const picked = selected?.[0];
+    if (!picked) return;
+    if (!picked.name.toLowerCase().endsWith('.pdf') && picked.type !== 'application/pdf') {
       setError('PDF 파일만 판독할 수 있습니다.');
       return;
     }
     setError(null);
     setResult(null);
     setFilename(null);
-    if (slot === 'application') setApplication(file);
-    else setConsulting(file);
+    setFile(picked);
   };
 
   const run = async () => {
-    if (!application || !consulting) return;
+    if (!file) return;
     setError(null);
     setResult(null);
     setFilename(null);
 
     try {
-      const merged = await mergePdfs(application, consulting);
-      const extracted = await importFormFromPdf({
-        file: merged,
-        cpo,
-        onPhase: setPhase,
-      });
-      ensureBothDocuments(extracted);
+      const extracted = await importFormFromPdf({ file, cpo, onPhase: setPhase });
+      ensureDocument(extracted, doc);
 
       setPhase({ kind: 'generating' });
-      const filled = await fillLatestTemplate(
-        cpo,
-        extracted,
-        config.defaultContractTerm
-      );
-      const { sliceApplicationAndConsulting } = await import('@/lib/slice-docx');
-      const sliced = await sliceApplicationAndConsulting(filled.blob, {
+      const filled = await fillLatestTemplate(cpo, extracted, config.defaultContractTerm);
+      const { sliceSelectedDocuments } = await import('@/lib/slice-docx');
+      const sliced = await sliceSelectedDocuments(filled.blob, [doc.section], {
         installQty11to30: extracted.fields.installQty11to30,
         powerSharingKw: extracted.fields.powerSharingKw,
         powerSharingQty: extracted.fields.powerSharingQty,
@@ -127,7 +175,7 @@ export default function CpoTwoPageAutoReissue({ cpo }: { cpo: CpoKey }) {
       });
       const outputName = buildContractFilename(
         filled.contractYear || DEFAULT_YEAR,
-        `${config.shortName}_설치신청서_사전현장컨설팅결과서`,
+        `${config.shortName}_${doc.fileLabel}`,
         filled.custName || '미확인현장'
       );
 
@@ -142,64 +190,50 @@ export default function CpoTwoPageAutoReissue({ cpo }: { cpo: CpoKey }) {
   };
 
   const missing = result
-    ? REQUIRED_FOR_OUTPUT.filter((key) => {
+    ? doc.required.filter((key) => {
         const value = result.fields[key];
         return value === null || value === undefined || value === '';
       })
     : [];
   const uncertain = result
-    ? REQUIRED_FOR_OUTPUT.filter((key) => {
+    ? doc.required.filter((key) => {
         const score = result.confidence[key];
         return typeof score === 'number' && score < LOW_CONFIDENCE_THRESHOLD;
       })
     : [];
 
   return (
-    <section className="rounded-2xl border border-brand-200 bg-white shadow-sm">
-      <div className="border-b border-brand-100 bg-brand-50 px-5 py-4">
+    <section className="rounded-2xl border border-brand-200 bg-white text-left shadow-sm">
+      <div className="border-b border-brand-100 bg-brand-50 px-5 py-3.5">
         <p className="text-xs font-black tracking-[0.12em] text-brand-700">
-          {config.shortName} 자동 재발행
+          {config.shortName} · {doc.formNo}
         </p>
-        <h2 className="mt-1 text-xl font-black tracking-[-0.03em] text-slate-900">
-          기존 2개 서류를 최신 양식으로 변환
+        <h2 className="mt-1 text-lg font-black tracking-[-0.03em] text-slate-900">
+          {doc.label} 재발행
         </h2>
-        <p className="mt-2 text-sm leading-6 text-slate-600">
-          설치신청서와 사전현장컨설팅 결과서 PDF를 각각 넣으면 내용을 자동 판독하고,
-          최신 {config.operatorName} 양식의 해당 2페이지만 채운 DOCX를 바로 다운로드합니다.
-        </p>
       </div>
 
-      <div className="space-y-4 p-5">
-        <div className="grid gap-3 sm:grid-cols-2">
-          <FileSlot
-            title="1. 설치신청서"
-            description="기존 별지5호 설치신청서 PDF"
-            file={application}
-            busy={busy}
-            onPick={(files) => pick('application', files)}
-          />
-          <FileSlot
-            title="2. 사전현장컨설팅 결과서"
-            description="기존 별지7호 결과서 PDF"
-            file={consulting}
-            busy={busy}
-            onPick={(files) => pick('consulting', files)}
-          />
-        </div>
+      <div className="space-y-3 p-5">
+        <FileSlot
+          description={`기존 ${doc.formNo} ${doc.label} PDF`}
+          file={file}
+          busy={busy}
+          onPick={pick}
+        />
 
         <button
           type="button"
           onClick={run}
-          disabled={!application || !consulting || busy}
-          className="w-full rounded-xl bg-brand-700 px-5 py-3.5 text-sm font-bold text-white transition hover:bg-brand-800 disabled:cursor-not-allowed disabled:bg-slate-300"
+          disabled={!file || busy}
+          className="rounded-xl bg-brand-700 px-5 py-3 text-left text-sm font-bold text-white transition hover:bg-brand-800 disabled:cursor-not-allowed disabled:bg-slate-300"
         >
-          {phase ? phaseText(phase, config.operatorName) : '두 문서 판독 후 최신 DOCX 다운로드'}
+          {/* 못 누르는 이유를 단추 이름에 적는다 (화면 규칙 3번) */}
+          {phase
+            ? phaseText(phase, config.operatorName)
+            : file
+              ? `${doc.label} 판독 후 최신 DOCX 다운로드`
+              : `${doc.formNo} PDF 를 먼저 넣으세요`}
         </button>
-
-        <p className="text-xs leading-5 text-slate-500">
-          결과물에는 계약서·직인동의서·개인정보동의서가 포함되지 않습니다. 별지5호와
-          별지7호만 들어갑니다.
-        </p>
 
         {error && (
           <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">
@@ -238,13 +272,11 @@ export default function CpoTwoPageAutoReissue({ cpo }: { cpo: CpoKey }) {
 }
 
 function FileSlot({
-  title,
   description,
   file,
   busy,
   onPick,
 }: {
-  title: string;
   description: string;
   file: File | null;
   busy: boolean;
@@ -253,7 +285,7 @@ function FileSlot({
   return (
     <label
       aria-disabled={busy}
-      className={`min-h-36 rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 p-4 text-left transition hover:border-brand-400 hover:bg-brand-50 ${busy ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'}`}
+      className={`block rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 p-4 text-left transition hover:border-brand-400 hover:bg-brand-50 ${busy ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'}`}
     >
       <input
         type="file"
@@ -265,17 +297,16 @@ function FileSlot({
           event.target.value = '';
         }}
       />
-      <span className="block text-sm font-black text-slate-900">{title}</span>
-      <span className="mt-1 block text-xs text-slate-500">{description}</span>
+      <span className="block text-xs text-slate-500">{description}</span>
       {file ? (
-        <span className="mt-5 block break-all text-sm font-semibold text-brand-700">
+        <span className="mt-2 block break-all text-sm font-semibold text-brand-700">
           {file.name}
           <span className="mt-1 block text-xs font-normal text-slate-400">
             {(file.size / 1024 / 1024).toFixed(1)}MB · 클릭해서 교체
           </span>
         </span>
       ) : (
-        <span className="mt-5 block text-sm font-semibold text-slate-600">PDF 선택</span>
+        <span className="mt-2 block text-sm font-semibold text-slate-600">PDF 선택</span>
       )}
     </label>
   );
@@ -294,7 +325,7 @@ function Notice({
     ? 'border-red-200 bg-red-50 text-red-800'
     : 'border-amber-200 bg-amber-50 text-amber-900';
   return (
-    <div className={`rounded-lg border px-3 py-2 text-xs ${colors}`}>
+    <div className={`rounded-lg border px-3 py-2 text-left text-xs ${colors}`}>
       <p className="mb-1 font-bold">{title}</p>
       {children}
     </div>
@@ -306,45 +337,18 @@ function phaseText(
   operatorName: string
 ): string {
   if (phase.kind === 'uploading') return `업로드 중... ${phase.percentage}%`;
-  if (phase.kind === 'reading') return 'AI가 두 문서를 판독 중입니다...';
+  if (phase.kind === 'reading') return 'AI가 판독 중입니다...';
   return `최신 ${operatorName} 양식으로 생성 중입니다...`;
 }
 
-async function mergePdfs(application: File, consulting: File): Promise<File> {
-  const { PDFDocument } = await import('pdf-lib');
-  const output = await PDFDocument.create();
-
-  for (const file of [application, consulting]) {
-    let source: Awaited<ReturnType<typeof PDFDocument.load>>;
-    try {
-      source = await PDFDocument.load(await file.arrayBuffer(), { ignoreEncryption: true });
-    } catch {
-      throw new Error(`${file.name} 파일을 열 수 없습니다. 손상 또는 암호 설정을 확인해주세요.`);
-    }
-    const pages = await output.copyPages(source, source.getPageIndices());
-    for (const page of pages) output.addPage(page);
-  }
-
-  const bytes = await output.save();
-  const pdfBuffer = new ArrayBuffer(bytes.byteLength);
-  new Uint8Array(pdfBuffer).set(bytes);
-  return new File(
-    [pdfBuffer],
-    '설치신청서_사전현장컨설팅결과서.pdf',
-    { type: 'application/pdf' }
-  );
-}
-
-function ensureBothDocuments(result: FormImportResult): void {
+/** 넣은 PDF 가 그 서류인지 본다 — 엉뚱한 서류를 넣으면 빈 양식이 나온다 */
+function ensureDocument(result: FormImportResult, doc: DocSpec): void {
   // 공백 제거 후 검사 — 「별지 제5호」·「별지5호」 표기가 섞여 온다.
-  const names = result.detectedDocs.map((doc) => doc.name.replace(/\s/g, ''));
-  const hasApplication = names.some((name) => /별지제?5호|설치신청서/.test(name));
-  const hasConsulting = names.some((name) => /별지제?7호|사전현장컨설팅|컨설팅결과서/.test(name));
-  if (!hasApplication || !hasConsulting) {
-    throw new Error(
-      `두 서류를 모두 확인하지 못했습니다. ${!hasApplication ? '설치신청서' : ''}${!hasApplication && !hasConsulting ? '와 ' : ''}${!hasConsulting ? '사전현장컨설팅 결과서' : ''} PDF를 다시 확인해주세요.`
-    );
-  }
+  const names = result.detectedDocs.map((detected) => detected.name.replace(/\s/g, ''));
+  if (names.some((name) => doc.detect.test(name))) return;
+  throw new Error(
+    `넣은 PDF 에서 ${doc.label}(${doc.formNo})를 찾지 못했습니다 — 파일을 다시 확인해주세요.`
+  );
 }
 
 type CommonAutoFormData = Omit<

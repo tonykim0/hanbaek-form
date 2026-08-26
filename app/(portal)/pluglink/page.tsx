@@ -8,7 +8,7 @@ import {
   CustomerInfoSection,
 } from '@/components/contracts/ContractFormSections';
 import { Radio, RadioField, Section } from '@/components/contracts/FormControls';
-import CpoTwoPageAutoReissue from '@/components/contracts/NiceTwoPageAutoReissue';
+import CpoDocReissue from '@/components/contracts/CpoDocReissue';
 import {
   ContractPageShell,
   FormActions,
@@ -113,10 +113,12 @@ export default function App() {
   if (internalMode) {
     return (
       <ContractPageShell
-        title="플러그링크 2개 서류 자동 재발행"
+        title="플러그링크 서류 재발행"
+        subtitle={null}
+        align="left"
         footerText="한백 EV Infra Solutions · Internal Tool · v2"
       >
-        <CpoTwoPageAutoReissue cpo="pluglink" />
+        <CpoDocReissue cpo="pluglink" />
       </ContractPageShell>
     );
   }

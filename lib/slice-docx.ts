@@ -1,5 +1,7 @@
 /**
- * 생성된 계약서류 docx에서 「사전 현장 컨설팅 결과서」만 잘라냅니다.
+ * 생성된 계약서류 docx에서 필요한 서류만 잘라냅니다 — 별지5호 설치신청서·
+ * 별지7호 사전 현장 컨설팅 결과서를 따로 또는 함께(sliceSelectedDocuments),
+ * 결과서만(sliceConsultingReport).
  *
  * 4개 CPO 템플릿 모두 body의 최상위 자식으로 `【별지 제7호 서식】` 문단을 갖고 있고,
  * 결과서는 그 문단부터 문서 끝까지입니다 (HEC 템플릿만 뒤에 [별지 1] 사진대지와
@@ -37,6 +39,9 @@ export interface SliceResult {
   /** 실제로 별지(사진대지·체크리스트)가 포함됐는지 — 템플릿에 없으면 false */
   hasAttachments: boolean;
 }
+
+/** 잘라 남길 서류 — 별지5호 설치신청서 · 별지7호 사전현장컨설팅 결과서 */
+export type DocumentSection = 'application' | 'consulting';
 
 export interface SelectedDocumentsSliceResult {
   blob: Blob;
@@ -246,14 +251,29 @@ async function saveDocument(zip: JSZip, doc: Document): Promise<Blob> {
 }
 
 /**
- * 채워진 CPO 보조금 템플릿에서 최신 별지5호 설치신청서와 별지7호
- * 사전현장컨설팅 결과서만 남깁니다. 현대의 뒤쪽 사진대지·체크리스트는 제외하고,
- * 플러그링크 표 안에 붙은 개인정보동의서 행도 제거합니다.
+ * 채워진 CPO 보조금 템플릿에서 고른 서류만 남깁니다 — 별지5호 설치신청서,
+ * 별지7호 사전현장컨설팅 결과서, 또는 둘 다. 현대의 뒤쪽 사진대지·체크리스트는
+ * 제외하고, 플러그링크 표 안에 붙은 개인정보동의서 행도 제거합니다.
+ *
+ * 두 서류의 경계는 한쪽만 남길 때도 둘 다 찾아야 정해집니다 — 설치신청서의 끝이
+ * 별지7호의 시작으로 정해지기 때문입니다.
+ *
+ * ★SDT 가 없는 숫자 칸 채우기는 자르기 전에, 문서 전체를 대상으로 합니다.★
+ * 그 칸들(11~30기·전력분배형)은 별지5호와 별지7호에 같은 제목으로 두 번 나오고
+ * 표기가 서로 달라서, 나온 순서로 가릅니다. 먼저 자르면 순서가 어긋납니다.
  */
-export async function sliceApplicationAndConsulting(
+export async function sliceSelectedDocuments(
   source: Blob,
+  sections: readonly DocumentSection[],
   values: SelectedDocumentValues = {}
 ): Promise<SelectedDocumentsSliceResult> {
+  const wantApplication = sections.includes('application');
+  const wantConsulting = sections.includes('consulting');
+  if (!wantApplication && !wantConsulting) {
+    throw new Error('남길 서류를 하나 이상 골라야 합니다');
+  }
+  const both = wantApplication && wantConsulting;
+
   const { zip, doc, body, children, trailingSectPr } = await loadDocument(source);
   const contentEnd = trailingSectPr ? children.length - 1 : children.length;
 
@@ -274,12 +294,15 @@ export async function sliceApplicationAndConsulting(
   fillUncontrolledDocumentValues(body, values);
   trimEmbeddedPrivacyRows(children, applicationStart, reportStart);
 
-  // 별지7호 앞의 기존 페이지 나눔 문단을 보존합니다. 플러그링크처럼
-  // 명시적 나눔이 없는 템플릿은 새 페이지 나눔을 삽입합니다.
+  /*
+   * 별지7호 앞의 기존 페이지 나눔 문단 — 두 서류를 함께 남길 때만 사이에 둡니다.
+   * 결과서만 남길 때 이 문단이 앞에 붙으면 첫 장이 빈 페이지가 됩니다.
+   */
   const hasExistingReportBreak =
     reportStart > 0 && hasPageBreak(children[reportStart - 1]);
-  const reportBreak = hasExistingReportBreak ? reportStart - 1 : reportStart;
-  if (!hasExistingReportBreak) {
+  const breakIndex = hasExistingReportBreak ? reportStart - 1 : reportStart;
+  if (both && !hasExistingReportBreak) {
+    // 플러그링크처럼 명시적 나눔이 없는 템플릿은 새 페이지 나눔을 삽입합니다.
     body.insertBefore(createPageBreakParagraph(doc), children[reportStart]);
   }
 
@@ -290,7 +313,7 @@ export async function sliceApplicationAndConsulting(
       APPLICATION_END_ANCHORS.some((anchor) => normalizedText(child).startsWith(anchor))
   );
   const applicationEnd =
-    detectedApplicationEnd >= 0 ? detectedApplicationEnd : reportBreak;
+    detectedApplicationEnd >= 0 ? detectedApplicationEnd : breakIndex;
 
   const attachmentStart = children.findIndex(
     (child, index) =>
@@ -301,8 +324,12 @@ export async function sliceApplicationAndConsulting(
   const reportEnd = attachmentStart >= 0 ? attachmentStart : contentEnd;
 
   const keep = new Set<number>();
-  for (let i = applicationStart; i < applicationEnd; i++) keep.add(i);
-  for (let i = reportBreak; i < reportEnd; i++) keep.add(i);
+  if (wantApplication) {
+    for (let i = applicationStart; i < applicationEnd; i++) keep.add(i);
+  }
+  if (wantConsulting) {
+    for (let i = both ? breakIndex : reportStart; i < reportEnd; i++) keep.add(i);
+  }
 
   let dropped = 0;
   for (let i = 0; i < children.length; i++) {
@@ -315,8 +342,8 @@ export async function sliceApplicationAndConsulting(
   removeBookmarks(body);
   return {
     blob: await saveDocument(zip, doc),
-    applicationKept: applicationEnd - applicationStart,
-    consultingKept: reportEnd - reportStart,
+    applicationKept: wantApplication ? applicationEnd - applicationStart : 0,
+    consultingKept: wantConsulting ? reportEnd - reportStart : 0,
     dropped,
   };
 }

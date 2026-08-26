@@ -233,10 +233,7 @@ export function buildHecSdtMaps(form: HecFormData): SdtMaps {
   const installAddr = resolveInstallAddr(form);
   const custBizId = formatKoreanBizId(form.custBizId);
   const smartQty = form.installQty;
-  // 세 칸이 다 비면 빈 칸으로 둔다 — 재발행에서 조사일을 비워 내보낸다(lib/schema.ts 주석)
-  const surveyDate = form.contractYear || form.contractMonth || form.contractDay
-    ? `${form.contractYear}년 ${form.contractMonth}월 ${form.contractDay}일`
-    : '';
+  const surveyDate = `${form.contractYear}년 ${form.contractMonth}월 ${form.contractDay}일`;
 
   const text: Record<string, string> = {
     // 별지2 체크리스트 헤더 (조사일·현장명·총 설치대수)

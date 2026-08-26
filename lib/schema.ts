@@ -253,15 +253,8 @@ export function buildSdtMaps(form: ContractFormData): SdtMaps {
   const custBizId = formatKoreanBizId(form.custBizId);
   // smart charger qty always equals install qty in v2
   const smartQty = form.installQty;
-  /*
-   * 계약일 = 조사일 (항상 동일).
-   *
-   * 세 칸이 모두 비면 「년 월 일」만 남으므로 아예 빈 칸으로 둔다 — 서류 재발행에서
-   * 결과서의 조사일을 비워 내보내는 길이 있다(손으로 새 날짜를 적는다, 한백 지시 2026-08-26).
-   */
-  const surveyDate = form.contractYear || form.contractMonth || form.contractDay
-    ? `${form.contractYear}년 ${form.contractMonth}월 ${form.contractDay}일`
-    : '';
+  // 계약일 = 조사일 (항상 동일)
+  const surveyDate = `${form.contractYear}년 ${form.contractMonth}월 ${form.contractDay}일`;
 
   // ─── Text fields ───
   const text: Record<string, string> = {

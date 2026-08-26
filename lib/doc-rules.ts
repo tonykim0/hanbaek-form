@@ -254,7 +254,15 @@ export const needsPreInstallCheck = (bizType: BizType | null): boolean =>
 /** 공정 서류 슬롯 — 노션 공정관리 마스터의 file 속성들 */
 export const PROCESS_DOCS = [
   { key: 'notify', name: '행위신고' },
-  { key: 'elecapply', name: '전기사용신청' },
+  /*
+   * ★설치완료 때 같이 내는 세 장★ (한백 지시 2026-08-26) — 운영사 시스템의 「공통」 묶음이
+   * 그렇다: 시공일자 · 설치완료보고서 · 충전시설 설치 신고서 · 전기사용신청 접수증.
+   * 시공일자는 새 칸을 만들지 않았다 — 설치완료일이 그 값이다(같은 값을 두 번 두지 않는다).
+   */
+  { key: 'installReport', name: '설치완료보고서' },
+  { key: 'installNotice', name: '충전시설 설치 신고서' },
+  // 올리는 것은 신청서가 아니라 접수증이다 — 이름이 파일과 같아야 무엇을 올릴지 안다
+  { key: 'elecapply', name: '전기사용신청 접수증' },
   { key: 'safety', name: '전기안전점검' },
   { key: 'kepcofee', name: '한전시설부담금' },
   { key: 'completion', name: '준공서류' },

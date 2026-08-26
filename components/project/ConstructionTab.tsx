@@ -278,8 +278,13 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
       {
         title: '설치',
         opensNext: true,
+        /* 설치완료일이 곧 시공일자다 — 운영사 시스템의 「공통」 묶음에서 그 값이다 */
         rows: [{ label: '설치완료일', field: 'installDoneDate', value: p.installDoneDate }],
-        docs: ['photoDone'],
+        /*
+         * 사진 뒤에 설치완료 때 같이 내는 것들을 둔다 (한백 지시 2026-08-26).
+         * 전기사용신청 접수증은 개통 상자에 있었는데, 신청은 설치 무렵의 일이라 여기로 옮겼다.
+         */
+        docs: ['photoDone', 'installReport', 'installNotice', 'elecapply'],
         advance: {
           label: '다음 단계로 진행',
           field: 'installConfirmedAt',
@@ -298,7 +303,7 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
           { label: '통신완료일', field: 'commDoneDate', value: p.commDoneDate },
           { label: '개통완료일', field: 'openDate', value: p.openDate },
         ],
-        docs: ['elecapply', 'kepcofee', 'safety', 'comm'],
+        docs: ['kepcofee', 'safety', 'comm'],
         advance: {
           label: '다음 단계로 진행',
           field: 'openDoneAt',

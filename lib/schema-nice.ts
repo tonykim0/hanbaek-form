@@ -28,11 +28,19 @@ const NICE_CONTRACT_AMOUNT_ID = '900000042';
 
 export function buildNiceSdtMaps(form: NiceFormData): SdtMaps {
   const maps = buildHecSdtMaps(form as unknown as HecFormData);
-  // NICE 자동 재발행에서는 별지5호의 모집대행사와 별지7호의 조사자가
-  // 서로 다를 수 있으므로 조사자 칸에는 surveyor* 필드를 그대로 사용한다.
-  maps.text['1414659046'] = form.surveyorCompany;
-  maps.text['-632096669'] = form.surveyorTel;
-  maps.text['140012807'] = form.surveyorName;
+  /*
+   * 조사자(별지7호 7번) — 자동 재발행은 문서에서 읽은 조사자를 그대로 쓴다. 별지5호의
+   * 모집대행사와 다를 수 있어서다.
+   *
+   * ★비어 있으면 모집대행사로 채운다★ (2026-08-26) — 조사자를 적는 입력칸이 어느 화면에도
+   * 없다. 페이지 기본값이 상호 '한백' 하나뿐이라, 양식으로 새로 쓴 사전현장컨설팅결과서는
+   * 조사자 성명·연락처가 늘 빈 칸으로 나갔다(한백 김정우 010-5343-9983 이 빠진 것이 이것).
+   * 공용 매핑(schema-hec)은 그 자리를 sales* 로 메우게 되어 있는데 여기서 무조건 덮어써
+   * 그 길을 막고 있었다. 나이스는 모집대행사가 한백이라 메우는 값이 곧 조사자다.
+   */
+  maps.text['1414659046'] = form.surveyorCompany || form.salesCompany;
+  maps.text['-632096669'] = form.surveyorTel || form.salesTel;
+  maps.text['140012807'] = form.surveyorName || form.salesName;
   // 직인동의서 상호/주소/대표자/날짜는 기존 seal SDT id(900000001/2/3/4)로 채워짐.
   maps.text[NICE_CONTRACT_QTY_ID] = form.installQty;
   maps.text[NICE_CONTRACT_AMOUNT_ID] = computeNiceContractAmount(form.installQty);

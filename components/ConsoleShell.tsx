@@ -17,7 +17,7 @@
  * 그런데 계약접수 칸에 현장이 올라오는 출발점이 거기라서, 흐름이 끊겨 보이지 않게
  * 자리를 만들어 두고 바깥으로 나가는 표시를 붙였다.
  */
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
@@ -380,7 +380,21 @@ export default function ConsoleShell({
       </aside>
 
       {/* 본문은 전체 폭을 쓴다 — 보드의 칸이 화면 밖으로 나가지 않게 */}
-      <div className={`transition-[padding] duration-150 print:pl-0 ${open ? 'pl-[184px]' : 'pl-[56px]'}`}>
+      <div
+        className={`transition-[padding] duration-150 print:pl-0 ${open ? 'pl-[184px]' : 'pl-[56px]'}`}
+        /*
+         * 화면이 「위에 붙는 것」을 놓을 자리 — 껍데기만 아는 두 값을 물려준다.
+         *
+         * 붙박이(position: fixed)는 화면 기준이라 이 상자의 왼쪽 여백을 모른다. 그래서
+         * 현장 상세의 고정 현장명 같은 것이 사이드바 밑으로 들어갔다. 위쪽도 같다 —
+         * 상단 바 48px 아래이고, 대행 중이면 그 띠(py-1.5 + 12px 글줄 + 선 = 31px)만큼 더.
+         * 값을 쓰는 쪽에서 세면 사이드바를 접거나 대행을 켤 때마다 어긋난다.
+         */
+        style={{
+          '--console-left': open ? '184px' : '56px',
+          '--console-top': actAs ? '79px' : '48px',
+        } as CSSProperties}
+      >
         <TopBar role={role} />
         {/*
           * 대행 띠 — 지금 눈이 내 것이 아님을 어느 화면에서든 보인다. 사이드바에 관리

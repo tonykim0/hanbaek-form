@@ -12,7 +12,7 @@
  * ★탭마다 파일이 갈려 있다.★ 한 파일에 2천 줄로 있었는데, 정산 한 줄을 고치려고 열면
  * 서류·공정·메모가 같이 딸려 왔다. 탭은 서로를 모른다 — 여기가 무엇을 넘겨주는지만 안다.
  */
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { ContractState, ProjectDetail, SettlementRuleChoice } from '@/types/project';
@@ -315,6 +315,27 @@ function SiteHeader({
   const qty = lines.reduce((s, l) => s + l.qty, 0);
   const terms = [...new Set(lines.map((l) => l.termYears))];
 
+  /*
+   * 큰 현장명이 상단 바 밑으로 사라졌는가 — 그때만 고정 띠를 세운다.
+   *
+   * 스크롤 위치를 세지 않고 이름 자체를 지켜본다: 창 크기·사이드바·대행 띠에 따라
+   * 이름이 사라지는 지점이 달라지는데, 픽셀로 못 박으면 그때마다 어긋난다.
+   * rootMargin 위쪽을 상단 바(48px)만큼 밀어 그 바 뒤로 들어가는 순간을 경계로 삼는다.
+   */
+  const titleRef = useRef<HTMLDivElement>(null);
+  const [pinned, setPinned] = useState(false);
+  useEffect(() => {
+    const el = titleRef.current;
+    // 옛 브라우저에는 없다 — 없으면 띠가 안 뜰 뿐 화면은 그대로 돈다
+    if (!el || typeof IntersectionObserver === 'undefined') return;
+    const io = new IntersectionObserver(
+      ([entry]) => setPinned(!entry.isIntersecting),
+      { rootMargin: '-48px 0px 0px 0px' }
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+
   /** 이 현장을 지금 세우고 있는 것 */
   const blockers: Array<{ label: string; tone: Tone }> = [];
   if (project.holdState) {
@@ -342,6 +363,31 @@ function SiteHeader({
    */
 
   return (
+    <>
+    {/*
+      * 스크롤을 내려도 현장명은 남는다 (한백 2026-08-27).
+      *
+      * 이 화면은 아래로 길다 — 서류·공정·기성을 훑다 보면 「지금 어느 현장을 보고 있나」가
+      * 눈에서 사라진다. 목록에서 여러 건을 이어 열 때 특히 그렇다.
+      *
+      * ★같은 값이 한 화면에 두 번 서지 않는다★(화면 규칙 5) — 큰 이름이 화면 밖으로
+      * 나간 뒤에야 이 띠가 뜬다. 붙박이라 자리를 밀지 않는다: 뜰 때 본문이 덜컥 내려가면
+      * 읽던 줄을 놓친다. 위·왼쪽 자리는 껍데기가 물려준 값을 쓴다(--console-top/left) —
+      * 사이드바를 접거나 대행 띠가 뜨면 그 값이 따라 바뀐다.
+      *
+      * 단계 배지를 같이 세운다. 머리말에서 이름 위에 두는 것과 같은 이유로, 이 화면에서
+      * 이름 다음으로 먼저 알아야 하는 것이 「지금 어느 칸에 있나」다.
+      */}
+    {pinned && (
+      <div
+        /* 자리는 클래스가 아니라 여기서 준다 — 껍데기가 물려주는 변수라 Tailwind 가 값을 모른다 */
+        style={{ top: 'var(--console-top, 3rem)', left: 'var(--console-left, 0px)' }}
+        className="fixed right-0 z-10 flex items-center gap-2.5 border-b border-slate-200/80 bg-[#f7f8f4]/95 px-5 py-2 backdrop-blur transition-[left] duration-150 sm:px-7 print:hidden"
+      >
+        <Badge tone={BAND_TONE[band]}>{column}</Badge>
+        <span className="truncate text-lead font-black text-slate-900">{project.name}</span>
+      </div>
+    )}
     <div className="rounded-panel border border-slate-200 bg-white p-5 sm:p-6">
       {/*
         * 위는 현장의 사실, 아래가 진행현황 및 메모다. 한때 좌우 2열이었는데(오른쪽이 노는
@@ -364,7 +410,9 @@ function SiteHeader({
         {/* 삭제는 반대쪽 끝 — 자주 누르는 것과 붙여 두지 않는다(화면 규칙 8) */}
         {canReview && <DeleteProject projectId={project.id} name={project.name} />}
       </div>
-      <NameTitle projectId={project.id} name={project.name} canEdit={canReview} />
+      <div ref={titleRef}>
+        <NameTitle projectId={project.id} name={project.name} canEdit={canReview} />
+      </div>
       {project.addr && <p className="mt-1 text-base text-slate-500">{project.addr}</p>}
 
       {/*
@@ -447,6 +495,7 @@ function SiteHeader({
         <ProgressLog projectId={project.id} notes={detail.notes} author={noteAuthor} />
       </div>
     </div>
+    </>
   );
 }
 

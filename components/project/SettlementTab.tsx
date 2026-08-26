@@ -13,9 +13,10 @@
 import { Fragment, useState } from 'react';
 import Link from 'next/link';
 import type {
-  PayoutEntry, PayoutKind, ProjectDetail, SettlementRule, SettlementRuleChoice,
+  CpoName, PayoutEntry, PayoutKind, ProjectDetail, SettlementRule, SettlementRuleChoice,
   SettlementStep,
 } from '@/types/project';
+import { replLabel } from '@/types/project';
 import {
   collectionRate, distributionUnit, entryTypeOf, payoutSideOf, payoutStepsOf, STEP_LABEL, STEP_TONE,
   triggerSource, turnkeyUnit,
@@ -50,7 +51,12 @@ export function SettlementTab({
     <div className="flex flex-col gap-7">
       {/* 조건이 맨 위다(한백 확인) — 여기서 고른 케이스가 아래 모든 금액을 정한다 */}
       {canReview && ruleOptions && (
-        <PayConditions projectId={detail.project.id} lines={lines} ruleOptions={ruleOptions} />
+        <PayConditions
+          projectId={detail.project.id}
+          lines={lines}
+          cpo={detail.project.cpo}
+          ruleOptions={ruleOptions}
+        />
       )}
 
       {/*
@@ -59,7 +65,7 @@ export function SettlementTab({
         */}
       <div className="grid items-start gap-x-6 gap-y-7 xl:grid-cols-[minmax(0,1fr)_380px]">
         <div className="flex min-w-0 flex-col gap-7">
-          <ContractLines lines={lines} vis={vis} />
+          <ContractLines lines={lines} cpo={detail.project.cpo} vis={vis} />
 
           <PaymentSection
             projectId={detail.project.id}
@@ -240,7 +246,9 @@ function RuleFact({
  * 어느 쪽이 정본인지 알 수 없게 된다. 확정일은 안 적는다(한백 확인) — 언제 골랐는지는
  * 감사 기록의 일이고, 이 표는 무엇이 적용 중인지만 말한다.
  */
-function ContractLines({ lines, vis }: { lines: ProjectDetail['lines']; vis: Visibility }) {
+function ContractLines(
+  { lines, cpo, vis }: { lines: ProjectDetail['lines']; cpo: CpoName; vis: Visibility }
+) {
   return (
     <section>
       <h2 className="mb-2 text-h3 font-black text-slate-900">적용조건</h2>
@@ -267,7 +275,8 @@ function ContractLines({ lines, vis }: { lines: ProjectDetail['lines']; vis: Vis
                   {l.termYears}년 × {l.qty}대
                   {[l.replType, l.powerType].filter(Boolean).length > 0 && (
                     <span className="ml-1.5 text-tiny font-semibold text-slate-400">
-                      {[l.replType, l.powerType].filter(Boolean).join(' · ')}
+                      {[l.replType && replLabel(cpo, l.replType), l.powerType]
+                        .filter(Boolean).join(' · ')}
                     </span>
                   )}
                 </td>
@@ -316,10 +325,12 @@ function Money({ show, value }: { show: boolean; value: number | null }) {
  * 라인 이름과 셀렉트를 한 줄에 둔다 — 박스가 세로로 길면 조건 두 개에 화면 반이 나간다.
  */
 function PayConditions({
-  projectId, lines, ruleOptions,
+  projectId, lines, cpo, ruleOptions,
 }: {
   projectId: string;
   lines: ProjectDetail['lines'];
+  /** 교체유형 표기가 운영사로 갈린다 — 안 가르는 운영사는 「자체투자」 한 마디다 */
+  cpo: CpoName;
   ruleOptions: RuleOptions;
 }) {
   const { busy, error, run } = useAction();
@@ -351,7 +362,7 @@ function PayConditions({
                   * 앞의 둘만 보였다. 자투 11기가 「10대 · 1대」 두 줄로 서 있고 두 줄이
                   * 똑같아 보이면, 왜 갈렸는지 화면에 없다(한백 2026-08-26).
                   */}
-                {l.replType && <Tag>{l.replType}</Tag>}
+                {l.replType && <Tag>{replLabel(cpo, l.replType)}</Tag>}
                 {l.powerType && <Tag>{l.powerType}</Tag>}
                 <select
                   value={l.pricingRuleId ?? ''}

@@ -24,6 +24,7 @@ import {
   type BuildingType, type Channel, type CpoName, type LineAxes, type PricingRule, type ReplType,
   type BizType, type PromoExtendOption, type PromoStep, type SettlementRule, type SettlementStepRule, type Trigger,
 } from '@/types/project';
+import { replLabel } from '@/types/project';
 import { won } from '@/lib/format';
 import { useAction } from '@/lib/use-action';
 import { useBackClose } from '@/lib/use-back-close';
@@ -866,7 +867,7 @@ function Row({
         「무엇인가」를 말하고 있어서 꼬리표는 테를 한 겹 더 그리는 일뿐이고,
         누르는 것도 아니다(화면 규칙 11번 — 각지면 누르는 것).
       */}
-      <td className="break-keep border-l border-slate-100 px-3 py-2.5 text-slate-700">{r.replType}</td>
+      <td className="break-keep border-l border-slate-100 px-3 py-2.5 text-slate-700">{replLabel(r.cpo, r.replType)}</td>
       <td className="whitespace-nowrap px-3 py-2.5 text-slate-700">{r.powerType}</td>
       <td className="whitespace-nowrap px-3 py-2.5 tabular-nums text-slate-700">{r.termYears.join('·')}년</td>
       <td className="break-keep px-3 py-2.5 text-slate-700">
@@ -1125,7 +1126,7 @@ function CaseForm({
    */
   const bldgLabel = bldgs.length === 2 ? '전체' : (bldgs[0] ?? '');
   const caseName =
-    `${cpo} (${startDate}) | ${bldgLabel} | ${terms.join('·')}년 ${replType} | ${powerType}${channel === '턴키' ? '' : ` | ${channel}`}`;
+    `${cpo} (${startDate}) | ${bldgLabel} | ${terms.join('·')}년 ${replLabel(cpo, replType)} | ${powerType}${channel === '턴키' ? '' : ` | ${channel}`}`;
 
   const num = (v: string) => Math.max(0, Math.round(Number(v.replace(/[^0-9]/g, '')) || 0));
 

@@ -37,6 +37,7 @@
  * 선급 70만의 실제 트리거(계약서류 접수)는 목록에 없어 착공으로 두고 기타에 적었다.
  */
 import type { NewPricingRule, PromoExtendOption, PromoStep, SettlementStepRule } from '@/types/project';
+import { replLabel } from '@/types/project';
 
 const MARGIN = 200_000;
 const PAYOUT_CONS = 1_000_000;
@@ -149,7 +150,7 @@ const PL_INV_ROWS: { term: number; bldg: '공동주택' | '상업시설'; total:
 
 export function plNewRules(): NewPricingRule[] {
   return PL_INV_ROWS.map((row) => ({
-    caseName: `플러그링크 (${PL_START}) | ${row.bldg} | ${row.term}년 자체투자 (제자리교체) | 모자분리`,
+    caseName: `플러그링크 (${PL_START}) | ${row.bldg} | ${row.term}년 자체투자 | 모자분리`,
     cpo: '플러그링크',
     bizType: '자체투자',
     powerType: '모자분리',
@@ -230,7 +231,7 @@ export const HEC_DROP_IDS = ['hec-y7-10-mother-move-both-2026'] as const;
 export function hecNewRules(): NewPricingRule[] {
   // 교체유형으로 갈리지 않는다 — 한 벌만 만든다(위 HEC_DROP_IDS)
   return (['자체투자 (제자리교체)'] as const).map((replType) => ({
-    caseName: `현대엔지니어링 (${HEC_START}) | 전체 | 7·10년 ${replType} | 모자분리`,
+    caseName: `현대엔지니어링 (${HEC_START}) | 전체 | 7·10년 ${replLabel('현대엔지니어링', replType)} | 모자분리`,
     cpo: '현대엔지니어링',
     bizType: '자체투자',
     powerType: '모자분리',

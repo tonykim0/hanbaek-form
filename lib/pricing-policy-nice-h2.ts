@@ -52,6 +52,7 @@ import type { ProjectRepository } from '@/lib/data/repository';
 import { checkPricingRule, duplicateOf } from '@/lib/pricing-match';
 import { settlementStepsKeyOf } from '@/lib/settlement';
 import type { NewPricingRule, PowerType, PromoStep, ReplType, SettlementStepRule } from '@/types/project';
+import { replLabel } from '@/types/project';
 
 /** 적용 시작 — 정책이 못 박은 날. 케이스 이름에 그대로 들어가 개정을 가른다 */
 export const NICE_H2_START = '2026년 8월 1일';
@@ -200,7 +201,7 @@ function ruleOf(row: PolicyRow): NewPricingRule {
 
   // 화면(PricingMatrix)이 만드는 라벨과 같은 꼴로 — 같은 케이스가 두 얼굴로 뜨지 않게
   const caseName =
-    `나이스인프라 (${NICE_H2_START}) | 공동주택 | ${row.term}년 ${row.replType} | ${row.powerType}`;
+    `나이스인프라 (${NICE_H2_START}) | 공동주택 | ${row.term}년 ${replLabel('나이스인프라', row.replType)} | ${row.powerType}`;
   const sub = row.replType === '환경부 신규';
 
   return {

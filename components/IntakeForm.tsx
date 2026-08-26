@@ -25,7 +25,7 @@ import { useRouter } from 'next/navigation';
 import type {
   BizType, BuildingType, ContractParty, CpoName, IntakeDraft, PowerType, PreInstall, ReplType,
 } from '@/types/project';
-import { bizTypeOfRepl, docContentType } from '@/types/project';
+import { bizTypeOfRepl, docContentType, replLabel, SPLITS_SELF_REPL } from '@/types/project';
 import { buildDocContext, evaluateDocs } from '@/lib/doc-rules';
 import { checkDraft } from '@/lib/intake-validate';
 import { regionPrefixOf, withRegionPrefix } from '@/lib/region';
@@ -70,12 +70,6 @@ interface Line {
 
 /** 자체투자 현장에서 갈리는 교체유형 두 가지 */
 const SELF_REPLS = ['자체투자 (제자리교체)', '자체투자 (신규위치)'] as const satisfies readonly ReplType[];
-/**
- * 자체투자에서 제자리교체·신규위치가 단가를 가르는 운영사.
- * 나머지는 금액이 같아 단가 케이스도 제자리교체 한 칸뿐이다 —
- * 두 행을 펴면 한 현장이 두 라인으로 갈리기만 한다.
- */
-const SPLITS_SELF_REPL = new Set<CpoName>(['에버온', 'SK일렉링크']);
 
 export default function IntakeForm({ org, isAdmin = false, knownOrgs = [] }: {
   /** 세션의 소속. 협력사는 화면에 적지 않는다 — 서버가 접수자의 소속으로 현장을 만든다. */
@@ -612,6 +606,7 @@ export default function IntakeForm({ org, isAdmin = false, knownOrgs = [] }: {
           >
             <QtyGrid
               rows={replRows}
+              rowLabel={(r) => replLabel(cpo, r as ReplType)}
               cols={powerCols}
               value={qty}
               keyOf={cellKey}
@@ -953,13 +948,15 @@ function Preview({ url }: { url: string }) {
  * 표를 억지로 그리면 「환경부 신규 × 한전불입」 한 칸에 머리글이 둘 붙어 읽기 어렵다.
  */
 function QtyGrid({
-  rows, cols, value, keyOf, onChange,
+  rows, cols, value, keyOf, onChange, rowLabel,
 }: {
   rows: string[];
   cols: Array<string | null>;
   value: Record<string, number>;
   keyOf: (row: never, col: never) => string;
   onChange: (key: string, n: number) => void;
+  /** 행 이름 — 키는 그대로 두고 보이는 말만 바꾼다(교체유형을 안 가르는 운영사) */
+  rowLabel?: (row: string) => string;
 }) {
   const single = rows.length === 1 && cols.length === 1;
   const num = (e: React.ChangeEvent<HTMLInputElement>) =>
@@ -1003,7 +1000,7 @@ function QtyGrid({
           {rows.map((r) => (
             <tr key={r}>
               <th className="w-[150px] px-3 py-2 text-left text-small font-bold text-slate-600">
-                {r.replace('자체투자 ', '').replace(/[()]/g, '')}
+                {(rowLabel ? rowLabel(r) : r).replace('자체투자 ', '').replace(/[()]/g, '')}
               </th>
               {cols.map((c) => {
                 const k = keyOf(r as never, c as never);

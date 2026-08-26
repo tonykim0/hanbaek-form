@@ -30,6 +30,8 @@ import { buildDocContext, evaluateDocs } from '@/lib/doc-rules';
 import { checkDraft } from '@/lib/intake-validate';
 import { regionPrefixOf, withRegionPrefix } from '@/lib/region';
 import { useLeaveGuard } from '@/lib/use-leave-guard';
+// 부품은 콘솔·포털이 같이 쓴다 — 같은 일에 같은 모양이어야 접수 폼이 다른 앱처럼 보이지 않는다
+import { Picks } from '@/components/ui';
 import type { DocFinding, DocReview, AutoIntakeResult } from '@/types/intake-auto';
 
 const CPOS: CpoName[] = ['플러그링크', '나이스인프라', '현대엔지니어링', 'SK일렉링크', '에버온'];
@@ -997,7 +999,14 @@ function QtyGrid({
   );
 
   return (
+    /*
+     * 좁은 화면에서는 옆으로 흐른다 (2026-08-27) — 겸용(한전불입+모자분리) 현장은 열이
+     * 늘어나는데, overflow-hidden 만 두었더니 스크롤이 아니라 ★잘려 나갔다★. 대수 칸이
+     * 화면 밖으로 밀린 줄 모른 채 접수되면 대수가 빠진 계약이 된다.
+     * 둥근 모서리를 지키는 겉과 흐르는 속을 나눈다 — 한 겹에 둘을 주면 세로 스크롤이 딸려온다.
+     */
     <div className="overflow-hidden rounded-xl border border-slate-200">
+     <div className="overflow-x-auto">
       <table className="w-full text-sm">
         {cols.length > 1 && (
           <thead className="bg-slate-50 text-tiny font-bold text-slate-500">
@@ -1036,6 +1045,7 @@ function QtyGrid({
           ))}
         </tbody>
       </table>
+     </div>
       <p className="border-t border-slate-100 bg-slate-50 px-3 py-1.5 text-tiny font-bold text-slate-500">
         합계 <span className="tabular-nums text-slate-800">{total}</span>기
       </p>
@@ -1061,19 +1071,5 @@ function Select({
 
 /** 이미 쓰이는 업체 이름 — 눌러서 넣는다. 계정에 있는 것이 먼저 온다. */
 function OrgPicks({ names, onPick }: { names: string[]; onPick: (v: string) => void }) {
-  if (names.length === 0) return null;
-  return (
-    <div className="mt-1.5 flex flex-wrap gap-1">
-      {names.map((n) => (
-        <button
-          key={n}
-          type="button"
-          onClick={() => onPick(n)}
-          className="rounded-full border border-slate-200 px-2 py-0.5 text-micro font-bold text-slate-500 transition hover:border-brand-300 hover:text-brand-800"
-        >
-          {n}
-        </button>
-      ))}
-    </div>
-  );
+  return <Picks options={names} onPick={onPick} className="mt-1.5" />;
 }

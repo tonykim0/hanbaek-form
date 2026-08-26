@@ -156,7 +156,9 @@ export default function StatementView({
            * 종이에서는 글자를 한 단계 줄인다 — 열이 여덟이라 A4 여백 안쪽(약 186mm)에
            * 16px 로는 안 들어간다. 화면에서는 그대로 크게 읽는다.
            */
-          <table className="mt-4 w-full text-base print:text-small">
+          /* 열이 여덟이라 좁은 화면에서는 옆으로 흐른다 — 종이에서는 폭이 정해져 있어 그대로다 */
+          <div className="mt-4 overflow-x-auto print:overflow-visible">
+          <table className="w-full text-base print:text-small">
             <thead className="border-b border-slate-200 text-tiny font-bold tracking-[0.08em] text-slate-500">
               <tr>
                 <th className="py-2 pr-3 text-left">현장</th>
@@ -214,6 +216,7 @@ export default function StatementView({
               </tr>
             </tfoot>
           </table>
+          </div>
         )}
 
         {/*

@@ -20,7 +20,7 @@ import {
   FormActions,
   type SubmitStatus,
 } from '@/components/contracts/PageChrome';
-import { DEFAULT_YEAR, formatAdvancedSuccessMessage } from '@/lib/contract-form';
+import { DEFAULT_YEAR, SALES_DEFAULT, formatAdvancedSuccessMessage } from '@/lib/contract-form';
 import { downloadBlob } from '@/lib/download';
 import { SkFormData } from '@/lib/schema-sk';
 import { useInternalModeState } from '@/lib/use-internal-mode';
@@ -32,9 +32,10 @@ const defaultValues: Partial<SkFormData> = {
   contractMonth: '',
   contractDay: '',
   contractTerm: '10',
-  salesCompany: '한백이엔씨',
-  salesName: '류승종',
-  salesTel: '010-8696-0898',
+  // 모집대행사 기본값은 lib/contract-form 한 곳에 있다 — 재발행의 조사자 칸도 이 값을 쓴다
+  salesCompany: SALES_DEFAULT.sk.company,
+  salesName: SALES_DEFAULT.sk.name,
+  salesTel: SALES_DEFAULT.sk.tel,
   surveyorCompany: '한백',
   surveyorName: '',
   surveyorTel: '',

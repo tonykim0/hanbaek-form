@@ -20,7 +20,7 @@ import {
   FormActions,
   type SubmitStatus,
 } from '@/components/contracts/PageChrome';
-import { DEFAULT_YEAR, formatAdvancedSuccessMessage } from '@/lib/contract-form';
+import { DEFAULT_YEAR, SALES_DEFAULT, formatAdvancedSuccessMessage } from '@/lib/contract-form';
 import { downloadBlob } from '@/lib/download';
 import { NiceFormData } from '@/lib/schema-nice';
 import { useInternalModeState } from '@/lib/use-internal-mode';
@@ -32,9 +32,10 @@ const defaultValues: Partial<NiceFormData> = {
   contractMonth: '',
   contractDay: '',
   contractTerm: '10',
-  salesCompany: '한백',
-  salesName: '김정우',
-  salesTel: '010-5343-9983',
+  // 모집대행사 기본값은 lib/contract-form 한 곳에 있다 — 재발행의 조사자 칸도 이 값을 쓴다
+  salesCompany: SALES_DEFAULT.nice.company,
+  salesName: SALES_DEFAULT.nice.name,
+  salesTel: SALES_DEFAULT.nice.tel,
   surveyorCompany: '한백',
   surveyorName: '',
   surveyorTel: '',

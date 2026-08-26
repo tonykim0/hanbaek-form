@@ -14,7 +14,7 @@ import {
   FormActions,
   type SubmitStatus,
 } from '@/components/contracts/PageChrome';
-import { DEFAULT_YEAR, formatBasicSuccessMessage } from '@/lib/contract-form';
+import { DEFAULT_YEAR, SALES_DEFAULT, formatBasicSuccessMessage } from '@/lib/contract-form';
 import { downloadBlob } from '@/lib/download';
 import { ContractFormData } from '@/lib/schema';
 import { useInternalModeState } from '@/lib/use-internal-mode';
@@ -26,9 +26,10 @@ const defaultValues: Partial<ContractFormData> = {
   contractMonth: '',
   contractDay: '',
   contractTerm: '7',
-  salesCompany: '한비',
-  salesName: '김종혁',
-  salesTel: '010-3627-7047',
+  // 모집대행사 기본값은 lib/contract-form 한 곳에 있다 — 재발행의 조사자 칸도 이 값을 쓴다
+  salesCompany: SALES_DEFAULT.pluglink.company,
+  salesName: SALES_DEFAULT.pluglink.name,
+  salesTel: SALES_DEFAULT.pluglink.tel,
   surveyorCompany: '한백',
   surveyorName: '',
   surveyorTel: '',

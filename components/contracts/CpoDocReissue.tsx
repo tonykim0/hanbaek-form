@@ -7,12 +7,15 @@
  * 필요한 일이 있고 결과서만 필요한 일이 따로 있어서, 둘을 한 파일로 묶어 주면
  * 필요 없는 장을 사람이 지워야 했다. 두 칸은 서로를 기다리지 않는다.
  *
- * 판독은 그 서류 하나만 보고 한다 — 다른 서류에만 있는 칸(설치신청서의 모집대행사,
- * 결과서의 조사자)은 그 서류를 넣었을 때만 채워지므로, 빈칸 보고도 서류별로 갈랐다.
+ * 판독은 그 서류 하나만 보고 한다 — 다른 서류에만 있는 칸(설치신청서의 모집대행사)은
+ * 그 서류를 넣었을 때만 채워지므로, 빈칸 보고도 서류별로 갈랐다.
+ *
+ * 결과서의 조사자 칸은 예외다 — 원본에서 읽지 않고 운영사별 고정 모집대행사 값을 쓰고,
+ * 그 표에서 원본을 따르는 것은 조사일뿐이다(toCommonFormData 주석).
  */
 
 import { useState } from 'react';
-import { buildContractFilename, DEFAULT_YEAR } from '@/lib/contract-form';
+import { buildContractFilename, DEFAULT_YEAR, SALES_DEFAULT } from '@/lib/contract-form';
 import { downloadBlob } from '@/lib/download';
 import {
   FIELD_LABELS,
@@ -104,9 +107,7 @@ const DOCS: readonly DocSpec[] = [
       'buildingType',
       'ownership',
       'ownerRelation',
-      'surveyorCompany',
-      'surveyorName',
-      'surveyorTel',
+      // 조사자 세 칸은 읽은 값을 쓰지 않는다(고정 모집대행사 값) — 못 읽었다고 셀 것도 없다
       'dupNone',
     ],
   },
@@ -369,6 +370,7 @@ type CommonAutoFormData = Omit<
 };
 
 function toCommonFormData(
+  cpo: CpoKey,
   result: FormImportResult,
   defaultContractTerm: '7' | '10'
 ): CommonAutoFormData {
@@ -393,9 +395,15 @@ function toCommonFormData(
     salesCompany: f.salesCompany ?? '',
     salesName: f.salesName ?? '',
     salesTel: f.salesTel ?? '',
-    surveyorCompany: f.surveyorCompany ?? '',
-    surveyorName: f.surveyorName ?? '',
-    surveyorTel: f.surveyorTel ?? '',
+    /*
+     * ★결과서(별지7호)의 조사자 칸은 원본 스캔에서 읽은 값을 쓰지 않는다★ (한백 지시 2026-08-26).
+     * 조사는 한백 쪽에서 하므로 조사업체·조사자명·연락처는 운영사별 고정 모집대행사 값이고,
+     * 원본 서류에서 따오는 것은 그 표의 ★조사일★ 하나뿐이다(계약일 = 조사일).
+     * 별지5호의 모집대행사 칸은 그 현장의 사실이라 읽은 값을 그대로 쓴다.
+     */
+    surveyorCompany: SALES_DEFAULT[cpo].company,
+    surveyorName: SALES_DEFAULT[cpo].name,
+    surveyorTel: SALES_DEFAULT[cpo].tel,
     parkingLotCount: f.parkingLotCount ?? '',
     siteCategory: f.siteCategory ?? '',
     buildingType: f.buildingType ?? '',
@@ -432,7 +440,7 @@ async function fillLatestTemplate(
   result: FormImportResult,
   defaultContractTerm: '7' | '10'
 ): Promise<{ blob: Blob; contractYear: string; custName: string }> {
-  const common = toCommonFormData(result, defaultContractTerm);
+  const common = toCommonFormData(cpo, result, defaultContractTerm);
   const f = result.fields;
 
   if (cpo === 'hec') {

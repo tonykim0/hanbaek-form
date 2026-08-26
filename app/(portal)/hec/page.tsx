@@ -21,7 +21,7 @@ import {
   FormActions,
   type SubmitStatus,
 } from '@/components/contracts/PageChrome';
-import { DEFAULT_YEAR, formatAdvancedSuccessMessage } from '@/lib/contract-form';
+import { DEFAULT_YEAR, SALES_DEFAULT, formatAdvancedSuccessMessage } from '@/lib/contract-form';
 import { downloadBlob } from '@/lib/download';
 import { HecFormData } from '@/lib/schema-hec';
 import { useInternalModeState } from '@/lib/use-internal-mode';
@@ -33,9 +33,10 @@ const defaultValues: Partial<HecFormData> = {
   contractMonth: '',
   contractDay: '',
   contractTerm: '7',
-  salesCompany: '(주) 우원',
-  salesName: '정용주',
-  salesTel: '010-3124-0341',
+  // 모집대행사 기본값은 lib/contract-form 한 곳에 있다 — 재발행의 조사자 칸도 이 값을 쓴다
+  salesCompany: SALES_DEFAULT.hec.company,
+  salesName: SALES_DEFAULT.hec.name,
+  salesTel: SALES_DEFAULT.hec.tel,
   surveyorCompany: '한백',
   surveyorName: '',
   surveyorTel: '',

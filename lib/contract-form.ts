@@ -1,5 +1,24 @@
 export const YEAR_OPTIONS = ['2025', '2026', '2027'] as const;
 export const DEFAULT_YEAR = '2026';
+
+/**
+ * 운영사별 모집대행사 — 계약서 작성 화면의 기본값이자 서류 재발행에서 결과서의
+ * 조사자 칸에 들어가는 값이다 (한백 지시 2026-08-26).
+ *
+ * ★한 곳에 모아 둔다★ — 네 페이지에 각각 적혀 있어서 재발행이 그 값을 알 길이 없었고,
+ * 그래서 재발행 결과서는 협력사 원본 스캔에 적힌 조사자를 그대로 옮겨 적고 있었다.
+ * 조사자는 늘 한백 쪽 사람이라 원본에서 따올 값이 아니다. 여기만 고치면 화면 기본값과
+ * 재발행이 같이 바뀐다.
+ */
+export const SALES_DEFAULT: Record<
+  'hec' | 'nice' | 'sk' | 'pluglink',
+  { company: string; name: string; tel: string }
+> = {
+  hec: { company: '(주) 우원', name: '정용주', tel: '010-3124-0341' },
+  nice: { company: '한백', name: '김정우', tel: '010-5343-9983' },
+  sk: { company: '한백이엔씨', name: '류승종', tel: '010-8696-0898' },
+  pluglink: { company: '한비', name: '김종혁', tel: '010-3627-7047' },
+};
 /**
  * 전화번호 입력 시 자동으로 하이픈(-)을 삽입한다.
  * - 15xx/16xx/18xx 대표번호: XXXX-XXXX

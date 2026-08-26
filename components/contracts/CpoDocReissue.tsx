@@ -63,12 +63,12 @@ const SHARED_FIELDS: readonly ImportedFieldKey[] = [
   'custAddr',
   'installAddr',
   'installQty',
-  'contractYear',
-  'contractMonth',
-  'contractDay',
   'parkingLotCount',
   'siteCategory',
 ];
+
+/** 날짜 세 칸 — 별지5호의 신청일, 별지7호의 조사일이 같은 값이다 */
+const DATE_FIELDS: readonly ImportedFieldKey[] = ['contractYear', 'contractMonth', 'contractDay'];
 
 interface DocSpec {
   section: DocumentSection;
@@ -82,6 +82,14 @@ interface DocSpec {
   detect: RegExp;
   /** 이 서류를 뽑는 데 필요한 칸 */
   required: readonly ImportedFieldKey[];
+  /**
+   * 날짜를 비워 내보낼지.
+   *
+   * 결과서의 조사자 표(7번)는 원본에서 읽은 상호·조사자명·연락처를 그대로 쓰되
+   * ★조사일은 비운다★ (한백 지시 2026-08-26) — 다시 내는 서류라 그 날짜는 새로 적는다.
+   * 별지5호의 신청일은 그대로 둔다.
+   */
+  blankDate?: boolean;
 }
 
 const DOCS: readonly DocSpec[] = [
@@ -91,7 +99,15 @@ const DOCS: readonly DocSpec[] = [
     formNo: '별지5호',
     fileLabel: '설치신청서',
     detect: /별지제?5호|설치신청서/,
-    required: [...SHARED_FIELDS, 'custBizId', 'custTel', 'salesCompany', 'salesName', 'salesTel'],
+    required: [
+      ...SHARED_FIELDS,
+      ...DATE_FIELDS,
+      'custBizId',
+      'custTel',
+      'salesCompany',
+      'salesName',
+      'salesTel',
+    ],
   },
   {
     section: 'consulting',
@@ -99,6 +115,8 @@ const DOCS: readonly DocSpec[] = [
     formNo: '별지7호',
     fileLabel: '사전현장컨설팅결과서',
     detect: /별지제?7호|사전현장컨설팅|컨설팅결과서/,
+    blankDate: true,
+    // 날짜는 비워 내보내므로 빈칸 보고에서도 뺀다
     required: [
       ...SHARED_FIELDS,
       'buildingType',
@@ -164,7 +182,11 @@ function DocReissueCard({
       ensureDocument(extracted, doc);
 
       setPhase({ kind: 'generating' });
-      const filled = await fillLatestTemplate(cpo, extracted, config.defaultContractTerm);
+      const filled = await fillLatestTemplate(
+        cpo,
+        doc.blankDate ? withoutDate(extracted) : extracted,
+        config.defaultContractTerm
+      );
       const { sliceSelectedDocuments } = await import('@/lib/slice-docx');
       const sliced = await sliceSelectedDocuments(filled.blob, [doc.section], {
         installQty11to30: extracted.fields.installQty11to30,
@@ -174,7 +196,8 @@ function DocReissueCard({
         dupKioskQty: extracted.fields.dupKioskQty,
       });
       const outputName = buildContractFilename(
-        filled.contractYear || DEFAULT_YEAR,
+        // 날짜를 비운 서류도 파일 이름의 연도는 읽은 값을 쓴다 — 어느 해 건인지 찾을 표시다
+        extracted.fields.contractYear || DEFAULT_YEAR,
         `${config.shortName}_${doc.fileLabel}`,
         filled.custName || '미확인현장'
       );
@@ -246,6 +269,8 @@ function DocReissueCard({
             <p className="text-sm font-bold text-emerald-800">다운로드 완료 — {filename}</p>
             <p className="text-xs text-emerald-700">
               {result.analyzedPages}페이지를 판독했습니다.
+              {/* 비운 것은 그 자리에서 말한다 (화면 규칙 9번) — 빈칸을 보고 사고로 오해하지 않게 */}
+              {doc.blankDate && ' 조사자는 원본 그대로 넣고 조사일은 비워 두었습니다.'}
             </p>
             {result.issues.length > 0 && (
               <Notice title="서류에서 감지한 확인사항" tone="amber">
@@ -339,6 +364,19 @@ function phaseText(
   if (phase.kind === 'uploading') return `업로드 중... ${phase.percentage}%`;
   if (phase.kind === 'reading') return 'AI가 판독 중입니다...';
   return `최신 ${operatorName} 양식으로 생성 중입니다...`;
+}
+
+/**
+ * 날짜만 뺀 판독 결과.
+ *
+ * 조사일은 결과서의 조사자 표 안에 있어서 그 표를 비우지 않고 날짜만 비워야 한다 —
+ * 세 칸이 다 비면 그 자리는 아예 빈 칸이 된다(lib/schema.ts surveyDate).
+ */
+function withoutDate(result: FormImportResult): FormImportResult {
+  return {
+    ...result,
+    fields: { ...result.fields, contractYear: '', contractMonth: '', contractDay: '' },
+  };
 }
 
 /** 넣은 PDF 가 그 서류인지 본다 — 엉뚱한 서류를 넣으면 빈 양식이 나온다 */

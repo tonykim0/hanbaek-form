@@ -513,7 +513,7 @@ export type ProcessPatch = Partial<
     | 'installedSpots' | 'installedUnits'
     | 'commDoneDate' | 'openDate' | 'memo'
     | 'notifyDate' | 'chargerQty' | 'modemQty' | 'chargerOrderQty' | 'modemOrderQty' | 'chargerModelId'
-    | 'notifyDoneAt' | 'notifySkippedAt' | 'chargerDoneAt' | 'installConfirmedAt'
+    | 'notifyDoneAt' | 'notifySkippedAt' | 'notifyRequiredAt' | 'chargerDoneAt' | 'installConfirmedAt'
     | 'openDoneAt' | 'completionSubmitAt'
   >
 >;

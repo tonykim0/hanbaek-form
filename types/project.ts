@@ -598,6 +598,15 @@ export interface ProcessInfo {
    * 값이다(화면 규칙 10). 둘 중 하나면 「시공진행필요」의 조건이 찬다.
    */
   notifySkippedAt: string | null;
+  /**
+   * 행위신고가 필요하다고 판정한 날.
+   *
+   * ★불필요의 반대편을 따로 담는 이유★ 「아직 안 정했다」와 「필요하다고 정했다」가
+   * 같은 값(둘 다 null)이면, 화면은 신고일·파일 칸을 언제 열어야 하는지 알 수 없다.
+   * 필요여부를 먼저 고르게 하고(한백 지시 2026-08-26), 고른 뒤에 그 아래를 연다.
+   * 이 칸은 단계를 열지 않는다 — 넘어가는 것은 완료(또는 불필요)다.
+   */
+  notifyRequiredAt: string | null;
   /** 발주한 수량 — 한백이 적는다. 수령과 가른다(부분 입고를 알아야 한다) */
   chargerOrderQty: number | null;
   modemOrderQty: number | null;

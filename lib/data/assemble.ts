@@ -144,6 +144,7 @@ export const emptyProcess = (projectId: string): ProcessInfo => ({
   chargerModelId: null,
   notifyDoneAt: null,
   notifySkippedAt: null,
+  notifyRequiredAt: null,
   chargerDoneAt: null,
   installConfirmedAt: null,
   openDoneAt: null,

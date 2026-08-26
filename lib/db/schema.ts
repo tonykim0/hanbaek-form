@@ -287,6 +287,8 @@ export const processes = pgTable('processes', {
   notifyDoneAt: text('notify_done_at'),
   /** 행위신고 불필요로 판정한 날 — 완료와 다른 칸이다 (migrations/0024) */
   notifySkippedAt: text('notify_skipped_at'),
+  /** 행위신고가 필요하다고 판정한 날 — 미정과 가른다 (migrations/0029) */
+  notifyRequiredAt: text('notify_required_at'),
   chargerDoneAt: text('charger_done_at'),
   installConfirmedAt: text('install_confirmed_at'),
   openDoneAt: text('open_done_at'),

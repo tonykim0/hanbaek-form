@@ -35,7 +35,8 @@ type DateField =
 
 /** 묶음별 완료 체크 칸 */
 type CheckField =
-  | 'notifyDoneAt' | 'notifySkippedAt' | 'chargerDoneAt' | 'installConfirmedAt' | 'openDoneAt'
+  | 'notifyDoneAt' | 'notifySkippedAt' | 'notifyRequiredAt'
+  | 'chargerDoneAt' | 'installConfirmedAt' | 'openDoneAt'
   | 'completionSubmitAt';
 
 /** 수량 칸 — 설치 실적(거점·기) · 발주 수량(한백) · 수령 수량(협력사) */
@@ -66,10 +67,13 @@ interface Group {
   /** 이 묶음을 끝냈다는 사람의 선언 */
   check?: GroupCheck;
   /**
-   * 이 묶음이 그 현장에는 해당 없다는 선언 — 완료와 나란히 서고, 같은 걸음을 연다.
-   * 안 하는 일을 「했다」고 체크하게 두지 않기 위한 자리다(화면 규칙 10).
+   * 이 묶음을 할지 말지 먼저 고르는 자리 — 「필요」·「불필요」 두 단추다.
+   *
+   * 안 하는 일을 「했다」고 체크하게 두지 않기 위한 자리이고(화면 규칙 10), 고르기
+   * 전에는 아래 줄(날짜·서류·완료)을 펴지 않는다 — 안 낼 서류를 내라고 재촉하지 않는다.
+   * 불필요를 고르면 완료와 같은 걸음이 열린다(lib/process CHECK_ADVANCES).
    */
-  skip?: GroupCheck;
+  need?: { field: CheckField; skipField: CheckField; label: string };
 }
 
 export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit: ProcessEdit }) {
@@ -185,22 +189,24 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
          */
         check: {
           field: 'notifyDoneAt', label: '행위신고 완료',
-          ready: Boolean(p.notifyDate) && uploaded('notify') && !p.notifySkippedAt,
-          blocked: p.notifySkippedAt
-            ? '불필요로 표시됨'
-            : !p.notifyDate && !uploaded('notify')
-              ? '신고일·파일 필요'
-              : !p.notifyDate ? '신고일 필요' : '신고 파일 필요',
+          ready: Boolean(p.notifyDate) && uploaded('notify'),
+          // 불필요를 고른 현장에는 이 줄이 아예 안 뜬다 — 그 분기를 여기 둘 필요가 없다
+          blocked: !p.notifyDate && !uploaded('notify')
+            ? '신고일·파일 필요'
+            : !p.notifyDate ? '신고일 필요' : '신고 파일 필요',
         },
         /*
-         * 행위신고가 필요 없는 현장이 있다 (한백 지시 2026-08-26) — 조건을 두지 않는다.
-         * 서류로 확인할 수 있는 일이 아니라 사람이 내리는 판정이고, 체크하는 순간
-         * 「시공진행필요」가 열린다(lib/process CHECK_ADVANCES).
+         * ★필요여부를 먼저 고른다★ (한백 지시 2026-08-26) — 「필요」·「불필요」 두 단추다.
+         * 서류로 확인할 수 있는 일이 아니라 사람이 내리는 판정이라 조건을 두지 않는다.
+         * 불필요를 고르면 그 자리에서 「시공진행필요」가 열리고(lib/process CHECK_ADVANCES),
+         * 필요를 고르면 아래 줄(신고일·서류·완료)이 열린다.
+         *
+         * 예전에는 「행위신고 불필요」라는 이름의 체크 한 줄이었다 — 이름과 단추가 같은 말을
+         * 두 번 해서, 무엇을 고르는 자리인지 읽히지 않았다(한백 지적).
          */
-        skip: {
-          field: 'notifySkippedAt', label: '행위신고 불필요',
-          ready: !p.notifyDoneAt,
-          blocked: '완료로 표시됨',
+        need: {
+          field: 'notifyRequiredAt', skipField: 'notifySkippedAt',
+          label: '행위신고 필요여부',
         },
       },
     ],
@@ -462,17 +468,19 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
                       * 필요 없는 현장이 있어서, 날짜·파일을 먼저 보여주면 안 낼 서류를
                       * 내라고 재촉하는 화면이 된다. 불필요를 고르면 아래 줄은 잠긴다.
                       */}
-                    {g.skip && (
-                      <CheckRow
-                        check={g.skip}
-                        value={p[g.skip.field]}
+                    {g.need && (
+                      <NeedRow
+                        need={g.need}
+                        requiredAt={p[g.need.field]}
+                        skippedAt={p[g.need.skipField]}
                         canEdit={canEdit && selState !== 'future'}
-                        busy={busyKey === g.skip.field}
-                        onToggle={saveCheck}
+                        busy={busyKey === g.need.field || busyKey === g.need.skipField}
+                        onPick={saveCheck}
                       />
                     )}
 
-                    {g.rows.map((m) => (
+                    {/* 필요여부를 고르기 전에는 아래를 펴지 않는다 — 불필요면 낼 것이 없다 */}
+                    {(!g.need || Boolean(p[g.need.field])) && g.rows.map((m) => (
                       <DateRow
                         key={m.field}
                         m={m}
@@ -557,7 +565,7 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
                       />
                     )}
 
-                    {g.docs.map((kind) => {
+                    {(!g.need || Boolean(p[g.need.field])) && g.docs.map((kind) => {
                       const spec = PROCESS_DOCS.find((x) => x.key === kind);
                       if (!spec) return null;
                       return (
@@ -573,7 +581,7 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
                       );
                     })}
 
-                    {g.check && (
+                    {g.check && (!g.need || Boolean(p[g.need.field])) && (
                       <CheckRow
                         check={g.check}
                         value={p[g.check.field]}
@@ -930,6 +938,64 @@ function DocRow({
  *
  * 끝낸 뒤에는 날짜와 함께 굳고, 되돌리는 단추가 반대쪽 끝에 선다(규칙 7·8).
  */
+/**
+ * 할지 말지 먼저 고르는 줄 — 「필요」·「불필요」 두 단추.
+ *
+ * 예전에는 「행위신고 불필요」라는 체크 한 줄이었다. 이름과 단추가 같은 말을 두 번 해서
+ * 무엇을 고르는 자리인지 읽히지 않았고, 「필요」라고 정한 것을 남길 곳도 없었다
+ * (한백 지적 2026-08-26). 고르면 글자로 굳고, 되돌리는 자리는 반대쪽 끝이다(화면 규칙 4·8).
+ */
+function NeedRow({
+  need, requiredAt, skippedAt, canEdit, busy, onPick,
+}: {
+  need: { field: CheckField; skipField: CheckField; label: string };
+  requiredAt: string | null;
+  skippedAt: string | null;
+  canEdit: boolean;
+  busy: boolean;
+  onPick: (field: CheckField, checked: boolean) => void;
+}) {
+  const picked: '필요' | '불필요' | null = requiredAt ? '필요' : skippedAt ? '불필요' : null;
+  const at = requiredAt ?? skippedAt;
+
+  return (
+    <div className="flex flex-wrap items-center gap-3 px-3.5 py-2 text-base">
+      <span className="w-32 shrink-0 font-bold text-slate-700">{need.label}</span>
+      {picked ? (
+        <>
+          <span className={`font-bold ${picked === '필요' ? 'text-brand-800' : 'text-slate-500'}`}>
+            {picked} · {at}
+          </span>
+          {canEdit && (
+            <Btn
+              kind="quiet"
+              size="sm"
+              busy={busy}
+              busyLabel="되돌리는 중…"
+              onClick={() => onPick(picked === '필요' ? need.field : need.skipField, false)}
+              className="ml-auto"
+            >
+              되돌리기
+            </Btn>
+          )}
+        </>
+      ) : canEdit ? (
+        <span className="flex flex-wrap items-center gap-1.5">
+          {/* 필요를 고르면 아래 줄(신고일·서류·완료)이 열리고, 불필요면 다음 걸음이 열린다 */}
+          <Btn size="sm" busy={busy} busyLabel="처리 중…" onClick={() => onPick(need.field, true)}>
+            필요
+          </Btn>
+          <Btn size="sm" kind="quiet" busy={busy} busyLabel="처리 중…" onClick={() => onPick(need.skipField, true)}>
+            불필요
+          </Btn>
+        </span>
+      ) : (
+        <Empty kind="miss" />
+      )}
+    </div>
+  );
+}
+
 function CheckRow({
   check, value, canEdit, busy, onToggle,
 }: {

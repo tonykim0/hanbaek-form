@@ -22,7 +22,7 @@ const DATE_FIELDS = [
    */
   'openDate',
   'notifyDate',
-  'notifyDoneAt', 'notifySkippedAt', 'chargerDoneAt', 'installConfirmedAt', 'openDoneAt',
+  'notifyDoneAt', 'notifySkippedAt', 'notifyRequiredAt', 'chargerDoneAt', 'installConfirmedAt', 'openDoneAt',
   'completionSubmitAt',
 ] as const;
 
@@ -89,6 +89,13 @@ export const POST = sessionWrite<{ id: string }, Record<string, unknown>>(
      */
     if (patch.notifyDoneAt) patch.notifySkippedAt = null;
     else if (patch.notifySkippedAt) patch.notifyDoneAt = null;
+    /*
+     * 필요여부도 한쪽만 켠다 — 「필요」와 「불필요」가 같이 켜지면 화면이 어느 쪽으로
+     * 그려야 할지 알 수 없다. 불필요를 켜면 필요는 끄고, 반대도 같다.
+     * 불필요를 켜면 신고 흐름의 값(완료)도 함께 끈다 — 위 두 줄이 그 일을 한다.
+     */
+    if (patch.notifySkippedAt) patch.notifyRequiredAt = null;
+    else if (patch.notifyRequiredAt) patch.notifySkippedAt = null;
     if (Object.keys(patch).length === 0) throw new BadRequest('바꿀 값이 없습니다.');
 
     await getRepository().updateProcess(params.id, patch, actor);

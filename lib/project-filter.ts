@@ -17,7 +17,7 @@ import { boardColumnOf } from './board';
 export const EMPTY = '(없음)';
 
 export type AttrKey =
-  | 'col' | 'cpo' | 'term' | 'biz' | 'bldg' | 'power' | 'org' | 'sales' | 'gc' | 'queue' | 'pre';
+  | 'col' | 'cpo' | 'term' | 'biz' | 'bldg' | 'power' | 'sales' | 'gc' | 'queue' | 'pre';
 
 export interface Attr {
   key: AttrKey;
@@ -44,23 +44,12 @@ export const ATTRS: Attr[] = [
   { key: 'bldg', label: '건축물', valuesOf: (p) => one(p.bldgType) },
   { key: 'power', label: '수전방식', valuesOf: (p) => one(p.powerType) },
   /*
-   * 업체 — 영업사·시공사를 가리지 않는다 (한백 지시 2026-08-26).
+   * 영업사와 시공사는 ★따로 묻는다★ (한백 지시 2026-08-26).
    *
-   * 「이 업체 현장 다 보기」가 실제 질문이다. 겸업이 흔해서 같은 회사가 한 현장에서는
-   * 영업사, 다른 현장에서는 시공사다 — 역할로 갈라 두면 그 회사 현장을 한 번에 못 본다.
-   * 카드도 업체를 한 줄로 적는다(ProjectBoard: salesOrg ?? gcOrg).
-   *
-   * 역할별 축(영업사·시공사)은 그대로 남는다 — 표의 열 머리글에서 거는 것은 그쪽이고,
-   * 「누가 영업했나」와 「누가 짓나」는 여기서 답하지 않는다.
+   * 한 축으로 합쳐 「업체」를 뒀었는데 되돌린다 — 겸업이라 같은 회사가 양쪽에 서지만,
+   * 물을 때는 「누가 영업했나」와 「누가 짓나」를 갈라서 묻는다. 합친 축은 그 둘을
+   * 구분하지 못하고, 옆에 나란히 두면 셋이 같은 것을 세 벌로 묻게 된다.
    */
-  {
-    key: 'org',
-    label: '업체',
-    valuesOf: (p) => {
-      const list = [...new Set([p.salesOrg, p.gcOrg].filter((v): v is string => Boolean(v?.trim())))];
-      return list.length ? list : [EMPTY];
-    },
-  },
   { key: 'sales', label: '영업사', valuesOf: (p) => one(p.salesOrg) },
   { key: 'gc', label: '시공사', valuesOf: (p) => one(p.gcOrg) },
   {
@@ -96,29 +85,27 @@ export const ATTRS: Attr[] = [
 export const ATTR_BY_KEY = new Map(ATTRS.map((a) => [a.key, a]));
 
 /**
- * 필터 판에 펴 두는 축 — 적은 순서대로 나온다.
+ * 필터 판에 펴 두는 축 — 넷이다(한백 지시 2026-08-26). 적은 순서대로 나온다.
+ *
+ * 어떤 사업이고, 누구 운영사이고, ★누가 영업했고 누가 짓는가★. 업체는 계약관리·시공관리
+ * 양쪽에서 묻는다 — 계약은 영업사가 서류를 모으고 시공은 시공사가 도는데, 어느 쪽이든
+ * 「이 업체 현장이 지금 어디까지 왔나」가 보드에서 물어야 할 질문이다.
+ * 두 국면이 같은 판을 쓴다: 페이지마다 필터가 다르면 옮겨 다닐 때마다 다시 익혀야 한다.
  *
  * ★ATTRS 를 줄이지 않는다.★ 표의 열 머리글에서도 같은 축을 거는데(ProjectTable),
  * 거기서 걸 수 있는 것은 열이 있는 만큼이다 — 축을 지우면 그쪽에서도 사라진다.
- * 판은 「자주 묻는 것」만 편다: 어떤 사업이고, 누구 운영사인가.
- *
- * ★시공관리에는 업체가 더 붙는다★ (한백 지시 2026-08-26). 시공이 도는 동안 챙기는 단위가
- * 업체다 — 「이 업체 현장이 지금 어디까지 왔나」를 보드에서 물을 자리가 없었다. 계약관리는
- * 그대로 둘이다: 거기서 자주 묻는 것은 사업과 운영사이고, 판이 길어지는 만큼 업체를 묻지는
- * 않는다(영업사·시공사도 폈다가 뺐던 자리다).
- *
- * 나머지 축은 열 머리글에 남는다. 거기서 걸어 둔 것은 판에도 나온다 — 걸려 있는데 보이지
- * 않는 조건을 두지 않는다(푸는 자리가 없으면 왜 이것만 나오는지 알 수 없다).
+ * 나머지 축(단계·계약연수·건축물·수전방식·대기번호·기설치)은 열 머리글에 남는다.
+ * 거기서 걸어 둔 것은 판에도 나온다 — 걸려 있는데 보이지 않는 조건을 두지 않는다
+ * (푸는 자리가 없으면 왜 이것만 나오는지 알 수 없다).
  */
-export const PANEL_ATTR_KEYS: AttrKey[] = ['biz', 'cpo'];
+export const PANEL_ATTR_KEYS: AttrKey[] = ['biz', 'cpo', 'sales', 'gc'];
 
-/** 판에 그릴 축 — 그 국면의 기본 축 + 지금 걸려 있는 나머지 */
-export function panelAttrKeys(filters: AttrFilters, band?: '계약' | '시공'): AttrKey[] {
-  const base: AttrKey[] = band === '시공' ? [...PANEL_ATTR_KEYS, 'org'] : PANEL_ATTR_KEYS;
+/** 판에 그릴 축 — 정해 둔 넷 + 지금 걸려 있는 나머지 */
+export function panelAttrKeys(filters: AttrFilters): AttrKey[] {
   const extra = ATTRS
     .map((a) => a.key)
-    .filter((k) => !base.includes(k) && (filters[k]?.length ?? 0) > 0);
-  return [...base, ...extra];
+    .filter((k) => !PANEL_ATTR_KEYS.includes(k) && (filters[k]?.length ?? 0) > 0);
+  return [...PANEL_ATTR_KEYS, ...extra];
 }
 
 /** 축별로 고른 값. 빈 배열이면 그 축은 안 걸린 것이다. */

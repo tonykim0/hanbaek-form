@@ -91,7 +91,7 @@ export default function ProjectsView({
    * 판에 펼 축 — 정해 둔 넷(사업유형·운영사·영업사·시공사)에, 표의 열 머리글에서 걸어 둔
    * 나머지 축이 있으면 그것도 같이 편다. 걸려 있는데 판에 없으면 푸는 자리가 없다.
    */
-  const panelKeys = useMemo(() => panelAttrKeys(attrs, band), [attrs, band]);
+  const panelKeys = useMemo(() => panelAttrKeys(attrs), [attrs]);
 
   /** 옮기는 중인 카드의 임시 위치 — 서버가 다시 그려주기 전까지 손을 따라간다 */
   const [moved, setMoved] = useState<Record<string, ProcessStatus>>({});

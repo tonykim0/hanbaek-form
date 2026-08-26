@@ -141,9 +141,20 @@ function labelUntil(day: string): string {
 /** 그 현장에서 지금 할 일 — 보드 칸 판정을 그대로 쓴다(부르는 쪽이 한 번 계산해 넘긴다) */
 function whatOf(column: ReturnType<typeof boardColumnOf>, p: {
   rejectedDocs: number;
+  preRejected: boolean;
   docsFilled: boolean;
 }): string {
-  if (column === '계약보완') return `반려 ${p.rejectedDocs}건 보완`;
+  /*
+   * 계약보완은 서류 반려와 기설치 조사 반려 둘 다로 선다. 조사만 반려된 현장은 서류
+   * 반려가 0건이라 「반려 0건 보완」이 될 뻔했다 — 세는 것이 없으면 무엇을 보완하라는
+   * 말인지 이름으로 말한다.
+   */
+  if (column === '계약보완') {
+    if (p.rejectedDocs === 0) return '기설치 조사 보완';
+    return p.preRejected
+      ? `반려 ${p.rejectedDocs}건 · 기설치 조사 보완`
+      : `반려 ${p.rejectedDocs}건 보완`;
+  }
   if (column === '계약접수') return '필수 서류 제출';
   if (column === '계약검토') return '검수 · 계약 확인';
   /*

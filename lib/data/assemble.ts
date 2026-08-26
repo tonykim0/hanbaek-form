@@ -182,6 +182,7 @@ export function contractStateFor(r: ProjectRecord) {
     documents: r.documents,
     lines: r.lines,
     docsExempt: docsOutsideConsole(r.project.mgmtNo),
+    preRejected: r.project.preRejectReason !== null,
   });
 }
 
@@ -289,6 +290,7 @@ export function summaryOf(r: ProjectRecord, rules: RuleMap, settles: SettleMap):
     // 세 값 모두 d.contract 에서 온다 — 목록이 자기 식으로 다시 세면 보드와 상세가 갈린다
     priced: d.contract.allPriced,
     rejectedDocs: d.contract.rejected,
+    preRejected: d.contract.preRejected,
     docsFilled: d.contract.docsFilled,
     submitted: d.project.contractSubmittedAt !== null,
     fixAsked: d.project.contractFixAskedAt !== null,

@@ -51,6 +51,13 @@ export function contractStateOf(input: {
    * 그대로 보여야 무엇이 콘솔에 없는지 알 수 있다.
    */
   docsExempt?: boolean;
+  /**
+   * 기설치 조사 반려 — 서류 반려와 같이 확인을 막는다(한백 지적 2026-08-26).
+   *
+   * 「조사도 보완이 필요하다 — 서류와 같은 이치다」로 만든 자리인데(2026-08-24),
+   * 정작 막지도 옮기지도 않았다. 반려해 두고 확인을 누를 수 있으면 반려가 아니다.
+   */
+  preRejected?: boolean;
 }): ContractState {
   const evaluated = evaluateDocs(input.docCtx);
   const byKind = new Map(input.documents.map((d) => [d.kind, d]));
@@ -74,15 +81,17 @@ export function contractStateOf(input: {
   const allPriced = input.lines.length > 0 && input.lines.every((l) => l.pricingRuleId);
 
   const docsExempt = input.docsExempt === true;
+  const preRejected = input.preRejected === true;
 
   return {
+    preRejected,
     requiredTotal: required.length,
     satisfied,
     docsFilled,
     rejected,
     allPriced,
     docsExempt,
-    ready: rejected === 0 && (docsExempt || satisfied === required.length) && allPriced,
+    ready: rejected === 0 && !preRejected && (docsExempt || satisfied === required.length) && allPriced,
     feeMissing: evaluated.filter((d) => d.fee && d.req === 'm' && !passes(d.key)).map((d) => d.label),
   };
 }

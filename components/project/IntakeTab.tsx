@@ -702,6 +702,12 @@ function ConfirmContract({
   const reason = contract.rejected > 0
     ? `반려 ${contract.rejected}건`
     /*
+     * 기설치 조사 반려도 확인을 막는다(한백 지적 2026-08-26) — 서류와 같은 이치로
+     * 만든 자리인데 정작 막지 않아서, 반려해 두고도 확인이 눌렸다.
+     */
+    : contract.preRejected
+    ? '기설치 조사 반려'
+    /*
      * 서류가 콘솔 밖에 있는 현장(노션 이관분)은 서류로 막지 않는다 — ready 가 열려 있는데
      * 이름만 「계약 확인 불가」로 두면 눌리는 단추가 못 한다고 말한다. 판정은 lib/stage 가
      * 하고 여기는 그 값을 본다.

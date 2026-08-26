@@ -1835,8 +1835,26 @@ export const pgRepository: ProjectRepository = {
       const day = today();
       await tx
         .update(projects)
-        // 조사는 진척이다 — 정체일 기준을 갱신한다. 반려는 보완 차례라 공이 영업사로.
-        .set({ ...next, lastProgressAt: day, ...(rejecting ? { court: '영업사' } : {}) })
+        /*
+         * 조사는 진척이다 — 정체일 기준을 갱신한다. 반려는 보완 차례라 공이 영업사로.
+         *
+         * ★반려는 서류 반려와 같은 뒷일을 한다(한백 지적 2026-08-26).★ 앞서 한 계약
+         * 확인을 지우고, 보완요청이 있었다는 사실을 남긴다(첫 번째 것만). 안 지우면
+         * 확인일이 남아 단계가 시공으로 유도되고(lib/stage), 그러면 보드의 계약 세 칸
+         * 판정 자체를 안 타서 반려해 놓고도 현장이 제자리에 서 있다 —
+         * 전주태평에스케이뷰가 그랬다. 문구도 reviewDocument 쪽과 같은 뜻으로 맞춘다.
+         */
+        .set({
+          ...next,
+          lastProgressAt: day,
+          ...(rejecting
+            ? {
+                court: '영업사' as const,
+                contractConfirmedAt: null,
+                contractFixAskedAt: sql`coalesce(${projects.contractFixAskedAt}, ${day})`,
+              }
+            : {}),
+        })
         .where(eq(projects.id, projectId));
 
       await writeAudit(tx, {

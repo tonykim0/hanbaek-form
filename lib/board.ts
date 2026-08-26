@@ -139,6 +139,8 @@ export function boardColumnOf(p: {
   status: ProcessStatus;
   holdState: HoldState | null;
   rejectedDocs: number;
+  /** 기설치 조사 반려 — 서류 반려와 같은 뜻이라 같은 칸으로 보낸다 */
+  preRejected: boolean;
   docsFilled: boolean;
   /** 협력사가 「계약서 접수하기」·「계약 재검토 요청하기」를 눌렀는가 */
   submitted: boolean;
@@ -151,6 +153,9 @@ export function boardColumnOf(p: {
      * 계약 안에서 세 칸으로 갈린다. 순서가 곧 우선순위다.
      *
      *   반려가 있으면                    → 계약보완  (협력사가 고칠 차례)
+     *     ★서류 반려와 기설치 조사 반려를 같이 본다★ — 조사 반려는 서류가 아니라
+     *     rejectedDocs 에 안 잡힌다. 안 보면 반려해 놓고도 현장이 제자리에 서 있다
+     *     (한백 지적 2026-08-26 — 전주태평에스케이뷰).
      *   접수했거나 보완요청을 받은 적 있으면 → 계약검토  (한백이 볼 차례 — 단가·계약 확인)
      *   그 외(처음 모으는 중)             → 계약접수
      *
@@ -165,7 +170,7 @@ export function boardColumnOf(p: {
      * 한백이 보는 자리는 계약검토다. 협력사가 내는 행위의 이름만 「재검토 요청」으로
      * 갈린다(components/project/IntakeTab.tsx).
      */
-    if (p.rejectedDocs > 0) return '계약보완';
+    if (p.rejectedDocs > 0 || p.preRejected) return '계약보완';
     return p.submitted || p.fixAsked ? '계약검토' : '계약접수';
   }
   return p.status;

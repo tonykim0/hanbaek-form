@@ -234,6 +234,7 @@ export default function ProjectDetailView({
               siteName={project.name}
               canReview={canReview}
               canSubmit={canSubmit}
+              status={process.status}
             />
           )}
           {tab === 'construction' && <ConstructionTab detail={detail} edit={processEdit} />}

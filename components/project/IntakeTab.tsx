@@ -7,7 +7,9 @@
  * 빠뜨린 것과 원래 필요 없는 것을 구별해야 한다(lib/doc-rules).
  */
 import { useState } from 'react';
-import type { ContractState, ProjectDetail, ProjectDocument } from '@/types/project';
+import type { ContractState, ProcessStatus, ProjectDetail, ProjectDocument } from '@/types/project';
+import { PROCESS_STATUSES } from '@/types/project';
+import { statusIndex } from '@/lib/process';
 import { evaluateDocs, needsPreInstallCheck, type DocReq } from '@/lib/doc-rules';
 import { DocDelete, DocFileActions, DocUpload, DownloadAll } from '@/components/DocFiles';
 import { useAction } from '@/lib/use-action';
@@ -119,7 +121,7 @@ function FactGroup({ title, rows }: { title: string; rows: Array<[string, string
 
 export function IntakeTab({
   project, evaluated, byKind, contract, projectId, siteName, canReview, canSubmit,
-  knownOrgs,
+  knownOrgs, status,
 }: {
   knownOrgs: string[];
   project: ProjectDetail['project'];
@@ -132,6 +134,8 @@ export function IntakeTab({
   canReview: boolean;
   /** 계약서 접수를 누를 수 있는가 — 내는 쪽(협력사·한백) */
   canSubmit: boolean;
+  /** 지금 서 있는 진행 단계 — 계약완료면 여기서 다음 걸음을 민다 */
+  status: ProcessStatus;
 }) {
   /*
    * 「서류」 옆에 붙는 필수 수 — ★화면에 보이는 카드로 센다.★
@@ -217,6 +221,7 @@ export function IntakeTab({
         fixAsked={project.contractFixAskedAt !== null}
         canSubmit={canSubmit}
         canReview={canReview}
+        status={status}
       />
 
       <SiteFacts project={project} />
@@ -583,7 +588,7 @@ function SubmitContract({
  * 말이고, 되돌리는 자리도 확인 취소 하나로 모인다(화면 규칙 5).
  */
 function ContractStatus({
-  projectId, submittedAt, confirmedAt, fixAsked, canSubmit, canReview,
+  projectId, submittedAt, confirmedAt, fixAsked, canSubmit, canReview, status,
 }: {
   projectId: string;
   submittedAt: string | null;
@@ -592,9 +597,24 @@ function ContractStatus({
   fixAsked: boolean;
   canSubmit: boolean;
   canReview: boolean;
+  status: ProcessStatus;
 }) {
   const submit = useAction();
   const confirm = useAction();
+  const advance = useAction();
+
+  /*
+   * 확인을 눌렀는데 다음 걸음이 여기 없었다(한백 지시 2026-08-26).
+   *
+   * 계약완료에서 운영사 계약서 제출로 미는 자리가 보드 카드뿐이었다 — 상세에서 서류를
+   * 보고 확인을 누른 사람이 그 걸음을 하려고 보드로 돌아가야 했다. 시공 스테퍼에도 없다:
+   * 그 두 칸은 ★계약 국면★이라 시공 스테퍼가 행위신고부터 그린다(ConstructionTab).
+   *
+   * 계약완료일 때만 나온다. 그 앞(접수·검토)은 확인이 먼저고, 그 뒤는 시공 탭의 스테퍼가
+   * 민다 — 한 걸음을 두 자리에서 밀면 어느 것이 정본인지 알 수 없다(화면 규칙 5).
+   * 조건은 저장소가 다시 본다(canEnter) — 여기 문구는 화면일 뿐이다.
+   */
+  const nextStep = status === '계약완료' ? PROCESS_STATUSES[statusIndex(status) + 1] : null;
 
   const showConfirmed = canReview && confirmedAt !== null;
   const showSubmitted = canSubmit && confirmedAt === null && submittedAt !== null;
@@ -605,6 +625,20 @@ function ContractStatus({
       {showConfirmed && (
         <Note tone="ok" className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
           <span className="font-bold">계약 확인 완료 · {confirmedAt}</span>
+          {/* 미는 자리는 상태 곁에, 되돌리는 자리는 반대쪽 끝에(화면 규칙 8) */}
+          {nextStep && (
+            <Btn
+              busy={advance.busy}
+              busyLabel="넘기는 중…"
+              onClick={() => void advance.run({
+                url: `/api/projects/${projectId}/status`,
+                body: { status: nextStep },
+                fail: '넘기지 못했습니다.',
+              })}
+            >
+              {nextStep} 로 넘기기 →
+            </Btn>
+          )}
           <Btn
             kind="undo"
             busy={confirm.busy}
@@ -618,6 +652,7 @@ function ContractStatus({
           >
             확인 취소
           </Btn>
+          <Err className="w-full">{advance.error}</Err>
           <Err className="w-full">{confirm.error}</Err>
         </Note>
       )}

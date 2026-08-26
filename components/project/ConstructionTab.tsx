@@ -303,7 +303,7 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
           { label: '통신완료일', field: 'commDoneDate', value: p.commDoneDate },
           { label: '개통완료일', field: 'openDate', value: p.openDate },
         ],
-        docs: ['kepcofee', 'safety', 'comm'],
+        docs: ['kepcofee', 'comm'],
         advance: {
           label: '다음 단계로 진행',
           field: 'openDoneAt',
@@ -321,7 +321,20 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
       {
         title: '준공서류 접수/검토',
         rows: [],
-        docs: ['completion'],
+        /*
+         * 준공에 받는 서류 (한백 2026-08-27) — 환경부 제출분 둘, 대관서류 넷.
+         * 「준공서류」 칸은 그대로 둔다: 이 구간에 들어오는 조건이 그 칸이다(STATUS_GATES).
+         * 전기안전관리자 선임신고증명서는 한전불입 현장에만 낸다 — 혼용도 한전불입을 쓴다.
+         */
+        docs: [
+          'completion',
+          'completeConfirm',
+          'costSurvey',
+          'safety',
+          ...(detail.project.powerType?.includes('한전불입') ? ['safetyMgr'] : []),
+          'useInspect',
+          'asBuilt',
+        ],
         check: {
           field: 'completionSubmitAt', label: '준공서류 제출 완료',
           ready: uploaded('completion'), blocked: '준공서류 미제출 — 완료 불가',

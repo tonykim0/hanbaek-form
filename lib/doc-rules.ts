@@ -263,9 +263,23 @@ export const PROCESS_DOCS = [
   { key: 'installNotice', name: '충전시설 설치 신고서' },
   // 올리는 것은 신청서가 아니라 접수증이다 — 이름이 파일과 같아야 무엇을 올릴지 안다
   { key: 'elecapply', name: '전기사용신청 접수증' },
-  { key: 'safety', name: '전기안전점검' },
   { key: 'kepcofee', name: '한전시설부담금' },
   { key: 'completion', name: '준공서류' },
+  /*
+   * ★준공 단계에 받는 서류★ (한백 2026-08-27). 환경부 제출분 둘과 대관서류 넷이다.
+   * 설치사진대장·도면은 받지 않는다(한백 확인) — 칸을 만들지 않는다.
+   */
+  { key: 'completeConfirm', name: '설치완료확인서 (환경부)' },
+  { key: 'costSurvey', name: '원가조사서 (환경부)' },
+  // 대관서류 — 관공서에 내는 넷. 이름은 실제 파일 이름과 같게 적는다
+  { key: 'safety', name: '안전점검필증 (사용전점검필증)' },
+  /*
+   * 전기안전관리자 선임신고증명서 — ★한전불입 현장만★ (한백 2026-08-27).
+   * 모자분리는 세대 계량이라 선임 대상이 아니다. 화면이 수전방식을 보고 칸을 낸다.
+   */
+  { key: 'safetyMgr', name: '전기안전관리자 선임신고증명서' },
+  { key: 'useInspect', name: '사용검사 필증' },
+  { key: 'asBuilt', name: '준공도' },
   { key: 'photoDone', name: '설치완료사진' },
   { key: 'comm', name: '통신확인' },
 ] as const;

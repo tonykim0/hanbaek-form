@@ -8,8 +8,22 @@
  * (환경부 투자) 수수료 5년 220 · 7년 230 · 10년 240만, 한전인입지역 7년 230 · 10년 240만
  * — 기존 케이스(영업 100~120 + 시공 100 + 마진 20)와 정확히 일치하고, 기성(환경부 승인
  * 40% → 준공 60%)도 정산 조항(승인·기성 수령 후 7일 이내 40% / 준공기성 후 60%)과 같다.
- * 그래서 금액·기성은 안 건드리고 조건 칸만 채운다. 딱 하나 — ★한전불입 5년 케이스는
- * 신정책에 없다★ (한전인입지역 행의 5년 칸이 비어 있다). 참조가 없으면 지운다.
+ * 그래서 금액·기성은 안 건드리고 조건 칸만 채운다.
+ *
+ * ★한전불입 5년은 지우지 않고 되살린다★ (2026-08-24 정정) — 0006 은 「한전인입지역 행의
+ * 5년 칸이 비었으니 케이스가 없다」로 읽고 지웠다. 그때는 참조가 없어 지워졌지만, 노션
+ * 이관으로 경남 양산 대우마리나(5년·한전불입·환경부, 계약서수령일 2026-06-17)가 들어와
+ * 단가 미지정으로 남았다. 다시 읽으면 빈칸은 「케이스 없음」이 아니다:
+ *   ① 한전인입지역 행의 7·10년 금액(230/240만)이 일반 환경부 행과 **같다** — 인입지역은
+ *      금액 가산이 아니라 조건(할인요금·회선 지원)이 갈리는 축이다. 그래서 5년 칸을 비운
+ *      것은 「5년은 일반 환경부 5년(220만)과 같다」로 읽힌다.
+ *   ② 그 빈칸은 「한전불입금 지원 : 7년 5회선 / 10년 10회선」과 짝이 맞는다 — 회선 지원과
+ *      220원 할인이 7·10년뿐이어서 인입지역 행에 5년이 따로 적힐 이유가 없다.
+ *   ③ 노션 정본 매트릭스도 5년을 「에버온 | 공동주택 | 5년 | 신규 | 모자분리/한전불입」
+ *      한 칸(턴키 220만 = 영업 100 + 시공 100 + 마진 20)으로 운영했다. 지운 옛 케이스
+ *      everon-y5-kepco-new-apt 의 금액이 그것과 정확히 같다.
+ * 그래서 옛 id 그대로 되살린다(새 id 로 넣으면 시드와 두 칸이 된다). 할인요금은 5년 행의
+ * 149원 6개월 — 220원 6개월은 7·10년 인입지역에만 붙는다.
  *
  * ── 신설 — 에버온투자(자체투자) ──────────────────────────────────────────
  * 제자리 교체(7kW→7kW) 140/150/160만 · 이전 설치(기존 철거 유보 + 신규 설치)
@@ -64,6 +78,7 @@ const EV_MISC_INV = [
 /** 기존 보조 케이스에 채울 조건 — 금액·기성(env-40-60)은 신정책과 같아 안 건드린다 */
 export const EV_KEEP: { id: string; promo: PromoStep[] }[] = [
   { id: 'everon-y5-mother-new-apt', promo: EV_PROMO_MOTHER[5] },
+  { id: 'everon-y5-kepco-new-apt', promo: EV_PROMO_MOTHER[5] }, // 되살린 칸 — 5년은 149원
   { id: 'everon-y7-mother-new-apt', promo: EV_PROMO_MOTHER[7] },
   { id: 'everon-y10-mother-new-apt', promo: EV_PROMO_MOTHER[10] },
   { id: 'everon-y7-kepco-new-apt', promo: EV_PROMO_KEPCO },
@@ -77,8 +92,33 @@ export const EV_KEEP_POLICY = {
   miscTerms: EV_MISC_SUB,
 };
 
-/** 신정책에 없는 한전불입 5년 — 참조가 없으면 지운다 */
-export const EV_DROP_IDS = ['everon-y5-kepco-new-apt'] as const;
+/**
+ * 0006 이 지운 한전불입 5년 — 옛 id 로 되살린다(머리말 ①②③). 금액·기성은 시드의
+ * 그 케이스와 같은 값이고, 노션 정본 매트릭스의 220만 한 칸과도 같다.
+ */
+type EvRevive = Pick<
+  NewPricingRule,
+  'caseName' | 'cpo' | 'bizType' | 'powerType' | 'termYears' | 'bldgTypes' | 'replType'
+  | 'channel' | 'bizYear' | 'startDate' | 'salesUnit' | 'consUnit' | 'margin'
+> & { id: string; settlementRuleId: string };
+
+export const EV_REVIVE: EvRevive = {
+  id: 'everon-y5-kepco-new-apt',
+  caseName: '에버온 | 공동주택 | 5년 | 신규 | 모자분리/한전불입',
+  cpo: '에버온',
+  bizType: '환경부',
+  powerType: '한전불입',
+  termYears: [5],
+  bldgTypes: ['공동주택'],
+  replType: '환경부 신규',
+  channel: '턴키',
+  bizYear: 2026,
+  startDate: '2026년 7월 1일',
+  salesUnit: 1_000_000,
+  consUnit: PAYOUT_CONS,
+  margin: MARGIN,
+  settlementRuleId: 'env-40-60',
+};
 
 interface EvRow {
   replType: NewPricingRule['replType'];

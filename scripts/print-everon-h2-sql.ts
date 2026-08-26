@@ -5,10 +5,10 @@
  *
  * 값·근거는 lib/pricing-policy-everon-h2.ts 한 벌에서 나온다. 찍기 전에 저장소와 같은
  * 검증(checkPricingRule)을 돌리고, 틀리면 출력하지 않고 죽는다. insert 는 on conflict
- * do nothing, update 는 항상 덮고, 삭제는 참조 가드가 붙는다 — 두 번 돌아도 같다.
+ * do nothing, update 는 항상 덮는다 — 두 번 돌아도 같다.
  * 기성 미정 케이스는 default_settlement_rule_id 를 null 로 둔다.
  */
-import { EV_DROP_IDS, EV_KEEP, EV_KEEP_POLICY, evNewRules } from '../lib/pricing-policy-everon-h2';
+import { EV_KEEP, EV_KEEP_POLICY, EV_REVIVE, evNewRules } from '../lib/pricing-policy-everon-h2';
 import { checkPricingRule, pricingRuleId } from '../lib/pricing-match';
 import { settlementRuleIdOf, settlementRuleNameOf } from '../lib/settlement';
 import type { SettlementStepRule } from '../types/project';
@@ -58,6 +58,20 @@ for (const r of rules) {
 ) on conflict (id) do nothing;\n`);
 }
 
+/* 0006 이 지운 한전불입 5년 — 옛 id 로 되살린다. 조건 칸은 아래 EV_KEEP 루프가 채운다 */
+console.log(`-- 0006 이 지운 한전불입 5년을 되살린다(정책표 빈칸 = 일반 5년과 같음 · 노션 정본도 한 칸): ${EV_REVIVE.id}`);
+console.log(`insert into pricing_rules (
+  id, case_name, cpo, biz_type, power_type, term_years, bldg_types, repl_type, channel,
+  biz_year, start_date, sales_unit, cons_unit, margin, default_settlement_rule_id,
+  supervision_bearer, safety_fee_bearer, note, active
+) values (
+  ${q(EV_REVIVE.id)}, ${q(EV_REVIVE.caseName)}, ${q(EV_REVIVE.cpo)}, ${q(EV_REVIVE.bizType)}, ${q(EV_REVIVE.powerType)},
+  '${JSON.stringify(EV_REVIVE.termYears)}'::jsonb, ${j(EV_REVIVE.bldgTypes)}, ${q(EV_REVIVE.replType)}, ${q(EV_REVIVE.channel)},
+  ${EV_REVIVE.bizYear}, ${q(EV_REVIVE.startDate)}, ${EV_REVIVE.salesUnit}, ${EV_REVIVE.consUnit}, ${EV_REVIVE.margin}, ${q(EV_REVIVE.settlementRuleId)},
+  null, null, null, true
+) on conflict (id) do nothing;
+`);
+
 /* 기존 보조 케이스 — 조건만. 프로모션은 수전방식으로 갈린다(한전인입지역은 220원 6개월) */
 for (const k of EV_KEEP) {
   console.log(`-- 기존 유지 + 조건 갱신(금액·기성 40/60 이미 일치): ${k.id}`);
@@ -68,11 +82,4 @@ for (const k of EV_KEEP) {
 where id = '${k.id}';\n`);
 }
 
-for (const id of EV_DROP_IDS) {
-  console.log(`-- 신정책에 없는 한전불입 5년 — 참조 없을 때만 삭제: ${id}`);
-  console.log(`delete from pricing_rules
-where id = '${id}'
-  and not exists (select 1 from contract_lines cl where cl.pricing_rule_id = pricing_rules.id);\n`);
-}
-
-console.log('-- 검산: 에버온 자투 6건 신설 · 보조 5건 조건 채움 · 한전 5년 0건');
+console.log('-- 검산: 에버온 자투 6건 신설 · 한전 5년 1건 되살림 · 보조 6건 조건 채움');

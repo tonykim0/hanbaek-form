@@ -89,6 +89,9 @@ function extOf(file: DocFile): string {
 
 /** 브라우저가 탭에서 그려주는 형식 — 그 밖(엑셀·워드·한글)은 내려받아야 열린다 */
 const PREVIEWABLE = ['pdf', 'jpg', 'jpeg', 'png', 'gif', 'webp', 'txt'];
+/** 줄에서 바로 그려 보여줄 수 있는 형식 — 사진 서류(설치완료·기설치 증빙)가 이것이다 */
+const THUMBNAIL = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+const isImage = (file: DocFile): boolean => THUMBNAIL.includes(extOf(file));
 /** 사람이 읽는 크기 — 소수 한 자리면 「29.7MB 인데 왜 막히나」가 안 생긴다 */
 const mb = (bytes: number): string => (bytes / 1024 / 1024).toFixed(1).replace(/\.0$/, '');
 export const canPreview = (file: DocFile): boolean => PREVIEWABLE.includes(extOf(file));
@@ -178,6 +181,27 @@ function FileRow({
   return (
     <div className="flex flex-col gap-0.5">
       <div className="flex items-center gap-1.5">
+        {/*
+          * ★사진은 줄에서 바로 보인다★ (한백 지시 2026-08-26) — 설치완료 사진은 거점마다
+          * 여러 장이라, 이름만 있으면 어느 것이 무엇인지 하나씩 눌러 봐야 했다.
+          * 작은 판을 눌러 원본을 새 탭에 연다.
+          *
+          * next/image 를 쓰지 않는다: 파일이 Blob(외부 호스트)에 있어 remotePatterns 설정이
+          * 필요하고, 콘솔 안에서 40px 로 보여주는 데 변환을 태울 이유가 없다.
+          */}
+        {isImage(file) && (
+          <a href={file.url} target="_blank" rel="noopener noreferrer" className="shrink-0" title={file.name}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={file.url}
+              alt={file.name}
+              width={40}
+              height={40}
+              loading="lazy"
+              className="h-10 w-10 rounded-ctl border border-slate-200 bg-slate-50 object-cover transition hover:border-brand-300"
+            />
+          </a>
+        )}
         {/*
           * 이름이 곧 미리보기 링크다 — 그릴 수 있는 형식만. 엑셀·워드는 링크를 열면
           * 내려받기가 시작돼서 「받기」와 구분이 없어진다(그때는 글자로만 둔다).

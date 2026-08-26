@@ -7,7 +7,9 @@
  * ★없는 축은 조건에서 뺀다.★ 현장 정보가 덜 채워졌다고 후보가 0개가 되면 아무것도 못 고른다 —
  * 아는 축으로만 좁히고, 무엇으로 좁혔는지 화면에 적어 사람이 판단하게 한다.
  */
-import { BUILDING_TYPES, bizTypeOfRepl, CHANNELS, CPO_NAMES, powerTypesOfRepl, REPL_TYPES } from '@/types/project';
+import {
+  BUILDING_TYPES, bizTypeOfRepl, CHANNELS, CPO_NAMES, powerTypesOfRepl, REPL_TYPES, replTypesOf,
+} from '@/types/project';
 import type {
   ContractLine, CpoName, NewPricingRule, PricingRule, Project, ReplType,
 } from '@/types/project';
@@ -141,6 +143,14 @@ export function checkPricingRule(r: NewPricingRule): string[] {
   // 있을 수 없는 조합 — 연동은 모자분리 전제라 한전불입 케이스가 설 자리가 없다
   if (REPL_TYPES.includes(r.replType) && !powerTypesOfRepl(r.replType).includes(r.powerType)) {
     bad.push(`${r.replType} 는 ${powerTypesOfRepl(r.replType).join('·')}만 됩니다.`);
+  }
+  /*
+   * 교체유형이 단가를 안 가르는 운영사(나이스·현대엔지니어링·플러그링크)의 신규위치.
+   * 만들면 자체투자 케이스가 두 벌이 되고, 접수 화면은 제자리교체만 내보내므로 그 케이스는
+   * 어느 라인에도 안 맞는다 — 강릉 일송 11기가 두 라인으로 갈렸던 그 갈래다(0027).
+   */
+  if (CPO_NAMES.includes(r.cpo) && REPL_TYPES.includes(r.replType) && !replTypesOf(r.cpo).includes(r.replType)) {
+    bad.push(`${r.cpo} 는 자체투자에서 제자리교체·신규위치를 가르지 않습니다 — 「자체투자 (제자리교체)」 한 칸입니다.`);
   }
 
   const money = [r.salesUnit, r.consUnit, r.margin];

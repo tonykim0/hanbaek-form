@@ -20,7 +20,7 @@
  */
 import { createContext, Fragment, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  BUILDING_TYPES, bizTypeOfRepl, CHANNELS, CPO_NAMES, powerTypesOfRepl, REPL_TYPES,
+  BUILDING_TYPES, bizTypeOfRepl, CHANNELS, CPO_NAMES, powerTypesOfRepl, replTypesOf,
   type BuildingType, type Channel, type CpoName, type LineAxes, type PricingRule, type ReplType,
   type BizType, type PromoExtendOption, type PromoStep, type SettlementRule, type SettlementStepRule, type Trigger,
 } from '@/types/project';
@@ -389,7 +389,7 @@ function Grid({
 
   /** 한 칸(연수 × 유형)에 지금 적용 중인 케이스들 — 값 칸에 숫자가 뜨는 그 케이스들이다 */
   const casesAt = (term: number, bldg: BuildingType) =>
-    REPL_TYPES.flatMap((repl) =>
+    replTypesOf(cpo).flatMap((repl) =>
       powerTypesOfRepl(repl).map((power) => at(repl, power, term, bldg).now)
     ).filter((r): r is PricingRule => r !== null);
 
@@ -527,13 +527,16 @@ function Grid({
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {/* 있을 수 없는 조합(연동 × 한전불입)은 행을 만들지 않는다 — 클릭을 막는 게 아니라 자리가 없다 */}
-            {REPL_TYPES.flatMap((repl) =>
+            {/*
+              있을 수 없는 조합(연동 × 한전불입)은 행을 만들지 않는다 — 클릭을 막는 게 아니라 자리가 없다.
+              교체유형이 단가를 안 가르는 운영사의 신규위치도 마찬가지다(replTypesOf).
+            */}
+            {replTypesOf(cpo).flatMap((repl) =>
               powerTypesOfRepl(repl).map((power) => (
                 <tr key={`${repl}-${power}`}>
                   {/* 열 너비가 고정이라 줄바꿈을 막지 않는다 — 막으면 「자체투자 (제자리교체)」가 칸을 넘는다 */}
                   <td className="px-3 py-2">
-                    <span className="font-bold text-slate-700">{repl}</span>
+                    <span className="font-bold text-slate-700">{replLabel(cpo, repl)}</span>
                     <span className="ml-1.5 text-tiny text-slate-400">{power}</span>
                   </td>
                   {gridTerms.flatMap((term) =>
@@ -1246,7 +1249,16 @@ function CaseForm({
       <FormSection first title="계약 축" hint="접수된 라인이 이 축으로 케이스를 찾는다">
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <Field label="운영사">
-            <select value={cpo} onChange={(e) => setCpo(e.target.value as CpoName)} className={FIELD}>
+            <select
+              value={cpo}
+              onChange={(e) => {
+                const next = e.target.value as CpoName;
+                setCpo(next);
+                // 운영사를 바꾸면 그쪽에 없는 축이 남을 수 있다 — 에버온의 신규위치가 플러그링크로 따라온다
+                if (!replTypesOf(next).includes(replType)) setReplType('자체투자 (제자리교체)');
+              }}
+              className={FIELD}
+            >
               {CPO_NAMES.map((c) => <option key={c} value={c}>{c}</option>)}
             </select>
           </Field>
@@ -1261,7 +1273,8 @@ function CaseForm({
               }}
               className={FIELD}
             >
-              {REPL_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+              {/* 안 가르는 운영사는 자체투자가 하나뿐이다 — 이름도 괄호 없이 적는다 */}
+              {replTypesOf(cpo).map((t) => <option key={t} value={t}>{replLabel(cpo, t)}</option>)}
             </select>
           </Field>
           <Field label="수전방식" hint={powerTypesOfRepl(replType).length === 1 ? `${replType}은 모자분리 전제` : undefined}>

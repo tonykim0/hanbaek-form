@@ -93,6 +93,17 @@ export function replLabel(cpo: CpoName, repl: ReplType): string {
 }
 
 /**
+ * 그 운영사의 단가표가 세울 교체유형 — 안 가르는 운영사는 자체투자가 한 줄이다.
+ *
+ * 라벨만 「자체투자」로 바꾸면(replLabel) 매트릭스에 같은 이름의 행이 둘 서고, 아래 행은
+ * 늘 비어 있다 — 「여기 케이스가 빠졌나」로 읽힌다. 축 자체를 세우지 않는 것이 맞다.
+ * 남기는 쪽은 제자리교체다 — 접수 화면(SELF_REPLS[0])·케이스 id 가 그것을 대표값으로 쓴다.
+ */
+export function replTypesOf(cpo: CpoName): readonly ReplType[] {
+  return SPLITS_SELF_REPL.has(cpo) ? REPL_TYPES : REPL_TYPES.filter((r) => r !== '자체투자 (신규위치)');
+}
+
+/**
  * 환경부 보조금을 받는 사업인가 — 대기번호·기설치 조사가 이것으로 갈린다.
  *
  * 자체투자와 연동은 보조금이 없으니 대기번호도, 기설치 조사도 「해당없음」이다.

@@ -37,7 +37,7 @@ const PICKABLE = [
   { key: 'cpo', label: '운영사', attr: 'cpo', group: '기본' },
   { key: 'sales', label: '영업사', attr: 'sales', group: '기본' },
   { key: 'gc', label: '시공사', attr: 'gc', group: '기본' },
-  { key: 'created', label: '접수일', group: '기본' },
+  { key: 'created', label: '접수일', attr: 'month', group: '기본' },
   // 영업(계약) 단계에서 다루는 속성
   { key: 'queue', label: '환경부 대기번호', attr: 'queue', group: '영업' },
   { key: 'pre', label: '기설치 조사', attr: 'pre', group: '영업' },
@@ -252,7 +252,7 @@ export default function ProjectTable({
               {show('install') && head('설치완료')}
               {show('comm') && head('개통')}
               {show('completion') && head('준공서류')}
-              {show('created') && head('접수일', { sort: 'created' })}
+              {show('created') && head('접수일', { sort: 'created', attr: 'month' })}
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">

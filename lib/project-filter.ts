@@ -17,7 +17,7 @@ import { boardColumnOf } from './board';
 export const EMPTY = '(없음)';
 
 export type AttrKey =
-  | 'col' | 'cpo' | 'term' | 'biz' | 'bldg' | 'power' | 'sales' | 'gc' | 'queue' | 'pre';
+  | 'col' | 'month' | 'cpo' | 'term' | 'biz' | 'bldg' | 'power' | 'sales' | 'gc' | 'queue' | 'pre';
 
 export interface Attr {
   key: AttrKey;
@@ -31,8 +31,30 @@ export interface Attr {
 
 const one = (v: string | null | undefined): string[] => [v?.trim() ? v : EMPTY];
 
+/**
+ * 접수일의 달 — `2026-08-17` → `26년 8월`.
+ *
+ * 글자를 쪼개서 센다(Date 로 읽지 않는다) — 저장된 값이 이미 한국 달력 날짜라
+ * 시간대를 다시 태우면 자정 언저리가 앞 달로 밀린다(lib/date.ts 의 그 사고).
+ */
+const monthOf = (day: string): string => {
+  const m = /^(\d{4})-(\d{2})/.exec(day);
+  return m ? `${m[1].slice(2)}년 ${Number(m[2])}월` : EMPTY;
+};
+
 export const ATTRS: Attr[] = [
   { key: 'col', label: '단계', valuesOf: (p) => [boardColumnOf(p)] },
+  {
+    key: 'month',
+    label: '접수월',
+    /*
+     * 접수일은 곧 계약서수령일이다 — 이관 때 한백 지시로 그렇게 넣었다
+     * (scripts/import-notion-2026.ts 의 「접수일은 계약서수령일이다」).
+     * 「몇 월에 들어온 계약인가」가 실제 질문이라 날짜가 아니라 달로 묶는다 —
+     * 날짜 하나하나를 고르는 목록은 140줄이 되어 아무것도 못 고른다.
+     */
+    valuesOf: (p) => [monthOf(p.createdAt)],
+  },
   { key: 'cpo', label: '운영사', valuesOf: (p) => [p.cpo] },
   {
     key: 'term',

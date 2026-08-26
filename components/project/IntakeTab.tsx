@@ -144,6 +144,19 @@ export function IntakeTab({
    * 「기설치 조사」 구역에서 다뤄 이 구역에 카드가 없다 — 그 수를 여기 적으면 세어지는
    * 칸과 보이는 칸이 어긋나서, 다 채운 것처럼 보이는데 접수가 막히거나 그 반대가 된다.
    */
+  /*
+   * 확인 뒤의 다음 걸음 — 계약완료에서 운영사 계약서 제출로.
+   *
+   * 미는 자리가 보드 카드뿐이었다(한백 지시 2026-08-26). 상세에서 서류를 열여섯 칸 보고
+   * 확인을 누른 사람이 그 걸음을 하려고 보드로 돌아가야 했다. 시공 탭에도 없다 —
+   * 그 두 칸은 ★계약 국면★이라 시공 스테퍼가 행위신고부터 그린다(ConstructionTab).
+   *
+   * 계약완료일 때만이다. 그 앞(접수·검토)은 확인이 먼저고, 그 뒤는 시공 탭 스테퍼가
+   * 민다 — 한 걸음을 두 자리에서 밀면 어느 것이 정본인지 알 수 없다(화면 규칙 5).
+   * 이름은 PROCESS_STATUSES 에서 뽑는다: 손으로 적으면 순서가 바뀔 때 여기만 옛말이 된다.
+   */
+  const nextStep = status === '계약완료' ? PROCESS_STATUSES[statusIndex(status) + 1] : null;
+
   const requiredHere = evaluated.filter((d) => d.req === 'm' && !d.preinstall);
   const requiredDone = requiredHere.filter((d) => {
     const st = byKind.get(d.key)?.status;
@@ -221,7 +234,6 @@ export function IntakeTab({
         fixAsked={project.contractFixAskedAt !== null}
         canSubmit={canSubmit}
         canReview={canReview}
-        status={status}
       />
 
       <SiteFacts project={project} />
@@ -489,6 +501,17 @@ export function IntakeTab({
           <ConfirmContract projectId={projectId} contract={contract} />
         )}
 
+        {/*
+          * 확인이 끝나면 같은 자리에서 다음 걸음을 민다(한백 지시 2026-08-26).
+          *
+          * 처음에는 맨 위 상태 줄에 붙였는데, 확인을 누르는 자리는 여기다 — 서류를 다
+          * 보고 나서 판정하는 줄이고, 그 판정의 다음 걸음도 같은 자리에서 이어져야
+          * 눈이 옮겨 다니지 않는다. 확인 단추가 사라지면 그 자리를 이 단추가 잇는다.
+          */}
+        {canReview && project.contractConfirmedAt && nextStep && (
+          <AdvanceStage projectId={projectId} next={nextStep} />
+        )}
+
         {canReview
           && !project.contractConfirmedAt
           && asked.length === 0
@@ -588,7 +611,7 @@ function SubmitContract({
  * 말이고, 되돌리는 자리도 확인 취소 하나로 모인다(화면 규칙 5).
  */
 function ContractStatus({
-  projectId, submittedAt, confirmedAt, fixAsked, canSubmit, canReview, status,
+  projectId, submittedAt, confirmedAt, fixAsked, canSubmit, canReview,
 }: {
   projectId: string;
   submittedAt: string | null;
@@ -597,24 +620,9 @@ function ContractStatus({
   fixAsked: boolean;
   canSubmit: boolean;
   canReview: boolean;
-  status: ProcessStatus;
 }) {
   const submit = useAction();
   const confirm = useAction();
-  const advance = useAction();
-
-  /*
-   * 확인을 눌렀는데 다음 걸음이 여기 없었다(한백 지시 2026-08-26).
-   *
-   * 계약완료에서 운영사 계약서 제출로 미는 자리가 보드 카드뿐이었다 — 상세에서 서류를
-   * 보고 확인을 누른 사람이 그 걸음을 하려고 보드로 돌아가야 했다. 시공 스테퍼에도 없다:
-   * 그 두 칸은 ★계약 국면★이라 시공 스테퍼가 행위신고부터 그린다(ConstructionTab).
-   *
-   * 계약완료일 때만 나온다. 그 앞(접수·검토)은 확인이 먼저고, 그 뒤는 시공 탭의 스테퍼가
-   * 민다 — 한 걸음을 두 자리에서 밀면 어느 것이 정본인지 알 수 없다(화면 규칙 5).
-   * 조건은 저장소가 다시 본다(canEnter) — 여기 문구는 화면일 뿐이다.
-   */
-  const nextStep = status === '계약완료' ? PROCESS_STATUSES[statusIndex(status) + 1] : null;
 
   const showConfirmed = canReview && confirmedAt !== null;
   const showSubmitted = canSubmit && confirmedAt === null && submittedAt !== null;
@@ -625,20 +633,6 @@ function ContractStatus({
       {showConfirmed && (
         <Note tone="ok" className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
           <span className="font-bold">계약 확인 완료 · {confirmedAt}</span>
-          {/* 미는 자리는 상태 곁에, 되돌리는 자리는 반대쪽 끝에(화면 규칙 8) */}
-          {nextStep && (
-            <Btn
-              busy={advance.busy}
-              busyLabel="넘기는 중…"
-              onClick={() => void advance.run({
-                url: `/api/projects/${projectId}/status`,
-                body: { status: nextStep },
-                fail: '넘기지 못했습니다.',
-              })}
-            >
-              {nextStep} 로 넘기기 →
-            </Btn>
-          )}
           <Btn
             kind="undo"
             busy={confirm.busy}
@@ -652,7 +646,6 @@ function ContractStatus({
           >
             확인 취소
           </Btn>
-          <Err className="w-full">{advance.error}</Err>
           <Err className="w-full">{confirm.error}</Err>
         </Note>
       )}
@@ -737,6 +730,38 @@ function ConfirmContract({
       >
         {/* 막는 것을 단추 이름에 적는다 — 흐린 단추만으로는 왜 안 되는지 알 수 없다 */}
         {reason ? `${reason} — 계약 확인 불가` : '계약 확인 완료'}
+      </Btn>
+      <Err>{error}</Err>
+    </div>
+  );
+}
+
+/**
+ * 확인된 계약을 다음 단계로 — 한백만.
+ *
+ * 「계약 확인 완료」가 서 있던 자리를 그대로 잇는다. 모양도 같다(주 단추 + 그 밑 실패
+ * 문구) — 같은 줄에서 이어지는 걸음이라 크기가 달라지면 다른 종류의 일로 읽힌다.
+ *
+ * 막는 것을 이름에 적지 않는다 — 이 걸음에는 조건이 없다(STATUS_GATES 의 운영사 계약서
+ * 제출은 null). 넘기는 것이 곧 「우리가 냈다」는 선언이고, 낸 날은 저장소가 찍는다.
+ */
+function AdvanceStage({ projectId, next }: { projectId: string; next: ProcessStatus }) {
+  const { busy, error, run } = useAction();
+
+  /* 여백은 줄을 쥔 쪽(위 flex)이 준다 — ConfirmContract 와 같은 규칙이다 */
+  return (
+    <div className="flex flex-col gap-1.5">
+      <Btn
+        busy={busy}
+        busyLabel="넘기는 중…"
+        className="self-start"
+        onClick={() => void run({
+          url: `/api/projects/${projectId}/status`,
+          body: { status: next },
+          fail: '넘기지 못했습니다.',
+        })}
+      >
+        {next} 로 넘기기 →
       </Btn>
       <Err>{error}</Err>
     </div>

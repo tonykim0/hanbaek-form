@@ -167,7 +167,7 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
   };
 
   /*
-   * 단계 구간마다 그 구간의 일. 승인 값(승인일·계약서 제출)은
+   * 단계 구간마다 그 구간의 일. 승인 값(환경부 승인일·계약서 제출)은
    * 머리말에 있다 — 같은 값을 두 곳에 두지 않는다(화면 규칙 5).
    * 행위신고는 계약완료 직후 — 승인을 기다리는 동안 미리 해놓는다(1~2주, 한백 확인).
    */
@@ -195,7 +195,7 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
         advance: {
           label: '다음 단계로 진행',
           field: p.notifySkippedAt ? 'notifySkippedAt' : 'notifyDoneAt',
-          // 승인일 한 칸이 환경부 승인·운영사 시공승인을 겸한다 (한백 2026-08-27)
+          // 환경부 승인일 한 칸이 운영사 시공승인도 겸한다 (한백 2026-08-27)
           ready: Boolean(p.envApprovalDate) && (
             Boolean(p.notifySkippedAt)
             || (Boolean(p.notifyRequiredAt) && Boolean(p.notifyDate) && uploaded('notify'))
@@ -208,7 +208,7 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
                 ? '행위신고일 필요'
                 : p.notifyRequiredAt && !uploaded('notify')
                   ? '신고 파일 필요'
-                  : '승인일 필요',
+                  : '환경부 승인일 필요',
         },
         /*
          * ★필요여부를 먼저 고른다★ (한백 지시 2026-08-26) — 「필요」·「불필요」 두 단추다.
@@ -703,7 +703,7 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
 
               {/*
                 * 다음 걸음 — 지금 구간을 볼 때, 무엇이 차면 어디로 가는지 그 자리에 보인다.
-                * 완료 체크를 했는데 딴 조건(승인일 등)이 비어 못 넘어가던 것이
+                * 완료 체크를 했는데 딴 조건(환경부 승인일 등)이 비어 못 넘어가던 것이
                 * 아무 말 없이 지나갔다 — 그 이유가 여기 적힌다.
                 * 접수/검토 구간은 뺀다 — 거기는 검토 판정 상자가 다음 걸음이다.
                 */}

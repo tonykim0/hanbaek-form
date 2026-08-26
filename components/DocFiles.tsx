@@ -12,7 +12,7 @@ import { useRouter } from 'next/navigation';
 import { useAction } from '@/lib/use-action';
 import { Btn, Err } from '@/components/ui';
 import JSZip from 'jszip';
-import { DOC_FILE_TYPES, MAX_DOC_BYTES, type DocFile, type ProjectDocument } from '@/types/project';
+import { docContentType, MAX_DOC_BYTES, type DocFile, type ProjectDocument } from '@/types/project';
 import { downloadBlob } from '@/lib/download';
 
 /** 파일 이름에 쓸 수 없는 문자를 지운다 */
@@ -434,13 +434,8 @@ export function DocUpload({
      * 그 실패는 아래 catch 에서 「오류가 났습니다」 한 줄로 뭉개졌다. 30MB 를 넘는
      * 사진대지 엑셀이 실제로 그렇게 튕겼고, 화면만 봐서는 형식 탓인지 알 수 없었다.
      */
-    const tooBig = file.size > MAX_DOC_BYTES;
-    // 형식을 모르는 파일(.hwp 등)은 브라우저가 빈 값을 준다 — 그건 막지 않는다
-    const badType = file.type !== '' && !(DOC_FILE_TYPES as readonly string[]).includes(file.type);
-    if (tooBig || badType) {
-      setError(tooBig
-        ? `${mb(file.size)}MB — 한 파일은 ${mb(MAX_DOC_BYTES)}MB 까지입니다. 사진을 줄이거나 나눠서 올려 주세요.`
-        : `${file.type} 은 받지 않는 형식입니다 — PDF · 엑셀 · 워드 · 사진(JPG·PNG).`);
+    if (file.size > MAX_DOC_BYTES) {
+      setError(`${mb(file.size)}MB — 한 파일은 ${mb(MAX_DOC_BYTES)}MB 까지입니다. 사진을 줄이거나 나눠서 올려 주세요.`);
       setBusy(false);
       return false;
     }
@@ -454,7 +449,7 @@ export function DocUpload({
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ pathname, contentType: file.type }),
+          body: JSON.stringify({ pathname, contentType: docContentType(file.name, file.type) }),
         }
       );
       const tokenBody = (await tokenRes.json().catch(() => ({}))) as { token?: string; error?: string };
@@ -467,6 +462,11 @@ export function DocUpload({
       const blob = await put(pathname, file, {
         access: 'public',
         token: tokenBody.token,
+        /*
+         * 형식은 확장자로 정한다 — 브라우저가 말하는 것을 그대로 넘기면 한컴오피스로
+         * 저장한 엑셀이 application/haansoftxlsx 라 Blob 이 거절한다(같은 xlsx 인데도).
+         */
+        contentType: docContentType(file.name, file.type),
         onUploadProgress: ({ percentage }) => setPct(Math.round(percentage)),
       });
 

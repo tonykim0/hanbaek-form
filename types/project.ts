@@ -1002,6 +1002,37 @@ export const DOC_FILE_TYPES = [
 ] as const;
 
 /**
+ * 파일 이름의 확장자로 정한 형식 — 브라우저가 말하는 형식을 믿지 않는다.
+ *
+ * ★왜★ 한컴오피스가 깔린 컴퓨터는 `.xlsx` 를 `application/haansoftxlsx` 로 말한다.
+ * 표준 MIME 만 목록에 두었더니 Blob 이 「Content type mismatch」로 거절했다 — 같은
+ * 엑셀인데 저장한 프로그램에 따라 되고 안 되고가 갈렸다(한백 2026-08-26). 폴라리스·
+ * 네이버 등 변종은 앞으로도 늘어난다. 이름을 쫓지 않고 확장자로 못 박는다.
+ *
+ * 모르는 확장자는 octet-stream 으로 올린다 — 원래도 허용하던 값이라 넓어지는 것은
+ * 없고, 어느 오피스로 저장했느냐에 따라 갈리던 것이 없어진다.
+ */
+const DOC_TYPE_BY_EXT: Record<string, string> = {
+  pdf: 'application/pdf',
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  png: 'image/png',
+  xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  xls: 'application/vnd.ms-excel',
+  docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  doc: 'application/msword',
+};
+
+/** 이 파일을 Blob 에 올릴 때 붙일 형식 — 확장자가 먼저다 */
+export function docContentType(filename: string, browserType = ''): string {
+  const ext = (filename.split('.').pop() ?? '').toLowerCase();
+  return DOC_TYPE_BY_EXT[ext]
+    ?? ((DOC_FILE_TYPES as readonly string[]).includes(browserType)
+      ? browserType
+      : 'application/octet-stream');
+}
+
+/**
  * 서류 한 개의 크기 상한 — 라우트(토큰의 maximumSizeInBytes)와 화면이 같은 값을 봐야
  * 「올려 보고 나서야 튕기는」 일이 안 생긴다. 사진대지 엑셀은 사진이 박혀 있어 이 선을
  * 넘는 일이 잦다 — 넘으면 화면이 크기를 적어 준다.

@@ -25,7 +25,7 @@ import { useRouter } from 'next/navigation';
 import type {
   BizType, BuildingType, ContractParty, CpoName, IntakeDraft, PowerType, PreInstall, ReplType,
 } from '@/types/project';
-import { bizTypeOfRepl } from '@/types/project';
+import { bizTypeOfRepl, docContentType } from '@/types/project';
 import { buildDocContext, evaluateDocs } from '@/lib/doc-rules';
 import { checkDraft } from '@/lib/intake-validate';
 import { regionPrefixOf, withRegionPrefix } from '@/lib/region';
@@ -333,7 +333,8 @@ export default function IntakeForm({ org, isAdmin = false, knownOrgs = [] }: {
       const blob = await put(tb.pathname, file, {
         access: 'public',
         token: tb.token,
-        contentType: file.type || undefined,
+        // 확장자로 정한다 — 한컴오피스 xlsx(application/haansoftxlsx)가 거절당했다
+        contentType: docContentType(file.name, file.type),
         onUploadProgress: ({ percentage }) =>
           setPicking((p) => ({ ...p, [kind]: Math.round(percentage) })),
       });

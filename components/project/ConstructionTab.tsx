@@ -480,7 +480,14 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
                       다음 — {nextStatus} 로 넘기기 →
                     </button>
                   ) : (
-                    <p className="text-small font-bold text-brand-700">다음: {nextStatus} — 준비됨</p>
+                    /*
+                     * ★「준비됨」은 안 적는다(한백 지시 2026-08-26).★ 보드 카드에서 지운
+                     * 것과 같은 말이고 같은 이유다 — 단계를 옮기는 것은 한백이라, 단추가
+                     * 없는 쪽에는 그 말로 할 수 있는 일이 없다. 조건이 없어서 열려 있다는
+                     * 것은 우리 사정이지 그쪽의 다음 걸음이 아니다.
+                     * 아래 「… 필요」는 남는다 — 안 찬 조건은 대개 그쪽이 할 일이다.
+                     */
+                    null
                   )
                 ) : (
                   <p className="text-small font-semibold text-amber-700">

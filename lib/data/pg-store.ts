@@ -23,11 +23,11 @@ import {
 import type {
   BizType, BuildingType, ChargerModel, ContractLine, ContractParty, Court, CpoName, DocFile, DocStatus,
   IntakeDraft, LineAxes, NewPayoutEntry, PayoutCategory, PayoutEntry, PayoutKind, PayoutRow,
-  PowerType, PreInstall, PricingRule, ProcessInfo, Project, PromoExtendOption, PromoStep,
+  PowerType, PreInstall, PricingRule, ProcessInfo, ProcessStatus, Project, PromoExtendOption, PromoStep,
   ProjectDetail, ProjectDocument, ProjectSummary, ReplType, Settlement, SettlementRule,
   BatchFinal, SettlementStepRule, SettlementSummary, TaxInvoice,
 } from '@/types/project';
-import { subsidized } from '@/types/project';
+import { PROCESS_STATUSES, subsidized } from '@/types/project';
 import type { Viewer } from '@/lib/auth/types';
 import { canAccessProject, canWrite, effectiveVisibility, isHanbaek, normalizeOrg } from '@/lib/roles';
 import { needsPreInstallCheck, PROCESS_DOCS } from '@/lib/doc-rules';
@@ -434,6 +434,46 @@ async function advanceAfterCheck(projectId: string, patch: ProcessPatch, actor: 
   if (statusIndex(target) !== statusIndex(cur) + 1) return;      // 바로 다음 한 걸음만
   if (!canEnter(target, record.process).ok) return;              // 조건이 아직 안 찼다
   if (toDetail(record, await ruleMap(), await settleMap()).stage === 'intake') return;
+  await moveStatus(projectId, cur, target, actor, '진행 단계 변경 (완료 체크)');
+}
+
+/**
+ * 체크를 풀면 그 체크가 열었던 단계에서 물러난다 (한백 지시 2026-08-26).
+ *
+ * ★안 물러나면 기록 없이 통과한 현장이 남는다★ — canEnter 는 지나온 자리를 다시 묻지
+ * 않으므로(lib/process), 「행위신고 불필요」를 체크해 시공진행필요로 올라간 뒤 체크를
+ * 풀면 신고 기록이 하나도 없는 채로 준공까지 흘러간다.
+ *
+ * 이미 더 간 현장은 물러나지 않는다 — 그 사이의 일(수령·착공)까지 되감을 수는 없다.
+ * 그때는 해제를 거절한다: 되돌리려면 한백이 단계를 먼저 내려야 한다.
+ */
+async function retreatAfterUncheck(projectId: string, patch: ProcessPatch, actor: Actor): Promise<void> {
+  const field = (Object.keys(patch) as Array<keyof ProcessPatch>).find(
+    (f) => f in CHECK_ADVANCES && patch[f] === null
+  );
+  if (!field) return;
+  const opened = CHECK_ADVANCES[field as keyof typeof CHECK_ADVANCES];
+
+  const rows = await getDb().select().from(projects).where(eq(projects.id, projectId)).limit(1);
+  if (!rows[0]) return;
+  const [record] = await recordsOf(rows);
+  if (!record) return;
+
+  const cur = record.process.status;
+  if (statusIndex(cur) < statusIndex(opened)) return;   // 아직 그 단계에 안 올라갔다 — 할 일 없음
+  if (statusIndex(cur) > statusIndex(opened)) {
+    throw new Error(`이미 ${cur} 까지 진행돼 해제할 수 없습니다 — 단계를 먼저 되돌리세요.`);
+  }
+  const back = PROCESS_STATUSES[statusIndex(opened) - 1];
+  if (!back) return;
+  await moveStatus(projectId, cur, back, actor, '진행 단계 되돌림 (체크 해제)');
+}
+
+/** 단계를 옮기고 담당·정체일·감사기록을 함께 맞춘다 — 체크로 오르내릴 때 쓴다 */
+async function moveStatus(
+  projectId: string, cur: ProcessStatus, target: ProcessStatus, actor: Actor, action: string
+): Promise<void> {
+  const db = getDb();
 
   await db.transaction(async (tx) => {
     await tx.update(processes).set({ status: target }).where(eq(processes.projectId, projectId));
@@ -442,7 +482,7 @@ async function advanceAfterCheck(projectId: string, patch: ProcessPatch, actor: 
       .set({ lastProgressAt: today(), court: COURT_AFTER_STATUS[target] })
       .where(eq(projects.id, projectId));
     await writeAudit(tx, {
-      projectId, actor, action: '진행 단계 변경 (완료 체크)',
+      projectId, actor, action,
       field: 'process.status', oldValue: cur, newValue: target,
     });
   });
@@ -690,13 +730,29 @@ export const pgRepository: ProjectRepository = {
        * 협력사를 기다리는 현장이 한백이 막고 있는 것처럼 보인다.
        */
       const day = today();
+      /*
+       * ★착공 뒤에는 계약 단계로 내려가지 않는다★ (한백 지시 2026-08-26).
+       *
+       * 반려는 계약 확인을 지우고, 확인이 없으면 단계가 intake 로 유도된다(lib/stage.ts) —
+       * 그러면 공사가 도는 현장이 시공 보드에서 사라지고 단계 이동이 전부 막힌다
+       * (setProcessStatus 가 「계약이 끝나기 전에는 못 옮긴다」로 거절한다).
+       * 서류의 문제는 그대로 반려로 남지만(칸은 계약보완이 아니라 공정 그대로),
+       * 이미 시작된 공사를 계약 칸으로 끌어내리지는 않는다.
+       */
+      const [proc] = await tx
+        .select({ status: processes.status })
+        .from(processes)
+        .where(eq(processes.projectId, input.projectId))
+        .limit(1);
+      const started = statusIndex(asProcessStatus(proc?.status)) >= statusIndex('착공');
+
       await tx
         .update(projects)
         .set({
           lastProgressAt: day,
           ...(input.status === 'rejected'
             ? {
-                contractConfirmedAt: null,
+                ...(started ? {} : { contractConfirmedAt: null }),
                 contractFixAskedAt: sql`coalesce(${projects.contractFixAskedAt}, ${day})`,
                 court: '영업사',
               }
@@ -857,7 +913,10 @@ export const pgRepository: ProjectRepository = {
       const where = and(eq(table.projectId, input.projectId), eq(table.kind, input.kind));
 
       const [row] = await tx
-        .select({ blobUrl: table.blobUrl, filename: table.filename, files: table.files })
+        // status 도 읽는다 — 반려된 칸은 파일을 빼도 반려로 남긴다(아래)
+        .select({
+          blobUrl: table.blobUrl, filename: table.filename, files: table.files, status: table.status,
+        })
         .from(table)
         .where(where)
         .limit(1);
@@ -879,8 +938,14 @@ export const pgRepository: ProjectRepository = {
           files,
           filename: files[0]?.name ?? null,
           blobUrl: files[0]?.url ?? null,
-          // 마지막 장을 빼면 미제출이다 — 파일 없는 「제출됨」을 남기지 않는다
-          ...(files.length === 0 ? { status: 'none' } : {}),
+          /*
+           * 마지막 장을 빼면 미제출이다 — 파일 없는 「제출됨」을 남기지 않는다.
+           * ★반려는 그대로 둔다★ (한백 지시 2026-08-26) — 예전에는 미제출로 바꾸면서
+           * 반려까지 풀려서, 협력사가 반려된 파일을 빼는 것만으로 계약보완에서 빠져나왔다.
+           * 반려는 「이 칸을 고쳐 오라」는 판정이고 파일을 빼는 것이 그 판정을 지우지 않는다 —
+           * 새 파일이 올라올 때만 풀린다(uploadDocument). 사유도 남긴다.
+           */
+          ...(files.length === 0 && row.status !== 'rejected' ? { status: 'none' } : {}),
         })
         .where(where);
 
@@ -1581,14 +1646,37 @@ export const pgRepository: ProjectRepository = {
         .values(row)
         .onConflictDoUpdate({ target: [documents.projectId, documents.kind], set: row });
 
-      // 서류가 올라오면 공이 한백으로 넘어간다 (검수 차례)
-      // 설치이력 파일이 곧 기설치 조사다(한백 확인) — 조사 여부를 따로 묻지 않는다
+      /*
+       * 서류가 올라오면 담당이 한백으로 넘어간다 (검수 차례).
+       *
+       * ★단, 아직 되돌려진 것이 남아 있으면 안 넘긴다★ (한백 지시 2026-08-26).
+       * 서류를 두 칸 반려했는데 한 칸만 다시 올리면, 예전에는 그 한 장으로 담당이
+       * 한백에 넘어갔다 — 한백 할 일에 「반려 N건 보완」(협력사가 할 일)이 뜨고 정작
+       * 고쳐야 할 협력사 목록에서는 그 현장이 사라졌다. 기설치 조사 반려도 같다:
+       * 조사를 다시 하라고 돌려보냈는데 엉뚱한 서류 한 장에 담당이 넘어왔다
+       * (실제로 3건 — 학동모아엘가·이천 수림1차·신정이펜하우스3단지).
+       *
+       * 설치이력 파일이 곧 기설치 조사다(한백 확인) — 조사 여부를 따로 묻지 않는다.
+       * 그 파일이 올라오면 조사 반려도 함께 풀린다(보완이 반려를 푸는 규칙).
+       */
+      const clearsPreReject = input.kind === 'legacylog';
+      const [left] = await tx
+        .select({ n: sql<number>`count(*)::int` })
+        .from(documents)
+        .where(and(eq(documents.projectId, input.projectId), eq(documents.status, 'rejected')));
+      const [proj] = await tx
+        .select({ preRejectReason: projects.preRejectReason })
+        .from(projects)
+        .where(eq(projects.id, input.projectId))
+        .limit(1);
+      const stillOpen = (left?.n ?? 0) > 0 || (!clearsPreReject && proj?.preRejectReason !== null);
+
       await tx
         .update(projects)
         .set({
-          court: '한백',
+          ...(stillOpen ? {} : { court: '한백' as const }),
           lastProgressAt: day,
-          ...(input.kind === 'legacylog' ? { preChecked: true } : {}),
+          ...(clearsPreReject ? { preChecked: true, preRejectReason: null } : {}),
         })
         .where(eq(projects.id, input.projectId));
 
@@ -1704,6 +1792,7 @@ export const pgRepository: ProjectRepository = {
 
     // 완료 체크는 선언이자 전이다(한백 확인) — 조건이 차 있으면 다음 단계로 저절로 넘어간다
     await advanceAfterCheck(projectId, patch, actor);
+    await retreatAfterUncheck(projectId, patch, actor);
   },
 
   async setProcessStatus(projectId, status, actor): Promise<void> {
@@ -1835,10 +1924,18 @@ export const pgRepository: ProjectRepository = {
       ) return;
 
       const day = today();
+      /* 착공 뒤에는 계약 단계로 내려가지 않는다 — 서류 반려와 같은 규칙(한백 지시 2026-08-26) */
+      const [proc] = await tx
+        .select({ status: processes.status })
+        .from(processes)
+        .where(eq(processes.projectId, projectId))
+        .limit(1);
+      const started = statusIndex(asProcessStatus(proc?.status)) >= statusIndex('착공');
+
       await tx
         .update(projects)
         /*
-         * 조사는 진척이다 — 정체일 기준을 갱신한다. 반려는 보완 차례라 공이 영업사로.
+         * 조사는 진척이다 — 정체일 기준을 갱신한다. 반려는 보완 차례라 담당이 영업사로.
          *
          * ★반려는 서류 반려와 같은 뒷일을 한다(한백 지적 2026-08-26).★ 앞서 한 계약
          * 확인을 지우고, 보완요청이 있었다는 사실을 남긴다(첫 번째 것만). 안 지우면
@@ -1852,7 +1949,7 @@ export const pgRepository: ProjectRepository = {
           ...(rejecting
             ? {
                 court: '영업사' as const,
-                contractConfirmedAt: null,
+                ...(started ? {} : { contractConfirmedAt: null }),
                 contractFixAskedAt: sql`coalesce(${projects.contractFixAskedAt}, ${day})`,
               }
             : {}),
@@ -2386,7 +2483,7 @@ export const pgRepository: ProjectRepository = {
   },
 
   async setCourt(projectId, court, actor): Promise<void> {
-    assertAdmin(actor, '공 차례 넘기기');
+    assertAdmin(actor, '담당 넘기기');
 
     const db = getDb();
     await db.transaction(async (tx) => {
@@ -2404,7 +2501,7 @@ export const pgRepository: ProjectRepository = {
         .where(eq(projects.id, projectId));
 
       await writeAudit(tx, {
-        projectId, actor, action: '공 차례 변경',
+        projectId, actor, action: '담당 변경',
         field: 'court', oldValue: row.court, newValue: court,
       });
     });

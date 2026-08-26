@@ -360,7 +360,14 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
                 <Badge tone={selState === 'current' ? 'ok' : 'mute'}>
                   {selState === 'current' ? '지금 구간' : selState === 'past' ? '지난 구간' : '오지 않은 구간'}
                 </Badge>
-                {edit === 'all' && selState !== 'current' && (
+                {/*
+                  * ★계약 국면에 서 있는 현장은 여기서 못 옮긴다★ (한백 지시 2026-08-26).
+                  * 이 스테퍼는 행위신고부터 그리므로, 계약완료 현장에서 「이 구간으로
+                  * 넘기기」를 누르면 「운영사 계약서 제출」을 통째로 건너뛰었다 —
+                  * 그러면 제출일이 영영 안 남고 담당도 운영사를 거치지 않는다.
+                  * 그 걸음은 계약 탭과 보드 카드에서 한다.
+                  */}
+                {edit === 'all' && selState !== 'current' && bandOfColumn(p.status) !== '계약' && (
                   selEntry.ok ? (
                     <button
                       type="button"

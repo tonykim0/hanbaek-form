@@ -327,7 +327,12 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
          * 전기안전관리자 선임신고증명서는 한전불입 현장에만 낸다 — 혼용도 한전불입을 쓴다.
          */
         docs: [
-          'completion',
+          /*
+           * 옛 「준공서류」 칸 — ★이미 올린 파일이 있는 현장에만 남긴다★. 칸을 없애면
+           * 그 파일이 화면에서 사라진다(상자가 그리는 종류만 보인다). 새 현장은 아래
+           * 세부 칸에 낸다. 이 구간에 들어오는 조건도 설치완료확인서로 옮겼다.
+           */
+          ...(uploaded('completion') ? ['completion'] : []),
           'completeConfirm',
           'costSurvey',
           'safety',

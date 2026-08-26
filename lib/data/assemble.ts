@@ -219,18 +219,21 @@ export function toDetail(r: ProjectRecord, rules: RuleMap, settles: SettleMap): 
     ? settles.get(r.project.settlementRuleId) ?? null
     : null;
 
-  const docCtx = docCtxOf(r);
-
   const steps = settlementForProject(
     lines, settlementRule, r.process, r.settlementRaw.cpoCloseDate, r.collected
   );
   const settlement: Settlement = { ...r.settlementRaw, steps };
-  const contract = contractStateOf({
-    docCtx,
-    documents: r.documents,
-    lines: r.lines,
-    docsExempt: docsOutsideConsole(r.project.mgmtNo),
-  });
+  /*
+   * ★계약 판정은 부르는 자리를 하나로 둔다.★
+   *
+   * 같은 인자 목록이 두 벌 있었다 — contractStateFor 와 여기. 조사 반려를 조건에 넣으면서
+   * 저쪽에만 적고 여기를 빠뜨렸더니(2026-08-26) 보드가 쓰는 값이 늘 false 였다.
+   * 보드도 상세도 summaryOf·toDetail 을 거치므로 화면에 나가는 것은 이쪽이고, 그래서
+   * 반려해 놓은 현장이 계약검토에 그대로 서 있었다.
+   *
+   * 목록이 두 곳에 있으면 다음에도 한쪽만 늘어난다 — 부르는 자리를 하나로 합친다.
+   */
+  const contract = contractStateFor(r);
   const stage = deriveStage({
     settlement,
     contractConfirmedAt: r.project.contractConfirmedAt,

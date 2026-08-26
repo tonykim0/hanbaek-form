@@ -506,7 +506,12 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
                       <CheckRow
                         check={g.check}
                         value={p[g.check.field]}
-                        canEdit={canEdit}
+                        /*
+                         * 오지 않은 구간의 체크는 못 누른다 — 체크가 곧 지급 트리거라
+                         * (설치완료·개통완료) 미래 구간에서 누르면 착공도 안 한 현장의
+                         * 지급이 열렸다(2026-08-26). 서버도 같은 판정을 한다.
+                         */
+                        canEdit={canEdit && selState !== 'future'}
                         busy={busyKey === g.check.field}
                         onToggle={saveCheck}
                       />
@@ -515,7 +520,7 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
                       <CheckRow
                         check={g.skip}
                         value={p[g.skip.field]}
-                        canEdit={canEdit}
+                        canEdit={canEdit && selState !== 'future'}
                         busy={busyKey === g.skip.field}
                         onToggle={saveCheck}
                       />

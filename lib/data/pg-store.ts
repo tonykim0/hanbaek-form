@@ -444,34 +444,38 @@ async function advanceAfterCheck(projectId: string, patch: ProcessPatch, actor: 
  * 않으므로(lib/process), 「행위신고 불필요」를 체크해 시공진행필요로 올라간 뒤 체크를
  * 풀면 신고 기록이 하나도 없는 채로 준공까지 흘러간다.
  *
- * 이미 더 간 현장은 물러나지 않는다 — 그 사이의 일(수령·착공)까지 되감을 수는 없다.
- * 그때는 해제를 거절한다: 되돌리려면 한백이 단계를 먼저 내려야 한다.
+ * ★부르는 쪽이 「실제로 풀린 칸」을 준다★ — patch 를 그대로 훑지 않는다. 라우트가
+ * 행위신고 상호배제로 반대쪽에 심는 null 을 해제로 읽어서, 체크가 단계를 올린 직후
+ * 스스로 되돌리는 일이 있었다(2026-08-26 실사고 — 시공 구간 입구가 막혔다).
+ * 되감을 수 없는 경우(더 진행됨)는 부르는 쪽이 저장 전에 이미 거절한다.
  */
-async function retreatAfterUncheck(projectId: string, patch: ProcessPatch, actor: Actor): Promise<void> {
-  const field = (Object.keys(patch) as Array<keyof ProcessPatch>).find(
-    (f) => f in CHECK_ADVANCES && patch[f] === null
-  );
-  if (!field) return;
-  const opened = CHECK_ADVANCES[field as keyof typeof CHECK_ADVANCES];
+async function retreatAfterUncheck(
+  projectId: string, field: keyof typeof CHECK_ADVANCES, actor: Actor
+): Promise<void> {
+  const opened = CHECK_ADVANCES[field];
 
   const rows = await getDb().select().from(projects).where(eq(projects.id, projectId)).limit(1);
   if (!rows[0]) return;
   const [record] = await recordsOf(rows);
   if (!record) return;
 
+  // 계약이 안 끝난 현장은 공정을 움직이지 않는다 — advanceAfterCheck 와 같은 잠금
+  if (toDetail(record, await ruleMap(), await settleMap()).stage === 'intake') return;
+
   const cur = record.process.status;
-  if (statusIndex(cur) < statusIndex(opened)) return;   // 아직 그 단계에 안 올라갔다 — 할 일 없음
-  if (statusIndex(cur) > statusIndex(opened)) {
-    throw new Error(`이미 ${cur} 까지 진행돼 해제할 수 없습니다 — 단계를 먼저 되돌리세요.`);
-  }
+  if (statusIndex(cur) !== statusIndex(opened)) return;  // 그 단계에 서 있을 때만 물러난다
   const back = PROCESS_STATUSES[statusIndex(opened) - 1];
   if (!back) return;
-  await moveStatus(projectId, cur, back, actor, '진행 단계 되돌림 (체크 해제)');
+  await moveStatus(projectId, cur, back, actor, '진행 단계 되돌림 (체크 해제)', { progress: false });
 }
 
-/** 단계를 옮기고 담당·정체일·감사기록을 함께 맞춘다 — 체크로 오르내릴 때 쓴다 */
+/**
+ * 단계를 옮기고 담당·감사기록을 함께 맞춘다 — 체크로 오르내릴 때 쓴다.
+ * 되돌림에는 정체일을 찍지 않는다(progress: false) — 되돌리는 것은 진척이 아니다.
+ */
 async function moveStatus(
-  projectId: string, cur: ProcessStatus, target: ProcessStatus, actor: Actor, action: string
+  projectId: string, cur: ProcessStatus, target: ProcessStatus, actor: Actor, action: string,
+  opts: { progress?: boolean } = {}
 ): Promise<void> {
   const db = getDb();
 
@@ -479,7 +483,10 @@ async function moveStatus(
     await tx.update(processes).set({ status: target }).where(eq(processes.projectId, projectId));
     await tx
       .update(projects)
-      .set({ lastProgressAt: today(), court: COURT_AFTER_STATUS[target] })
+      .set({
+        ...(opts.progress === false ? {} : { lastProgressAt: today() }),
+        court: COURT_AFTER_STATUS[target],
+      })
       .where(eq(projects.id, projectId));
     await writeAudit(tx, {
       projectId, actor, action,
@@ -1748,6 +1755,8 @@ export const pgRepository: ProjectRepository = {
     const fields = Object.keys(patch) as Array<keyof ProcessPatch>;
     if (fields.length === 0) return;
 
+    /** 실제로 풀린 체크 칸 — 트랜잭션 안에서 정하고, 커밋 뒤 단계를 되돌리는 데 쓴다 */
+    let unchecked: keyof typeof CHECK_ADVANCES | null = null;
     const db = getDb();
     await db.transaction(async (tx) => {
       const [project] = await tx
@@ -1765,6 +1774,46 @@ export const pgRepository: ProjectRepository = {
         .from(processes)
         .where(eq(processes.projectId, projectId))
         .limit(1);
+
+      /*
+       * ★실제로 풀린 체크만 해제로 본다★ — 라우트가 행위신고 상호배제로 반대쪽에 심는
+       * null 은 「원래도 null」이라 여기서 걸러진다. 안 걸러서 체크가 단계를 올린 직후
+       * 스스로 되돌리는 일이 있었다(2026-08-26 실사고).
+       *
+       * ★거절은 저장 전에 한다★ — 예전에는 커밋 뒤 트랜잭션 밖에서 던져서, 「해제할 수
+       * 없습니다」를 띄우면서 값은 이미 지워져 있었다. 그 값이 지급 트리거면 근거가
+       * 조용히 사라진다(개통완료·설치완료).
+       */
+      unchecked = fields.find(
+        (f) => f in CHECK_ADVANCES && patch[f] === null && before?.[f as keyof typeof before] != null
+      ) as keyof typeof CHECK_ADVANCES | undefined ?? null;
+      if (unchecked) {
+        const opened = CHECK_ADVANCES[unchecked];
+        const cur = asProcessStatus(before?.status);
+        if (statusIndex(cur) > statusIndex(opened)) {
+          throw new Error(`이미 ${cur} 까지 진행돼 해제할 수 없습니다 — 단계를 먼저 되돌리세요.`);
+        }
+      }
+
+      /*
+       * ★완료 체크는 그 구간에 와서 한다★ (2026-08-26 발견).
+       *
+       * 체크 필드가 곧 지급 트리거다(설치완료 → 시공비 1차, 개통완료 → 양쪽 2차 —
+       * assemble.payoutMilestonesFor). 그런데 화면의 스테퍼는 미래 구간도 열어 주고
+       * 서버는 「누가 적는가」만 봤다 — 시공진행필요 현장에서 설치완료·개통완료 칩을
+       * 골라 체크하면 ★착공도 안 한 현장의 지급이 전액 열렸다★. 단계는 한 걸음씩만
+       * 오르므로(advanceAfterCheck) 보드는 제자리인 채 돈만 열리는 조합이었다.
+       *
+       * 이미 지난 구간의 체크는 막지 않는다 — 되돌려 고치는 길이다(화면 규칙 7).
+       */
+      const cur = asProcessStatus(before?.status);
+      for (const f of fields) {
+        if (!(f in CHECK_ADVANCES) || patch[f] == null) continue;
+        const opened = CHECK_ADVANCES[f as keyof typeof CHECK_ADVANCES];
+        if (statusIndex(cur) < statusIndex(opened) - 1) {
+          throw new Error(`아직 그 구간이 아닙니다 — 지금은 ${cur} 입니다.`);
+        }
+      }
 
       // 공정 행이 없는 현장이 있다 — update 는 0행을 조용히 지나가므로 없으면 만들어 넣는다
       if (before) {
@@ -1792,7 +1841,7 @@ export const pgRepository: ProjectRepository = {
 
     // 완료 체크는 선언이자 전이다(한백 확인) — 조건이 차 있으면 다음 단계로 저절로 넘어간다
     await advanceAfterCheck(projectId, patch, actor);
-    await retreatAfterUncheck(projectId, patch, actor);
+    if (unchecked) await retreatAfterUncheck(projectId, unchecked, actor);
   },
 
   async setProcessStatus(projectId, status, actor): Promise<void> {

@@ -3,9 +3,10 @@
 import type { ReactNode } from 'react';
 import type { FieldValues, Path, UseFormRegister } from 'react-hook-form';
 import { formatKoreanPhone } from '@/lib/contract-form';
+import { FIELD } from '@/components/ui';
 
-export const contractInputClass =
-  'w-full border border-gray-300 rounded px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent';
+/* 계약서 폼의 입력칸 — 모양은 부품이 쥔다(ui.tsx FIELD). 이름만 여기 남긴다 */
+export const contractInputClass = FIELD;
 
 /**
  * 한국 전화번호 입력 — 숫자 입력 시 하이픈(-)을 자동 삽입한다.

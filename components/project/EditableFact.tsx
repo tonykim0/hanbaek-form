@@ -20,7 +20,7 @@
  */
 import { useState } from 'react';
 import { useAction } from '@/lib/use-action';
-import { Btn, Empty, Err, FIELD, Val } from '@/components/ui';
+import { Btn, Empty, Err, FIELD, Picks, Val } from '@/components/ui';
 
 export function EditableFact({
   label, value, canEdit, url, field, method = 'PATCH', empty = '—', placeholder,
@@ -94,21 +94,7 @@ export function EditableFact({
             }}
             className={`${FIELD} max-w-[280px]`}
           />
-          {suggestions.length > 0 && (
-            <div className="flex flex-wrap gap-1">
-              {suggestions.map((o) => (
-                <button
-                  key={o}
-                  type="button"
-                  onClick={() => setDraft(o)}
-                  /* 눌러 넣는 것이라 각지다 — 동글한 것은 못 누르는 상태 배지다 */
-                  className="rounded-ctl border border-slate-200 px-2 py-0.5 text-micro font-bold text-slate-500 transition hover:border-brand-300 hover:text-brand-800"
-                >
-                  {o}
-                </button>
-              ))}
-            </div>
-          )}
+          <Picks options={suggestions} onPick={setDraft} />
           <div className="flex items-center gap-1.5">
             <Btn size="sm" busy={busy} busyLabel="저장 중…" onClick={() => void save(draft)}>
               저장

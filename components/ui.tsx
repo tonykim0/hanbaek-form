@@ -201,6 +201,103 @@ export function Choice({
   );
 }
 
+/* ── 눌러 넣는 후보 ────────────────────────────────────────────────────────
+ * 손으로 적으면 갈리는 값의 목록 — 업체 이름이 그렇다. 「에코일렉」과 「에코일렉 」이
+ * 갈리면 그 업체에게 그 현장이 영구히 안 보인다. 골라 넣으면 그 일이 안 생긴다.
+ *
+ * Choice 와 다른 것이다: 저것은 켜고 끄는 상태고, 이것은 한 번 눌러 값을 넣는 것이라
+ * 켜진 모양이 없다. 각지다 — 누르는 것이다(규칙 11).
+ *
+ * ★세 곳에 따로 그려져 있던 것을 모았다 (2026-08-27).★ 접수 폼과 계정 관리는 동글게
+ * (rounded-full) 그려 두어 못 누르는 상태 배지와 같은 모양이었고, 글자 크기도 갈렸다.
+ */
+export function Picks({
+  options, onPick, label, className = '',
+}: {
+  options: readonly string[];
+  onPick: (v: string) => void;
+  /** 앞에 붙는 말 — 무엇의 목록인지 (「쓰이고 있는 소속」) */
+  label?: string;
+  className?: string;
+}) {
+  if (options.length === 0) return null;
+  return (
+    <div className={`flex flex-wrap items-center gap-1 ${className}`}>
+      {label && <span className="text-tiny text-slate-400">{label}</span>}
+      {options.map((o) => (
+        <button
+          key={o}
+          type="button"
+          onClick={() => onPick(o)}
+          className="rounded-ctl border border-slate-200 px-2 py-0.5 text-micro font-bold text-slate-500 transition hover:border-brand-300 hover:text-brand-800"
+        >
+          {o}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/* ── 되돌릴 수 없는 것을 확정하는 대화상자 ─────────────────────────────────
+ * 되돌릴 수 없는 일 앞에 한 번 묻는다. 확정만 빨강이고(화면 규칙 12) 여는 자리는
+ * 글자 단추다 — 다 빨가면 어느 것이 되돌릴 수 없는 것인지 알 수 없다.
+ *
+ * ★window.confirm 을 쓰지 않는다 (2026-08-27).★ 파일 빼기·칸 지우기·자료 삭제가
+ * 브라우저 기본 대화상자였다 — 이 앱에서 가장 위험한 동작들이 앱 밖의 모양으로,
+ * 무엇이 사라지는지 굵게 적을 수도 「도는 중」을 보일 수도 없었다(화면 규칙 9).
+ * 현장 삭제만 제 대화상자를 갖고 있었고, 그것을 여기로 옮겨 셋이 같이 쓴다.
+ *
+ * `hint` 는 안내문이 아니라 ★잘못 누르는 것을 막는 말★이다 — 대신 무엇을 해야 하는지
+ * (「계약중단으로 세우세요」). 그 말이 없으면 비워 둔다(화면 규칙 2).
+ */
+export function Confirm({
+  open, title, detail, hint, confirmLabel, busy = false, busyLabel, error, onConfirm, onCancel,
+}: {
+  open: boolean;
+  title: string;
+  /** 무엇이 함께 사라지는가 */
+  detail?: string;
+  hint?: ReactNode;
+  confirmLabel: string;
+  busy?: boolean;
+  busyLabel?: string;
+  error?: string | null;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  if (!open) return null;
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={title}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4"
+      onClick={() => !busy && onCancel()}
+      onKeyDown={(e) => { if (e.key === 'Escape' && !busy) onCancel(); }}
+    >
+      <div
+        className="w-full max-w-sm rounded-panel border border-slate-200 bg-white p-5"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <p className="break-keep text-lead font-black text-slate-900">{title}</p>
+        {detail && <p className="mt-1.5 break-keep text-small text-slate-500">{detail}</p>}
+        {hint && (
+          <p className="mt-2 break-keep rounded-box bg-slate-50 px-3 py-2 text-small text-slate-600">
+            {hint}
+          </p>
+        )}
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          <Btn kind="stop" size="sm" busy={busy} busyLabel={busyLabel} onClick={onConfirm}>
+            {confirmLabel}
+          </Btn>
+          <Btn kind="quiet" size="sm" disabled={busy} onClick={onCancel}>취소</Btn>
+          <Err>{error}</Err>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ── 실패 문구 ─────────────────────────────────────────────────────────────
  * 누른 단추 옆에 붙는다. 화면 위쪽 한 곳에 모아 두면 무엇을 누르다 틀렸는지 모른다.
  * 빈 값이면 자리도 차지하지 않는다 — 늘 있는 빈 줄은 눈이 무시하게 된다.

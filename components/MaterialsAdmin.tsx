@@ -11,6 +11,7 @@ import {
   sanitizeFileName,
   type MaterialGroup,
 } from '@/lib/materials-meta';
+import { Confirm, FIELD } from '@/components/ui';
 
 const PASSWORD_STORAGE_KEY = 'materials-admin-password';
 /** 이 크기를 넘으면 분할 업로드 — 대용량 파일 실패 시 해당 조각만 재시도됩니다 */
@@ -31,6 +32,8 @@ export default function MaterialsAdmin({ groups }: { groups: MaterialGroup[] }) 
   const [category, setCategory] = useState('sales');
   const [progress, setProgress] = useState<Progress[]>([]);
   const [busy, setBusy] = useState(false);
+  /** 지울지 묻는 중인 자료 — null 이면 안 묻는 중 */
+  const [asking, setAsking] = useState<{ url: string; title: string } | null>(null);
   const [message, setMessage] = useState<{ kind: 'ok' | 'err'; text: string } | null>(
     null
   );
@@ -151,13 +154,17 @@ export default function MaterialsAdmin({ groups }: { groups: MaterialGroup[] }) 
     }
   }
 
-  async function handleDelete(url: string, title: string) {
+  /* 되돌릴 수 없는 확정은 앱의 대화상자로 묻는다 — window.confirm 은 앱 밖의 모양이다 */
+  function askDelete(url: string, title: string) {
     if (!password) {
       setMessage({ kind: 'err', text: '관리자 비밀번호를 입력해주세요.' });
       return;
     }
-    if (!window.confirm(`「${title}」을(를) 삭제할까요? 되돌릴 수 없습니다.`)) return;
+    setAsking({ url, title });
+  }
 
+  async function handleDelete(url: string, title: string) {
+    setAsking(null);
     setBusy(true);
     setMessage(null);
     try {
@@ -178,11 +185,21 @@ export default function MaterialsAdmin({ groups }: { groups: MaterialGroup[] }) 
     }
   }
 
-  const selectClass =
-    'w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-300';
+  /* 고르는 칸도 입력칸과 같은 모양이다 — 부품이 쥔다 */
+  const selectClass = `${FIELD} bg-white`;
 
   return (
     <div className="flex flex-col gap-6">
+      <Confirm
+        open={asking !== null}
+        title={asking ? `「${asking.title}」을(를) 삭제할까요?` : ''}
+        detail="자료실에서 바로 사라지고 되돌릴 수 없습니다."
+        confirmLabel="예, 삭제합니다"
+        busy={busy}
+        busyLabel="삭제 중…"
+        onConfirm={() => { if (asking) void handleDelete(asking.url, asking.title); }}
+        onCancel={() => setAsking(null)}
+      />
       <section className="bg-white border border-gray-200 rounded-lg shadow-sm p-5">
         <h2 className="text-base font-bold text-gray-900 mb-4">자료 올리기</h2>
 
@@ -349,7 +366,7 @@ export default function MaterialsAdmin({ groups }: { groups: MaterialGroup[] }) 
                             </button>
                             <button
                               type="button"
-                              onClick={() => handleDelete(f.url, f.title)}
+                              onClick={() => askDelete(f.url, f.title)}
                               disabled={busy}
                               className="text-xs font-semibold text-red-600 border border-red-200 hover:bg-red-50 disabled:opacity-40 rounded-lg px-3 py-1.5 transition"
                             >

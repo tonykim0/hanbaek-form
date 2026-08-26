@@ -1,4 +1,5 @@
 'use client';
+import { FIELD } from '@/components/ui';
 
 import { useEffect } from 'react';
 
@@ -23,8 +24,8 @@ export default function SalesRepForm({
     } catch { /* 무시 */ }
   }, []);
 
-  const inputCls =
-    'w-full border border-gray-300 rounded-lg px-3 py-2.5 text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent';
+  /* 입력칸 모양은 부품이 쥔다 — 여기서 클래스를 적으면 테두리·모서리·포커스가 갈린다 */
+  const inputCls = FIELD;
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

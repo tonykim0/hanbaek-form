@@ -19,7 +19,7 @@ import type { ContractState, ProjectDetail, SettlementRuleChoice } from '@/types
 import { subsidized } from '@/types/project';
 import { useAction } from '@/lib/use-action';
 import { DatePicker } from '@/components/DatePicker';
-import { Badge, Btn, Empty, Err, FIELD, Tag, type Tone, Val } from '@/components/ui';
+import { Badge, Btn, Confirm, Empty, Err, FIELD, Tag, type Tone, Val } from '@/components/ui';
 import { buildDocContext, evaluateDocs, PROCESS_DOCS } from '@/lib/doc-rules';
 import { BAND_TONE, bandOfColumn, boardColumnOf, phaseOfProject } from '@/lib/board';
 import type { BoardBand, BoardColumn } from '@/lib/board';
@@ -792,38 +792,19 @@ function DeleteProject({ projectId, name }: { projectId: string; name: string })
         삭제
       </Btn>
 
-      {confirming && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4"
-          onClick={() => !busy && setConfirming(false)}
-        >
-          <div
-            className="w-full max-w-sm rounded-panel border border-slate-200 bg-white p-5"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <p className="text-lead font-black text-slate-900">
-              「{name}」 현장을 삭제하시겠습니까?
-            </p>
-            <p className="mt-1.5 text-small text-slate-500">
-              서류·공정·정산·메모가 함께 지워지고 되돌릴 수 없습니다.
-            </p>
-            {/* 되돌릴 수 없는 확정 앞이라 안내를 적는다 — 잘못 지우는 것을 막는 것도 이 대화상자의 일이다 */}
-            <p className="mt-2 rounded-box bg-slate-50 px-3 py-2 text-small text-slate-600">
-              삭제는 잘못 만든 현장(중복 접수·시험 입력)을 지우는 자리입니다.
-              계약이 무산된 현장은 삭제하지 말고 <b>「계약중단」</b>으로 세워 기록을 남기세요.
-            </p>
-            <div className="mt-4 flex items-center gap-2">
-              <Btn kind="stop" size="sm" busy={busy} busyLabel="삭제 중…" onClick={() => void remove()}>
-                예, 삭제합니다
-              </Btn>
-              <Btn kind="quiet" size="sm" disabled={busy} onClick={() => setConfirming(false)}>
-                취소
-              </Btn>
-              <Err>{error}</Err>
-            </div>
-          </div>
-        </div>
-      )}
+      <Confirm
+        open={confirming}
+        title={`「${name}」 현장을 삭제하시겠습니까?`}
+        detail="서류·공정·정산·메모가 함께 지워지고 되돌릴 수 없습니다."
+        /* 잘못 누르는 것을 막는 말 — 대신 무엇을 해야 하는지 적는다 */
+        hint={<>삭제는 잘못 만든 현장(중복 접수·시험 입력)을 지우는 자리입니다. 계약이 무산된 현장은 삭제하지 말고 <b>「계약중단」</b>으로 세워 기록을 남기세요.</>}
+        confirmLabel="예, 삭제합니다"
+        busy={busy}
+        busyLabel="삭제 중…"
+        error={error}
+        onConfirm={() => void remove()}
+        onCancel={() => setConfirming(false)}
+      />
     </span>
   );
 }

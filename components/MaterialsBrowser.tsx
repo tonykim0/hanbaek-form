@@ -1,4 +1,5 @@
 'use client';
+import { FIELD } from '@/components/ui';
 
 import { useMemo, useState } from 'react';
 import type { MaterialFile, MaterialGroup } from '@/lib/materials-meta';
@@ -108,7 +109,7 @@ export default function MaterialsBrowser({ groups }: { groups: MaterialGroup[] }
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="자료명 검색 (예: 시방서, 제안서, 인증서)"
-            className="w-full border border-gray-200 rounded-ctl pl-8 pr-3 py-2.5 text-sm placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-brand-200 focus:border-brand-300"
+            className={`${FIELD} pl-8`}
           />
         </div>
 

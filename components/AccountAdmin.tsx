@@ -288,19 +288,9 @@ function NewAccountForm({
           {knownOrgs.length > 0 && (
             <div className="mt-2 flex flex-wrap items-center gap-1.5">
               <span className="text-tiny text-slate-400">쓰이고 있는 소속</span>
+              {/* 켜고 끄는 것이라 Choice 다 — 동글게 그려 두어 못 누르는 배지와 같은 모양이었다 */}
               {knownOrgs.map((o) => (
-                <button
-                  key={o}
-                  type="button"
-                  onClick={() => setOrg(o)}
-                  className={`rounded-full border px-2 py-0.5 text-tiny font-bold transition ${
-                    org === o
-                      ? 'border-brand-500 bg-brand-600 text-white'
-                      : 'border-slate-200 bg-white text-slate-600 hover:border-brand-300'
-                  }`}
-                >
-                  {o}
-                </button>
+                <Choice key={o} on={org === o} onClick={() => setOrg(o)}>{o}</Choice>
               ))}
             </div>
           )}

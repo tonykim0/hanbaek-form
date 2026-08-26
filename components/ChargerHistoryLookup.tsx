@@ -1,4 +1,5 @@
 'use client';
+import { FIELD } from '@/components/ui';
 
 import { useCallback, useRef, useState } from 'react';
 import { useAddressSearch } from '@/components/contracts/AddressSearchButton';
@@ -339,7 +340,7 @@ export default function ChargerHistoryLookup({
               }
             }}
             placeholder="예) 광주광역시 광산구 비아로 23"
-            className="min-w-0 flex-1 rounded-lg border border-slate-200 px-3 py-2.5 text-sm placeholder:text-slate-300 focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-200"
+            className={`${FIELD} min-w-0 flex-1`}
           />
           <button
             type="button"

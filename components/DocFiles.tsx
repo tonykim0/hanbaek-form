@@ -10,7 +10,7 @@
 import { useState, useSyncExternalStore } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAction } from '@/lib/use-action';
-import { Btn, Err } from '@/components/ui';
+import { Btn, Confirm, Err } from '@/components/ui';
 import JSZip from 'jszip';
 import { docContentType, MAX_DOC_BYTES, type DocFile, type ProjectDocument } from '@/types/project';
 import { downloadBlob } from '@/lib/download';
@@ -162,6 +162,7 @@ function FileRow({
   canRemove: boolean;
 }) {
   const [busy, setBusy] = useState(false);
+  const [asking, setAsking] = useState(false);
   const remove = useAction();
 
   async function download() {
@@ -231,24 +232,36 @@ function FileRow({
         </Btn>
         {/* 빼기는 되돌릴 수 없어 글자 단추다 — 받기(칩)와 모양으로 갈린다(화면 규칙 12) */}
         {canRemove && projectId && (
-          <Btn
-            size="sm"
-            kind="undo"
-            busy={remove.busy}
-            busyLabel="빼는 중"
-            className="shrink-0"
-            onClick={() => {
-              if (!window.confirm(`「${file.name}」을 뺍니다. 파일도 함께 사라지고 되돌릴 수 없습니다.`)) return;
-              void remove.run({
-                url: `/api/projects/${projectId}/documents/${kind}/file`,
-                method: 'DELETE',
-                body: { url: file.url },
-                fail: '빼지 못했습니다.',
-              });
-            }}
-          >
-            빼기
-          </Btn>
+          <>
+            <Btn
+              size="sm"
+              kind="undo"
+              busy={remove.busy}
+              busyLabel="빼는 중"
+              className="shrink-0"
+              onClick={() => setAsking(true)}
+            >
+              빼기
+            </Btn>
+            <Confirm
+              open={asking}
+              title={`「${file.name}」을 뺍니다.`}
+              detail="파일도 함께 사라지고 되돌릴 수 없습니다."
+              confirmLabel="예, 뺍니다"
+              busy={remove.busy}
+              busyLabel="빼는 중…"
+              error={remove.error}
+              onCancel={() => setAsking(false)}
+              onConfirm={() => {
+                void remove.run({
+                  url: `/api/projects/${projectId}/documents/${kind}/file`,
+                  method: 'DELETE',
+                  body: { url: file.url },
+                  fail: '빼지 못했습니다.',
+                }).then((ok) => { if (ok) setAsking(false); });
+              }}
+            />
+          </>
         )}
       </div>
       <Err>{remove.error}</Err>
@@ -276,26 +289,38 @@ export function DocDelete({
   count?: number;
 }) {
   const { busy, error, run } = useAction();
+  const [asking, setAsking] = useState(false);
+
+  // 여러 장이면 장수를 적는다 — 이름 하나만 적으면 나머지가 사라지는 줄 모른다
+  const what = count > 1 ? `파일 ${count}장` : `파일(${filename ?? '없음'})`;
 
   async function remove() {
-    // 여러 장이면 장수를 적는다 — 이름 하나만 적으면 나머지가 사라지는 줄 모른다
-    const what = count > 1 ? `파일 ${count}장` : `파일(${filename ?? '없음'})`;
-    const warn = `「${label}」 칸을 지웁니다. ${what}도 함께 사라지고 되돌릴 수 없습니다.`;
-    if (!window.confirm(warn)) return;
-    await run({
+    const ok = await run({
       url: `/api/projects/${projectId}/documents/${kind}`,
       method: 'DELETE',
       fail: '지우지 못했습니다.',
     });
+    if (ok) setAsking(false);
   }
 
   /* 실패 문구는 누른 단추 아래에 붙는다(화면 규칙 9) — 줄에 세워도 흐트러지지 않게 한 겹으로 */
   return (
     <div className="flex flex-col items-end">
-      <Btn kind="undo" size="sm" busy={busy} busyLabel="지우는 중…" onClick={remove}>
+      <Btn kind="undo" size="sm" busy={busy} busyLabel="지우는 중…" onClick={() => setAsking(true)}>
         삭제
       </Btn>
       <Err>{error}</Err>
+      <Confirm
+        open={asking}
+        title={`「${label}」 칸을 지웁니다.`}
+        detail={`${what}도 함께 사라지고 되돌릴 수 없습니다.`}
+        confirmLabel="예, 지웁니다"
+        busy={busy}
+        busyLabel="지우는 중…"
+        error={error}
+        onConfirm={() => void remove()}
+        onCancel={() => setAsking(false)}
+      />
     </div>
   );
 }

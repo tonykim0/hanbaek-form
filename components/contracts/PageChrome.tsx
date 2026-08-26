@@ -123,7 +123,7 @@ export function FormActions({
                   onChange={(e) =>
                     docScope.onIncludeAttachmentsChange(e.target.checked)
                   }
-                  className="rounded border-gray-300 text-brand-600 focus:ring-brand-500"
+                  className="rounded-ctl border-slate-300 text-brand-600 focus:ring-brand-100"
                 />
                 사진대지 · 체크리스트 포함
               </label>

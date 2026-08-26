@@ -12,7 +12,7 @@
  * 필터는 주소에 남는다. 새로고침해도, 링크를 붙여 보내도 같은 화면이 열린다.
  * 자료는 이미 브라우저에 다 있으므로 거르는 일은 서버에 다시 묻지 않는다.
  */
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useAction } from '@/lib/use-action';
 import { FIELD, Note, PANEL } from '@/components/ui';
@@ -36,6 +36,50 @@ const FLAGS: Array<{ key: FlagKey; label: string }> = [
 ];
 
 const split = (v: string | null): string[] => (v ? v.split(',').filter(Boolean) : []);
+
+/**
+ * 걸어 둔 조건을 이 브라우저에 남긴다 (한백 지시 2026-08-26).
+ *
+ * 주소에도 남지만(링크로 보내는 용도) 사이드바로 페이지를 옮기거나 현장에 들어갔다 나오면
+ * 주소가 새것이라 조건이 풀렸다 — 매번 다시 걸어야 했다. 「이 업체 것만 보기」처럼 며칠씩
+ * 유지되는 조건이 실제로 있다.
+ *
+ * ★국면마다 따로 남긴다★ — 계약관리에서 영업사를 걸어 둔 것이 시공관리까지 따라가면,
+ * 시공 화면을 열었을 때 왜 몇 건뿐인지 알 수 없다.
+ *
+ * ★주소가 이긴다★ — 조건이 실린 링크를 받아 열면 그것이 먼저다. 남이 보내 준 화면을
+ * 내 저장분이 덮으면 링크를 붙여 보내는 뜻이 없어진다.
+ *
+ * 검색어·연도·보기는 안 남긴다. 검색은 순간의 일이고(빈 목록으로 시작하면 자료가 없는 줄
+ * 안다), 연도는 필터가 아니라 범위이고, 보기는 그때그때 고른다.
+ */
+const savedKey = (band: string) => `hb.projects.filter.${band}`;
+
+interface SavedFilter {
+  attrs?: AttrFilters;
+  flags?: string[];
+}
+
+function readSaved(band: string): SavedFilter | null {
+  // 사생활 보호 창·차단 설정에서는 읽기 자체가 던진다 — 그때는 조건 없이 시작한다
+  try {
+    const raw = window.localStorage.getItem(savedKey(band));
+    return raw ? (JSON.parse(raw) as SavedFilter) : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeSaved(band: string, value: SavedFilter): void {
+  try {
+    const empty = Object.keys(value.attrs ?? {}).length === 0 && (value.flags?.length ?? 0) === 0;
+    // 조건을 다 풀면 저장분도 지운다 — 「지우기」가 다음에도 지워져 있어야 지운 것이다
+    if (empty) window.localStorage.removeItem(savedKey(band));
+    else window.localStorage.setItem(savedKey(band), JSON.stringify(value));
+  } catch {
+    /* 남기지 못해도 화면은 돈다 */
+  }
+}
 
 /**
  * 몇 기인가 — 건수만으로는 규모를 모른다(한백 지시 2026-08-25). 137건이 500기일 수도
@@ -87,6 +131,29 @@ export default function ProjectsView({
   const [flags, setFlags] = useState<string[]>(() => split(sp.get('flag')));
   // 필터가 걸린 주소로 들어왔으면 무엇이 걸렸는지 펴서 보여준다
   const [open, setOpen] = useState(() => ATTRS.some((a) => split(sp.get(a.key)).length > 0));
+
+  /** 조건이 실린 주소로 들어왔는가 — 첫 렌더에 정한다. 그러면 저장분을 덮지 않는다. */
+  const [urlHadFilters] = useState(
+    () => ATTRS.some((a) => split(sp.get(a.key)).length > 0) || split(sp.get('flag')).length > 0
+  );
+  /**
+   * 저장분을 읽기 전에는 저장하지 않는다.
+   *
+   * 아래 저장 효과는 값이 바뀔 때마다 도는데, 첫 렌더의 「아직 비어 있음」까지 저장하면
+   * 복원되기 직전에 저장분을 지운다. 복원이 끝난 뒤부터 쓴다.
+   */
+  const restored = useRef(false);
+
+  /* 복원 — 판은 펴지 않는다. 내가 걸어 둔 조건이라 처음 보는 것이 아니고, 걸려 있다는
+     사실은 「필터 N」 배지와 건수 줄이 말한다. 주소로 받은 조건과 다른 점이다. */
+  useEffect(() => {
+    const saved = urlHadFilters ? null : readSaved(band);
+    if (saved) {
+      if (saved.attrs && Object.keys(saved.attrs).length > 0) setAttrs(saved.attrs);
+      if (saved.flags?.length) setFlags(saved.flags);
+    }
+    restored.current = true;
+  }, [band, urlHadFilters]);
   /*
    * 판에 펼 축 — 정해 둔 넷(사업유형·운영사·영업사·시공사)에, 표의 열 머리글에서 걸어 둔
    * 나머지 축이 있으면 그것도 같이 편다. 걸려 있는데 판에 없으면 푸는 자리가 없다.
@@ -119,6 +186,12 @@ export default function ProjectsView({
     const qs = p.toString();
     window.history.replaceState(null, '', qs ? `?${qs}` : window.location.pathname);
   }, [view, q, attrs, flags, year]);
+
+  // 이 브라우저에도 남긴다 — 주소는 링크용이고, 이쪽은 다음에 다시 왔을 때를 위한 것이다
+  useEffect(() => {
+    if (!restored.current) return;
+    writeSaved(band, { attrs, flags });
+  }, [band, attrs, flags]);
 
   /*
    * 서버가 따라잡으면 임시 위치를 버린다.

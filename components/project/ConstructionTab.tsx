@@ -497,23 +497,7 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
                 </div>
               )}
 
-              {selGroups.map((g) => {
-                /* 날짜 한 줄을 이름으로 꺼내 쓴다 — 충전기 박스는 순서를 손으로 짠다 */
-                const dateRow = (field: DateField) => {
-                  const m = g.rows.find((r) => r.field === field);
-                  if (!m) return null;
-                  return (
-                    <DateRow
-                      key={field}
-                      m={m}
-                      canEdit={canEditField(m.field)}
-                      lockedForPartner={canEdit && isHanbaekOnlyProcessField(m.field)}
-                      busy={busyKey === m.field}
-                      onSave={saveDate}
-                    />
-                  );
-                };
-                return (
+              {selGroups.map((g) => (
                 <div key={g.title}>
                   {/* 묶음 이름이 단계 이름과 같으면 안 적는다 — 위 칩이 이미 그 말이다 */}
                   {g.title !== selected && (
@@ -545,7 +529,7 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
                     )}
 
                     {/* 대상 여부를 고르기 전에는 아래를 펴지 않는다 — 대상이 아니면 낼 것이 없다 */}
-                    {g.title !== '충전기' && (!g.need || Boolean(p[g.need.field])) && g.rows.map((m) => (
+                    {(!g.need || Boolean(p[g.need.field])) && g.rows.map((m) => (
                       <DateRow
                         key={m.field}
                         m={m}
@@ -557,23 +541,21 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
                     ))}
 
                     {/*
-                      * ★한백이 적는 것과 협력사가 적는 것을 갈라 놓는다★ (한백 지시 2026-08-26).
-                      * 한 상자에 여섯 줄이 붙어 있으면 내가 채울 줄이 어느 것인지 세어 봐야 한다.
-                      * 발주 쪽(발주일·출고일·모델·발주 수량)은 한백, 수령 쪽(수령일·수령 수량)은
-                      * 협력사다 — 서버도 앞의 둘을 한백 전용 칸으로 못 박았다.
+                      * 발주 칸 — 한백의 일이다. 칸이 발주·수령으로 갈렸으니(2026-08-26)
+                      * 한 상자 안에서 누가 적는지 띠로 가를 필요가 없어졌다: 칸이 곧 차례다.
+                      *
+                      * ★조건은 lib/process 의 「충전기 수령」 게이트와 같은 목록이어야 한다★ —
+                      * 화면이 활성인데 서버가 거절하면 왜 안 넘어가는지 알 수 없다.
                       */}
-                    {g.title === '충전기' && (
+                    {g.title === '충전기 발주' && (
                       <>
-                        <OwnerHead label="한백" />
-                        {dateRow('chargerOrderDate')}
-                        {dateRow('chargerShipDate')}
                         {/* 어느 모델이 들어가는가 — 발주 전에 정해지고, 수령 때 실물과 맞춰 본다 */}
                         <ModelRow
                           value={p.chargerModelId}
                           /*
                            * ★모델은 한백만 정한다★ (한백 지시 2026-08-26) — 운영사와의 계약에
                            * 딸린 값이라 현장에서 고를 것이 아니다. 서버도 한백 전용 칸으로
-                           * 못 박았다(HANBAEK_ONLY_PROCESS_FIELDS) — 화면과 서버가 같은 판정이다.
+                           * 못 박았다(HANBAEK_ONLY_PROCESS_FIELDS).
                            */
                           canEdit={canEditField('chargerOrderDate')}
                           canRegister={edit === 'all'}
@@ -594,31 +576,32 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
                             mismatch: p.chargerOrderQty !== null && p.chargerOrderQty !== contractQty,
                           }}
                         />
-
-                        <OwnerHead label="협력사" />
-                        {dateRow('chargerRecvDate')}
-                        {/*
-                          * 수령 수량 — 무엇이 몇 개 왔는지 센다. 한 칸에 발주와 같이 담으면
-                          * 부분 입고·오배송 때 어느 숫자가 남는지 알 수 없다.
-                          */}
-                        <CountsRow
-                          label="수령 수량"
-                          items={[
-                            { field: 'chargerQty', prefix: '충전기', unit: '대', value: p.chargerQty },
-                            { field: 'modemQty', prefix: '모뎀', unit: '개', value: p.modemQty },
-                          ]}
-                          canEdit={canEditField('chargerRecvDate')}
-                          busyKey={busyKey}
-                          onSave={saveCount}
-                          /* 견주는 기준은 발주다 — 계약대수는 발주 줄이 이미 본다 */
-                          compare={{
-                            label: p.chargerOrderQty !== null ? `발주 ${p.chargerOrderQty}대` : `계약 ${contractQty}대`,
-                            mismatch: p.chargerQty !== null
-                              && p.chargerQty !== (p.chargerOrderQty ?? contractQty),
-                          }}
-                        />
                       </>
                     )}
+
+                    {/*
+                      * 수령 칸 — 현장의 일이다. 무엇이 몇 개 왔는지 센다.
+                      * 발주와 한 칸에 담으면 부분 입고·오배송 때 어느 숫자가 남는지 알 수 없다.
+                      */}
+                    {g.title === '충전기 수령' && (
+                      <CountsRow
+                        label="수령 수량"
+                        items={[
+                          { field: 'chargerQty', prefix: '충전기', unit: '대', value: p.chargerQty },
+                          { field: 'modemQty', prefix: '모뎀', unit: '개', value: p.modemQty },
+                        ]}
+                        canEdit={canEditField('chargerRecvDate')}
+                        busyKey={busyKey}
+                        onSave={saveCount}
+                        /* 견주는 기준은 발주다 — 계약대수는 발주 줄이 이미 본다 */
+                        compare={{
+                          label: p.chargerOrderQty !== null ? `발주 ${p.chargerOrderQty}대` : `계약 ${contractQty}대`,
+                          mismatch: p.chargerQty !== null
+                            && p.chargerQty !== (p.chargerOrderQty ?? contractQty),
+                        }}
+                      />
+                    )}
+
                     {/* 설치 실적 — 설치완료일 바로 아래, 시공사가 적는다 */}
                     {g.title === '설치' && (
                       <CountsRow
@@ -692,8 +675,7 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
 
                   </div>
                 </div>
-                );
-              })}
+              ))}
 
               {/*
                 * 다음 걸음 — 지금 구간을 볼 때, 무엇이 차면 어디로 가는지 그 자리에 보인다.
@@ -1051,19 +1033,6 @@ function DocRow({
  *
  * 끝낸 뒤에는 날짜와 함께 굳고, 되돌리는 단추가 반대쪽 끝에 선다(규칙 7·8).
  */
-/**
- * 상자 안에서 누가 적는 줄인지 가르는 띠 — 「한백」·「협력사」.
- *
- * 테두리를 겹치지 않고 배경색으로만 층을 만든다(화면 규칙 1: 약한 것부터).
- */
-function OwnerHead({ label }: { label: string }) {
-  return (
-    <div className="bg-slate-50 px-3.5 py-1 text-tiny font-bold tracking-[0.06em] text-slate-500">
-      {label}
-    </div>
-  );
-}
-
 /**
  * 다음 단계로 미는 줄 — 단추는 언제나 있고, 조건이 안 찼으면 흐리다.
  *

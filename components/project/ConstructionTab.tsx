@@ -73,7 +73,13 @@ interface Group {
    * 전에는 아래 줄(날짜·서류·완료)을 펴지 않는다 — 안 낼 서류를 내라고 재촉하지 않는다.
    * 불필요를 고르면 완료와 같은 걸음이 열린다(lib/process CHECK_ADVANCES).
    */
-  need?: { field: CheckField; skipField: CheckField; label: string };
+  need?: { field: CheckField; skipField: CheckField; label: string; yes: string; no: string };
+  /**
+   * 다음 단계로 미는 단추 — ★언제나 자리에 있고 활성/비활성으로 검증을 보인다★
+   * (한백 지시 2026-08-26). 조건이 안 찼으면 흐린 채로 무엇이 없는지 이름에 적는다
+   * (화면 규칙 3) — 단추가 사라지면 무엇을 더 해야 다음으로 가는지 알 수 없다.
+   */
+  advance?: { label: string; field: CheckField; ready: boolean; blocked: string };
 }
 
 export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit: ProcessEdit }) {
@@ -187,13 +193,26 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
          * 예전에는 파일만 봤다 — 파일이 있는데 신고일이 비어 있으면 언제 신고했는지
          * 모르는 채로 다음 단계가 열렸다.
          */
-        check: {
-          field: 'notifyDoneAt', label: '행위신고 완료',
-          ready: Boolean(p.notifyDate) && uploaded('notify'),
-          // 불필요를 고른 현장에는 이 줄이 아예 안 뜬다 — 그 분기를 여기 둘 필요가 없다
-          blocked: !p.notifyDate && !uploaded('notify')
-            ? '신고일·파일 필요'
-            : !p.notifyDate ? '신고일 필요' : '신고 파일 필요',
+        /*
+         * 「행위신고 완료」 체크는 없앴다 — 넘어가는 단추가 그 선언을 겸한다.
+         * 신고일과 파일이 다 있으면 활성화되고, 누르면 완료로 찍히며 다음 단계가 열린다.
+         */
+        advance: {
+          label: '다음 단계로 진행',
+          field: p.notifySkippedAt ? 'notifySkippedAt' : 'notifyDoneAt',
+          ready: Boolean(p.cpoApprovalDate) && (
+            Boolean(p.notifySkippedAt)
+            || (Boolean(p.notifyRequiredAt) && Boolean(p.notifyDate) && uploaded('notify'))
+          ),
+          blocked: !p.notifyRequiredAt && !p.notifySkippedAt
+            ? '대상 여부를 먼저 고르세요'
+            : p.notifyRequiredAt && !p.notifyDate && !uploaded('notify')
+              ? '신고일 · 파일 필요'
+              : p.notifyRequiredAt && !p.notifyDate
+                ? '행위신고일 필요'
+                : p.notifyRequiredAt && !uploaded('notify')
+                  ? '신고 파일 필요'
+                  : '운영사 시공승인일 필요',
         },
         /*
          * ★필요여부를 먼저 고른다★ (한백 지시 2026-08-26) — 「필요」·「불필요」 두 단추다.
@@ -206,7 +225,7 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
          */
         need: {
           field: 'notifyRequiredAt', skipField: 'notifySkippedAt',
-          label: '행위신고 필요여부',
+          label: '행위신고 대상 여부', yes: '대상', no: '대상 아님',
         },
       },
     ],
@@ -581,6 +600,20 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
                       );
                     })}
 
+                    {/*
+                      * 다음으로 미는 단추 — 언제나 이 자리에 있다. 조건이 안 찼으면 흐린 채로
+                      * 무엇이 없는지 이름에 적는다(화면 규칙 3). 누르면 이 구간을 끝냈다는
+                      * 선언이 저장되고 다음 단계가 열린다(lib/process CHECK_ADVANCES).
+                      */}
+                    {g.advance && selState === 'current' && (
+                      <AdvanceRow
+                        advance={g.advance}
+                        canEdit={canEdit}
+                        busy={busyKey === g.advance.field}
+                        onGo={(field) => saveCheck(field, true)}
+                      />
+                    )}
+
                     {g.check && (!g.need || Boolean(p[g.need.field])) && (
                       <CheckRow
                         check={g.check}
@@ -606,7 +639,12 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
                 * 아무 말 없이 지나갔다 — 그 이유가 여기 적힌다.
                 * 접수/검토 구간은 뺀다 — 거기는 검토 판정 상자가 다음 걸음이다.
                 */}
-              {selState === 'current' && nextStatus && selected !== '준공서류 접수/검토' && nextEntry && (
+              {/*
+                * 묶음 안에 진행 단추가 있으면 여기 두지 않는다 — 같은 걸음을 두 자리에 두면
+                * 어느 것이 그 일인지 알 수 없다(화면 규칙 5).
+                */}
+              {selState === 'current' && nextStatus && selected !== '준공서류 접수/검토' && nextEntry
+                && !selGroups.some((g) => g.advance) && (
                 nextEntry.ok ? (
                   edit === 'all' ? (
                     <button
@@ -627,6 +665,19 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
                      */
                     null
                   )
+                ) : edit === 'all' ? (
+                  /*
+                   * ★조건이 안 차도 단추는 자리에 둔다★ (한백 지시 2026-08-26) — 흐린 단추에
+                   * 무엇이 없는지 적으면 그 줄만 보고 남은 일을 안다. 글자만 두면 「넘기는
+                   * 자리가 어디였나」를 다시 찾아야 한다.
+                   */
+                  <button
+                    type="button"
+                    disabled
+                    className="w-fit cursor-not-allowed rounded-ctl border border-slate-200 bg-slate-50 px-3 py-1.5 text-small font-bold text-slate-400"
+                  >
+                    다음 — {nextStatus} · {(nextEntry as { blockedBy: string }).blockedBy} 필요
+                  </button>
                 ) : (
                   <p className="text-small font-semibold text-amber-700">
                     다음: {nextStatus} — {(nextEntry as { blockedBy: string }).blockedBy} 필요
@@ -939,6 +990,36 @@ function DocRow({
  * 끝낸 뒤에는 날짜와 함께 굳고, 되돌리는 단추가 반대쪽 끝에 선다(규칙 7·8).
  */
 /**
+ * 다음 단계로 미는 줄 — 단추는 언제나 있고, 조건이 안 찼으면 흐리다.
+ *
+ * ★단추를 없애지 않는 이유★ (한백 지시 2026-08-26) — 조건이 찰 때만 단추가 나타나면,
+ * 무엇을 더 채워야 다음으로 가는지 화면에 없다. 자리에 두고 이름에 이유를 적으면
+ * 그 줄만 보고도 남은 일을 안다(화면 규칙 3).
+ */
+function AdvanceRow({
+  advance, canEdit, busy, onGo,
+}: {
+  advance: { label: string; field: CheckField; ready: boolean; blocked: string };
+  canEdit: boolean;
+  busy: boolean;
+  onGo: (field: CheckField) => void;
+}) {
+  if (!canEdit) return null;
+  return (
+    <div className="flex flex-wrap items-center gap-3 px-3.5 py-2.5">
+      <Btn
+        disabled={!advance.ready}
+        busy={busy}
+        busyLabel="넘기는 중…"
+        onClick={() => onGo(advance.field)}
+      >
+        {advance.ready ? `${advance.label} →` : advance.blocked}
+      </Btn>
+    </div>
+  );
+}
+
+/**
  * 할지 말지 먼저 고르는 줄 — 「필요」·「불필요」 두 단추.
  *
  * 예전에는 「행위신고 불필요」라는 체크 한 줄이었다. 이름과 단추가 같은 말을 두 번 해서
@@ -948,14 +1029,14 @@ function DocRow({
 function NeedRow({
   need, requiredAt, skippedAt, canEdit, busy, onPick,
 }: {
-  need: { field: CheckField; skipField: CheckField; label: string };
+  need: { field: CheckField; skipField: CheckField; label: string; yes: string; no: string };
   requiredAt: string | null;
   skippedAt: string | null;
   canEdit: boolean;
   busy: boolean;
   onPick: (field: CheckField, checked: boolean) => void;
 }) {
-  const picked: '필요' | '불필요' | null = requiredAt ? '필요' : skippedAt ? '불필요' : null;
+  const picked = requiredAt ? need.yes : skippedAt ? need.no : null;
   const at = requiredAt ?? skippedAt;
 
   return (
@@ -963,7 +1044,7 @@ function NeedRow({
       <span className="w-32 shrink-0 font-bold text-slate-700">{need.label}</span>
       {picked ? (
         <>
-          <span className={`font-bold ${picked === '필요' ? 'text-brand-800' : 'text-slate-500'}`}>
+          <span className={`font-bold ${requiredAt ? 'text-brand-800' : 'text-slate-500'}`}>
             {picked} · {at}
           </span>
           {canEdit && (
@@ -972,7 +1053,7 @@ function NeedRow({
               size="sm"
               busy={busy}
               busyLabel="되돌리는 중…"
-              onClick={() => onPick(picked === '필요' ? need.field : need.skipField, false)}
+              onClick={() => onPick(requiredAt ? need.field : need.skipField, false)}
               className="ml-auto"
             >
               되돌리기
@@ -981,12 +1062,12 @@ function NeedRow({
         </>
       ) : canEdit ? (
         <span className="flex flex-wrap items-center gap-1.5">
-          {/* 필요를 고르면 아래 줄(신고일·서류·완료)이 열리고, 불필요면 다음 걸음이 열린다 */}
+          {/* 대상을 고르면 아래 줄(신고일·서류)이 열리고, 아니면 진행 단추만 남는다 */}
           <Btn size="sm" busy={busy} busyLabel="처리 중…" onClick={() => onPick(need.field, true)}>
-            필요
+            {need.yes}
           </Btn>
           <Btn size="sm" kind="quiet" busy={busy} busyLabel="처리 중…" onClick={() => onPick(need.skipField, true)}>
-            불필요
+            {need.no}
           </Btn>
         </span>
       ) : (

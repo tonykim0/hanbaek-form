@@ -56,11 +56,13 @@ export const STATUS_GATES: Record<ProcessStatus, StatusGate | null> = {
    */
   '시공진행필요': {
     /*
-     * 행위신고는 ★했거나 필요 없거나★ 둘 중 하나면 된다 (한백 지시 2026-08-26).
+     * 행위신고는 ★했거나 대상이 아니거나★ 둘 중 하나면 된다 (한백 지시 2026-08-26).
      * 신고 없이 시공으로 가는 현장이 있는데, 그 현장이 「완료」밖에 없으면 안 한 일을
      * 했다고 체크해야 넘어갔다 — 두 값을 따로 두고 여기서 합친다(types notifySkippedAt).
+     * 화면은 「대상 여부」를 먼저 고르게 하고, 대상이면 신고일·파일이 다 차야 진행
+     * 단추가 열린다(ConstructionTab 의 advance).
      */
-    need: '운영사 시공승인일 · 행위신고 완료(또는 불필요) 체크',
+    need: '운영사 시공승인일 · 행위신고 대상 여부',
     met: (p) => Boolean(p.cpoApprovalDate) && (Boolean(p.notifyDoneAt) || Boolean(p.notifySkippedAt)),
   },
   // 충전기가 현장에 왔다 — 수령 완료 체크가 그 선언이다

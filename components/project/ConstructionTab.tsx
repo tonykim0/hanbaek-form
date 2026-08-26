@@ -410,6 +410,16 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
           // 지금 구간의 다음 걸음 — 무엇이 차면 어디로 가는지 이 자리에 보여야 한다
           const nextStatus = PROCESS_STATUSES[now + 1] ?? null;
           const nextEntry = nextStatus ? canEnter(nextStatus, p) : null;
+          /*
+           * 지금 보고 있는 구간 다음의 구간 — 상자 이름에 쓴다.
+           *
+           * ★이 화면은 「지금 구간 패널에 다음 구간을 여는 일」을 담는다.★ 그래서 「충전기
+           * 수령」 패널에 착공일이 있고, 상자 이름이 「착공」이었다 — 패널 제목과 상자 이름이
+           * 어긋나 보인다(한백 지적 2026-08-26). 구조는 그대로 두고 이름이 관계를 말하게 한다.
+           * p.status 기준(nextStatus)이 아니라 고른 구간 기준이다 — 지난 구간을 열어 봐도
+           * 그 상자가 무엇을 열었는지는 같아야 한다.
+           */
+          const selNext = PROCESS_STATUSES[statusIndex(selected) + 1] ?? null;
           return (
             <div className="mt-1 flex flex-col gap-4">
               {/* 구간 머리 — 무엇을 보고 있고, 그 구간으로 옮길 수 있으면 단추가 여기 선다 */}
@@ -494,7 +504,13 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
                   {/* 묶음 이름이 단계 이름과 같으면 안 적는다 — 위 칩이 이미 그 말이다 */}
                   {g.title !== selected && (
                     <h3 className="mb-1.5 text-tiny font-bold tracking-[0.06em] text-slate-400">
-                      {g.title}
+                      {/*
+                        * 준공서류 검토는 뺀다 — 그 다음은 「준공보완」이라, 상자 이름에 적으면
+                        * 보완이 예정된 것처럼 읽힌다. 거기는 검토 판정이 다음 걸음이다.
+                        */}
+                      {selNext && selected !== '준공서류 접수/검토'
+                        ? `다음 — ${selNext}`
+                        : g.title}
                     </h3>
                   )}
                   <div className="max-w-2xl overflow-hidden rounded-box border border-slate-200 bg-white divide-y divide-slate-100">

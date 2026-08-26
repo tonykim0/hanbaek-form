@@ -217,10 +217,6 @@ export interface SettlementStepRule {
 }
 
 /**
- * 정산 규칙 — 단가와 분리된 별도 테이블. 한백이 내부적으로 관리하고 현장별로 적용한다.
- * ★불변★ 추가·비활성만. 한 번 현장에 적용되면 수정하지 않는다.
- */
-/**
  * 충전기 모델 — 등록해 두고 현장에서 고른다 (한백 지시 2026-08-26).
  *
  * 금액이 없어 협력사도 본다. 쓰지 않게 된 모델은 지우지 않고 내린다(active=false) —
@@ -234,6 +230,10 @@ export interface ChargerModel {
   active: boolean;
 }
 
+/**
+ * 정산 규칙 — 단가와 분리된 별도 테이블. 한백이 내부적으로 관리하고 현장별로 적용한다.
+ * ★불변★ 추가·비활성만. 한 번 현장에 적용되면 수정하지 않는다.
+ */
 export interface SettlementRule {
   id: string;
   name: string;
@@ -1000,6 +1000,13 @@ export const DOC_FILE_TYPES = [
   'application/msword',
   'application/octet-stream',
 ] as const;
+
+/**
+ * 서류 한 개의 크기 상한 — 라우트(토큰의 maximumSizeInBytes)와 화면이 같은 값을 봐야
+ * 「올려 보고 나서야 튕기는」 일이 안 생긴다. 사진대지 엑셀은 사진이 박혀 있어 이 선을
+ * 넘는 일이 잦다 — 넘으면 화면이 크기를 적어 준다.
+ */
+export const MAX_DOC_BYTES = 30 * 1024 * 1024;
 
 /**
  * 세금계산서 첨부로 받는 형식 — 서버 검사(tax-invoice 라우트)와 화면의 input accept 가

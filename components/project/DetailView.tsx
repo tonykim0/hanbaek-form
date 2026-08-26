@@ -12,7 +12,7 @@
  * ★탭마다 파일이 갈려 있다.★ 한 파일에 2천 줄로 있었는데, 정산 한 줄을 고치려고 열면
  * 서류·공정·메모가 같이 딸려 왔다. 탭은 서로를 모른다 — 여기가 무엇을 넘겨주는지만 안다.
  */
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { ContractState, ProjectDetail, SettlementRuleChoice } from '@/types/project';
@@ -22,6 +22,7 @@ import { DatePicker } from '@/components/DatePicker';
 import { Badge, Btn, Empty, Err, FIELD, Tag, type Tone, Val } from '@/components/ui';
 import { buildDocContext, evaluateDocs, PROCESS_DOCS } from '@/lib/doc-rules';
 import { BAND_TONE, bandOfColumn, boardColumnOf, phaseOfProject } from '@/lib/board';
+import type { BoardBand, BoardColumn } from '@/lib/board';
 import { statusIndex, type ProcessEdit } from '@/lib/process';
 import type { Visibility } from '@/lib/roles';
 import type { RuleOptions } from '@/lib/pricing-match';
@@ -151,7 +152,7 @@ export default function ProjectDetailView({
    */
   const constructionLocked = detail.stage === 'intake';
 
-  const tabs: Array<{ key: TabKey; label: string; count: string; locked: boolean; why?: string }> = [
+  const tabs: TabDef[] = [
     { key: 'intake', label: '계약', count: `${contract.satisfied}/${contract.requiredTotal}`, locked: false },
     {
       key: 'construction',
@@ -181,8 +182,69 @@ export default function ProjectDetailView({
       : []),
   ];
 
+  /* 보드에서 이 현장이 서는 칸 — 머리말과 고정 띠가 같은 값을 본다 */
+  const column = boardColumnOf({
+    stage: detail.stage,
+    status: process.status,
+    holdState: project.holdState,
+    rejectedDocs: contract.rejected,
+    preRejected: contract.preRejected,
+    docsFilled: contract.docsFilled,
+    submitted: project.contractSubmittedAt !== null,
+    fixAsked: project.contractFixAskedAt !== null,
+  });
+  const band = bandOfColumn(column);
+
+  /*
+   * 큰 현장명이 상단 바 밑으로 사라졌는가 — 그때만 고정 띠를 세운다.
+   *
+   * 스크롤 위치를 세지 않고 이름 자체를 지켜본다: 창 크기·사이드바·대행 띠에 따라
+   * 이름이 사라지는 지점이 달라지는데, 픽셀로 못 박으면 그때마다 어긋난다.
+   * rootMargin 위쪽을 상단 바(48px)만큼 밀어 그 바 뒤로 들어가는 순간을 경계로 삼는다.
+   */
+  const titleRef = useRef<HTMLDivElement>(null);
+  const [pinned, setPinned] = useState(false);
+  useEffect(() => {
+    const el = titleRef.current;
+    // 옛 브라우저에는 없다 — 없으면 띠가 안 뜰 뿐 화면은 그대로 돈다
+    if (!el || typeof IntersectionObserver === 'undefined') return;
+    const io = new IntersectionObserver(
+      ([entry]) => setPinned(!entry.isIntersecting),
+      { rootMargin: '-48px 0px 0px 0px' }
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+
   return (
     <div className="flex flex-col gap-5">
+      {/*
+        * 스크롤을 내려도 현장명과 탭은 남는다 (한백 2026-08-27).
+        *
+        * 이 화면은 아래로 길다 — 서류·공정·기성을 훑다 보면 「어느 현장을 보고 있나」가
+        * 눈에서 사라지고, 다른 탭으로 넘어가려면 맨 위까지 되올라가야 했다.
+        *
+        * ★같은 값이 한 화면에 두 번 서지 않는다★(화면 규칙 5) — 큰 이름과 탭 줄이 화면
+        * 밖으로 나간 뒤에야 이 띠가 뜬다. 탭은 아래 줄과 ★같은 부품★이다(TabStrip):
+        * 두 벌로 그리면 잠김·건수·고른 표시가 두 곳에서 갈린다.
+        *
+        * 붙박이라 자리를 밀지 않는다 — 뜰 때 본문이 덜컥 내려가면 읽던 줄을 놓친다.
+        * 위·왼쪽 자리는 껍데기가 물려준 값을 쓴다(--console-top/left).
+        */}
+      {pinned && (
+        <div
+          /* 자리는 클래스가 아니라 여기서 준다 — 껍데기가 물려주는 변수라 Tailwind 가 값을 모른다 */
+          style={{ top: 'var(--console-top, 3rem)', left: 'var(--console-left, 0px)' }}
+          className="fixed right-0 z-10 border-b border-slate-200/80 bg-[#f7f8f4]/95 backdrop-blur transition-[left] duration-150 print:hidden"
+        >
+          <div className="flex min-w-0 items-center gap-2.5 px-5 pt-2 sm:px-7">
+            <Badge tone={BAND_TONE[band]}>{column}</Badge>
+            <span className="truncate text-lead font-black text-slate-900">{project.name}</span>
+          </div>
+          <TabStrip tabs={tabs} current={tab} onPick={changeTab} className="px-3" />
+        </div>
+      )}
+
       <SiteHeader
         detail={detail}
         contract={contract}
@@ -190,37 +252,13 @@ export default function ProjectDetailView({
         noteAuthor={noteAuthor}
         knownOrgs={knownOrgs}
         processEdit={processEdit}
+        column={column}
+        band={band}
+        titleRef={titleRef}
       />
 
       <div className="overflow-hidden rounded-panel border border-slate-200 bg-white">
-        <div className="flex gap-1 border-b border-slate-100 px-3 pt-3" role="tablist">
-          {tabs.map((t) => (
-            <button
-              key={t.key}
-              role="tab"
-              aria-selected={tab === t.key}
-              disabled={t.locked}
-              title={t.locked ? `계약 완료 후 열립니다${t.why ? ` — ${t.why}` : ''}` : undefined}
-              onClick={() => !t.locked && changeTab(t.key)}
-              className={`-mb-px rounded-t-ctl border-b-2 px-4 py-2.5 text-lead font-bold transition ${
-                t.locked
-                  ? 'cursor-not-allowed border-transparent text-slate-300'
-                  : tab === t.key
-                    ? 'border-brand-600 text-brand-800'
-                    : 'border-transparent text-slate-400 hover:bg-slate-50 hover:text-slate-600'
-              }`}
-            >
-              {t.label}
-              {t.locked ? (
-                <span aria-label="잠김" className="ml-1.5 text-tiny">🔒</span>
-              ) : t.count ? (
-                <span className="ml-1.5 text-tiny font-semibold tabular-nums text-slate-400">
-                  {t.count}
-                </span>
-              ) : null}
-            </button>
-          ))}
-        </div>
+        <TabStrip tabs={tabs} current={tab} onPick={changeTab} className="border-b border-slate-100 px-3 pt-3" />
 
         <div className="p-5 sm:p-6">
           {tab === 'intake' && (
@@ -284,12 +322,74 @@ export default function ProjectDetailView({
  * 값이 없어 칸이 빠지면(Fact 는 null 이면 자리를 비운다) 뒤 칸이 한 칸씩 당겨진다.
  * 접수 직후처럼 사업구분·계약연수가 아직 없는 현장에서 그렇다.
  */
+interface TabDef {
+  key: TabKey;
+  label: string;
+  count: string;
+  locked: boolean;
+  /** 왜 잠겼나 — 못 하는 이유를 그 자리에 적는다(화면 규칙 3) */
+  why?: string;
+}
+
+/**
+ * 탭 줄 — 카드 머리와 고정 띠가 ★같은 부품★을 쓴다 (2026-08-27).
+ *
+ * 스크롤을 내리면 카드 머리의 탭 줄이 화면 밖으로 나가서, 다른 탭으로 넘어가려면 맨
+ * 위까지 되올라가야 했다. 고정 띠에 같은 줄을 얹어 그 왕복을 없앤다.
+ *
+ * 두 벌로 그리지 않는다 — 잠김·건수·고른 표시가 두 곳에서 갈리면 「위에서는 잠겼는데
+ * 아래서는 눌린다」가 된다. 다른 것은 바깥 여백뿐이라 그것만 받는다.
+ */
+function TabStrip({
+  tabs, current, onPick, className = '',
+}: {
+  tabs: TabDef[];
+  current: TabKey;
+  onPick: (k: TabKey) => void;
+  className?: string;
+}) {
+  return (
+    /* 좁은 화면에서는 탭이 접히지 않고 옆으로 흐른다 — 접히면 띠 높이가 들쭉날쭉해진다 */
+    <div
+      className={`flex gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${className}`}
+      role="tablist"
+    >
+      {tabs.map((t) => (
+        <button
+          key={t.key}
+          role="tab"
+          aria-selected={current === t.key}
+          disabled={t.locked}
+          title={t.locked ? `계약 완료 후 열립니다${t.why ? ` — ${t.why}` : ''}` : undefined}
+          onClick={() => !t.locked && onPick(t.key)}
+          className={`-mb-px shrink-0 whitespace-nowrap rounded-t-ctl border-b-2 px-4 py-2.5 text-lead font-bold transition ${
+            t.locked
+              ? 'cursor-not-allowed border-transparent text-slate-300'
+              : current === t.key
+                ? 'border-brand-600 text-brand-800'
+                : 'border-transparent text-slate-400 hover:bg-slate-50 hover:text-slate-600'
+          }`}
+        >
+          {t.label}
+          {t.locked ? (
+            <span aria-label="잠김" className="ml-1.5 text-tiny">🔒</span>
+          ) : t.count ? (
+            <span className="ml-1.5 text-tiny font-semibold tabular-nums text-slate-400">
+              {t.count}
+            </span>
+          ) : null}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 const FACT_GRID =
   'grid grid-cols-2 gap-x-4 gap-y-3 text-base'
   + ' sm:grid-cols-[repeat(4,minmax(0,9rem))] lg:grid-cols-[repeat(5,minmax(0,9rem))]';
 
 function SiteHeader({
-  detail, contract, canReview, noteAuthor, knownOrgs, processEdit,
+  detail, contract, canReview, noteAuthor, knownOrgs, processEdit, column, band, titleRef,
 }: {
   detail: ProjectDetail;
   contract: ContractState;
@@ -299,42 +399,19 @@ function SiteHeader({
   /** 이미 쓰이고 있는 업체 이름 — 영업사·시공사를 고칠 때 골라 넣는다 */
   knownOrgs: string[];
   processEdit: ProcessEdit;
+  /*
+   * 보드에서 이 현장이 서는 칸 — 부모가 세어 넘긴다. 고정 띠도 같은 값을 쓰는데,
+   * 두 곳에서 각자 세면 같은 현장이 두 칸으로 보일 자리가 생긴다.
+   */
+  column: BoardColumn;
+  band: BoardBand;
+  /** 큰 이름이 화면 밖으로 나갔는지 부모가 지켜본다(고정 띠) — 여기서는 자리만 내준다 */
+  titleRef: RefObject<HTMLDivElement>;
 }) {
-  const { project, lines, stage, process } = detail;
-  const column = boardColumnOf({
-    stage,
-    status: process.status,
-    holdState: project.holdState,
-    rejectedDocs: contract.rejected,
-    preRejected: contract.preRejected,
-    docsFilled: contract.docsFilled,
-    submitted: project.contractSubmittedAt !== null,
-    fixAsked: project.contractFixAskedAt !== null,
-  });
-  const band = bandOfColumn(column);
+  const { project, lines, process } = detail;
   const qty = lines.reduce((s, l) => s + l.qty, 0);
   const terms = [...new Set(lines.map((l) => l.termYears))];
 
-  /*
-   * 큰 현장명이 상단 바 밑으로 사라졌는가 — 그때만 고정 띠를 세운다.
-   *
-   * 스크롤 위치를 세지 않고 이름 자체를 지켜본다: 창 크기·사이드바·대행 띠에 따라
-   * 이름이 사라지는 지점이 달라지는데, 픽셀로 못 박으면 그때마다 어긋난다.
-   * rootMargin 위쪽을 상단 바(48px)만큼 밀어 그 바 뒤로 들어가는 순간을 경계로 삼는다.
-   */
-  const titleRef = useRef<HTMLDivElement>(null);
-  const [pinned, setPinned] = useState(false);
-  useEffect(() => {
-    const el = titleRef.current;
-    // 옛 브라우저에는 없다 — 없으면 띠가 안 뜰 뿐 화면은 그대로 돈다
-    if (!el || typeof IntersectionObserver === 'undefined') return;
-    const io = new IntersectionObserver(
-      ([entry]) => setPinned(!entry.isIntersecting),
-      { rootMargin: '-48px 0px 0px 0px' }
-    );
-    io.observe(el);
-    return () => io.disconnect();
-  }, []);
 
   /** 이 현장을 지금 세우고 있는 것 */
   const blockers: Array<{ label: string; tone: Tone }> = [];
@@ -363,31 +440,6 @@ function SiteHeader({
    */
 
   return (
-    <>
-    {/*
-      * 스크롤을 내려도 현장명은 남는다 (한백 2026-08-27).
-      *
-      * 이 화면은 아래로 길다 — 서류·공정·기성을 훑다 보면 「지금 어느 현장을 보고 있나」가
-      * 눈에서 사라진다. 목록에서 여러 건을 이어 열 때 특히 그렇다.
-      *
-      * ★같은 값이 한 화면에 두 번 서지 않는다★(화면 규칙 5) — 큰 이름이 화면 밖으로
-      * 나간 뒤에야 이 띠가 뜬다. 붙박이라 자리를 밀지 않는다: 뜰 때 본문이 덜컥 내려가면
-      * 읽던 줄을 놓친다. 위·왼쪽 자리는 껍데기가 물려준 값을 쓴다(--console-top/left) —
-      * 사이드바를 접거나 대행 띠가 뜨면 그 값이 따라 바뀐다.
-      *
-      * 단계 배지를 같이 세운다. 머리말에서 이름 위에 두는 것과 같은 이유로, 이 화면에서
-      * 이름 다음으로 먼저 알아야 하는 것이 「지금 어느 칸에 있나」다.
-      */}
-    {pinned && (
-      <div
-        /* 자리는 클래스가 아니라 여기서 준다 — 껍데기가 물려주는 변수라 Tailwind 가 값을 모른다 */
-        style={{ top: 'var(--console-top, 3rem)', left: 'var(--console-left, 0px)' }}
-        className="fixed right-0 z-10 flex items-center gap-2.5 border-b border-slate-200/80 bg-[#f7f8f4]/95 px-5 py-2 backdrop-blur transition-[left] duration-150 sm:px-7 print:hidden"
-      >
-        <Badge tone={BAND_TONE[band]}>{column}</Badge>
-        <span className="truncate text-lead font-black text-slate-900">{project.name}</span>
-      </div>
-    )}
     <div className="rounded-panel border border-slate-200 bg-white p-5 sm:p-6">
       {/*
         * 위는 현장의 사실, 아래가 진행현황 및 메모다. 한때 좌우 2열이었는데(오른쪽이 노는
@@ -495,7 +547,6 @@ function SiteHeader({
         <ProgressLog projectId={project.id} notes={detail.notes} author={noteAuthor} />
       </div>
     </div>
-    </>
   );
 }
 

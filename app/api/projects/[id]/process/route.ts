@@ -56,6 +56,13 @@ export const POST = sessionWrite<{ id: string }, Record<string, unknown>>(
       }
       patch[f] = v;
     }
+    /* 충전기 모델 — 목록(charger_models)의 id. 빈 값은 미지정으로 되돌리는 것이다 */
+    if ('chargerModelId' in body) {
+      const v = body.chargerModelId;
+      if (v === null || v === '') patch.chargerModelId = null;
+      else if (typeof v !== 'string') throw new BadRequest('충전기 모델이 올바르지 않습니다.');
+      else patch.chargerModelId = v;
+    }
     if (Object.keys(patch).length === 0) throw new BadRequest('바꿀 값이 없습니다.');
 
     await getRepository().updateProcess(params.id, patch, actor);

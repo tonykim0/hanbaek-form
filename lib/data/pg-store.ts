@@ -17,11 +17,11 @@ import { writeAudit } from '@/lib/db/audit';
 import { allSlots } from './db-slot';
 import { dayOf, stampOf, today } from '@/lib/date';
 import {
-  contractLines, documents, payoutEntries, pricingRules, processDocuments, processes,
+  chargerModels, contractLines, documents, payoutEntries, pricingRules, processDocuments, processes,
   batchFinals, projectNotes, projects, settlementRules, settlements, taxInvoices,
 } from '@/lib/db/schema';
 import type {
-  BizType, BuildingType, ContractLine, ContractParty, Court, CpoName, DocFile, DocStatus,
+  BizType, BuildingType, ChargerModel, ContractLine, ContractParty, Court, CpoName, DocFile, DocStatus,
   IntakeDraft, LineAxes, NewPayoutEntry, PayoutCategory, PayoutEntry, PayoutKind, PayoutRow,
   PowerType, PreInstall, PricingRule, ProcessInfo, Project, PromoExtendOption, PromoStep,
   ProjectDetail, ProjectDocument, ProjectSummary, ReplType, Settlement, SettlementRule,
@@ -197,6 +197,7 @@ function toProcess(projectId: string, r: ProcRow | undefined, docRows: ProcDocRo
     notifyDate: r?.notifyDate ?? null,
     chargerQty: r?.chargerQty ?? null,
     modemQty: r?.modemQty ?? null,
+    chargerModelId: r?.chargerModelId ?? null,
     notifyDoneAt: r?.notifyDoneAt ?? null,
     notifySkippedAt: r?.notifySkippedAt ?? null,
     chargerDoneAt: r?.chargerDoneAt ?? null,
@@ -2159,6 +2160,41 @@ export const pgRepository: ProjectRepository = {
     assertHanbaek(actor, '단가 케이스 조회');
     const rows = await getDb().select().from(pricingRules).orderBy(pricingRules.caseName);
     return rows.map(rowToRule);
+  },
+
+  /* 금액이 없어 누구나 본다 — 시공사가 자기 현장의 모델을 고른다 */
+  async listChargerModels(): Promise<ChargerModel[]> {
+    const rows = await getDb().select().from(chargerModels).orderBy(chargerModels.name);
+    return rows.map((r) => ({
+      id: r.id, name: r.name, maker: r.maker, note: r.note, active: r.active,
+    }));
+  },
+
+  async addChargerModel(input, actor): Promise<string> {
+    assertAdmin(actor, '충전기 모델 등록');
+    const name = input.name?.trim();
+    if (!name) throw new Error('모델명을 적어주세요.');
+    if (name.length > 80) throw new Error('모델명이 너무 깁니다.');
+
+    const db = getDb();
+    // 이름이 겹치면 거절한다 — 같은 모델이 두 이름으로 갈리면 현장마다 다른 것을 고른다
+    const [dup] = await db.select({ id: chargerModels.id }).from(chargerModels)
+      .where(eq(chargerModels.name, name)).limit(1);
+    if (dup) throw new Error(`이미 등록된 모델입니다 — ${name}`);
+
+    const id = crypto.randomUUID();
+    await db.transaction(async (tx) => {
+      await tx.insert(chargerModels).values({
+        id, name,
+        maker: input.maker?.trim() || null,
+        note: input.note?.trim() || null,
+      });
+      await writeAudit(tx, {
+        projectId: null, actor, action: '충전기 모델 등록',
+        field: 'chargerModels', oldValue: null, newValue: name,
+      });
+    });
+    return id;
   },
 
   async listSettlementRules(actor): Promise<SettlementRule[]> {

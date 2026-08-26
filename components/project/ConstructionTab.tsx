@@ -15,7 +15,7 @@
  * 누르면 되돌아간다(조건은 누적이라 뒤로는 늘 열려 있다).
  */
 import { Fragment, useEffect, useState } from 'react';
-import type { ProcessStatus, ProjectDetail } from '@/types/project';
+import type { ChargerModel, ProcessStatus, ProjectDetail } from '@/types/project';
 import { PROCESS_STATUSES } from '@/types/project';
 import { PROCESS_DOCS } from '@/lib/doc-rules';
 import { bandOfColumn } from '@/lib/board';
@@ -26,7 +26,7 @@ import { DocDelete, DocFileActions, DocUpload, DownloadAll } from '@/components/
 import { DatePicker } from '@/components/DatePicker';
 import { today } from '@/lib/date';
 import { useAction } from '@/lib/use-action';
-import { Badge, Btn, FIELD, Note } from '@/components/ui';
+import { Badge, Btn, Empty, Err, FIELD, FIELD_CELL, Note } from '@/components/ui';
 
 /** 고칠 수 있는 날짜 칸 — 이름은 서버(ProcessPatch)와 같아야 한다 */
 type DateField =
@@ -428,6 +428,17 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
                       />
                     ))}
 
+                    {/* 어느 모델이 들어가는가 — 발주 전에 정해지고, 수령 때 실물과 맞춰 본다 */}
+                    {g.title === '충전기' && (
+                      <ModelRow
+                        value={p.chargerModelId}
+                        canEdit={canEditField('chargerOrderDate')}
+                        canRegister={edit === 'all'}
+                        busy={busyKey === 'chargerModelId'}
+                        onSave={(id) => save('chargerModelId', id, 'chargerModelId')}
+                      />
+                    )}
+
                     {/* 수령 수량 — 무엇이 몇 개 왔는지 센다. 수령 완료 체크의 조건이다. */}
                     {g.title === '충전기' && (
                       <CountsRow
@@ -563,6 +574,115 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
  * 숫자는 칸을 떠날 때 저장한다. 오른쪽 끝의 비교 기준(계약 N대)이 다르면 노랗게 —
  * 맞는지 물으러 갈 곳이 따로 없어야 한다.
  */
+/**
+ * 충전기 모델 — 등록된 목록에서 고른다 (한백 지시 2026-08-26).
+ *
+ * 이름을 손으로 적지 않는 이유: 같은 모델이 「BAS1007.D1.1」·「BAS1007-D1-1」로 갈리면
+ * 나중에 모델별로 세지 못한다. 목록에 없으면 한백이 그 자리에서 등록한다 —
+ * 등록하러 다른 화면으로 보내면 고르던 일이 끊긴다.
+ *
+ * 내린 모델(active=false)도 고른 값이면 보여준다 — 옛 현장의 값이 사라지면 안 된다.
+ */
+function ModelRow({
+  value, canEdit, canRegister, busy, onSave,
+}: {
+  value: string | null;
+  canEdit: boolean;
+  /** 목록에 없는 모델을 그 자리에서 등록할 수 있는가 — 한백만 */
+  canRegister: boolean;
+  busy: boolean;
+  onSave: (id: string | null) => void;
+}) {
+  const [models, setModels] = useState<ChargerModel[] | null>(null);
+  const [adding, setAdding] = useState(false);
+  const [name, setName] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    void fetch('/api/charger-models')
+      .then((r) => (r.ok ? (r.json() as Promise<{ models: ChargerModel[] }>) : null))
+      .then((d) => { if (alive && d) setModels(d.models); })
+      .catch(() => { /* 목록이 안 뜰 뿐 — 화면을 막지 않는다 */ });
+    return () => { alive = false; };
+  }, []);
+
+  const chosen = models?.find((m) => m.id === value) ?? null;
+  /* 고를 수 있는 것은 살아 있는 모델 + 이미 고른 것(내려간 모델이어도 남긴다) */
+  const options = (models ?? []).filter((m) => m.active || m.id === value);
+
+  async function register() {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/charger-models', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: trimmed }),
+      });
+      const body = (await res.json().catch(() => ({}))) as { id?: string; error?: string };
+      if (!res.ok || !body.id) { setError(body.error ?? '등록하지 못했습니다.'); return; }
+      setModels((prev) => [...(prev ?? []), { id: body.id!, name: trimmed, maker: null, note: null, active: true }]);
+      onSave(body.id);           // 등록한 것을 바로 고른 상태로 — 두 번 누르게 하지 않는다
+      setAdding(false);
+      setName('');
+    } catch {
+      setError('등록 중 오류가 났습니다.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-3 px-3.5 py-2 text-base">
+      <span className="w-32 shrink-0 text-slate-500">충전기 모델</span>
+      {!canEdit ? (
+        chosen ? <span className="font-semibold text-slate-800">{chosen.name}</span> : <Empty kind="miss" />
+      ) : adding ? (
+        <span className="flex flex-wrap items-center gap-1.5">
+          <input
+            autoFocus
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') void register(); }}
+            placeholder="모델명 — 예: BAS1007.D1.1"
+            className={`${FIELD_CELL} w-56`}
+          />
+          <Btn size="sm" busy={saving} busyLabel="등록 중…" disabled={!name.trim()} onClick={() => void register()}>
+            등록하고 고르기
+          </Btn>
+          <Btn size="sm" kind="quiet" disabled={saving} onClick={() => { setAdding(false); setName(''); setError(null); }}>
+            취소
+          </Btn>
+          <Err>{error}</Err>
+        </span>
+      ) : (
+        <span className="flex flex-wrap items-center gap-2">
+          <select
+            aria-label="충전기 모델"
+            value={value ?? ''}
+            disabled={busy || models === null}
+            onChange={(e) => onSave(e.target.value || null)}
+            className={`${FIELD_CELL} w-56`}
+          >
+            <option value="">{models === null ? '불러오는 중…' : '미지정'}</option>
+            {options.map((m) => (
+              <option key={m.id} value={m.id}>{m.name}{m.active ? '' : ' (중지)'}</option>
+            ))}
+          </select>
+          {/* 목록에 없는 모델은 여기서 등록한다 — 다른 화면으로 보내면 고르던 일이 끊긴다 */}
+          {canRegister && (
+            <Btn size="sm" kind="quiet" onClick={() => setAdding(true)}>새 모델</Btn>
+          )}
+        </span>
+      )}
+    </div>
+  );
+}
+
 function CountsRow({
   label, items, canEdit, busyKey, onSave, compare,
 }: {

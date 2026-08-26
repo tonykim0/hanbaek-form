@@ -13,6 +13,7 @@
  */
 import type {
   Court, DocStatus, HoldState, IntakeDraft, LineAxes, NewPayoutEntry, NewPricingRule, PayoutKind, PayoutRow, PreInstall, PricingRule,
+  ChargerModel,
   PayoutPlanRow, ProcessInfo, ProcessStatus, ProjectDetail, ProjectSummary, Settlement, SettlementRule, SettlementSummary, BatchFinal, TaxInvoice,
 } from '@/types/project';
 import type { Actor, Viewer } from '@/lib/auth/types';
@@ -313,6 +314,18 @@ export interface ProjectRepository {
   listSettlementRules(actor: Actor): Promise<SettlementRule[]>;
 
   /**
+   * 충전기 모델 목록 — 현장에서 고를 후보다.
+   *
+   * 금액이 없어 협력사도 본다(시공사가 자기 현장의 모델을 고른다). 내린 모델(active=false)도
+   * 돌려준다 — 옛 현장이 그것을 참조하고 있어서 빼면 이름이 안 보인다. 화면이 고를 수 있는
+   * 것만 거른다.
+   */
+  listChargerModels(): Promise<ChargerModel[]>;
+
+  /** 모델 등록 [한백 전용] — 이름이 겹치면 거절한다(오타로 같은 모델이 둘이 되는 것을 막는다) */
+  addChargerModel(input: { name: string; maker?: string | null; note?: string | null }, actor: Actor): Promise<string>;
+
+  /**
    * 케이스의 적용 시작·비고를 고친다. [한백 전용]
    *
    * 금액·축은 여기서도 못 고친다 — 라인이 참조하므로 소급 변경이 된다. 적용 시작과 비고는
@@ -499,7 +512,7 @@ export type ProcessPatch = Partial<
     | 'chargerRecvDate' | 'startPlanDate' | 'startActualDate' | 'installDoneDate'
     | 'installedSpots' | 'installedUnits'
     | 'commDoneDate' | 'openDate' | 'memo'
-    | 'notifyDate' | 'chargerQty' | 'modemQty'
+    | 'notifyDate' | 'chargerQty' | 'modemQty' | 'chargerModelId'
     | 'notifyDoneAt' | 'notifySkippedAt' | 'chargerDoneAt' | 'installConfirmedAt'
     | 'openDoneAt' | 'completionSubmitAt'
   >

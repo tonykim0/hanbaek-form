@@ -220,6 +220,20 @@ export interface SettlementStepRule {
  * 정산 규칙 — 단가와 분리된 별도 테이블. 한백이 내부적으로 관리하고 현장별로 적용한다.
  * ★불변★ 추가·비활성만. 한 번 현장에 적용되면 수정하지 않는다.
  */
+/**
+ * 충전기 모델 — 등록해 두고 현장에서 고른다 (한백 지시 2026-08-26).
+ *
+ * 금액이 없어 협력사도 본다. 쓰지 않게 된 모델은 지우지 않고 내린다(active=false) —
+ * 옛 현장이 참조하고 있어서 지우면 그 현장의 모델 이름이 사라진다.
+ */
+export interface ChargerModel {
+  id: string;
+  name: string;
+  maker: string | null;
+  note: string | null;
+  active: boolean;
+}
+
 export interface SettlementRule {
   id: string;
   name: string;
@@ -568,6 +582,11 @@ export interface ProcessInfo {
   /** 수령한 수량 — 충전기 몇 대, 모뎀 몇 개가 현장에 왔나. 시공사가 수령 때 센다. */
   chargerQty: number | null;
   modemQty: number | null;
+  /**
+   * 이 현장에 들어가는 충전기 모델 — 목록에서 고른다(charger_models). 미선택이면 null.
+   * 이름은 싣지 않는다 — 화면이 이미 목록을 받아 고르므로 거기서 찾는다(같은 값을 두 곳에 두지 않는다).
+   */
+  chargerModelId: string | null;
   chargerDoneAt: string | null;      // 충전기 수령 완료 → 「충전기 수령」 조건
   installConfirmedAt: string | null; // 설치 완료 → 「설치완료」 조건
   openDoneAt: string | null;         // 개통 완료 → 「준공서류 접수/검토」 조건

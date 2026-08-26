@@ -233,6 +233,23 @@ export const documents = pgTable('documents', {
   pk: primaryKey({ columns: [t.projectId, t.kind] }),
 }));
 
+/**
+ * 충전기 모델 — 등록해 두고 현장에서 고른다 (한백 지시 2026-08-26).
+ *
+ * 노션에서는 「모델명(충전기)」 multi_select 였다. 표로 두는 이유는 오타로 같은 모델이
+ * 여러 이름을 갖는 것을 막기 위해서다. 쓰지 않게 된 모델은 지우지 않고 내린다
+ * (active=false) — 옛 현장이 그 모델을 참조하고 있다.
+ */
+export const chargerModels = pgTable('charger_models', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  /** 제조사 — 모델명만으로 어느 회사 것인지 모를 때가 있다 */
+  maker: text('maker'),
+  note: text('note'),
+  active: boolean('active').notNull().default(true),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
 // ── 공정 ────────────────────────────────────────────────────────
 export const processes = pgTable('processes', {
   projectId: text('project_id').primaryKey().references(() => projects.id, { onDelete: 'cascade' }),
@@ -258,6 +275,11 @@ export const processes = pgTable('processes', {
   /** 수령한 수량 — 충전기 몇 대, 모뎀 몇 개. 시공사가 수령 때 센다 */
   chargerQty: integer('charger_qty'),
   modemQty: integer('modem_qty'),
+  /**
+   * 이 현장에 들어가는 충전기 모델 — 목록(charger_models)에서 고른다.
+   * 이름을 적지 않고 참조하는 이유: 오타로 같은 모델이 여러 이름을 갖는 것을 막는다.
+   */
+  chargerModelId: text('charger_model_id').references(() => chargerModels.id),
   /** 묶음별 완료 체크(체크한 날) — 단계 이동을 잠근다. types/project.ts ProcessInfo 주석 참조 */
   notifyDoneAt: text('notify_done_at'),
   /** 행위신고 불필요로 판정한 날 — 완료와 다른 칸이다 (migrations/0024) */

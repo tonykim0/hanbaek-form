@@ -7,7 +7,7 @@
  *
  * lib/claude-import.ts(계약서 스캔 역추출)와 같은 Anthropic vision 을 쓰지만 다르다.
  *   · 입력 — 계약서는 PDF 뿐이지만 이 서류는 사진(JPG·PNG·WEBP)으로 오는 일이 더 많다.
- *   · 분량 — 한 장짜리다. 페이지 자르기·회전 보정이 필요 없다.
+ *   · 분량 — 한 장짜리다. 페이지 자르기가 필요 없다(방향 보정은 PDF 일 때만 한다).
  *   · 검산 — 읽어낸 값을 그 자리에서 검사한다(국세청 검증 숫자·계좌 자릿수·은행 이름).
  *     못 믿을 값은 버리지 않고 issues 에 담아 올려 보낸다 — 사람이 보고 고치는 편이
  *     조용히 빈칸으로 두는 것보다 낫다(화면 규칙 10: 빈칸은 「안 넣음」이라는 다른 말이다).
@@ -15,6 +15,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { BANKS, isValidAccountNo, normalizeAccountNo } from './bank-account';
 import { formatKoreanBizId, isValidKoreanBizId } from './bizid';
+import { uprightPdf } from './pdf-orient';
 import type { PartnerFileKind } from './auth/partner-details';
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
@@ -125,7 +126,14 @@ export async function readPartnerDoc({
     throw new PartnerDocReadError('PDF·JPG·PNG·WEBP 만 판독할 수 있습니다.', 'UNSUPPORTED_TYPE');
   }
 
-  const data = file.toString('base64');
+  /*
+   * 돌아간 스캔은 판독을 실패시키지 않고 딴 값을 만들어 낸다(lib/pdf-orient 머리말).
+   * 사업자번호·계좌번호가 그렇게 틀리면 지급이 엉뚱한 데로 간다 — 먼저 바로 세운다.
+   * 사진(JPG·PNG)은 PDF 가 아니라서 이 길을 못 탄다.
+   */
+  const upright = mediaType === 'application/pdf' ? await uprightPdf(file, 'partner-doc') : file;
+
+  const data = upright.toString('base64');
   const source =
     mediaType === 'application/pdf'
       ? { type: 'document' as const, source: { type: 'base64' as const, media_type: 'application/pdf' as const, data } }

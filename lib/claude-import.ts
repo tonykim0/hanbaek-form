@@ -7,9 +7,10 @@
  *     프롬프트로 "JSON만 출력"을 부탁하는 것보다 파싱 실패가 없습니다.
  */
 import Anthropic from '@anthropic-ai/sdk';
-import { PDFDocument, degrees } from 'pdf-lib';
+import { PDFDocument } from 'pdf-lib';
 import { YEAR_OPTIONS } from './contract-form';
 import { buildFormImportPrompt } from './prompts-import';
+import { uprightPdf } from './pdf-orient';
 import type {
   FormImportResult,
   ImportedFieldKey,
@@ -21,9 +22,6 @@ const anthropic = new Anthropic({
 });
 
 const MODEL = 'claude-opus-5';
-/** 회전 감지는 방향만 보면 되므로 빠르고 싼 모델을 씁니다 */
-const ORIENTATION_MODEL = 'claude-haiku-4-5-20251001';
-
 /** Claude PDF 입력 한도(요청 32MB·600페이지)와 판독 시간을 함께 고려한 상한 */
 const MAX_PAGES = 60;
 const MAX_PDF_BYTES = 20 * 1024 * 1024;
@@ -204,7 +202,7 @@ export async function extractFormFromPdf(
   const { analyzedPages, totalPages } = limited;
   // 뒤집힌 스캔은 Opus 도 판독을 그르치므로(실측: 180° 페이지를 앞 서류의 연속으로
   // 판정) 판독 전에 페이지 방향을 물리적으로 바로잡습니다.
-  const pdf = await normalizeRotation(limited.pdf);
+  const pdf = await uprightPdf(limited.pdf, 'claude-import');
 
   const prompt = buildFormImportPrompt({
     fileName,
@@ -325,235 +323,6 @@ function parseJson(message: Anthropic.Message): unknown {
   } catch {
     throw new Error(`JSON 파싱 실패: ${cleaned.slice(start, start + 200)}`);
   }
-}
-
-// ─────────────────────────────────────────────
-// 회전 정규화
-// ─────────────────────────────────────────────
-
-const ORIENTATION_TIMEOUT_MS = 60_000;
-/**
- * 재발행처럼 페이지가 적은 문서는 페이지를 따로 보여줘야 방향 판정이 안정적입니다.
- * 서로 다른 방향의 페이지를 한 PDF 로 묶어 보내면 Haiku 가 90° 페이지를 180°로
- * 오판한 실제 사례가 있었습니다. 긴 계약서는 호출 수가 과도해지므로 묶어서 판정합니다.
- */
-const PER_PAGE_ORIENTATION_LIMIT = 4;
-
-type PageRotation = { page: number; rotation: number };
-type RotationFix = { page: number; targetRotation: number };
-
-const ROTATION_CANDIDATES = [
-  { id: 'A', rotation: 0 },
-  { id: 'B', rotation: 90 },
-  { id: 'C', rotation: 180 },
-  { id: 'D', rotation: 270 },
-] as const;
-
-/**
- * 스캔이 돌아간 페이지를 감지해 PDF 의 /Rotate 로 바로 세웁니다.
- *
- * 프롬프트로 「뒤집혀 있어도 읽어라」를 지시하는 것은 비결정적이라 믿을 수 없었습니다
- * (같은 파일이 통과했다 실패했다 함). 방향 판정은 내용 판독보다 훨씬 쉬운 일이라
- * 빠른 모델에 맡기고, 실패하면 원본 그대로 진행합니다 — 이 단계가 판독을 막으면 안 됩니다.
- */
-async function normalizeRotation(pdf: Buffer): Promise<Buffer> {
-  try {
-    const doc = await PDFDocument.load(pdf, { ignoreEncryption: true });
-    const fixes = await detectRotationFixes(pdf, doc);
-
-    const pages = doc.getPages();
-    const changed: RotationFix[] = [];
-    for (const fix of fixes) {
-      const { page, targetRotation } = fix;
-      const target = pages[page - 1];
-      if (!target) continue;
-      if (normalizedDegrees(target.getRotation().angle) === targetRotation) continue;
-      target.setRotation(degrees(targetRotation));
-      changed.push(fix);
-    }
-    if (changed.length === 0) return pdf;
-
-    const bytes = await doc.save();
-    console.info(
-      '[claude-import] 회전 정규화:',
-      changed.map((fix) => `${fix.page}p→${fix.targetRotation}°`).join(' ')
-    );
-    return Buffer.from(bytes);
-  } catch (err) {
-    console.warn('[claude-import] 회전 감지 실패 — 원본으로 진행:', err);
-    return pdf;
-  }
-}
-
-async function detectRotationFixes(
-  pdf: Buffer,
-  doc: PDFDocument
-): Promise<RotationFix[]> {
-  if (doc.getPageCount() > PER_PAGE_ORIENTATION_LIMIT) {
-    const detected = await detectRotationsTogether(pdf);
-    const pages = doc.getPages();
-    return detected
-      .filter((item) => pages[item.page - 1])
-      .map((item) => ({
-        page: item.page,
-        targetRotation: normalizedDegrees(
-          pages[item.page - 1].getRotation().angle + (360 - item.rotation)
-        ),
-      }));
-  }
-
-  const candidateSets: RotationCandidate[][] = [];
-  for (const pageIndex of doc.getPageIndices()) {
-    candidateSets.push(await buildRotationCandidates(doc, pageIndex));
-  }
-
-  const results = await Promise.all(
-    candidateSets.map(async (candidates, pageIndex) => {
-      try {
-        const targetRotation = await selectUprightRotation(candidates);
-        return { page: pageIndex + 1, targetRotation };
-      } catch (err) {
-        console.warn(
-          `[claude-import] ${pageIndex + 1}p 회전 감지 실패 — 원본 방향 유지:`,
-          err
-        );
-        return null;
-      }
-    })
-  );
-
-  return results.filter((fix): fix is RotationFix => fix !== null);
-}
-
-type RotationCandidate = {
-  id: (typeof ROTATION_CANDIDATES)[number]['id'];
-  rotation: number;
-  pdf: Buffer;
-};
-
-async function buildRotationCandidates(
-  source: PDFDocument,
-  pageIndex: number
-): Promise<RotationCandidate[]> {
-  const candidates: RotationCandidate[] = [];
-  for (const candidate of ROTATION_CANDIDATES) {
-    const doc = await PDFDocument.create();
-    const [page] = await doc.copyPages(source, [pageIndex]);
-    page.setRotation(degrees(candidate.rotation));
-    doc.addPage(page);
-    candidates.push({
-      ...candidate,
-      pdf: Buffer.from(await doc.save()),
-    });
-  }
-  return candidates;
-}
-
-async function selectUprightRotation(
-  candidates: RotationCandidate[]
-): Promise<number> {
-  const content: Anthropic.ContentBlockParam[] = [
-    {
-      type: 'text',
-      text: '아래 A, B, C, D는 같은 문서 페이지를 서로 다른 방향으로 표시한 후보입니다.',
-    },
-  ];
-  for (const candidate of candidates) {
-    content.push(
-      { type: 'text', text: `후보 ${candidate.id}` },
-      {
-        type: 'document',
-        source: {
-          type: 'base64',
-          media_type: 'application/pdf',
-          data: candidate.pdf.toString('base64'),
-        },
-      }
-    );
-  }
-  content.push({
-    type: 'text',
-    text:
-      '한글과 표 제목이 위에서 아래로 똑바르게 읽히는 후보 하나를 고르세요. ' +
-      '내용은 추출하지 말고 JSON 하나만 출력하세요: {"candidate":"A"}',
-  });
-
-  const message = await callOrientationModel(content, 200);
-  const parsed = parseJson(message) as { candidate?: unknown };
-  const selectedId = String(parsed.candidate ?? '').trim().toUpperCase();
-  const selected = candidates.find((candidate) => candidate.id === selectedId);
-  if (!selected) {
-    throw new Error(`올바른 회전 후보를 찾을 수 없습니다: ${String(parsed.candidate)}`);
-  }
-  return selected.rotation;
-}
-
-async function detectRotationsTogether(pdf: Buffer): Promise<PageRotation[]> {
-  const message = await callOrientationModel(
-    [
-      {
-        type: 'document',
-        source: {
-          type: 'base64',
-          media_type: 'application/pdf',
-          data: pdf.toString('base64'),
-        },
-      },
-      {
-        type: 'text',
-        text:
-          '각 페이지의 글자 방향만 판정하세요. 내용은 읽지 마세요.\n' +
-          'rotation은 페이지가 똑바로 선 상태에서 시계방향으로 몇 도 돌아가 보이는지입니다 ' +
-          '(0 = 똑바름, 90 = 시계방향 90°, 180 = 거꾸로, 270 = 반시계방향 90°).\n' +
-          '모든 페이지를 빠짐없이 넣고, JSON 하나만 출력하세요:\n' +
-          '{"rotations": [{"page": 1, "rotation": 0}, {"page": 2, "rotation": 180}]}',
-      },
-    ],
-    1000
-  );
-  const parsed = parseJson(message) as {
-    rotations?: Array<{ page?: unknown; rotation?: unknown }>;
-  };
-
-  return (parsed.rotations ?? [])
-    .map((rotation) => asPageRotation(rotation.page, rotation.rotation))
-    .filter((rotation): rotation is PageRotation => rotation !== null);
-}
-
-async function callOrientationModel(
-  content: Anthropic.ContentBlockParam[],
-  maxTokens: number
-): Promise<Anthropic.Message> {
-  return anthropic.messages.create(
-    {
-      model: ORIENTATION_MODEL,
-      max_tokens: maxTokens,
-      messages: [
-        {
-          role: 'user',
-          content,
-        },
-      ],
-    },
-    { timeout: ORIENTATION_TIMEOUT_MS }
-  );
-}
-
-function asPageRotation(page: unknown, rotation: unknown): PageRotation | null {
-  if (
-    typeof page !== 'number' ||
-    !Number.isInteger(page) ||
-    page < 1 ||
-    typeof rotation !== 'number' ||
-    ![90, 180, 270].includes(rotation)
-  ) {
-    return null;
-  }
-  return { page, rotation };
-}
-
-function normalizedDegrees(angle: number): number {
-  return ((angle % 360) + 360) % 360;
 }
 
 // ─────────────────────────────────────────────

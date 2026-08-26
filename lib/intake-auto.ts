@@ -23,6 +23,7 @@ import type { AutoDoc, AutoFields, AutoIntakeResult } from '@/types/intake-auto'
 import type { BizType, BuildingType, ContractParty, CpoName, PowerType } from '@/types/project';
 import { extractAndHashFromZipBuffer, isZipBuffer } from './files';
 import { classifyAndExtract } from './claude';
+import { uprightPdfFiles } from './pdf-orient';
 import { buildUploadItems } from './notion';
 import { kindOfCategory, partyFromCategories, preInstallFromCategories } from './doc-category-map';
 import { withRegionPrefix } from './region';
@@ -59,11 +60,22 @@ export async function autoIntakeFromZip(
   if (!isZipBuffer(zip)) throw new Error('ZIP 파일이 아닙니다.');
 
   onProgress({ phase: 'unzip', message: 'ZIP 을 푸는 중' });
-  const files = await extractAndHashFromZipBuffer(zip);
+  let files = await extractAndHashFromZipBuffer(zip);
   if (files.length === 0) throw new Error('ZIP 안에 파일이 없습니다.');
   onProgress({ phase: 'unzip', message: `파일 ${files.length}개를 꺼냈습니다` });
 
   const warnings: string[] = [];
+
+  /*
+   * ── 방향 ────────────────────────────────────────────────
+   * 거꾸로·옆으로 스캔된 묶음은 판독이 실패하지 않고 ★딴 현장을 만들어 낸다★
+   * (실측: 180° 로 넣으면 형석아파트가 「충주시청자미디어센터」로 나왔다). 그래서
+   * 판독 전에 페이지를 물리적으로 세운다 — lib/pdf-orient 의 머리말에 실측표가 있다.
+   *
+   * 세운 버퍼로 판독도 하고 저장도 한다 — 사람이 현장 상세에서 여는 서류도 바로 서 있다.
+   */
+  onProgress({ phase: 'orient', message: '스캔 방향을 보는 중' });
+  files = await uprightPdfFiles(files, 'intake');
 
   // ── 분류 ──────────────────────────────────────────────────
   const pdfs = files.filter((f) => f.mimeType === 'application/pdf');

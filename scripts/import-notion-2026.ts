@@ -46,6 +46,7 @@ import { hashPassword } from '../lib/auth/crypto';
 import { normalizeOrg } from '../lib/roles';
 import { matchingRules, startKey } from '../lib/pricing-match';
 import type { BuildingType, CpoName, PowerType, PricingRule, ReplType } from '../types/project';
+import { normalizeRepl } from '../types/project';
 
 const WRITE = process.argv.includes('--write');
 const WIPE = process.argv.includes('--wipe');
@@ -144,7 +145,8 @@ function transform(page: NotionPage): Row | { skip: string } {
   let replType: ReplType | null = null;
   if (biz === '환경부' && (repl === '신규' || repl === null)) replType = '환경부 신규';
   else if (biz === '자체투자' && repl === '제자리교체') replType = '자체투자 (제자리교체)';
-  else if (biz === '자체투자' && (repl === '신규' || repl === '위치변경교체')) replType = '자체투자 (신규위치)';
+  // 안 가르는 운영사는 눕는다 — 노션의 「위치변경교체」가 그대로 들어와 갈린 라인이 됐었다
+  else if (biz === '자체투자' && (repl === '신규' || repl === '위치변경교체')) replType = normalizeRepl(cpo, '자체투자 (신규위치)');
   else issues.push(`교체유형 판정 불가 (사업구분 ${biz} × ${repl ?? '없음'})`);
 
   const term = Number(sel(p, '계약기간'));

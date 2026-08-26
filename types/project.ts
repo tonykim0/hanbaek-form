@@ -104,6 +104,20 @@ export function replTypesOf(cpo: CpoName): readonly ReplType[] {
 }
 
 /**
+ * 저장할 교체유형 — 안 가르는 운영사의 신규위치는 제자리교체로 눕힌다.
+ *
+ * 화면은 이미 그 축을 세우지 않지만(replTypesOf) 값이 들어오는 길은 화면만이 아니다 —
+ * 노션 이관과 접수 API 는 직접 부를 수 있고, 실제로 노션의 「위치변경교체」가 그대로
+ * 신규위치로 들어와 있었다(충북 청주 율량동 현대아파트). 들어오는 자리에서 눕혀야
+ * 「화면엔 안 보이는데 값은 갈려 있는」 라인이 다시 생기지 않는다.
+ */
+export function normalizeRepl<T extends ReplType | null>(cpo: CpoName, repl: T): T {
+  return (repl === '자체투자 (신규위치)' && !SPLITS_SELF_REPL.has(cpo)
+    ? '자체투자 (제자리교체)'
+    : repl) as T;
+}
+
+/**
  * 환경부 보조금을 받는 사업인가 — 대기번호·기설치 조사가 이것으로 갈린다.
  *
  * 자체투자와 연동은 보조금이 없으니 대기번호도, 기설치 조사도 「해당없음」이다.

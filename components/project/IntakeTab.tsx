@@ -8,7 +8,7 @@
  */
 import { useState } from 'react';
 import type { ContractState, ProcessStatus, ProjectDetail, ProjectDocument } from '@/types/project';
-import { PROCESS_STATUSES } from '@/types/project';
+import { PROCESS_STATUSES, replLabel } from '@/types/project';
 import { statusIndex } from '@/lib/process';
 import { evaluateDocs, needsPreInstallCheck, type DocReq } from '@/lib/doc-rules';
 import { DocDelete, DocFileActions, DocUpload, DownloadAll } from '@/components/DocFiles';
@@ -64,7 +64,10 @@ function SiteFacts({ project }: { project: ProjectDetail['project'] }) {
     ['현장관리번호', project.mgmtNo],
     ['사업구분', project.bizType],
     ['수전방식', project.powerType],
-    ['교체유형', project.replType ?? (project.bizType ? '라인별로 다름' : null)],
+    // 안 가르는 운영사는 괄호를 떼고 「자체투자」 — 다른 화면과 같은 함수를 본다(replLabel)
+    ['교체유형', project.replType
+      ? replLabel(project.cpo, project.replType)
+      : project.bizType ? '라인별로 다름' : null],
     /*
      * 세 날짜가 순서대로 선다 — 계약서를 받은 날 · 협력사가 다 냈다고 누른 날 ·
      * 한백이 확인한 날. 한 칸에 뭉치면 「누가 언제 무엇을 했나」가 사라진다.

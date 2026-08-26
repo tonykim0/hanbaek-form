@@ -27,7 +27,7 @@ import type {
   ProjectDetail, ProjectDocument, ProjectSummary, ReplType, Settlement, SettlementRule,
   BatchFinal, SettlementStepRule, SettlementSummary, TaxInvoice,
 } from '@/types/project';
-import { PROCESS_STATUSES, subsidized } from '@/types/project';
+import { normalizeRepl, PROCESS_STATUSES, subsidized } from '@/types/project';
 import type { Viewer } from '@/lib/auth/types';
 import { canAccessProject, canWrite, effectiveVisibility, isHanbaek, normalizeOrg } from '@/lib/roles';
 import { needsPreInstallCheck, PROCESS_DOCS } from '@/lib/doc-rules';
@@ -623,7 +623,8 @@ export const pgRepository: ProjectRepository = {
         // 접수 때는 아직 조사 전이다 — 판독이 「있음」이라 적어도 사람이 확인해야 한다
         preChecked: false,
         powerType: draft.powerType,
-        replType: draft.replType,
+        // 안 가르는 운영사의 신규위치는 눕혀서 넣는다 — 접수 API 는 화면 없이도 부를 수 있다
+        replType: normalizeRepl(draft.cpo, draft.replType),
         bizType: draft.bizType,
         // 사업연도는 접수 연도로 시작한다 — 이월 현장만 한백이 고친다
         bizYear: Number(day.slice(0, 4)),
@@ -645,7 +646,7 @@ export const pgRepository: ProjectRepository = {
             termYears: l.termYears,
             qty: l.qty,
             powerType: l.powerType,
-            replType: l.replType,
+            replType: normalizeRepl(draft.cpo, l.replType),
             memo: l.memo,
             // 단가 케이스는 한백이 검수 후 지정한다
             pricingRuleId: null,

@@ -51,7 +51,10 @@ export const POST = sessionWrite<{ id: string }, Record<string, unknown>>(
       patch.memo = v === '' ? null : (v as string | null);
     }
     // 수량 칸 — 설치 실적(거점·기)과 수령 수량(충전기·모뎀). 빈 칸으로 지우는 것은 허용한다.
-    for (const f of ['installedSpots', 'installedUnits', 'chargerQty', 'modemQty'] as const) {
+    for (const f of [
+      'installedSpots', 'installedUnits', 'chargerQty', 'modemQty',
+      'chargerOrderQty', 'modemOrderQty',
+    ] as const) {
       if (!(f in body)) continue;
       const v = body[f];
       if (v === null || v === '') {

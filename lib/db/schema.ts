@@ -272,6 +272,9 @@ export const processes = pgTable('processes', {
   openDate: text('open_date'),
   /** 행위신고일 — 파일을 올리면 그 날이 기본으로 들어간다(비어 있을 때만) */
   notifyDate: text('notify_date'),
+  /** 발주한 수량 — 한백이 적는다. 수령 수량과 가른다(부분 입고·오배송을 알아야 한다) */
+  chargerOrderQty: integer('charger_order_qty'),
+  modemOrderQty: integer('modem_order_qty'),
   /** 수령한 수량 — 충전기 몇 대, 모뎀 몇 개. 시공사가 수령 때 센다 */
   chargerQty: integer('charger_qty'),
   modemQty: integer('modem_qty'),

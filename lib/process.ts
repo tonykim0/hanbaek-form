@@ -165,6 +165,12 @@ export function canEnter(
  */
 export const HANBAEK_ONLY_PROCESS_FIELDS = [
   'envApprovalDate', 'chargerOrderDate', 'chargerShipDate', 'cpoSubmitDate',
+  /*
+   * 발주는 한백이 한다 — 수량도 발주한 쪽이 적는다(한백 지시 2026-08-26). 수령 수량
+   * (chargerQty·modemQty)은 현장에서 세는 값이라 시공사 칸이다.
+   * 충전기 모델도 한백이 정한다 — 운영사와의 계약에 딸린 값이다.
+   */
+  'chargerOrderQty', 'modemOrderQty', 'chargerModelId',
 ] as const;
 
 const HANBAEK_ONLY_LABEL: Record<(typeof HANBAEK_ONLY_PROCESS_FIELDS)[number], string> = {
@@ -172,6 +178,9 @@ const HANBAEK_ONLY_LABEL: Record<(typeof HANBAEK_ONLY_PROCESS_FIELDS)[number], s
   chargerOrderDate: '충전기 발주일',
   chargerShipDate: '충전기 출고일',
   cpoSubmitDate: '운영사 계약서 제출',
+  chargerOrderQty: '발주 충전기 수량',
+  modemOrderQty: '발주 모뎀 수량',
+  chargerModelId: '충전기 모델',
 };
 
 /** 화면이 칸을 잠글 때 쓰는 판정 — 저장소(assertProcessWrite)와 같은 기준이어야 한다 */

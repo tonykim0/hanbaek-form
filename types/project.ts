@@ -598,6 +598,9 @@ export interface ProcessInfo {
    * 값이다(화면 규칙 10). 둘 중 하나면 「시공진행필요」의 조건이 찬다.
    */
   notifySkippedAt: string | null;
+  /** 발주한 수량 — 한백이 적는다. 수령과 가른다(부분 입고를 알아야 한다) */
+  chargerOrderQty: number | null;
+  modemOrderQty: number | null;
   /** 수령한 수량 — 충전기 몇 대, 모뎀 몇 개가 현장에 왔나. 시공사가 수령 때 센다. */
   chargerQty: number | null;
   modemQty: number | null;

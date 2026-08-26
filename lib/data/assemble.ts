@@ -137,6 +137,8 @@ export const emptyProcess = (projectId: string): ProcessInfo => ({
   commDoneDate: null,
   openDate: null,
   notifyDate: null,
+  chargerOrderQty: null,
+  modemOrderQty: null,
   chargerQty: null,
   modemQty: null,
   chargerModelId: null,

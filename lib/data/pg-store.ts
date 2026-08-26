@@ -195,6 +195,8 @@ function toProcess(projectId: string, r: ProcRow | undefined, docRows: ProcDocRo
     commDoneDate: r?.commDoneDate ?? null,
     openDate: r?.openDate ?? null,
     notifyDate: r?.notifyDate ?? null,
+    chargerOrderQty: r?.chargerOrderQty ?? null,
+    modemOrderQty: r?.modemOrderQty ?? null,
     chargerQty: r?.chargerQty ?? null,
     modemQty: r?.modemQty ?? null,
     chargerModelId: r?.chargerModelId ?? null,

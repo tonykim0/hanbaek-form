@@ -38,8 +38,11 @@ type CheckField =
   | 'notifyDoneAt' | 'notifySkippedAt' | 'chargerDoneAt' | 'installConfirmedAt' | 'openDoneAt'
   | 'completionSubmitAt';
 
-/** 수량 칸 — 설치 실적(거점·기)과 수령 수량(충전기·모뎀) */
-type CountField = 'installedSpots' | 'installedUnits' | 'chargerQty' | 'modemQty';
+/** 수량 칸 — 설치 실적(거점·기) · 발주 수량(한백) · 수령 수량(협력사) */
+type CountField =
+  | 'installedSpots' | 'installedUnits'
+  | 'chargerOrderQty' | 'modemOrderQty'
+  | 'chargerQty' | 'modemQty';
 
 interface MilestoneRow {
   label: string;
@@ -87,7 +90,8 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
   const [selected, setSelected] = useState<ProcessStatus>(anchor);
   useEffect(() => setSelected(anchor), [anchor]);
 
-  const canEditField = (field: DateField) =>
+  /** 그 칸을 이 사람이 적을 수 있나 — 이름으로 판정한다(서버와 같은 목록을 본다) */
+  const canEditField = (field: DateField | CountField | 'chargerModelId') =>
     edit === 'all' || (edit === 'partner' && !isHanbaekOnlyProcessField(field));
   const canEdit = edit !== 'none';
 
@@ -143,6 +147,21 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
   };
 
   /*
+   * 충전기 구간에서 아직 비어 있는 것 — 「수령 완료」 단추가 이것으로 막힌다.
+   * 순서는 실무 순서다(모델 → 발주 → 출고 → 수령). 첫 번째 것을 단추에 적는다.
+   */
+  const chargerReady = [
+    !p.chargerModelId && '충전기 모델',
+    !p.chargerOrderDate && '발주일',
+    !p.chargerShipDate && '출고일',
+    p.chargerOrderQty === null && '발주 수량',
+    p.modemOrderQty === null && '발주 모뎀 수량',
+    !p.chargerRecvDate && '수령일',
+    p.chargerQty === null && '수령 수량',
+    p.modemQty === null && '수령 모뎀 수량',
+  ].filter((x): x is string => typeof x === 'string');
+
+  /*
    * 단계 구간마다 그 구간의 일. 승인 값(환경부 승인일·계약서 제출·시공승인일)은
    * 머리말에 있다 — 같은 값을 두 곳에 두지 않는다(화면 규칙 5).
    * 행위신고는 계약완료 직후 — 승인을 기다리는 동안 미리 해놓는다(1~2주, 한백 확인).
@@ -159,10 +178,19 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
          * 막는 이유를 그 자리에 적는다(화면 규칙 3): 완료가 켜져 있으면 불필요가
          * 「완료로 표시됨」으로 잠기고, 반대도 같다. 풀려면 켠 것을 끄면 된다.
          */
+        /*
+         * 완료는 ★신고일과 파일이 다 있어야★ 누를 수 있다 (한백 지시 2026-08-26).
+         * 예전에는 파일만 봤다 — 파일이 있는데 신고일이 비어 있으면 언제 신고했는지
+         * 모르는 채로 다음 단계가 열렸다.
+         */
         check: {
           field: 'notifyDoneAt', label: '행위신고 완료',
-          ready: uploaded('notify') && !p.notifySkippedAt,
-          blocked: p.notifySkippedAt ? '불필요로 표시됨' : '서류 미제출 — 완료 불가',
+          ready: Boolean(p.notifyDate) && uploaded('notify') && !p.notifySkippedAt,
+          blocked: p.notifySkippedAt
+            ? '불필요로 표시됨'
+            : !p.notifyDate && !uploaded('notify')
+              ? '신고일·파일 필요'
+              : !p.notifyDate ? '신고일 필요' : '신고 파일 필요',
         },
         /*
          * 행위신고가 필요 없는 현장이 있다 (한백 지시 2026-08-26) — 조건을 두지 않는다.
@@ -186,11 +214,16 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
           { label: '충전기 수령일', field: 'chargerRecvDate', value: p.chargerRecvDate },
         ],
         docs: [],
+        /*
+         * ★그 구간의 정보가 다 차야 다음으로 넘어간다★ (한백 지시 2026-08-26).
+         * 발주 쪽(모델·발주일·출고일·발주 수량)은 한백이, 수령 쪽(수령일·수령 수량)은
+         * 협력사가 채운다 — 한쪽만 채워도 넘어가면 무엇이 왔는지 대조할 수 없다.
+         * 막는 것을 단추 이름에 적으므로 무엇이 비었는지 그 자리에서 읽힌다.
+         */
         check: {
           field: 'chargerDoneAt', label: '수령 완료',
-          // 수령 완료 = 무엇이 몇 개 왔는지 세었다는 말이다 — 날짜만으로는 완료가 아니다
-          ready: Boolean(p.chargerRecvDate) && p.chargerQty !== null && p.modemQty !== null,
-          blocked: '수령일·수량 미입력 — 완료 불가',
+          ready: chargerReady.length === 0,
+          blocked: `${chargerReady[0] ?? ''} 필요`,
         },
       },
     ],
@@ -424,6 +457,21 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
                     </h3>
                   )}
                   <div className="max-w-2xl overflow-hidden rounded-box border border-slate-200 bg-white divide-y divide-slate-100">
+                    {/*
+                      * ★필요한지부터 정한다★ (한백 지시 2026-08-26) — 행위신고가
+                      * 필요 없는 현장이 있어서, 날짜·파일을 먼저 보여주면 안 낼 서류를
+                      * 내라고 재촉하는 화면이 된다. 불필요를 고르면 아래 줄은 잠긴다.
+                      */}
+                    {g.skip && (
+                      <CheckRow
+                        check={g.skip}
+                        value={p[g.skip.field]}
+                        canEdit={canEdit && selState !== 'future'}
+                        busy={busyKey === g.skip.field}
+                        onToggle={saveCheck}
+                      />
+                    )}
+
                     {g.rows.map((m) => (
                       <DateRow
                         key={m.field}
@@ -440,11 +488,11 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
                       <ModelRow
                         value={p.chargerModelId}
                         /*
-                         * 고르는 것은 시공사도 한다 — 서버가 그렇게 열려 있다(한백 전용 칸이
-                         * 아니다). 발주일(한백 전용)을 기준으로 잠갔더니 화면만 막혀 있었다
-                         * (2026-08-26 발견). 같은 묶음의 수령 수량과 같은 기준을 쓴다.
+                         * ★모델은 한백만 정한다★ (한백 지시 2026-08-26) — 운영사와의 계약에
+                         * 딸린 값이라 현장에서 고를 것이 아니다. 서버도 한백 전용 칸으로
+                         * 못 박았다(HANBAEK_ONLY_PROCESS_FIELDS) — 화면과 서버가 같은 판정이다.
                          */
-                        canEdit={canEditField('chargerRecvDate')}
+                        canEdit={canEditField('chargerModelId')}
                         canRegister={edit === 'all'}
                         busy={busyKey === 'chargerModelId'}
                         onSave={(id) => save('chargerModelId', id, 'chargerModelId')}
@@ -452,21 +500,44 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
                     )}
 
                     {/* 수령 수량 — 무엇이 몇 개 왔는지 센다. 수령 완료 체크의 조건이다. */}
+                    {/*
+                      * ★발주는 한백이 적고 수령은 협력사가 적는다★ (한백 지시 2026-08-26).
+                      * 한 칸에 담으면 부분 입고·오배송 때 어느 숫자가 남는지 알 수 없다.
+                      * 발주 수량은 한백 전용 칸이라 시공사에게는 글자로 굳는다.
+                      */}
                     {g.title === '충전기' && (
-                      <CountsRow
-                        label="수령 수량"
-                        items={[
-                          { field: 'chargerQty', prefix: '충전기', unit: '대', value: p.chargerQty },
-                          { field: 'modemQty', prefix: '모뎀', unit: '개', value: p.modemQty },
-                        ]}
-                        canEdit={canEditField('chargerRecvDate')}
-                        busyKey={busyKey}
-                        onSave={saveCount}
-                        compare={{
-                          label: `계약 ${contractQty}대`,
-                          mismatch: p.chargerQty !== null && p.chargerQty !== contractQty,
-                        }}
-                      />
+                      <>
+                        <CountsRow
+                          label="발주 수량"
+                          items={[
+                            { field: 'chargerOrderQty', prefix: '충전기', unit: '대', value: p.chargerOrderQty },
+                            { field: 'modemOrderQty', prefix: '모뎀', unit: '개', value: p.modemOrderQty },
+                          ]}
+                          canEdit={canEditField('chargerOrderDate')}
+                          busyKey={busyKey}
+                          onSave={saveCount}
+                          compare={{
+                            label: `계약 ${contractQty}대`,
+                            mismatch: p.chargerOrderQty !== null && p.chargerOrderQty !== contractQty,
+                          }}
+                        />
+                        <CountsRow
+                          label="수령 수량"
+                          items={[
+                            { field: 'chargerQty', prefix: '충전기', unit: '대', value: p.chargerQty },
+                            { field: 'modemQty', prefix: '모뎀', unit: '개', value: p.modemQty },
+                          ]}
+                          canEdit={canEditField('chargerRecvDate')}
+                          busyKey={busyKey}
+                          onSave={saveCount}
+                          /* 견주는 기준은 발주다 — 계약대수는 발주 줄이 이미 본다 */
+                          compare={{
+                            label: p.chargerOrderQty !== null ? `발주 ${p.chargerOrderQty}대` : `계약 ${contractQty}대`,
+                            mismatch: p.chargerQty !== null
+                              && p.chargerQty !== (p.chargerOrderQty ?? contractQty),
+                          }}
+                        />
+                      </>
                     )}
                     {/* 설치 실적 — 설치완료일 바로 아래, 시공사가 적는다 */}
                     {g.title === '설치' && (
@@ -516,15 +587,7 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
                         onToggle={saveCheck}
                       />
                     )}
-                    {g.skip && (
-                      <CheckRow
-                        check={g.skip}
-                        value={p[g.skip.field]}
-                        canEdit={canEdit && selState !== 'future'}
-                        busy={busyKey === g.skip.field}
-                        onToggle={saveCheck}
-                      />
-                    )}
+
                   </div>
                 </div>
               ))}
@@ -859,10 +922,13 @@ function DocRow({
 }
 
 /**
- * 완료 체크 한 줄 — 이 묶음의 일을 끝냈다는 사람의 선언.
+ * 완료 선언 한 줄 — 이 묶음의 일을 끝냈다는 사람의 선언.
  *
- * 조건이 차기 전에는 체크가 잠기고 못 하는 이유가 그 자리에 적힌다(화면 규칙 3).
- * 이미 체크된 것은 조건과 무관하게 해제할 수 있다 — 되돌릴 길(규칙 7).
+ * ★체크박스가 아니라 단추다★ (한백 지시 2026-08-26). 이 선언은 단계를 넘기는 일이라
+ * (CHECK_ADVANCES) 스치는 클릭으로 일어나서는 안 되고, 무엇이 모자라 못 누르는지
+ * 이름에 적혀야 한다(화면 규칙 3). 체크박스는 눌러 봐야 되는지 알 수 있었다.
+ *
+ * 끝낸 뒤에는 날짜와 함께 굳고, 되돌리는 단추가 반대쪽 끝에 선다(규칙 7·8).
  */
 function CheckRow({
   check, value, canEdit, busy, onToggle,
@@ -873,55 +939,41 @@ function CheckRow({
   busy: boolean;
   onToggle: (field: CheckField, checked: boolean) => void;
 }) {
-  /*
-   * 낙관적 표시 — 누르는 즉시 표시가 바뀐다.
-   *
-   * 체크박스가 서버 값만 보면, 누르고 서버가 다시 그려줄 때까지(왕복 1초쯤) 화면이
-   * 안 움직인다. 안 눌린 줄 알고 한 번 더 누르면 해제 요청이 나가 도로 풀린다 —
-   * 한백이 실제로 겪은 「잘 안 먹히는」 증상. 서버 값이 따라오면 그것을 믿는다.
-   */
-  const [optimistic, setOptimistic] = useState<boolean | null>(null);
-  useEffect(() => setOptimistic(null), [value]);
-  const checked = optimistic ?? Boolean(value);
-  const disabled = busy || (!checked && !check.ready);
+  const done = Boolean(value);
 
   return (
     <div className="flex flex-wrap items-center gap-3 px-3.5 py-2 text-base">
       <span className="w-32 shrink-0 font-bold text-slate-700">{check.label}</span>
-      {canEdit ? (
-        /* 지금 누를 수 있는 체크는 노랗게 도드라진다 — 「채워야 하는 것」의 색(미지정)과 같은 말 */
-        <label
-          className={`flex items-center gap-2 rounded-ctl px-2 py-1 transition ${
-            !checked && check.ready
-              ? 'cursor-pointer border border-amber-300 bg-amber-50 hover:border-amber-400'
-              : disabled
-                ? ''
-                : 'cursor-pointer'
-          }`}
+      {done ? (
+        <>
+          <span className="font-bold text-brand-800">완료 · {value}</span>
+          {/* 되돌리기는 반대쪽 끝 — 자주 누르는 것과 붙여 두지 않는다(규칙 8) */}
+          {canEdit && (
+            <Btn
+              kind="quiet"
+              size="sm"
+              busy={busy}
+              busyLabel="되돌리는 중…"
+              onClick={() => onToggle(check.field, false)}
+              className="ml-auto"
+            >
+              되돌리기
+            </Btn>
+          )}
+        </>
+      ) : canEdit ? (
+        <Btn
+          size="sm"
+          disabled={!check.ready}
+          busy={busy}
+          busyLabel="처리 중…"
+          onClick={() => onToggle(check.field, true)}
         >
-          <input
-            type="checkbox"
-            aria-label={check.label}
-            checked={checked}
-            disabled={disabled}
-            onChange={(e) => {
-              setOptimistic(e.target.checked);
-              onToggle(check.field, e.target.checked);
-            }}
-            className="h-5 w-5 shrink-0 accent-brand-600"
-          />
-          <span
-            className={`font-bold ${
-              checked ? 'text-brand-800' : check.ready ? 'text-amber-900' : 'text-slate-400'
-            }`}
-          >
-            {checked ? `완료${value ? ` · ${value}` : ' 처리 중…'}` : check.ready ? '완료로 표시' : check.blocked}
-          </span>
-        </label>
+          {/* 막는 것을 이름에 적는다 — 흐린 단추만으로는 왜 안 되는지 알 수 없다 */}
+          {check.ready ? check.label : check.blocked}
+        </Btn>
       ) : (
-        <span className={`font-bold ${checked ? 'text-brand-800' : 'text-slate-400'}`}>
-          {checked ? `완료 · ${value}` : '미완'}
-        </span>
+        <span className="font-bold text-slate-400">미완</span>
       )}
     </div>
   );

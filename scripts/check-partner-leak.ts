@@ -100,6 +100,44 @@ async function main() {
     }
   }
 
+  /*
+   * 정산 현황(/finance)이 쓰는 두 조회도 같이 본다 (2026-08-27).
+   *
+   * 그 화면은 현장 상세가 아니라 목록 조회로 금액을 모은다 — 위 검사(getProject)로는
+   * 안 걸리는 길이다. 기성·마진은 저장소가 아예 주지 않아야 한다(화면에서 가리지 않는다).
+   */
+  const partners = [...new Set(targets.flatMap((p) => [p.salesOrg, p.gcOrg]))].filter(
+    (org): org is string => Boolean(org)
+  );
+  for (const org of partners.slice(0, 3)) {
+    for (const role of ['sales', 'cons'] as const) {
+      const viewer: Viewer = { role, org };
+      checked++;
+
+      const settlements = await repo.listSettlements(viewer);
+      if (settlements.length > 0) {
+        problems.push(`${role} ${org}: listSettlements 가 ${settlements.length}건을 돌려줍니다 (기성은 한백만)`);
+      }
+
+      const overview = await repo.listPayoutOverview(viewer);
+      const json = JSON.stringify(overview);
+      for (const key of ['planTotal', 'collectedTotal', 'marginTotal', 'settlementRule', 'safetyFee']) {
+        if (json.includes(`"${key}"`)) {
+          problems.push(`${role} ${org}: listPayoutOverview 에 금지된 키 "${key}" 가 있습니다`);
+        }
+      }
+      // 남의 쪽 구분이 섞이면 자기 것이 아닌 금액을 세게 된다
+      const mine = role === 'sales' ? '영업비' : '시공비';
+      const wrong = [
+        ...overview.plans.filter((row) => row.kind !== mine),
+        ...overview.history.filter((row) => row.kind !== mine),
+      ];
+      if (wrong.length > 0) {
+        problems.push(`${role} ${org}: 남의 쪽 지급 ${wrong.length}건이 실려 있습니다`);
+      }
+    }
+  }
+
   console.log(`협력사 시점 ${checked}가지를 검사했습니다.`);
   if (problems.length > 0) {
     console.error(`\n실패 ${problems.length}건:`);

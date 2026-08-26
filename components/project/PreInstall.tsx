@@ -16,7 +16,7 @@ import type { PreInstall as PreInstallState, ProjectDetail, ProjectDocument } fr
 import { evaluateDocs, needsPreInstallCheck } from '@/lib/doc-rules';
 import { DocDelete, DocFileActions, DocUpload } from '@/components/DocFiles';
 import { useAction } from '@/lib/use-action';
-import { Badge, Btn, Choice, Err, FIELD, Tag } from '@/components/ui';
+import { Badge, Btn, Choice, Empty, Err, FIELD, Tag } from '@/components/ui';
 import { DocReview } from './DocReview';
 import { docState } from './parts';
 import { useShardLoader } from '@/components/ChargerHistoryLookup';
@@ -380,13 +380,22 @@ function Survey({ project }: { project: ProjectDetail['project'] }) {
           </div>
         </div>
       ) : (
+        /*
+         * 안내문을 두지 않는다(화면 규칙 2, 한백 지시 2026-08-26).
+         *
+         * 「조사 결과가 아직 없다 — 현장 확인 후 적는다」가 적혀 있었다. 같은 말을 세 번
+         * 하고 있었던 셈이다: 제목 옆의 「조사 필요」 태그, 이 문장, 그리고 「조사 내역
+         * 적기」 단추. 빈 값은 종류로 말한다 — 넣어야 하는데 안 넣은 것은 「미지정」이다
+         * (화면 규칙 10). 무엇을 하라는 말은 단추 이름이 한다.
+         */
         <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
           {project.preChecked ? (
             <p className="max-w-xl whitespace-pre-line break-keep text-small text-slate-700">
-              {project.preNote ?? <span className="text-slate-400">조사 내역 없음 — 파일만 있음</span>}
+              {/* 조사는 했는데 적은 글이 없다 — 파일만 온 현장이다. 담담한 회색이다 */}
+              {project.preNote ?? <Empty kind="wait" label="내역 없음" />}
             </p>
           ) : (
-            <p className="text-small text-slate-400">조사 결과가 아직 없다 — 현장 확인 후 적는다</p>
+            <Empty kind="miss" />
           )}
           <Btn size="sm" kind="quiet" onClick={() => setEditing(true)}>
             {project.preChecked ? '조사 내역 수정' : '조사 내역 적기'}

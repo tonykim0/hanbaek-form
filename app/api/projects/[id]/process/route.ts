@@ -12,7 +12,12 @@ import type { ProcessPatch } from '@/lib/data/repository';
 
 /** 고칠 수 있는 날짜 칸 — 완료 체크(*DoneAt·*ConfirmedAt·*SubmitAt)도 체크한 날짜로 저장된다 */
 const DATE_FIELDS = [
-  'envApprovalDate', 'cpoSubmitDate', 'cpoApprovalDate', 'chargerOrderDate', 'chargerShipDate',
+  /*
+   * cpoApprovalDate 는 빠졌다 (한백 2026-08-27) — 환경부 승인과 운영사 시공승인을 같은
+   * 날로 보기로 해서 envApprovalDate 한 칸이 겸한다. 칸은 DB 에 남아 있지만 적는 길이
+   * 없다: 열어 두면 그 값만 갈려 「승인이 났나」가 두 답을 갖는다.
+   */
+  'envApprovalDate', 'cpoSubmitDate', 'chargerOrderDate', 'chargerShipDate',
   'chargerRecvDate', 'startPlanDate', 'startActualDate', 'installDoneDate', 'commDoneDate',
   /*
    * ★openDate 가 빠져 있었다 (2026-08-26 발견).★ 화면·타입·저장소에는 다 있는데 이

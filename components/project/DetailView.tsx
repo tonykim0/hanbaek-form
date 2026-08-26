@@ -273,13 +273,20 @@ export default function ProjectDetailView({
  * 머리말 사실의 격자 — 네 묶음이 전부 같은 열을 쓴다.
  *
  * 한 묶음마다 열 수를 따로 주면(4칸 묶음은 4열, 5칸 묶음은 5열) 위아래 값이 어긋나서
- * 격자로 만든 뜻이 없어진다. 넓은 화면에서 다섯 열로 서면 사업연도·사업구분이,
- * 운영사·계약대수가 같은 열에 선다 — 네 칸짜리 묶음의 마지막 열은 비워 둔다.
+ * 격자로 만든 뜻이 없어진다. 다섯 열로 서면 사업연도·사업구분이, 운영사·계약대수가
+ * 같은 열에 선다 — 네 칸짜리 묶음의 마지막 열은 비워 둔다.
+ *
+ * ★열 너비를 못으로 박는다 (한백 2026-08-27).★ 1fr 로 두면 열이 패널 폭을 나눠 갖는데,
+ * 「2026」·「3대」처럼 짧은 값이 200px 칸 왼쪽에 하나씩 떨어져 서서 사실 사이가 휑했다.
+ * 9rem 으로 묶으면 값들이 왼쪽에 모여 서고, 남는 폭은 오른쪽에 한 번만 남는다.
+ * 좁은 화면만 1fr 두 열이다 — 거기서는 나눠 갖는 것이 맞다.
  *
  * 값이 없어 칸이 빠지면(Fact 는 null 이면 자리를 비운다) 뒤 칸이 한 칸씩 당겨진다.
  * 접수 직후처럼 사업구분·계약연수가 아직 없는 현장에서 그렇다.
  */
-const FACT_GRID = 'grid grid-cols-2 gap-x-5 gap-y-3 text-base sm:grid-cols-4 lg:grid-cols-5';
+const FACT_GRID =
+  'grid grid-cols-2 gap-x-4 gap-y-3 text-base'
+  + ' sm:grid-cols-[repeat(4,minmax(0,9rem))] lg:grid-cols-[repeat(5,minmax(0,9rem))]';
 
 function SiteHeader({
   detail, contract, canReview, noteAuthor, knownOrgs, processEdit,
@@ -365,7 +372,7 @@ function SiteHeader({
         *
         *   1줄 — 누구의 일인가: 사업연도 · 운영사 · 영업사 · 시공사
         *   2줄 — 계약의 뼈대: 사업구분 · 계약대수 · 계약연수 · 수전방식 · 계약접수일
-        *   3·4줄 — 승인 흐름 (ApprovalFacts): 제출 · 대기번호 / 승인일 · 시공승인일
+        *   3·4줄 — 승인 흐름 (ApprovalFacts): 운영사 계약서 제출 / 대기번호 · 승인일
         *
         * ★구성은 그대로 두고 읽히는 꼴만 고쳤다 (2026-08-27).★ 전에는 네 줄이 다
         * flex-wrap 이었는데, 줄 안 간격(gap-y-1.5)과 줄 사이 간격(mt-2)이 거의 같아서
@@ -444,14 +451,22 @@ function SiteHeader({
 }
 
 /**
- * 승인 흐름 두 줄 — 머리말 3·4줄이다 (한백 확인 2026-08-21).
+ * 승인 흐름 두 줄 — 머리말 3·4줄이다 (한백 확인 2026-08-21, 2026-08-27 개정).
  *
- *   3줄: 운영사 계약서 제출 · 환경부 대기번호   (제출 여부는 한백만 — 몰라도 되는 값)
- *   4줄: 환경부 승인일 · 운영사 시공승인일
+ *   3줄: 운영사 계약서 제출   (한백만 본다 — 협력사는 몰라도 되는 값이라 줄을 안 그린다)
+ *   4줄: 환경부 대기번호 · 승인일
  *
- * 환경부 승인일은 한백이 적고, 시공승인일은 그 현장의 시공사도 적는다 — 판정은
- * 저장소(assertProcessWrite)가 다시 한다. 제출 여부는 적는 자리가 아니다 — 보드에서
- * 넘길 때 찍히고 여기는 읽기만 한다.
+ * ★승인일은 한 칸이다 (한백 2026-08-27).★ 전에는 「환경부 승인일」과 「운영사 시공승인일」
+ * 두 칸이었는데, 한백은 그 둘을 같은 날로 본다 — 프로덕션 76건에서 둘 다 적힌 두 건이
+ * 날짜가 같았고, 다른 건은 한 건도 없었다. 두 칸이면 같은 날을 두 번 적어야 하고
+ * (화면 규칙 5), 한 쪽만 적힌 현장은 「승인이 났나 안 났나」가 갈린다.
+ *
+ * 남는 칸은 envApprovalDate 다 — 기성 「환경부 승인」 트리거의 근거이고 한백 전용이다.
+ * 「충전기 발주」 조건도 이 날짜를 본다(lib/process). cpoApprovalDate 는 DB 에 남아 있지만
+ * 더는 읽지도 쓰지도 않는다: 마이그레이션이 배포보다 먼저 돌아서, 지우면 아직 바뀌기 전
+ * 배포가 그 칸을 찾다 터진다(promo_extend_deduct 와 같은 이유).
+ *
+ * 제출 여부는 적는 자리가 아니다 — 보드에서 넘길 때 찍히고 여기는 읽기만 한다.
  */
 function ApprovalFacts({
   projectId, process, edit, envQueueNo, isSelfInvest, canReview,
@@ -484,7 +499,6 @@ function ApprovalFacts({
      * 상자를 하나 더 두르지 않는다 — 층을 나눌 때는 약한 것부터다(화면 규칙 1).
      */
     <div className="mt-5 border-t border-slate-100 pt-4">
-    <dl className={FACT_GRID}>
       {/*
         * 적는 자리가 아니라 보는 자리다 — 보드에서 「운영사 계약서 제출 로 넘기기」를
         * 누르면 저장소가 옮기면서 찍고(pg-store setProcessStatus), 여기는 그 결과만 읽는다.
@@ -494,17 +508,24 @@ function ApprovalFacts({
         * ★여부는 단계가 말하고, 날짜는 곁들인다.★ 그 칸을 건너뛰어 지나간 현장(옛 데이터·
         * 스테퍼 점프)은 날짜가 없어도 제출된 것이다 — 날짜로만 판정하면 착공한 현장이
         * 「미제출」로 보인다.
+        *
+        * 제 줄을 통째로 쓴다 (한백 2026-08-27) — 라벨이 길어 옆 칸을 밀고, 이것만
+        * 여부이고 나머지는 값이다.
         */}
       {edit === 'all' && (
-        <div className="min-w-0">
-          <dt className="text-tiny font-bold tracking-[0.04em] text-slate-400">운영사 계약서 제출</dt>
-          <dd className={`mt-0.5 break-keep font-bold ${cpoSubmitted ? 'text-slate-800' : 'text-amber-700'}`}>
-            {cpoSubmitted
-              ? process.cpoSubmitDate ? `제출됨 · ${process.cpoSubmitDate}` : '제출됨'
-              : '미제출'}
-          </dd>
-        </div>
+        <dl className={FACT_GRID}>
+          <div className="min-w-0">
+            <dt className="text-tiny font-bold tracking-[0.04em] text-slate-400">운영사 계약서 제출</dt>
+            <dd className={`mt-0.5 break-keep font-bold ${cpoSubmitted ? 'text-slate-800' : 'text-amber-700'}`}>
+              {cpoSubmitted
+                ? process.cpoSubmitDate ? `제출됨 · ${process.cpoSubmitDate}` : '제출됨'
+                : '미제출'}
+            </dd>
+          </div>
+        </dl>
       )}
+
+    <dl className={`${edit === 'all' ? 'mt-4' : ''} ${FACT_GRID}`}>
       <EditableFact
         label="환경부 대기번호"
         value={envQueueNo}
@@ -516,24 +537,18 @@ function ApprovalFacts({
         placeholder="2026-595"
         na={isSelfInvest}
       />
-    </dl>
-
-    <dl className={`mt-4 ${FACT_GRID}`}>
+      {/*
+        * 「승인일」 한 칸 — 환경부 승인과 운영사 시공승인을 같은 날로 본다(한백 2026-08-27).
+        * 이름에 「환경부」를 안 붙인다: 자체투자 현장에는 환경부 승인이 없고, 그 현장에도
+        * 이 날짜는 온다(운영사 통보). 무슨 승인인지는 사업구분이 말한다.
+        */}
       <DateFact
-        label="환경부 승인일"
+        label="승인일"
         value={process.envApprovalDate}
         canEdit={edit === 'all'}
         busy={busyKey === 'envApprovalDate'}
         onSave={(v) => save('envApprovalDate', v)}
-        hint="기성 「환경부 승인」 트리거가 이 날짜로 열립니다"
-      />
-      <DateFact
-        label="운영사 시공승인일"
-        value={process.cpoApprovalDate}
-        canEdit={edit !== 'none'}
-        busy={busyKey === 'cpoApprovalDate'}
-        onSave={(v) => save('cpoApprovalDate', v)}
-        hint="넣으면 「충전기 발주」로 넘길 수 있습니다"
+        hint="기성 「환경부 승인」 트리거와 「충전기 발주」 조건이 이 날짜로 열립니다"
       />
       {/* 실패 문구는 누른 칸 옆이 아니라 그 줄 끝이다 — 격자 한 칸에 들어가면 잘린다 */}
       <Err className="col-span-full self-center">{error}</Err>

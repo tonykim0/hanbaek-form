@@ -45,8 +45,8 @@ const PICKABLE = [
   { key: 'bldg', label: '건축물', attr: 'bldg', group: '영업' },
   { key: 'power', label: '수전방식', attr: 'power', group: '영업' },
   // 시공 마일스톤 — 날짜의 유무가 곧 그 일의 여부다. 완료 체크는 ✓ 로 얹는다.
-  { key: 'envApproval', label: '환경부 승인', group: '시공' },
-  { key: 'cpoApproval', label: '시공승인', group: '시공' },
+  // 승인일 한 칸 — 환경부 승인과 운영사 시공승인을 같은 날로 본다 (한백 2026-08-27)
+  { key: 'envApproval', label: '승인일', group: '시공' },
   { key: 'notify', label: '행위신고', group: '시공' },
   { key: 'chargerOrder', label: '충전기 발주', group: '시공' },
   { key: 'chargerRecv', label: '충전기 수령', group: '시공' },
@@ -63,7 +63,7 @@ const PICK_GROUPS = ['기본', '영업', '시공'] as const;
  * 계약 페이지에는 아직 없는 시공 일정을, 시공 페이지에는 계약 속성을 접어 둔다.
  */
 const MILESTONE_KEYS: readonly ColKey[] = [
-  'envApproval', 'cpoApproval', 'notify', 'chargerOrder', 'chargerRecv',
+  'envApproval', 'notify', 'chargerOrder', 'chargerRecv',
   'start', 'install', 'comm', 'completion',
 ];
 const DEFAULT_HIDDEN: Record<'intake' | 'construction', readonly ColKey[]> = {
@@ -243,8 +243,7 @@ export default function ProjectTable({
               {show('power') && head('수전방식', { attr: 'power' })}
               {show('sales') && head('영업사', { attr: 'sales' })}
               {show('gc') && head('시공사', { attr: 'gc' })}
-              {show('envApproval') && head('환경부 승인')}
-              {show('cpoApproval') && head('시공승인')}
+              {show('envApproval') && head('승인일')}
               {show('notify') && head('행위신고')}
               {show('chargerOrder') && head('충전기 발주')}
               {show('chargerRecv') && head('충전기 수령')}
@@ -327,7 +326,6 @@ export default function ProjectTable({
                   {show('sales') && <Cell value={p.salesOrg} />}
                   {show('gc') && <Cell value={p.gcOrg} />}
                   {show('envApproval') && <MilestoneCell date={p.milestones.envApprovalDate} />}
-                  {show('cpoApproval') && <MilestoneCell date={p.milestones.cpoApprovalDate} />}
                   {show('notify') && (
                     <MilestoneCell date={p.milestones.notifyDate} done={p.milestones.notifyDone} />
                   )}

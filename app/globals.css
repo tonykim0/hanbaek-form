@@ -72,3 +72,13 @@ body {
     background: #ffffff;
   }
 }
+
+/*
+ * 붙박이로 위에 붙는 것들의 자리 — 껍데기가 인라인 style 로 물려준다(--console-left).
+ * 좁은 화면에서는 사이드바가 서랍이라 본문이 화면 폭 전부를 쓴다: 그 값이 184px 로 남아
+ * 있으면 고정 현장명 띠가 없는 사이드바만큼 밀려 선다.
+ * 인라인 style 이라 !important 가 아니면 못 이긴다.
+ */
+@media (max-width: 767px) {
+  [data-console-shell] { --console-left: 0px !important; }
+}

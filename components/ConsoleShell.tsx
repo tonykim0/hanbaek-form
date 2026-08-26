@@ -211,12 +211,26 @@ export default function ConsoleShell({
   const pathname = usePathname();
   const [open, setOpen] = useState(true);
   const [ready, setReady] = useState(false);
+  /**
+   * 좁은 화면의 사이드바는 ★서랍★이다 (2026-08-27).
+   *
+   * 폰에서 사이드바가 늘 서 있으면 375px 중 184px 를 먹는다. 접어도 56px 짜리 아이콘 띠는
+   * 무엇인지 알 수 없어 아무도 안 누른다. 그래서 좁은 화면에서는 아예 밖으로 밀어 두고
+   * 상단 바의 단추로 연다 — 열리면 이름이 다 보이는 넓은 쪽으로 선다.
+   * 접기 상태(open)는 넓은 화면의 것이고, 이 값은 좁은 화면의 것이다.
+   */
+  const [drawer, setDrawer] = useState(false);
+  /** 사이드바가 이름을 보이는가 — 서랍으로 열렸으면 접힌 상태여도 보인다 */
+  const expanded = open || drawer;
 
   // 접은 상태를 기억한다 — 좁은 화면에서 매번 다시 접게 만들면 안 쓴다
   useEffect(() => {
     setOpen(localStorage.getItem(COLLAPSE_KEY) !== '1');
     setReady(true);
   }, []);
+
+  // 어디로 옮겨 가면 서랍은 닫힌다 — 열어 둔 채 본문이 바뀌면 무엇을 눌렀는지 안 보인다
+  useEffect(() => setDrawer(false), [pathname]);
 
   /*
    * 할 일 건수 배지 — 상단 바의 「할 일」 버튼에 있던 것을 사이드바 항목으로 옮겼다
@@ -259,16 +273,24 @@ export default function ConsoleShell({
 
   return (
     <div className="min-h-screen bg-[#f7f8f4] text-slate-900">
+      {/* 서랍을 덮은 바탕 — 밖을 누르면 닫힌다. 넓은 화면에는 서랍이 없으니 이것도 없다 */}
+      {drawer && (
+        <div
+          className="fixed inset-0 z-[35] bg-slate-900/40 md:hidden"
+          onClick={() => setDrawer(false)}
+          aria-hidden
+        />
+      )}
       {/* 인쇄에서는 껍데기를 걷는다 — 거래명세서(/payments/statement)를 그대로 인쇄물로 쓴다 */}
       <aside
-        className={`fixed inset-y-0 left-0 z-40 flex flex-col border-r border-slate-200 bg-white text-base transition-[width] duration-150 print:hidden ${
-          open ? 'w-[184px]' : 'w-[56px]'
-        }`}
+        className={`fixed inset-y-0 left-0 z-40 flex w-[184px] flex-col border-r border-slate-200 bg-white text-base transition-transform duration-150 print:hidden md:transition-[width] ${
+          drawer ? 'translate-x-0' : '-translate-x-full'
+        } md:translate-x-0 ${open ? 'md:w-[184px]' : 'md:w-[56px]'}`}
       >
-        <div className={`flex h-14 shrink-0 items-center ${open ? 'gap-2 px-3' : 'justify-center'}`}>
+        <div className={`flex h-14 shrink-0 items-center ${expanded ? 'gap-2 px-3' : 'justify-center'}`}>
           <Link href="/projects" className="flex min-w-0 items-center gap-2">
             <Image src="/logo.png" alt="한백" width={24} height={24} className="flex-none" priority />
-            {open && (
+            {expanded && (
               <span className="min-w-0 leading-tight">
                 <span className="block text-base font-bold text-slate-900">한백</span>
                 <span className="block truncate text-micro text-slate-500">전기차사업관리</span>
@@ -280,7 +302,7 @@ export default function ConsoleShell({
         <nav aria-label="콘솔 메뉴" className="flex-1 overflow-y-auto px-2 py-2">
           {groups.map((g) => (
             <div key={g.label} className="mb-3">
-              {open ? (
+              {expanded ? (
                 <p className="px-2 pb-1 text-micro font-bold tracking-[0.12em] text-slate-400">
                   {g.label}
                 </p>
@@ -296,16 +318,16 @@ export default function ConsoleShell({
                         href={it.href}
                         target={it.external ? '_blank' : undefined}
                         rel={it.external ? 'noopener' : undefined}
-                        title={open ? it.note : `${it.label}${it.note ? ` — ${it.note}` : ''}`}
+                        title={expanded ? it.note : `${it.label}${it.note ? ` — ${it.note}` : ''}`}
                         className={`flex items-center rounded-ctl font-semibold transition ${
-                          open ? 'gap-2 px-2 py-1.5' : 'justify-center py-2'
+                          expanded ? 'gap-2 px-2 py-1.5' : 'justify-center py-2'
                         } ${
                           active
                             ? 'bg-brand-50 text-brand-800'
                             : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
                         }`}
                       >
-                        {open ? (
+                        {expanded ? (
                           <>
                             <span className="truncate">{it.label}</span>
                             {/* 할 일 건수 — 상단 바 배지와 같은 말투(주황 = 있음, 회색 = 없음) */}
@@ -350,30 +372,38 @@ export default function ConsoleShell({
             * 사람 이름은 적지 않는다 — 회사마다 계정이 하나라 늘 같은 이름이고,
             * 정작 알아야 하는 것은 「어느 회사·어떤 권한으로 보고 있나」다.
             */}
-          {open && (
+          {expanded && (
             <p className="truncate px-1.5 pb-2 text-tiny font-bold leading-tight text-slate-500">
               {org ? `${org} · ` : ''}
               {ROLE_LABEL[role]}
             </p>
           )}
-          <div className={`flex gap-1 ${open ? '' : 'flex-col'}`}>
-            <form action="/api/auth/logout" method="post" className={open ? 'flex-1' : ''}>
+          <div className={`flex gap-1 ${expanded ? '' : 'flex-col'}`}>
+            <form action="/api/auth/logout" method="post" className={expanded ? 'flex-1' : ''}>
               <button
                 type="submit"
                 title="로그아웃"
                 className="w-full rounded-ctl border border-slate-200 py-1.5 text-tiny font-bold text-slate-500 transition hover:border-slate-300 hover:text-slate-800"
               >
-                {open ? '로그아웃' : '나감'}
+                {expanded ? '로그아웃' : '나감'}
               </button>
             </form>
+            {/* 넓은 화면은 접고 펴는 것, 좁은 화면은 서랍을 닫는 것 — 하는 일이 달라 단추도 둘이다 */}
             <button
               type="button"
               onClick={() => setOpen((v) => !v)}
               aria-expanded={open}
               title={open ? '사이드바 접기' : '사이드바 펼치기'}
-              className="rounded-ctl border border-slate-200 px-2 py-1.5 text-tiny font-bold text-slate-400 transition hover:border-slate-300 hover:text-slate-700"
+              className="hidden rounded-ctl border border-slate-200 px-2 py-1.5 text-tiny font-bold text-slate-400 transition hover:border-slate-300 hover:text-slate-700 md:block"
             >
               {open ? '«' : '»'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setDrawer(false)}
+              className="rounded-ctl border border-slate-200 px-2 py-1.5 text-tiny font-bold text-slate-400 transition hover:border-slate-300 hover:text-slate-700 md:hidden"
+            >
+              닫기
             </button>
           </div>
         </div>
@@ -381,7 +411,8 @@ export default function ConsoleShell({
 
       {/* 본문은 전체 폭을 쓴다 — 보드의 칸이 화면 밖으로 나가지 않게 */}
       <div
-        className={`transition-[padding] duration-150 print:pl-0 ${open ? 'pl-[184px]' : 'pl-[56px]'}`}
+        data-console-shell
+        className={`transition-[padding] duration-150 print:pl-0 ${open ? 'md:pl-[184px]' : 'md:pl-[56px]'}`}
         /*
          * 화면이 「위에 붙는 것」을 놓을 자리 — 껍데기만 아는 두 값을 물려준다.
          *
@@ -395,7 +426,7 @@ export default function ConsoleShell({
           '--console-top': actAs ? '79px' : '48px',
         } as CSSProperties}
       >
-        <TopBar role={role} />
+        <TopBar role={role} onMenu={() => setDrawer(true)} />
         {/*
           * 대행 띠 — 지금 눈이 내 것이 아님을 어느 화면에서든 보인다. 사이드바에 관리
           * 묶음이 사라지므로(눈이 협력사다) 돌아오는 길은 이 띠 하나뿐이다.

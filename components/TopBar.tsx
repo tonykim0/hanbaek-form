@@ -30,7 +30,11 @@ const ADMIN_INTAKE = [
   { href: '/admin/reissue', label: '서류 재발행' },
 ];
 
-export default function TopBar({ role }: { role: Role }) {
+export default function TopBar({ role, onMenu }: {
+  role: Role;
+  /** 좁은 화면에서 사이드바 서랍을 연다 — 넓은 화면에는 사이드바가 늘 서 있어 단추가 없다 */
+  onMenu?: () => void;
+}) {
   const pathname = usePathname();
 
   return (
@@ -40,13 +44,31 @@ export default function TopBar({ role }: { role: Role }) {
      * 조회 도구는 왼쪽 — 본문 제목과 같은 여백에서 시작한다.
      */
     <header className="sticky top-0 z-30 flex h-12 items-center gap-1 bg-brand-700 px-5 sm:px-7 print:hidden">
-      <nav aria-label="바로가기" className="flex items-center gap-1">
+      {/* 좁은 화면에서는 사이드바가 서랍이라 여는 자리가 필요하다 — 메뉴 옆이 그 자리다 */}
+      {onMenu && (
+        <button
+          type="button"
+          onClick={onMenu}
+          aria-label="메뉴 열기"
+          className="-ml-1.5 mr-0.5 shrink-0 rounded-ctl px-2 py-1.5 text-lead font-bold text-white/85 transition hover:bg-white/10 hover:text-white md:hidden"
+        >
+          ☰
+        </button>
+      )}
+      {/*
+        * 좁은 화면에서는 바로가기가 옆으로 흐른다 — 접히면 상단 바 높이(h-12)를 넘어
+        * 글자가 잘린다. 스크롤바는 감춘다(포털 SiteHeader 와 같은 방식).
+        */}
+      <nav
+        aria-label="바로가기"
+        className="flex min-w-0 items-center gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      >
         {role === 'admin' && (
           <>
             {ADMIN_INTAKE.map((t) => (
               <BarLink key={t.href} href={t.href} label={t.label} active={pathname.startsWith(t.href)} />
             ))}
-            <div className="mx-1 h-5 w-px bg-white/25" />
+            <div className="mx-1 h-5 w-px shrink-0 bg-white/25" />
           </>
         )}
         {TOOLS.filter((t) => !t.adminOnly || role === 'admin').map((t) => (
@@ -61,7 +83,7 @@ function BarLink({ href, label, active }: { href: string; label: string; active:
   return (
     <Link
       href={href}
-      className={`rounded-ctl px-2.5 py-1.5 text-small font-bold transition ${
+      className={`shrink-0 whitespace-nowrap rounded-ctl px-2.5 py-1.5 text-small font-bold transition ${
         active ? 'bg-white/15 text-white' : 'text-white/75 hover:bg-white/10 hover:text-white'
       }`}
     >

@@ -23,15 +23,10 @@ import { canAccessProject, canWrite } from '@/lib/roles';
 import { isKnownDocKind } from '@/lib/data/assemble';
 import { attachDocument } from '@/lib/attach-doc';
 import { dropBlob, pathnameOfBlobUrl } from '@/lib/intake-stage';
+import { DOC_FILE_TYPES } from '@/types/project';
 
-const ALLOWED_TYPES = [
-  'application/pdf',
-  'image/jpeg',
-  'image/png',
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  'application/vnd.ms-excel',
-  'application/octet-stream',
-];
+/** 받는 형식은 types/project.ts 한 곳에 있다 — 접수와 서류 칸이 같은 목록을 봐야 한다 */
+const ALLOWED_TYPES = [...DOC_FILE_TYPES];
 const MAX_BYTES = 30 * 1024 * 1024;
 
 

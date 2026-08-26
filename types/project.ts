@@ -977,6 +977,31 @@ export interface PayoutRow {
 }
 
 /**
+ * 현장 서류로 받는 형식 — 접수(intake-file)와 서류 칸(documents/[kind]/file) 두 라우트가
+ * 이 목록을 Blob 토큰에 실어 보낸다. 한 쪽만 고치면 접수는 되는데 서류 칸에서 막힌다.
+ *
+ * ★서류 꼴은 운영사가 정한다★ — 실사보고서(사진대지)는 엑셀로도 워드로도 PDF 로도 온다
+ * (한백 2026-08-26). 확장자를 못 박는 자리는 doc-rules 의 `ext` 하나뿐이고, 여기서는 넓게
+ * 받는다. 형식이 아니라 내용이 틀린 서류는 검수에서 반려하면 된다 — 올리는 자리에서
+ * 막으면 협력사는 왜 안 되는지 모른 채 계약이 멈춘다.
+ *
+ * `application/octet-stream` 은 브라우저가 형식을 모를 때 붙이는 이름이다. 빼면 한글
+ * (.hwp)처럼 흔한 서류가 조용히 막힌다 — 그래서 남긴다.
+ */
+export const DOC_FILE_TYPES = [
+  'application/pdf',
+  'image/jpeg',
+  'image/png',
+  // 엑셀 — .xlsx · .xls
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/vnd.ms-excel',
+  // 워드 — .docx · .doc
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/msword',
+  'application/octet-stream',
+] as const;
+
+/**
  * 세금계산서 첨부로 받는 형식 — 서버 검사(tax-invoice 라우트)와 화면의 input accept 가
  * 같은 목록을 봐야 한 쪽만 고쳐 조용히 걸러지는 파일이 안 생긴다.
  */

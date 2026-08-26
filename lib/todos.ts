@@ -145,16 +145,11 @@ function whatOf(column: ReturnType<typeof boardColumnOf>, p: {
   docsFilled: boolean;
 }): string {
   /*
-   * 계약보완은 서류 반려와 기설치 조사 반려 둘 다로 선다. 조사만 반려된 현장은 서류
-   * 반려가 0건이라 「반려 0건 보완」이 될 뻔했다 — 세는 것이 없으면 무엇을 보완하라는
-   * 말인지 이름으로 말한다.
+   * 계약보완은 서류 반려와 기설치 조사 반려 둘 다로 선다 — 조사도 rejectedDocs 에
+   * 한 건으로 세어지므로(lib/stage) 여기서 나눌 것이 없다. 무엇이 반려됐는지는
+   * 보드·표의 꼬리표가 말한다.
    */
-  if (column === '계약보완') {
-    if (p.rejectedDocs === 0) return '기설치 조사 보완';
-    return p.preRejected
-      ? `반려 ${p.rejectedDocs}건 · 기설치 조사 보완`
-      : `반려 ${p.rejectedDocs}건 보완`;
-  }
+  if (column === '계약보완') return `반려 ${p.rejectedDocs}건 보완`;
   if (column === '계약접수') return '필수 서류 제출';
   if (column === '계약검토') return '검수 · 계약 확인';
   /*

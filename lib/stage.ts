@@ -77,11 +77,21 @@ export function contractStateOf(input: {
    * 협력사가 「계약서 접수하기」를 누를 수 있게 된다.
    */
   const docsFilled = required.every((d) => Boolean(byKind.get(d.key)?.blobUrl));
-  const rejected = input.documents.filter((d) => d.status === 'rejected').length;
   const allPriced = input.lines.length > 0 && input.lines.every((l) => l.pricingRuleId);
 
   const docsExempt = input.docsExempt === true;
   const preRejected = input.preRejected === true;
+  /*
+   * ★조사 반려도 한 건으로 센다★ (한백 지시 2026-08-26).
+   *
+   * 처음에는 서류 칸의 수만 셌다 — 조사는 서류가 아니니 숫자를 부풀리지 않으려고.
+   * 그런데 그러면 기설치만 반려한 현장이 계약보완에 「반려 0」으로 서고, 세는 것과
+   * 막는 것이 갈린다. 반려는 건수가 아니라 ★막힌 항목의 수★다 — 조사도 그중 하나다.
+   *
+   * 무엇이 반려됐는지는 화면이 꼬리표로 말한다(보드·표의 「기설치」).
+   */
+  const rejected =
+    input.documents.filter((d) => d.status === 'rejected').length + (preRejected ? 1 : 0);
 
   return {
     preRejected,

@@ -74,7 +74,11 @@ export function PreInstall({
         * 부실하면 「다시 조사해라」를 사유와 함께 돌려보낸다. 조사한 적이 없으면 되돌릴
         * 것도 없으니 단추를 두지 않는다. 협력사가 조사를 다시 저장하면 반려가 풀린다.
         */}
-      {canReview && project.preChecked && (
+      {/*
+        * 반려된 뒤에도 단추가 서 있어야 한다 — 반려가 preChecked 를 false 로 만들기 때문에
+        * preChecked 만 보면 반려한 순간 되돌릴 자리가 사라졌다(2026-08-26 발견, 화면 규칙 7).
+        */}
+      {canReview && (project.preChecked || project.preRejectReason !== null) && (
         <SurveyReview
           projectId={project.id}
           rejected={project.preRejectReason !== null}

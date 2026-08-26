@@ -432,7 +432,12 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
                     {g.title === '충전기' && (
                       <ModelRow
                         value={p.chargerModelId}
-                        canEdit={canEditField('chargerOrderDate')}
+                        /*
+                         * 고르는 것은 시공사도 한다 — 서버가 그렇게 열려 있다(한백 전용 칸이
+                         * 아니다). 발주일(한백 전용)을 기준으로 잠갔더니 화면만 막혀 있었다
+                         * (2026-08-26 발견). 같은 묶음의 수령 수량과 같은 기준을 쓴다.
+                         */
+                        canEdit={canEditField('chargerRecvDate')}
                         canRegister={edit === 'all'}
                         busy={busyKey === 'chargerModelId'}
                         onSave={(id) => save('chargerModelId', id, 'chargerModelId')}

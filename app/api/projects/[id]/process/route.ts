@@ -14,6 +14,13 @@ import type { ProcessPatch } from '@/lib/data/repository';
 const DATE_FIELDS = [
   'envApprovalDate', 'cpoSubmitDate', 'cpoApprovalDate', 'chargerOrderDate', 'chargerShipDate',
   'chargerRecvDate', 'startPlanDate', 'startActualDate', 'installDoneDate', 'commDoneDate',
+  /*
+   * ★openDate 가 빠져 있었다 (2026-08-26 발견).★ 화면·타입·저장소에는 다 있는데 이
+   * 목록에만 없어서 개통완료일이 저장되지 않았고(400 「바꿀 값이 없습니다」), 그래서
+   * 「개통 완료」 체크가 영원히 안 열렸다 — 개통완료 단계에 못 가고 영업비·시공비
+   * 2차 지급 트리거(개통완료)도 같이 막혀 있었다. 이름이 openDoneAt 과 비슷해 눈에 안 띈다.
+   */
+  'openDate',
   'notifyDate',
   'notifyDoneAt', 'notifySkippedAt', 'chargerDoneAt', 'installConfirmedAt', 'openDoneAt',
   'completionSubmitAt',
@@ -61,8 +68,24 @@ export const POST = sessionWrite<{ id: string }, Record<string, unknown>>(
       const v = body.chargerModelId;
       if (v === null || v === '') patch.chargerModelId = null;
       else if (typeof v !== 'string') throw new BadRequest('충전기 모델이 올바르지 않습니다.');
-      else patch.chargerModelId = v;
+      else {
+        /*
+         * 없는 id 는 여기서 막는다 — 그냥 넘기면 FK 위반이 나고 그 Postgres 원문이
+         * 화면에 그대로 뜬다(「violates foreign key constraint …」). 사용자에게 나갈 말이 아니다.
+         */
+        const models = await getRepository().listChargerModels();
+        if (!models.some((m) => m.id === v)) throw new BadRequest('등록된 충전기 모델이 아닙니다.');
+        patch.chargerModelId = v;
+      }
     }
+
+    /*
+     * 행위신고는 「완료」와 「불필요」 둘 중 하나다 (migrations/0024 가 그렇게 갈랐다).
+     * 화면은 막지만 서버가 안 막아서 둘 다 켜진 현장이 만들어질 수 있었다 — 그러면
+     * 「신고한 현장」을 셀 때 섞인다(2026-08-26 발견). 하나를 켜면 다른 하나를 끈다.
+     */
+    if (patch.notifyDoneAt) patch.notifySkippedAt = null;
+    else if (patch.notifySkippedAt) patch.notifyDoneAt = null;
     if (Object.keys(patch).length === 0) throw new BadRequest('바꿀 값이 없습니다.');
 
     await getRepository().updateProcess(params.id, patch, actor);

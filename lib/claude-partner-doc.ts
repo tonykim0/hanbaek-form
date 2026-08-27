@@ -17,6 +17,7 @@ import { BANKS, isValidAccountNo, normalizeAccountNo } from './bank-account';
 import { formatKoreanBizId, isValidKoreanBizId } from './bizid';
 import { uprightPdf } from './pdf-orient';
 import type { PartnerFileKind } from './auth/partner-details';
+import { logLlmCall } from './llm-usage';
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -172,6 +173,7 @@ async function callClaude(content: Block[], kind: PartnerFileKind): Promise<unkn
     max_tokens: 16000,
     messages: [{ role: 'user' as const, content }],
   };
+  const at = Date.now();
 
   try {
     // output_config 는 이 프로젝트의 SDK 버전(0.52)에 타입이 없어 캐스팅한다.
@@ -186,6 +188,7 @@ async function callClaude(content: Block[], kind: PartnerFileKind): Promise<unkn
       } as unknown as Anthropic.MessageCreateParamsNonStreaming,
       { timeout: CALL_TIMEOUT_MS }
     );
+    logLlmCall({ route: `partner-doc:${kind}`, model: MODEL, ms: Date.now() - at, usage: message.usage });
     return parseJson(message);
   } catch (err) {
     if (!isUnsupportedParamError(err)) throw err;
@@ -199,6 +202,7 @@ async function callClaude(content: Block[], kind: PartnerFileKind): Promise<unkn
       { ...base, messages: [{ role: 'user', content: fallback }] },
       { timeout: CALL_TIMEOUT_MS }
     );
+    logLlmCall({ route: `partner-doc:${kind}(폴백)`, model: MODEL, ms: Date.now() - at, usage: message.usage });
     return parseJson(message);
   }
 }

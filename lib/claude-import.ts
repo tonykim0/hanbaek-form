@@ -16,6 +16,7 @@ import type {
   ImportedFieldKey,
   ImportedFormFields,
 } from './form-import';
+import { logLlmCall } from './llm-usage';
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -227,7 +228,7 @@ export async function extractFormFromPdf(
 
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     try {
-      const raw = await callClaude(content);
+      const raw = await callClaude(content, analyzedPages);
       return {
         ...toResult(raw),
         analyzedPages,
@@ -260,13 +261,15 @@ export async function extractFormFromPdf(
  * 그대로 들어 있어 폴백이 성립합니다).
  */
 async function callClaude(
-  content: Anthropic.MessageParam['content']
+  content: Anthropic.MessageParam['content'],
+  pages: number
 ): Promise<unknown> {
   const base = {
     model: MODEL,
     max_tokens: 16000,
     messages: [{ role: 'user' as const, content }],
   };
+  const at = Date.now();
 
   try {
     // output_config는 이 프로젝트의 SDK 버전(0.52)에 타입이 없어 캐스팅합니다.
@@ -281,6 +284,7 @@ async function callClaude(
       } as unknown as Anthropic.MessageCreateParamsNonStreaming,
       { timeout: CALL_TIMEOUT_MS }
     );
+    logLlmCall({ route: 'claude-import', model: MODEL, ms: Date.now() - at, pages, usage: message.usage });
     return parseJson(message);
   } catch (err) {
     if (!isUnsupportedParamError(err)) throw err;
@@ -288,6 +292,7 @@ async function callClaude(
     const message = await anthropic.messages.create(base, {
       timeout: CALL_TIMEOUT_MS,
     });
+    logLlmCall({ route: 'claude-import(폴백)', model: MODEL, ms: Date.now() - at, pages, usage: message.usage });
     return parseJson(message);
   }
 }

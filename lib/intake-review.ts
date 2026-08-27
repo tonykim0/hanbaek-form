@@ -14,6 +14,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import type { DocFinding, DocReview } from '@/types/intake-auto';
 import type { NormalizedFile } from './files';
+import { logLlmCall } from './llm-usage';
 
 export type { DocFinding, DocReview };
 
@@ -72,11 +73,16 @@ export async function reviewDocs(targets: ReviewTarget[]): Promise<DocReview | n
     { type: 'text' as const, text: buildPrompt(picked) },
   ];
 
+  const at = Date.now();
   try {
     const message = await anthropic.messages.create(
       { model: MODEL, max_tokens: 4096, messages: [{ role: 'user', content }] },
       { timeout: CALL_TIMEOUT_MS }
     );
+    logLlmCall({
+      route: 'intake-review', model: MODEL, ms: Date.now() - at,
+      pages: picked.length, usage: message.usage,
+    });
     return shape(parseJson(message), picked, skipped);
   } catch (err) {
     // 검수가 실패해도 접수는 되어야 한다 — 판정을 못 했다고만 알린다

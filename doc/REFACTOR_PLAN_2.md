@@ -285,7 +285,18 @@ max_tokens 16000, 재시도 2), `lib/claude-partner-doc.ts`(사업자등록증·
 ★모델은 내리지 않는다★ — 비용을 이유로 Opus 를 Sonnet 으로 바꾸는 것은 우리가 정할 일이
 아니고(품질 저하가 조용히 온다), effort 가 같은 일을 더 정직하게 한다.
 
-## T6. usage 를 남긴다 — 지금은 관측이 0이다
+## T6. usage 를 남긴다 — ~~지금은 관측이 0이다~~ **달았다 (2026-08-27)**
+
+**해결**: `lib/llm-usage.ts` 의 `logLlmCall` — 호출 세 곳(claude-import · partner-doc ·
+intake-review)이 한 줄씩 남긴다. 보는 법:
+
+```
+npx vercel logs --environment production -x --since 1h | grep '\[llm\]'
+[llm] claude-import model=claude-opus-5 ms=41283 pages=11 in=24917 out=1832 cacheRead=0 cacheWrite=0 ~$0.170
+```
+
+★cacheRead 가 계속 0이면 캐싱이 안 먹는다는 뜻★ — T2·T4 를 넣은 뒤 이 값으로 확인한다.
+비용은 눈대중용이다(단가는 파일에 날짜와 함께 박아 두었다). 아래는 달기 전의 기록이다.
 
 `usage` 를 읽는 곳이 없다(grep 0). 캐시가 실제로 먹는지, 어느 경로가 돈을 쓰는지 알 수 없다.
 `input_tokens · cache_read_input_tokens · cache_creation_input_tokens · output_tokens` 를

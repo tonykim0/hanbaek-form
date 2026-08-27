@@ -7,6 +7,7 @@
  */
 import { generateClientTokenFromReadWriteToken } from '@vercel/blob/client';
 import { NextResponse } from 'next/server';
+import { getSessionUser } from '@/lib/auth/session';
 
 /*
  * ★접수 ZIP 토큰은 더 내주지 않는다★ (한백 지시 2026-08-26 — 포털 접수를 닫았다).
@@ -23,6 +24,16 @@ const FORM_IMPORT_PATH_RE = /^form-import-\d+\.pdf$/;
 const PDF_CONTENT_TYPES = ['application/pdf', 'application/octet-stream'];
 
 export async function POST(request: Request) {
+  /*
+   * ★로그인 없이는 토큰을 내주지 않는다★ (한백 지시 2026-08-27).
+   * 판독(/api/import-form)을 로그인 뒤로 옮겼으니 그 앞의 업로드 문도 같이 잠근다 —
+   * 열어 두면 판독은 못 해도 우리 저장소에 30MB 씩 계속 올릴 수 있다.
+   */
+  const session = await getSessionUser();
+  if (!session) {
+    return NextResponse.json({ error: '로그인이 필요합니다.' }, { status: 401 });
+  }
+
   try {
     const { pathname } = (await request.json()) as {
       pathname?: string;

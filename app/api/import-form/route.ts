@@ -11,6 +11,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { del } from '@vercel/blob';
 import { extractFormFromPdf, FormImportError } from '@/lib/claude-import';
+import { getSessionUser } from '@/lib/auth/session';
 
 // 스캔본 판독은 페이지 수에 비례해 오래 걸립니다 (60페이지 상한 기준 여유 확보)
 export const maxDuration = 300;
@@ -20,6 +21,27 @@ const MAX_INLINE_BYTES = 4 * 1024 * 1024;
 const ALLOWED_BLOB_HOST_RE = /(^|\.)blob\.vercel-storage\.com$/;
 
 export async function POST(request: NextRequest) {
+  /*
+   * ★로그인 없이는 판독하지 않는다★ (한백 지시 2026-08-27).
+   *
+   * 이 문이 마지막까지 열려 있었다 — 미들웨어는 /api 를 보지 않고(라우트가 스스로 본다)
+   * 여기에는 판단이 없어서, 주소만 알면 누구나 PDF 를 붙여 Opus 판독을 돌릴 수 있었다.
+   * 실측으로 한 번에 $0.1~0.5(60쪽이면 ~107,000 토큰)이고 상한이 없었다
+   * (doc/REFACTOR_PLAN_2.md 재리뷰 3 의 T0 · 첫 리뷰의 B).
+   *
+   * ★포털에서 로그인 없이 쓰던 기능이 하나 닫힌다★ — 계약서 작성 화면의 「스캔본으로
+   * 폼 되돌리기」다. 콘솔로 들어와 쓰면 그대로 된다(콘솔 주소에서 포털 양식이 열린다).
+   * 포털 접수를 닫은 것과 같은 방향이다.
+   */
+  const session = await getSessionUser();
+  if (!session) {
+    return errorResponse(
+      '로그인이 필요합니다 — 콘솔에서 열어 주세요.',
+      'UNAUTHORIZED',
+      401
+    );
+  }
+
   let blobUrl: string | null = null;
 
   try {

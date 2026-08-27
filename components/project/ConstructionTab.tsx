@@ -19,7 +19,7 @@ import type { ChargerModel, ProcessStatus, ProjectDetail } from '@/types/project
 import { PROCESS_STATUSES } from '@/types/project';
 import { PROCESS_DOCS } from '@/lib/doc-rules';
 import { bandOfColumn } from '@/lib/board';
-import {
+import { advanceBlockers,
   canEnter, isHanbaekOnlyProcessField, statusIndex, STATUS_GATES, type ProcessEdit,
 } from '@/lib/process';
 import { DocDelete, DocFileActions, DocUpload, DownloadAll } from '@/components/DocFiles';
@@ -89,14 +89,21 @@ interface Group {
    * (한백 지시 2026-08-26). 조건이 안 찼으면 흐린 채로 무엇이 없는지 이름에 적는다
    * (화면 규칙 3) — 단추가 사라지면 무엇을 더 해야 다음으로 가는지 알 수 없다.
    */
+  /**
+   * 다음 칸으로 미는 단추.
+   *
+   * ★조건을 여기 적지 않는다★ (2026-08-27) — 무엇이 없어 못 넘어가는지는 lib/process 의
+   * advanceBlockers 가 정한다. 화면에도 적었더니 두 벌이 되어 어긋났다(모뎀 발주 수량을
+   * 화면 쪽에만 빠뜨렸다, 2026-08-26). 화면은 그 목록의 첫 항목을 단추 이름에 적을 뿐이다.
+   */
   advance?: {
     label: string;
+    /** 이 단추가 여는 칸 — 게이트를 그 칸으로 묻는다 */
+    target: ProcessStatus;
     /** 누르면 찍히는 완료 선언 — 저장소가 다음 칸을 연다(CHECK_ADVANCES) */
     field?: CheckField;
     /** 선언 칸이 없는 구간은 단계를 바로 옮긴다 — 발주처럼 한백이 넘기는 자리다 */
     move?: ProcessStatus;
-    ready: boolean;
-    blocked: string;
   };
   /** 이 상자가 담은 일이 「다음 구간」의 것인가 — 이름을 「다음 — …」으로 적는다 */
   opensNext?: boolean;
@@ -295,21 +302,8 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
          */
         advance: {
           label: '다음 단계로 진행',
+          target: '충전기 발주',
           field: p.notifySkippedAt ? 'notifySkippedAt' : 'notifyDoneAt',
-          // 환경부 승인일 한 칸이 운영사 시공승인도 겸한다 (한백 2026-08-27)
-          ready: Boolean(p.envApprovalDate) && (
-            Boolean(p.notifySkippedAt)
-            || (Boolean(p.notifyRequiredAt) && Boolean(p.notifyDate) && uploaded('notify'))
-          ),
-          blocked: !p.notifyRequiredAt && !p.notifySkippedAt
-            ? '대상 여부를 먼저 고르세요'
-            : p.notifyRequiredAt && !p.notifyDate && !uploaded('notify')
-              ? '신고일 · 파일 필요'
-              : p.notifyRequiredAt && !p.notifyDate
-                ? '행위신고일 필요'
-                : p.notifyRequiredAt && !uploaded('notify')
-                  ? '신고 파일 필요'
-                  : '환경부 승인일 필요',
         },
         /*
          * ★필요여부를 먼저 고른다★ (한백 지시 2026-08-26) — 「필요」·「불필요」 두 단추다.
@@ -339,17 +333,7 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
         ],
         extras: ['chargerModel', 'orderQty'],
         docs: [],
-        advance: {
-          label: '다음 단계로 진행',
-          move: '충전기 수령',
-          ready: Boolean(p.chargerOrderDate) && Boolean(p.chargerShipDate)
-            && Boolean(p.chargerModelId)
-            && p.chargerOrderQty !== null && p.modemOrderQty !== null,
-          blocked: !p.chargerOrderDate ? '발주일 필요'
-            : !p.chargerShipDate ? '출고일 필요'
-              : !p.chargerModelId ? '충전기 모델 필요'
-                : p.chargerOrderQty === null ? '충전기 발주 수량 필요' : '모뎀 발주 수량 필요',
-        },
+        advance: { label: '다음 단계로 진행', target: '충전기 수령', move: '충전기 수령' },
       },
     ],
     // 충전기가 현장에 왔다 — 받은 것을 세고 넘긴다(현장 차례)
@@ -359,13 +343,7 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
         rows: [{ label: '충전기 수령일', field: 'chargerRecvDate', value: p.chargerRecvDate }],
         extras: ['recvQty'],
         docs: [],
-        advance: {
-          label: '다음 단계로 진행',
-          field: 'chargerDoneAt',
-          ready: Boolean(p.chargerRecvDate) && p.chargerQty !== null && p.modemQty !== null,
-          blocked: !p.chargerRecvDate ? '수령일 필요'
-            : p.chargerQty === null ? '충전기 수령 수량 필요' : '모뎀 수령 수량 필요',
-        },
+        advance: { label: '다음 단계로 진행', target: '착공', field: 'chargerDoneAt' },
       },
     ],
     // 공사 중 — 착공일을 여기서 적는다(수령 칸에 있던 것을 옮겼다). 설치가 끝나면 넘어간다
@@ -390,13 +368,7 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
          * 전기사용신청 접수증은 개통 상자에 있었는데, 신청은 설치 무렵의 일이라 여기로 옮겼다.
          */
         docs: ['photoDone', 'installReport', 'installNotice', 'elecapply'],
-        advance: {
-          label: '다음 단계로 진행',
-          field: 'installConfirmedAt',
-          ready: Boolean(p.startActualDate) && Boolean(p.installDoneDate) && uploaded('photoDone'),
-          blocked: !p.startActualDate ? '착공일 필요'
-            : !p.installDoneDate ? '설치완료일 필요' : '설치완료 사진 필요',
-        },
+        advance: { label: '다음 단계로 진행', target: '설치완료', field: 'installConfirmedAt' },
       },
     ],
     // 개통 절차 — 통신·개통까지 끝나고 완료 체크가 되면 「개통완료」가 열린다
@@ -409,12 +381,7 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
           { label: '개통완료일', field: 'openDate', value: p.openDate },
         ],
         docs: ['kepcofee', 'comm'],
-        advance: {
-          label: '다음 단계로 진행',
-          field: 'openDoneAt',
-          ready: Boolean(p.commDoneDate) && Boolean(p.openDate),
-          blocked: !p.commDoneDate ? '통신완료일 필요' : '개통완료일 필요',
-        },
+        advance: { label: '다음 단계로 진행', target: '개통완료', field: 'openDoneAt' },
       },
     ],
     /*
@@ -593,7 +560,7 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
                     </button>
                   ) : (
                     <p className="text-tiny font-semibold text-slate-400">
-                      🔒 {STATUS_GATES[selected]?.need} 필요
+                      🔒 {(STATUS_GATES[selected]?.(p) ?? []).map((b) => b.label).join(' · ')} 필요
                     </p>
                   )
                 )}
@@ -700,7 +667,8 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
                       */}
                     {g.advance && selState === 'current' && (
                       <AdvanceRow
-                        advance={g.advance}
+                        label={g.advance.label}
+                        blockers={advanceBlockers(g.advance.target, g.advance.field ?? null, p)}
                         /*
                          * 선언 칸(체크)이 있는 구간은 그 현장의 시공사도 누른다 — 체크가
                          * 곧 전이다. 선언 칸이 없는 발주 칸은 단계를 직접 옮기므로 한백만이다
@@ -1098,26 +1066,28 @@ function DocRow({
  * 그 줄만 보고도 남은 일을 안다(화면 규칙 3).
  */
 function AdvanceRow({
-  advance, canEdit, busy, onGo,
+  label, blockers, canEdit, busy, onGo,
 }: {
-  advance: {
-    label: string; field?: CheckField; move?: ProcessStatus; ready: boolean; blocked: string;
-  };
+  label: string;
+  /** 없는 것들 — 비어 있으면 단추가 열린다. 판정은 lib/process 가 한다 */
+  blockers: string[];
   canEdit: boolean;
   busy: boolean;
   onGo: () => void;
 }) {
   if (!canEdit) return null;
+  const ready = blockers.length === 0;
   return (
     <div className="flex flex-wrap items-center gap-3 px-3.5 py-2.5">
-      <Btn
-        disabled={!advance.ready}
-        busy={busy}
-        busyLabel="넘기는 중…"
-        onClick={onGo}
-      >
-        {advance.ready ? `${advance.label} →` : advance.blocked}
+      <Btn disabled={!ready} busy={busy} busyLabel="넘기는 중…" onClick={onGo}>
+        {ready ? `${label} →` : `${blockers[0]} 필요`}
       </Btn>
+      {/* 둘 이상 비었으면 남은 것도 적는다 — 하나 채우고 또 막히는 일을 줄인다 */}
+      {blockers.length > 1 && (
+        <span className="text-tiny font-semibold text-slate-400">
+          그리고 {blockers.slice(1).join(' · ')}
+        </span>
+      )}
     </div>
   );
 }

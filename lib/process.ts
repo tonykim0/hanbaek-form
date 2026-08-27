@@ -14,11 +14,30 @@ import type { Court, ProcessInfo, ProjectDocument, ProcessStatus } from '@/types
 import { PROCESS_STATUSES } from '@/types/project';
 import { normalizeOrg } from '@/lib/roles';
 
-export interface StatusGate {
-  /** 사람이 읽는 조건 — 화면에 그대로 나간다 */
-  need: string;
-  met: (process: ProcessInfo) => boolean;
+/**
+ * 없는 것 하나.
+ *
+ * `key` 는 화면이 「이건 지금 내가 선언할 것이라 뺀다」를 가릴 때 쓰고(advanceBlockers),
+ * `label` 은 사람에게 그대로 나간다.
+ */
+export interface Blocker {
+  key: string;
+  label: string;
 }
+
+/**
+ * 그 칸에 들어가려면 무엇이 있어야 하나 — ★없는 것만★ 담아 돌려준다.
+ *
+ * ★「됐나(boolean)」가 아니라 목록인 이유★ (2026-08-27) — 예전에는 `met: () => boolean` 과
+ * 사람이 읽는 `need` 문자열이 따로 있었고, 화면(ConstructionTab 의 진행 단추)이 같은 조건을
+ * 한 번 더 손으로 적었다. 두 벌이니 어긋났다: 충전기 발주 조건을 넣을 때 모뎀 발주 수량을
+ * 화면 쪽에만 빠뜨렸다(2026-08-26). 목록으로 돌려주면 화면은 판정하지 않고 첫 항목만 적는다.
+ */
+export type StatusGate = (process: ProcessInfo) => Blocker[];
+
+/** 없는 것만 남긴다 — 조건마다 `조건 && {key,label}` 로 적고 여기서 거른다 */
+const missing = (list: Array<Blocker | false | null | undefined>): Blocker[] =>
+  list.filter((b): b is Blocker => Boolean(b));
 
 const docApproved = (process: ProcessInfo, key: string): boolean =>
   process.docs.some((d) => d.kind === key && (d.status === 'uploaded' || d.status === 'approved'));
@@ -55,7 +74,7 @@ export const STATUS_GATES: Record<ProcessStatus, StatusGate | null> = {
    * 행위신고는 승인을 기다리는 동안 미리 해놓는 일이고(1~2주), 끝나지 않았으면
    * 시공을 시작할 수 없다(한백 확인). 파일이 있다고 통과가 아니라 사람이 완료를 선언한다.
    */
-  '충전기 발주': {
+  '충전기 발주':
     /*
      * 행위신고는 ★했거나 대상이 아니거나★ 둘 중 하나면 된다 (한백 지시 2026-08-26).
      * 신고 없이 시공으로 가는 현장이 있는데, 그 현장이 「완료」밖에 없으면 안 한 일을
@@ -68,9 +87,11 @@ export const STATUS_GATES: Record<ProcessStatus, StatusGate | null> = {
      * 전에는 cpoApprovalDate 를 봤다. 두 날짜를 같은 날로 보기로 했고, 남은 칸이
      * envApprovalDate 다(기성 트리거의 근거이자 한백 전용 칸).
      */
-    need: '환경부 승인일 · 행위신고 대상 여부',
-    met: (p) => Boolean(p.envApprovalDate) && (Boolean(p.notifyDoneAt) || Boolean(p.notifySkippedAt)),
-  },
+    (p) => missing([
+      !p.envApprovalDate && { key: 'envApprovalDate', label: '환경부 승인일' },
+      !p.notifyDoneAt && !p.notifySkippedAt
+        && { key: 'notifyDoneAt', label: '행위신고 대상 여부' },
+    ]),
   /*
    * ★발주와 수령을 두 칸으로 갈랐다★ (한백 지시 2026-08-26) — 한 칸에 두면 차례를 넘길
    * 자리가 없다. 발주는 한백이 하고 수령은 현장이 확인하는데, 같은 칸에 있으면 「누가
@@ -79,28 +100,28 @@ export const STATUS_GATES: Record<ProcessStatus, StatusGate | null> = {
    * 그래서 조건도 한 칸씩 내려왔다: 수령 칸에 들어가는 조건은 발주가 끝난 것이고,
    * 착공 칸에 들어가는 조건은 수령이 끝난 것이다. 착공일은 착공 칸에서 적는다.
    */
-  '충전기 수령': {
-    need: '충전기 발주일 · 출고일 · 모델 · 발주 수량',
-    met: (p) => Boolean(p.chargerOrderDate) && Boolean(p.chargerShipDate)
-      && Boolean(p.chargerModelId)
-      && p.chargerOrderQty !== null && p.modemOrderQty !== null,
-  },
+  '충전기 수령': (p) => missing([
+    !p.chargerOrderDate && { key: 'chargerOrderDate', label: '충전기 발주일' },
+    !p.chargerShipDate && { key: 'chargerShipDate', label: '충전기 출고일' },
+    !p.chargerModelId && { key: 'chargerModelId', label: '충전기 모델' },
+    p.chargerOrderQty == null && { key: 'chargerOrderQty', label: '충전기 발주 수량' },
+    p.modemOrderQty == null && { key: 'modemOrderQty', label: '모뎀 발주 수량' },
+  ]),
   // 충전기가 현장에 왔다 — 수령 완료 체크가 그 선언이다
-  '착공': {
-    need: '충전기 수령 완료 체크',
-    met: (p) => Boolean(p.chargerDoneAt),
-  },
+  '착공': (p) => missing([
+    !p.chargerDoneAt && { key: 'chargerDoneAt', label: '충전기 수령 완료' },
+  ]),
   // 공사가 돌았다 — 착공일은 착공 칸에서 적고, 설치 사진과 완료 선언이 이 칸을 연다
-  '설치완료': {
-    need: '착공일 · 설치완료 사진 · 설치 완료 체크',
-    met: (p) => Boolean(p.startActualDate) && docApproved(p, 'photoDone')
-      && Boolean(p.installConfirmedAt),
-  },
+  '설치완료': (p) => missing([
+    !p.startActualDate && { key: 'startActualDate', label: '착공일' },
+    !docApproved(p, 'photoDone') && { key: 'photoDone', label: '설치완료 사진' },
+    !p.installConfirmedAt && { key: 'installConfirmedAt', label: '설치 완료 선언' },
+  ]),
   // 전기사용신청 → 점검 → 통신까지 끝났다. 개통 체크가 여기로 왔다(단계를 쪼개면서).
-  '개통완료': {
-    need: '통신완료일 · 개통 완료 체크',
-    met: (p) => Boolean(p.commDoneDate) && Boolean(p.openDoneAt),
-  },
+  '개통완료': (p) => missing([
+    !p.commDoneDate && { key: 'commDoneDate', label: '통신완료일' },
+    !p.openDoneAt && { key: 'openDoneAt', label: '개통 완료 선언' },
+  ]),
   /*
    * 시공팀이 준공서류를 접수하면 넘어간다 — 개통은 앞 단계(개통완료)가 이미 확인했다.
    *
@@ -108,15 +129,14 @@ export const STATUS_GATES: Record<ProcessStatus, StatusGate | null> = {
    * 여섯 칸으로 갈랐으니(환경부 둘·대관서류 넷) 뭉뚱그린 「준공서류」 칸이 조건일 이유가 없다.
    * 그 묶음에서 가장 먼저 나오는 것이 설치완료확인서라 그것을 접수의 표지로 삼는다.
    */
-  '준공서류 접수/검토': {
-    need: '설치완료확인서 (환경부)',
-    met: (p) => docApproved(p, 'completeConfirm'),
-  },
+  '준공서류 접수/검토': (p) => missing([
+    !docApproved(p, 'completeConfirm')
+      && { key: 'completeConfirm', label: '설치완료확인서 (환경부)' },
+  ]),
   // 검토 결과 보완이 필요하다는 한백·운영사 판단 — 시공팀이 제출을 끝냈다고 선언한 뒤의 일이다
-  '준공보완': {
-    need: '준공서류 제출 완료 체크',
-    met: (p) => Boolean(p.completionSubmitAt),
-  },
+  '준공보완': (p) => missing([
+    !p.completionSubmitAt && { key: 'completionSubmitAt', label: '준공서류 제출 완료' },
+  ]),
   '준공': null,       // 보완이 해소되었다는 판단
 };
 
@@ -169,8 +189,10 @@ export function canEnter(
   const to = statusIndex(status);
   if (to <= from) return { ok: true };
   for (const st of PROCESS_STATUSES.slice(from + 1, to + 1)) {
-    const gate = STATUS_GATES[st];
-    if (gate && !gate.met(process)) return { ok: false, blockedBy: gate.need };
+    const blockers = STATUS_GATES[st]?.(process) ?? [];
+    if (blockers.length > 0) {
+      return { ok: false, blockedBy: blockers.map((b) => b.label).join(' · ') };
+    }
   }
   return { ok: true };
 }
@@ -237,6 +259,62 @@ export const CHECK_ADVANCES = {
   openDoneAt: '개통완료',
   completionSubmitAt: '준공서류 접수/검토',
 } as const satisfies Record<string, ProcessStatus>;
+
+/**
+ * 완료 선언을 하려면 무엇이 있어야 하나 — 없는 것만 담아 돌려준다.
+ *
+ * 게이트(STATUS_GATES)는 「선언이 있는가」를 보고, 이쪽은 「그 선언을 할 수 있는가」를 본다.
+ * 화면의 진행 단추가 누르는 순간 선언을 찍으므로, 단추를 막는 것은 이 목록이다.
+ * 두 곳에 나눠 적으면 또 어긋나므로 게이트 옆에 둔다.
+ */
+const CHECK_REQUIRES: Partial<Record<string, (p: ProcessInfo) => string[]>> = {
+  notifyDoneAt: (p) => missingLabels([
+    !p.notifyRequiredAt && !p.notifySkippedAt && '대상 여부를 먼저 고르세요',
+    Boolean(p.notifyRequiredAt) && !p.notifyDate && '행위신고일',
+    Boolean(p.notifyRequiredAt) && !docApproved(p, 'notify') && '신고 파일',
+  ]),
+  chargerDoneAt: (p) => missingLabels([
+    !p.chargerRecvDate && '충전기 수령일',
+    p.chargerQty == null && '충전기 수령 수량',
+    p.modemQty == null && '모뎀 수령 수량',
+  ]),
+  installConfirmedAt: (p) => missingLabels([
+    !p.installDoneDate && '설치완료일',
+    !docApproved(p, 'photoDone') && '설치완료 사진',
+  ]),
+  openDoneAt: (p) => missingLabels([
+    !p.commDoneDate && '통신완료일',
+    !p.openDate && '개통완료일',
+  ]),
+  completionSubmitAt: (p) => missingLabels([
+    !docApproved(p, 'completion') && '준공서류',
+  ]),
+};
+
+const missingLabels = (list: Array<string | false | null | undefined>): string[] =>
+  list.filter((x): x is string => Boolean(x));
+
+/**
+ * 화면의 「다음 단계로 진행」 단추를 막는 것들 — 없으면 빈 배열이고, 그때 단추가 열린다.
+ *
+ * ★화면은 판정하지 않는다★ — 조건을 화면에도 적으면 두 벌이 되고 어긋난다(2026-08-26 에
+ * 모뎀 발주 수량을 화면 쪽에만 빠뜨렸다). 화면은 이 목록의 첫 항목을 단추 이름에 적는다.
+ *
+ * @param target  이 단추가 여는 칸
+ * @param declares 누르는 순간 찍히는 선언 칸 — 그 항목은 「지금 하는 일」이라 목록에서 뺀다
+ */
+export function advanceBlockers(
+  target: ProcessStatus,
+  declares: string | null,
+  process: ProcessInfo
+): string[] {
+  const fromDeclaration = declares ? CHECK_REQUIRES[declares]?.(process) ?? [] : [];
+  const fromGate = (STATUS_GATES[target]?.(process) ?? [])
+    .filter((b) => b.key !== declares)
+    .map((b) => b.label);
+  // 선언 조건이 먼저다 — 그것이 이 화면에서 채울 것이고, 게이트는 딴 화면의 값일 수 있다
+  return [...new Set([...fromDeclaration, ...fromGate])];
+}
 
 /**
  * 상태를 옮기면 차례(court)도 따라 넘어간다.

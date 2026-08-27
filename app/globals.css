@@ -82,3 +82,28 @@ body {
 @media (max-width: 767px) {
   [data-console-shell] { --console-left: 0px !important; }
 }
+
+/*
+ * ★손가락으로 쓰는 화면★ — 영업사가 폰으로 접수하고 계약서를 쓴다 (한백 2026-08-27).
+ *
+ * 입력칸 글자를 16px 로 올린다. iOS 사파리는 글자가 16px 보다 작은 입력칸을 누르면
+ * ★화면을 통째로 확대한다★ — 이 앱의 입력칸은 13px(text-base)이라 칸을 옮길 때마다
+ * 화면이 커지고 손으로 다시 줄여야 했다. maximum-scale 로 확대를 끄는 방법도 있지만
+ * 그것은 두 손가락 확대까지 막는다: 올린 서류 사진을 키워 보는 길을 없애면 안 된다.
+ * 마우스 화면은 13px 그대로다 — 표 한 줄에 칸이 여럿 들어가는 자리라 크기가 곧 밀도다.
+ */
+@media (pointer: coarse) {
+  input:not([type='checkbox']):not([type='radio']),
+  select,
+  textarea {
+    font-size: 16px;
+  }
+
+  /*
+   * 곁다리 칩(「받기」·「빼기」·「수정」)이 py-1 이라 24px 남짓이다 — 손끝으로는 작다.
+   * 36px 로만 올린다. 44px 로 올리면 한 줄에 칩 셋이 들어가는 서류 줄이 무너진다.
+   */
+  button {
+    min-height: 36px;
+  }
+}

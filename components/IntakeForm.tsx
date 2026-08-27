@@ -31,7 +31,7 @@ import { checkDraft } from '@/lib/intake-validate';
 import { regionPrefixOf, withRegionPrefix } from '@/lib/region';
 import { useLeaveGuard } from '@/lib/use-leave-guard';
 // 부품은 콘솔·포털이 같이 쓴다 — 같은 일에 같은 모양이어야 접수 폼이 다른 앱처럼 보이지 않는다
-import { Picks } from '@/components/ui';
+import { Btn, FIELD, Picks } from '@/components/ui';
 import type { DocFinding, DocReview, AutoIntakeResult } from '@/types/intake-auto';
 
 const CPOS: CpoName[] = ['플러그링크', '나이스인프라', '현대엔지니어링', 'SK일렉링크', '에버온'];
@@ -836,14 +836,12 @@ export default function IntakeForm({ org, isAdmin = false, knownOrgs = [] }: {
       )}
 
       <div className="flex flex-wrap items-center gap-3">
-        <button
-          type="button"
+        <Btn
           onClick={() => void submit()}
           disabled={check.errors.length > 0 || busy !== null || (!isAdmin && !org)}
-          className="rounded-xl bg-brand-600 px-5 py-2.5 text-sm font-bold text-white transition hover:bg-brand-700 disabled:bg-slate-300"
         >
           {busy ?? '접수하기'}
-        </button>
+        </Btn>
         {check.errors.length > 0 && (
           <span className="text-xs text-slate-400">
             별표(<span className="text-red-500">*</span>) 칸과 필수 서류를 채우면 접수할 수 있습니다
@@ -856,8 +854,8 @@ export default function IntakeForm({ org, isAdmin = false, knownOrgs = [] }: {
 
 
 // ── 조각 ────────────────────────────────────────────────────────
-const inputClass =
-  'w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-300 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-100';
+/* 입력칸 모양은 부품이 쥔다 — 접수 폼도 콘솔과 같은 칸을 쓴다(ui.tsx FIELD) */
+const inputClass = FIELD;
 
 function Card({
   title, note, children,

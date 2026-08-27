@@ -45,6 +45,16 @@ type CountField =
   | 'chargerOrderQty' | 'modemOrderQty'
   | 'chargerQty' | 'modemQty';
 
+/**
+ * 상자가 그리는 딸림 줄 — 날짜·서류 말고 그 상자에만 있는 것들.
+ *
+ * ★이름으로 분기하지 않는다★ (2026-08-27) — 예전에는 `g.title === '충전기'` 로 그렸다.
+ * 상자 이름을 「충전기 발주」로 바꾸는 순간 모델·발주 수량 줄이 화면에서 통째로 사라졌고,
+ * 양쪽 다 문자열이라 타입 검사도 통과했다(한백 지적 2026-08-26). 이름은 라벨일 뿐이고,
+ * 무엇을 그릴지는 이 목록이 정한다 — 목록에 없는 값을 적으면 컴파일이 깨진다.
+ */
+type GroupExtra = 'chargerModel' | 'orderQty' | 'recvQty' | 'installedQty';
+
 interface MilestoneRow {
   label: string;
   field: DateField;
@@ -90,6 +100,8 @@ interface Group {
   };
   /** 이 상자가 담은 일이 「다음 구간」의 것인가 — 이름을 「다음 — …」으로 적는다 */
   opensNext?: boolean;
+  /** 날짜·서류 말고 이 상자가 그리는 줄 — 적힌 순서대로 rows 아래에 선다 */
+  extras?: GroupExtra[];
 }
 
 export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit: ProcessEdit }) {
@@ -137,6 +149,95 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
     if (value === before) return;
     save(field, value, field);
   };
+
+  /**
+   * 딸림 줄 하나를 그린다 — 무엇을 그릴지는 그룹의 `extras` 가 정한다(상자 이름이 아니라).
+   * 새 종류를 GroupExtra 에 더하고 여기 case 를 안 적으면 컴파일이 깨진다 — 조용히
+   * 안 그려지는 일(2026-08-26 실사고)이 다시 나지 않게 하는 자리다.
+   */
+  function extraRow(x: GroupExtra) {
+    switch (x) {
+      case 'chargerModel':
+        /* 어느 모델이 들어가는가 — 발주 전에 정해지고, 수령 때 실물과 맞춰 본다 */
+        return (
+          <ModelRow
+            key={x}
+            value={p.chargerModelId}
+            /*
+             * ★모델은 한백만 정한다★ (한백 지시 2026-08-26) — 운영사와의 계약에 딸린
+             * 값이라 현장에서 고를 것이 아니다. 서버도 한백 전용 칸으로 못 박았다.
+             */
+            canEdit={canEditField('chargerOrderDate')}
+            canRegister={edit === 'all'}
+            busy={busyKey === 'chargerModelId'}
+            onSave={(id) => save('chargerModelId', id, 'chargerModelId')}
+          />
+        );
+      case 'orderQty':
+        return (
+          <CountsRow
+            key={x}
+            label="발주 수량"
+            items={[
+              { field: 'chargerOrderQty', prefix: '충전기', unit: '대', value: p.chargerOrderQty },
+              { field: 'modemOrderQty', prefix: '모뎀', unit: '개', value: p.modemOrderQty },
+            ]}
+            canEdit={canEditField('chargerOrderDate')}
+            busyKey={busyKey}
+            onSave={saveCount}
+            compare={{
+              label: `계약 ${contractQty}대`,
+              mismatch: p.chargerOrderQty !== null && p.chargerOrderQty !== contractQty,
+            }}
+          />
+        );
+      case 'recvQty':
+        /* 무엇이 몇 개 왔는지 센다 — 발주와 한 칸에 담으면 부분 입고 때 어느 숫자가 남는지 모른다 */
+        return (
+          <CountsRow
+            key={x}
+            label="수령 수량"
+            items={[
+              { field: 'chargerQty', prefix: '충전기', unit: '대', value: p.chargerQty },
+              { field: 'modemQty', prefix: '모뎀', unit: '개', value: p.modemQty },
+            ]}
+            canEdit={canEditField('chargerRecvDate')}
+            busyKey={busyKey}
+            onSave={saveCount}
+            /* 견주는 기준은 발주다 — 계약대수는 발주 줄이 이미 본다 */
+            compare={{
+              label: p.chargerOrderQty !== null ? `발주 ${p.chargerOrderQty}대` : `계약 ${contractQty}대`,
+              mismatch: p.chargerQty !== null
+                && p.chargerQty !== (p.chargerOrderQty ?? contractQty),
+            }}
+          />
+        );
+      case 'installedQty':
+        /* 설치 실적 — 설치완료일 바로 아래, 시공사가 적는다 */
+        return (
+          <CountsRow
+            key={x}
+            label="설치 실적"
+            items={[
+              { field: 'installedSpots', unit: '거점', value: p.installedSpots },
+              { field: 'installedUnits', unit: '기', value: p.installedUnits },
+            ]}
+            canEdit={canEditField('installDoneDate')}
+            busyKey={busyKey}
+            onSave={saveCount}
+            compare={{
+              label: `계약 ${contractQty}대`,
+              mismatch: p.installedUnits !== null && p.installedUnits !== contractQty,
+            }}
+          />
+        );
+      default: {
+        // 목록에 더하고 여기를 안 적으면 여기서 컴파일이 깨진다
+        const missing: never = x;
+        return missing;
+      }
+    }
+  }
 
   /** 단계 옮기기 — 노드를 눌러 옮긴다. 판정은 저장소가 다시 한다. */
   const moveStatus = (status: ProcessStatus) =>
@@ -236,6 +337,7 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
           { label: '충전기 발주일', field: 'chargerOrderDate', value: p.chargerOrderDate },
           { label: '충전기 출고일', field: 'chargerShipDate', value: p.chargerShipDate },
         ],
+        extras: ['chargerModel', 'orderQty'],
         docs: [],
         advance: {
           label: '다음 단계로 진행',
@@ -255,6 +357,7 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
       {
         title: '충전기 수령',
         rows: [{ label: '충전기 수령일', field: 'chargerRecvDate', value: p.chargerRecvDate }],
+        extras: ['recvQty'],
         docs: [],
         advance: {
           label: '다음 단계로 진행',
@@ -281,6 +384,7 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
         opensNext: true,
         /* 설치완료일이 곧 시공일자다 — 운영사 시스템의 「공통」 묶음에서 그 값이다 */
         rows: [{ label: '설치완료일', field: 'installDoneDate', value: p.installDoneDate }],
+        extras: ['installedQty'],
         /*
          * 사진 뒤에 설치완료 때 같이 내는 것들을 둔다 (한백 지시 2026-08-26).
          * 전기사용신청 접수증은 개통 상자에 있었는데, 신청은 설치 무렵의 일이라 여기로 옮겼다.
@@ -571,78 +675,7 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
                       * ★조건은 lib/process 의 「충전기 수령」 게이트와 같은 목록이어야 한다★ —
                       * 화면이 활성인데 서버가 거절하면 왜 안 넘어가는지 알 수 없다.
                       */}
-                    {g.title === '충전기 발주' && (
-                      <>
-                        {/* 어느 모델이 들어가는가 — 발주 전에 정해지고, 수령 때 실물과 맞춰 본다 */}
-                        <ModelRow
-                          value={p.chargerModelId}
-                          /*
-                           * ★모델은 한백만 정한다★ (한백 지시 2026-08-26) — 운영사와의 계약에
-                           * 딸린 값이라 현장에서 고를 것이 아니다. 서버도 한백 전용 칸으로
-                           * 못 박았다(HANBAEK_ONLY_PROCESS_FIELDS).
-                           */
-                          canEdit={canEditField('chargerOrderDate')}
-                          canRegister={edit === 'all'}
-                          busy={busyKey === 'chargerModelId'}
-                          onSave={(id) => save('chargerModelId', id, 'chargerModelId')}
-                        />
-                        <CountsRow
-                          label="발주 수량"
-                          items={[
-                            { field: 'chargerOrderQty', prefix: '충전기', unit: '대', value: p.chargerOrderQty },
-                            { field: 'modemOrderQty', prefix: '모뎀', unit: '개', value: p.modemOrderQty },
-                          ]}
-                          canEdit={canEditField('chargerOrderDate')}
-                          busyKey={busyKey}
-                          onSave={saveCount}
-                          compare={{
-                            label: `계약 ${contractQty}대`,
-                            mismatch: p.chargerOrderQty !== null && p.chargerOrderQty !== contractQty,
-                          }}
-                        />
-                      </>
-                    )}
-
-                    {/*
-                      * 수령 칸 — 현장의 일이다. 무엇이 몇 개 왔는지 센다.
-                      * 발주와 한 칸에 담으면 부분 입고·오배송 때 어느 숫자가 남는지 알 수 없다.
-                      */}
-                    {g.title === '충전기 수령' && (
-                      <CountsRow
-                        label="수령 수량"
-                        items={[
-                          { field: 'chargerQty', prefix: '충전기', unit: '대', value: p.chargerQty },
-                          { field: 'modemQty', prefix: '모뎀', unit: '개', value: p.modemQty },
-                        ]}
-                        canEdit={canEditField('chargerRecvDate')}
-                        busyKey={busyKey}
-                        onSave={saveCount}
-                        /* 견주는 기준은 발주다 — 계약대수는 발주 줄이 이미 본다 */
-                        compare={{
-                          label: p.chargerOrderQty !== null ? `발주 ${p.chargerOrderQty}대` : `계약 ${contractQty}대`,
-                          mismatch: p.chargerQty !== null
-                            && p.chargerQty !== (p.chargerOrderQty ?? contractQty),
-                        }}
-                      />
-                    )}
-
-                    {/* 설치 실적 — 설치완료일 바로 아래, 시공사가 적는다 */}
-                    {g.title === '설치' && (
-                      <CountsRow
-                        label="설치 실적"
-                        items={[
-                          { field: 'installedSpots', unit: '거점', value: p.installedSpots },
-                          { field: 'installedUnits', unit: '기', value: p.installedUnits },
-                        ]}
-                        canEdit={canEditField('installDoneDate')}
-                        busyKey={busyKey}
-                        onSave={saveCount}
-                        compare={{
-                          label: `계약 ${contractQty}대`,
-                          mismatch: p.installedUnits !== null && p.installedUnits !== contractQty,
-                        }}
-                      />
-                    )}
+                    {g.extras?.map((x) => extraRow(x))}
 
                     {(!g.need || Boolean(p[g.need.field])) && g.docs.map((kind) => {
                       const spec = PROCESS_DOCS.find((x) => x.key === kind);

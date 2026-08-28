@@ -118,7 +118,7 @@ export default async function DashboardPage({
         <Panel
           eyebrow="수주"
           title={`${year}년 월별 수주`}
-          side={<span>그 달에 접수된 대수</span>}
+          side={<span>그 달에 접수된 대수 · 건수 · 현장당 평균</span>}
         >
           <MonthBars rows={byMonth} kind="month" />
         </Panel>
@@ -126,7 +126,7 @@ export default async function DashboardPage({
         <Panel
           eyebrow="수주"
           title={`${year}년 누적 수주`}
-          side={<span>1월부터 더한 대수</span>}
+          side={<span>1월부터 더한 대수 · 건수 · 현장당 평균</span>}
         >
           <MonthBars rows={byMonth} kind="acc" />
         </Panel>
@@ -190,6 +190,17 @@ function Panel({
       {children}
     </section>
   );
+}
+
+/**
+ * 현장당 설치기수 — 한 자리까지. 「3.5」·「4」처럼 군더더기 0 을 안 붙인다.
+ *
+ * 대수와 건수만 있으면 「많이 딴 달」과 「크게 딴 달」이 구별되지 않는다 (한백 2026-08-29) —
+ * 10건 35대와 2건 35대는 같은 35대지만 다른 달이다.
+ */
+function avgQty(qty: number, projects: number): string {
+  if (projects === 0) return '';
+  return `${Math.round((qty / projects) * 10) / 10}대`;
 }
 
 function MonthBars({
@@ -267,6 +278,13 @@ function MonthBars({
         <div className="ml-10 mt-2 flex gap-2 border-t border-slate-200 pt-2">
           {rows.map((row) => {
             const projectCount = projectCountOf(row);
+            /*
+             * 셋째 줄이 현장당 평균이다 (한백 2026-08-29). 「평균」이라는 말을 앞에 안 붙인다 —
+             * 열두 칸이 한 화면에 서므로 칸 하나가 40px 남짓이고, 그 말까지 넣으면 넘친다.
+             * 무엇인지는 머리(Panel side)가 한 번 적는다. 셀 것이 없는 달은 빈 자리로 두되
+             * 줄은 지킨다 — 칸마다 줄 수가 다르면 축의 밑변이 들쭉날쭉해진다.
+             */
+            const avg = row.future ? '' : avgQty(valueOf(row), projectCount);
             return (
               <div key={row.month} className="min-w-0 flex-1 text-center">
                 <p className={`text-tiny font-bold ${row.now ? 'text-brand-800' : row.future ? 'text-slate-300' : 'text-slate-500'}`}>
@@ -275,6 +293,9 @@ function MonthBars({
                 <p className={`mt-0.5 text-micro tabular-nums ${projectCount > 0 && !row.future ? 'text-slate-400' : 'text-slate-300'}`}>
                   {row.future ? '예정' : `${projectCount}건`}
                 </p>
+                <p className={`text-micro tabular-nums ${row.now ? 'font-bold text-brand-700' : 'text-slate-300'}`}>
+                  {avg || '\u00A0'}
+                </p>
               </div>
             );
           })}
@@ -282,12 +303,6 @@ function MonthBars({
       </div>
     </div>
   );
-}
-
-/** 현장당 설치기수 — 한 자리까지. 「3.5」·「4」처럼 군더더기 0 을 안 붙인다 */
-function avgOf(row: { projects: number; qty: number }): string {
-  if (row.projects === 0) return '0';
-  return String(Math.round((row.qty / row.projects) * 10) / 10);
 }
 
 function Breakdown({
@@ -331,15 +346,8 @@ function Breakdown({
               <div className="mb-1.5 flex items-baseline gap-2">
                 <span className="min-w-0 flex-1 truncate text-small font-bold text-slate-700">{row.value}</span>
                 <span className="text-small font-black tabular-nums text-slate-900">{percent}%</span>
-                {/*
-                  현장당 평균 기수 (한백 2026-08-29) — 대수와 건수만 있으면 「많이 판 곳」과
-                  「크게 판 곳」이 구별되지 않는다. 10건 35대와 2건 35대는 같은 35대지만
-                  다른 영업이다. 한 자리까지만 적는다 — 소수 둘째 자리는 판단을 안 바꾼다.
-                  계약연수 카드에서는 그 연수 라인만의 평균이다(그 축의 대수와 현장 수라서).
-                */}
-                <span className="w-[124px] whitespace-nowrap text-right text-tiny tabular-nums text-slate-400">
+                <span className="w-[64px] text-right text-tiny tabular-nums text-slate-400">
                   {row.qty}대 · {row.projects}건
-                  <span className="ml-1 text-slate-300">평균 {avgOf(row)}대</span>
                 </span>
               </div>
               <div className="h-1.5 overflow-hidden rounded-full bg-slate-100">

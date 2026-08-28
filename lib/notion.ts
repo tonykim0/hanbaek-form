@@ -170,26 +170,6 @@ function parseMissingPropertyNames(err: unknown): string[] {
   return names;
 }
 
-/**
- * PDF 파일들을 Notion File Upload API로 페이지에 첨부합니다.
- *
- * 통합 PDF(1개 파일에 여러 서류)인 경우:
- *   Claude가 pages 필드로 서류별 페이지 범위를 지정하면
- *   pdf-lib로 분할하여 각각 개별 파일로 첨부합니다.
- *
- * rate limit: 3 req/sec → 파일 간 400ms sleep
- */
-export async function attachFilesToPage(
-  pageId: string,
-  files: NormalizedFile[],
-  metadata: ExtractedMetadata | null
-): Promise<ClassifiedFile[]> {
-  const today = formatToday();
-  const uploadItems = await buildUploadItems(files, metadata);
-  const { classifiedFiles } = await attachUploadItemsToPage(pageId, uploadItems, today);
-  return classifiedFiles;
-}
-
 export interface UploadItem {
   originalName: string;
   category: FileCategory;

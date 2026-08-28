@@ -63,7 +63,6 @@ export interface SubsidyMeta {
   shardCount: number;
 }
 
-export type SubsidyShard = Shard<SubsidyRecord>;
 export type SubsidyLookupResult = LookupResult<SubsidyRecord>;
 
 /* ------------------------------------------------------------------ 요약 */

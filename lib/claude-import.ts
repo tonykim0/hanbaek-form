@@ -18,6 +18,19 @@ import type {
 } from './form-import';
 import { logLlmCall } from './llm-usage';
 
+/**
+ * SDK 0.52 에는 `output_config` 타입이 없다 — 캐스팅(as unknown as) 대신 그 한 칸만 얹는다.
+ *
+ * 캐스팅은 「내가 안다」는 선언이라 옆 칸이 틀려도 안 잡힌다. 교집합 타입으로 두면 나머지
+ * 파라미터는 SDK 타입 그대로 검사받고, SDK 가 이 칸을 갖게 되면 이 선언만 지우면 된다.
+ */
+type CreateWithOutputConfig = Anthropic.MessageCreateParamsNonStreaming & {
+  output_config?: {
+    effort?: 'low' | 'medium' | 'high' | 'xhigh' | 'max';
+    format?: { type: 'json_schema'; schema: unknown };
+  };
+};
+
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 });
@@ -274,16 +287,11 @@ async function callClaude(
   try {
     // output_config는 이 프로젝트의 SDK 버전(0.52)에 타입이 없어 캐스팅합니다.
     // SDK는 body를 그대로 직렬화하므로 파라미터는 정상 전달됩니다.
-    const message = await anthropic.messages.create(
-      {
-        ...base,
-        output_config: {
-          effort: 'high',
-          format: { type: 'json_schema', schema: OUTPUT_SCHEMA },
-        },
-      } as unknown as Anthropic.MessageCreateParamsNonStreaming,
-      { timeout: CALL_TIMEOUT_MS }
-    );
+    const params: CreateWithOutputConfig = {
+      ...base,
+      output_config: { effort: 'high', format: { type: 'json_schema', schema: OUTPUT_SCHEMA } },
+    };
+    const message = await anthropic.messages.create(params, { timeout: CALL_TIMEOUT_MS });
     logLlmCall({ route: 'claude-import', model: MODEL, ms: Date.now() - at, pages, usage: message.usage });
     return parseJson(message);
   } catch (err) {

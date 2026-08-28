@@ -621,7 +621,7 @@ export default function IntakeForm({ org, isAdmin = false, knownOrgs = [] }: {
           >
             <QtyGrid
               rows={replRows}
-              rowLabel={(r) => replLabel(cpo, r as ReplType)}
+              rowLabel={(r) => replLabel(cpo, r)}
               cols={powerCols}
               value={qty}
               keyOf={cellKey}
@@ -960,23 +960,27 @@ function Preview({ url }: { url: string }) {
  * 행이 교체유형, 열이 수전방식이다. 축이 하나뿐이면 칸도 하나만 나온다 —
  * 표를 억지로 그리면 「환경부 신규 × 한전불입」 한 칸에 머리글이 둘 붙어 읽기 어렵다.
  */
-function QtyGrid({
+/*
+ * 행 타입을 제네릭으로 받는다 — 예전에는 `keyOf: (row: never, col: never)` 라서 부르는 쪽마다
+ * `as never` 를 붙여야 했다. 캐스팅은 타입 검사를 끄는 일이라, 행 종류가 바뀌어도 안 걸린다.
+ */
+function QtyGrid<R extends string>({
   rows, cols, value, keyOf, onChange, rowLabel,
 }: {
-  rows: string[];
+  rows: R[];
   cols: Array<string | null>;
   value: Record<string, number>;
-  keyOf: (row: never, col: never) => string;
+  keyOf: (row: R, col: string | null) => string;
   onChange: (key: string, n: number) => void;
   /** 행 이름 — 키는 그대로 두고 보이는 말만 바꾼다(교체유형을 안 가르는 운영사) */
-  rowLabel?: (row: string) => string;
+  rowLabel?: (row: R) => string;
 }) {
   const single = rows.length === 1 && cols.length === 1;
   const num = (e: React.ChangeEvent<HTMLInputElement>) =>
     Number(e.target.value.replace(/\D/g, '') || 0);
 
   if (single) {
-    const k = keyOf(rows[0] as never, cols[0] as never);
+    const k = keyOf(rows[0], cols[0]);
     return (
       <span className="flex items-baseline gap-1.5">
         <input
@@ -992,7 +996,7 @@ function QtyGrid({
   }
 
   const total = rows.reduce(
-    (n, r) => n + cols.reduce((m, c) => m + (value[keyOf(r as never, c as never)] ?? 0), 0),
+    (n, r) => n + cols.reduce((m, c) => m + (value[keyOf(r, c)] ?? 0), 0),
     0
   );
 
@@ -1023,7 +1027,7 @@ function QtyGrid({
                 {(rowLabel ? rowLabel(r) : r).replace('자체투자 ', '').replace(/[()]/g, '')}
               </th>
               {cols.map((c) => {
-                const k = keyOf(r as never, c as never);
+                const k = keyOf(r, c);
                 return (
                   <td key={c ?? '-'} className="px-3 py-2">
                     <span className="flex items-baseline gap-1">

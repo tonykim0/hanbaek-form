@@ -19,6 +19,19 @@ import { uprightPdf } from './pdf-orient';
 import type { PartnerFileKind } from './auth/partner-details';
 import { logLlmCall } from './llm-usage';
 
+/**
+ * SDK 0.52 에는 `output_config` 타입이 없다 — 캐스팅(as unknown as) 대신 그 한 칸만 얹는다.
+ *
+ * 캐스팅은 「내가 안다」는 선언이라 옆 칸이 틀려도 안 잡힌다. 교집합 타입으로 두면 나머지
+ * 파라미터는 SDK 타입 그대로 검사받고, SDK 가 이 칸을 갖게 되면 이 선언만 지우면 된다.
+ */
+type CreateWithOutputConfig = Anthropic.MessageCreateParamsNonStreaming & {
+  output_config?: {
+    effort?: 'low' | 'medium' | 'high' | 'xhigh' | 'max';
+    format?: { type: 'json_schema'; schema: unknown };
+  };
+};
+
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 /** 숫자 한 자리가 곧 돈이라 판독은 가장 좋은 모델로 한다 — 부르는 횟수는 서류당 한 번이다 */
@@ -178,16 +191,11 @@ async function callClaude(content: Block[], kind: PartnerFileKind): Promise<unkn
   try {
     // output_config 는 이 프로젝트의 SDK 버전(0.52)에 타입이 없어 캐스팅한다.
     // SDK 는 body 를 그대로 직렬화하므로 파라미터는 정상 전달된다.
-    const message = await anthropic.messages.create(
-      {
-        ...base,
-        output_config: {
-          effort: 'high',
-          format: { type: 'json_schema', schema: schemaFor(kind) },
-        },
-      } as unknown as Anthropic.MessageCreateParamsNonStreaming,
-      { timeout: CALL_TIMEOUT_MS }
-    );
+    const params: CreateWithOutputConfig = {
+      ...base,
+      output_config: { effort: 'high', format: { type: 'json_schema', schema: schemaFor(kind) } },
+    };
+    const message = await anthropic.messages.create(params, { timeout: CALL_TIMEOUT_MS });
     logLlmCall({ route: `partner-doc:${kind}`, model: MODEL, ms: Date.now() - at, usage: message.usage });
     return parseJson(message);
   } catch (err) {

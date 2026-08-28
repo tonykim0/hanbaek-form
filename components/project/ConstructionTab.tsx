@@ -39,9 +39,8 @@ import {
 import {
   groupsByStatus, type CheckField, type CountField, type DateField, type GroupExtra,
 } from './construction/milestones';
-import {
-  AdvanceRow, CheckRow, CompletionReview, CountsRow, DateRow, DocRow, ModelRow, NeedRow,
-} from './construction/rows';
+import { CountsRow, DateRow, DocRow, ModelRow } from './construction/rows';
+import { AdvanceRow, CheckRow, CompletionReview, NeedRow } from './construction/steps';
 
 export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit: ProcessEdit }) {
   const p = detail.process;

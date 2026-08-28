@@ -210,6 +210,16 @@ export default function PayoutWorkBoard({
                   {p.due <= 0 && p.blockers.map((reason) => (
                     <p key={reason} className="text-micro font-bold text-amber-700">{reason}</p>
                   ))}
+                  {/*
+                    * ★계획보다 더 나간 돈은 여기서 말한다★ (2026-08-28) — 단가를 잘못 알고
+                    * 더 준 현장이 「확정 완료」로만 보여서, 전 현장을 훑어도 초과가 안 잡혔다.
+                    * 돌려받든 잔금에서 빼든 사람이 처리해야 하는 자리라 눈에 띄어야 한다.
+                    */}
+                  {p.confirmed > p.plan + p.adjust && (
+                    <p className="text-micro font-black text-red-700">
+                      초과 {won(p.confirmed - p.plan - p.adjust)}
+                    </p>
+                  )}
                 </td>
                 {([1, 2] as const).map((no) => (
                   <StepCells key={no} p={p} no={no} finalizedBatches={finalizedBatches} canConfirm={canConfirm} />

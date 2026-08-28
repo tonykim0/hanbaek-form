@@ -688,7 +688,13 @@ function PaymentSection({
           return {
             ...side,
             unit: unitOf((r) => (side.kind === '영업비' ? r.salesUnit : r.consUnit)),
-            adjust, steps,
+            adjust, steps, paid,
+            /*
+             * ★계획보다 더 나간 돈.★ 표가 계획(계획+조정)과 회차 금액만 보여 줘서, 실제로
+             * 얼마가 나갔는지는 어디에도 없었다 — 단가를 잘못 알고 더 준 현장이 「1차
+             * 지급완료」로만 보였다(반달마을푸르지오, 2026-08-28). 그 차이를 줄에 적는다.
+             */
+            over: Math.max(0, paid - (side.plan + adjust)),
             stepAt: (cat: '1차' | '2차') =>
               entries.find((e) => e.kind === side.kind && e.category === cat)?.at ?? null,
           };
@@ -734,6 +740,11 @@ function PaymentSection({
                     {r.adjust !== 0 && (
                       <span className="block text-tiny font-semibold text-slate-400">
                         조정 {r.adjust > 0 ? '+' : ''}{won(r.adjust)} 포함
+                      </span>
+                    )}
+                    {r.over > 0 && (
+                      <span className="mt-0.5 block text-tiny font-black text-red-700">
+                        실지급 {won(r.paid)} · 초과 {won(r.over)}
                       </span>
                     )}
                   </td>

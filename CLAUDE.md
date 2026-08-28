@@ -334,6 +334,11 @@ batch_finals 테이블. 「1차 확정」이라 부르지 않는다 — 1차·2�
   타임아웃, 2026-08-21). 슬롯을 쥔 채 슬롯을 기다리면 서로 막으므로 **잎 쿼리만** 감싼다.
 - 쓰기는 `Actor` 를 받고 `audit_log` 를 남긴다.
 - 한백 전용 쓰기는 라우트에서 `requireAdmin()`, 저장소에서 `assertAdmin()` 으로 두 번 막는다.
+- ★**돈·권한·게이트를 고치면 `npm test`**★ (2026-08-28 도입) — `test/` 에 순수 함수 그물이
+  있다(100개, 0.4초). 대상은 `lib/process`(게이트·전이·권한) · `lib/roles`(가시성) ·
+  `lib/settlement`(기성·지급 회차) · `lib/payout-board`(배치) · `lib/pricing-match`(단가 축) ·
+  `lib/doc-rules`(서류) · `lib/date`(한국 달력). 화면 테스트는 넣지 않는다 — 느려지면 안 돌린다.
+  빌드에는 묶지 않았다: 배포가 테스트로 막히면 급한 고침이 못 나간다. 고친 사람이 돌린다.
 - `next build` 를 `next dev` 가 돌고 있는 중에 실행하지 않는다. `.next` 가 깨진다.
 - 비밀번호·접속 문자열을 대화에 남기지 않는다. `.env.local` 에 직접 넣는다.
 - **함수 지역은 `icn1`(서울) 이다** — `vercel.json` 의 `regions`. DB(Supabase `ap-northeast-2`)와

@@ -133,9 +133,9 @@ export default async function FinancePage({
           <Panel eyebrow="받는 돈" title="운영사 기성" side="계획에는 날짜가 없다">
             <Facts
               rows={[
-                { label: '계획', value: planIn },
+                { label: '총 받아야 할 돈', value: planIn },
                 { label: '수금 완료', value: collectedAll, tone: 'in' },
-                { label: '조건 충족 · 수금 대기', value: openIn, tone: 'wait' },
+                { label: '받을 수 있는 돈', value: openIn, tone: 'wait' },
               ]}
             />
           </Panel>
@@ -156,7 +156,7 @@ export default async function FinancePage({
         </Panel>
 
         {isAdmin && (
-          <Panel eyebrow="한백 몫" title="받을 기성 − 내려줄 지급" side="단가가 붙은 라인만">
+          <Panel eyebrow="한백 몫" title="총 받아야 할 돈 − 내려줄 지급" side="단가가 붙은 라인만">
             <Facts rows={[{ label: '마진 합계', value: margin, tone: 'in' }]} />
             {settlements.some((s) => s.unpricedLines > 0) && (
               <p className="mt-3 text-tiny font-semibold text-amber-700">

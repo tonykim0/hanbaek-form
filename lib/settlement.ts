@@ -211,11 +211,15 @@ export function checkSettlementSteps(steps: SettlementStepRule[], turnkey: numbe
  * 쓰는 말이다. 실제로 「착공 트리거가 뭐냐」는 물음이 나왔다(2026-08-28). 지급 쪽은 같은 뜻을
  * 이미 「조건 대기」로 쓰고 있다(payout-board 의 WorkState) — 같은 개념에 같은 말을 쓴다.
  * 무엇을 기다리는지는 차수 칸의 부기가 적는다(「660,000 · 준공마감」).
+ *
+ * ★말을 네 마디로 통일했다★ (한백 지시 2026-08-28) — 총 받아야 할 돈 · 받을 수 있는 돈 ·
+ * 수금 완료 · 미수금. 「청구 가능」은 그 넷에 없던 다섯째 말이라 「받을 수 있음」으로 바꿨다
+ * (차수 하나의 상태라 형용형이다). 같은 것을 두 말로 부르면 화면마다 다른 말이 뜬다.
  */
 export const STEP_LABEL: Record<StepState, string> = {
   na: '해당없음',
   waiting: '조건 대기',
-  open: '청구 가능',
+  open: '받을 수 있음',
   collected: '수금 완료',
 };
 

@@ -29,23 +29,23 @@ import { Frame, SiteLink, Tile, won } from './parts';
 /** 거르는 축 — 상태는 「그 현장에 그런 차수가 하나라도 있나」로 본다 */
 type Flag = 'open' | 'unpaid' | 'done' | 'norule';
 const FLAGS: Array<{ key: Flag; label: string }> = [
-  { key: 'open', label: '청구 가능' },
+  { key: 'open', label: '받을 수 있는 돈' },
   { key: 'unpaid', label: '미수금' },
   { key: 'done', label: '수금 완료' },
-  { key: 'norule', label: '규칙 미지정' },
+  { key: 'norule', label: '정산 규칙 미지정' },
 ];
 
 /**
- * 정렬 — 기본은 청구 가능액이 큰 것부터다.
+ * 정렬 — 기본은 받을 수 있는 돈이 큰 것부터다.
  *
  * 그것이 이 화면을 여는 이유다: 「지금 받을 수 있는 돈이 어디 있나」. 예전 기본값은
  * 저장소 순서(현장 번호)였는데 그 순서는 이 질문과 아무 상관이 없다.
  */
 type SortKey = 'open' | 'unpaid' | 'plan' | 'name';
 const SORTS: Array<{ key: SortKey; label: string }> = [
-  { key: 'open', label: '청구 가능액 많은 순' },
+  { key: 'open', label: '받을 수 있는 돈 많은 순' },
   { key: 'unpaid', label: '미수금 많은 순' },
-  { key: 'plan', label: '받을 기성 많은 순' },
+  { key: 'plan', label: '총 받아야 할 돈 많은 순' },
   { key: 'name', label: '현장명' },
 ];
 
@@ -85,7 +85,7 @@ export default function ReceivableBoard({ rows }: { rows: SettlementSummary[] })
     const passes = (r: SettlementSummary) => {
       if (needle && !r.name.includes(needle)) return false;
       if (cpos.length && !cpos.includes(r.cpo)) return false;
-      // 상태끼리는 OR 다 — 「청구 가능이거나 미수금인 것」을 보고 싶을 때가 있다
+      // 상태끼리는 OR 다 — 「받을 수 있는 돈이 있거나 미수금인 것」을 보고 싶을 때가 있다
       if (flags.length === 0) return true;
       return flags.some((f) =>
         f === 'open' ? openOf(r) > 0
@@ -133,7 +133,8 @@ export default function ReceivableBoard({ rows }: { rows: SettlementSummary[] })
         * 순서도 그 뜻대로다: 총액 → ★지금 받을 수 있는 것★ → 받은 것 → 남은 것.
         * 「받을 수 있는 돈」이 둘째인 이유는 그것이 이 화면을 여는 이유이기 때문이다.
         * 예전에는 「받을 기성 · 수금 · 미수금 · 청구 가능」 순으로 나란히만 놓여 있어,
-        * 무엇이 무엇의 부분인지 읽히지 않았다.
+        * 무엇이 무엇의 부분인지 읽히지 않았다. ★띠는 걷었다★ (한백 지시 2026-08-28) —
+        * 관계는 이름과 순서, 그리고 부기(「조건 대기 X원 포함」)가 말한다.
         */}
       <section aria-label="기성 합계" className="mb-5">
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -143,30 +144,11 @@ export default function ReceivableBoard({ rows }: { rows: SettlementSummary[] })
             note={money.open > 0 ? '조건이 찬 차수' : '조건이 찬 차수 없음'} />
           <Tile label="수금 완료" value={money.collected} tone="in"
             note={rate !== null ? `수금률 ${rate}%` : undefined} />
-          {/* 다 받은 목록에 「전부 청구 가능」이 뜨면 안 된다 — 0원에는 부기를 달지 않는다 */}
+          {/* 다 받은 목록에 부기가 뜨면 안 된다 — 0원에는 아무것도 달지 않는다 */}
           <Tile label="미수금" value={money.unpaid}
             note={money.unpaid === 0 ? undefined
-              : money.waiting > 0 ? `조건 대기 ${won(money.waiting)}원 포함` : '전부 청구 가능'} />
+              : money.waiting > 0 ? `조건 대기 ${won(money.waiting)}원 포함` : '전부 받을 수 있음'} />
         </div>
-
-        {/*
-          * 한 줄로 본 총액의 구성 — 수금 완료 · 받을 수 있는 돈 · 조건 대기. 셋을 더하면
-          * 총액이다. 숫자 넷보다 「어디까지 왔나」가 먼저 읽힌다.
-          */}
-        {money.plan > 0 && (
-          <div className="mt-3">
-            <div className="flex h-2.5 overflow-hidden rounded-full bg-slate-100">
-              <div className="bg-brand-500" style={{ width: `${(money.collected / money.plan) * 100}%` }} />
-              <div className="bg-amber-400" style={{ width: `${(money.open / money.plan) * 100}%` }} />
-              <div className="bg-slate-300" style={{ width: `${(money.waiting / money.plan) * 100}%` }} />
-            </div>
-            <p className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-tiny font-semibold text-slate-500">
-              <Legend color="bg-brand-500" label="수금 완료" value={money.collected} />
-              <Legend color="bg-amber-400" label="받을 수 있는 돈" value={money.open} />
-              <Legend color="bg-slate-300" label="조건 대기" value={money.waiting} />
-            </p>
-          </div>
-        )}
       </section>
 
       {/*
@@ -245,8 +227,8 @@ export default function ReceivableBoard({ rows }: { rows: SettlementSummary[] })
               <th className="px-3 py-2.5 text-left">1차</th>
               <th className="px-3 py-2.5 text-left">2차</th>
               <th className="px-3 py-2.5 text-left">3차</th>
-              <th className="px-3 py-2.5 text-right">받을 금액</th>
-              <th className="px-3 py-2.5 text-right">수금</th>
+              <th className="px-3 py-2.5 text-right">받아야 할 돈</th>
+              <th className="px-3 py-2.5 text-right">수금 완료</th>
               <th className="px-3 py-2.5 text-right">미수금</th>
             </tr>
           </thead>
@@ -314,15 +296,5 @@ function StepCell({
         {note && <span className="ml-1 font-semibold text-slate-400">· {note}</span>}
       </p>
     </td>
-  );
-}
-
-/** 띠의 한 토막이 무엇인지 — 색과 이름과 금액을 한 자리에 둔다 */
-function Legend({ color, label, value }: { color: string; label: string; value: number }) {
-  return (
-    <span className="inline-flex items-center gap-1.5">
-      <span aria-hidden className={`h-2 w-2 rounded-full ${color}`} />
-      {label} <span className="tabular-nums text-slate-700">{won(value)}</span>
-    </span>
   );
 }

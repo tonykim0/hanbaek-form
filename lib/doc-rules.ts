@@ -275,11 +275,49 @@ export const PROCESS_DOCS = [
   { key: 'safety', name: '안전점검필증 (사용전점검필증)' },
   /*
    * 전기안전관리자 선임신고증명서 — ★한전불입 현장만★ (한백 2026-08-27).
-   * 모자분리는 세대 계량이라 선임 대상이 아니다. 화면이 수전방식을 보고 칸을 낸다.
+   * 모자분리는 세대 계량이라 선임 대상이 아니다. 혼용도 한전불입을 쓰므로 포함한다.
    */
-  { key: 'safetyMgr', name: '전기안전관리자 선임신고증명서' },
+  {
+    key: 'safetyMgr',
+    name: '전기안전관리자 선임신고증명서',
+    only: (c: ProcessDocCtx) => Boolean(c.powerType?.includes('한전불입')),
+  },
   { key: 'useInspect', name: '사용검사 필증' },
   { key: 'asBuilt', name: '준공도' },
   { key: 'photoDone', name: '설치완료사진' },
   { key: 'comm', name: '통신확인' },
 ] as const;
+
+/**
+ * 공정 서류 종류의 키 — 상자가 「어느 서류를 그리나」를 적을 때 이 타입을 쓴다.
+ *
+ * ★문자열로 두면 오타가 조용히 지나간다★ (2026-08-27) — 상자는 목록에 적힌 종류를
+ * PROCESS_DOCS 에서 찾아 그리는데, 못 찾으면 아무것도 안 그리고 끝난다. 이름을 바꾸자
+ * 줄이 통째로 사라졌던 것과 같은 갈래다(J). 타입으로 못 박으면 컴파일이 잡는다.
+ */
+export type ProcessDocKey = (typeof PROCESS_DOCS)[number]['key'];
+
+/**
+ * 조건부 서류가 보는 것 — 그 현장에 그 서류가 필요한가.
+ *
+ * ★조건을 화면이 아니라 정의 옆에 둔다★ — 「한전불입만」을 상자 쪽에 적었더니, 서류가
+ * 무엇인지 아는 곳(doc-rules)과 언제 필요한지 아는 곳(화면)이 갈렸다. 서버는 그 현장에
+ * 그 서류가 필요한지 알 길이 없었다. 계약 서류가 이미 이 꼴이다(`req: (c) => 'm'|'o'`).
+ */
+export interface ProcessDocCtx {
+  powerType: PowerType | null;
+  bizType: BizType | null;
+}
+
+/** 이 현장에서 실제로 받는 서류만 남긴다 — 조건이 없는 것은 늘 받는다 */
+export function processDocsFor(
+  keys: readonly ProcessDocKey[],
+  ctx: ProcessDocCtx
+): Array<{ key: ProcessDocKey; name: string }> {
+  return keys.flatMap((key) => {
+    const spec = PROCESS_DOCS.find((d) => d.key === key);
+    if (!spec) return [];
+    const only = 'only' in spec ? spec.only : undefined;
+    return only && !only(ctx) ? [] : [{ key: spec.key, name: spec.name }];
+  });
+}

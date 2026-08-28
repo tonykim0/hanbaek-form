@@ -17,7 +17,7 @@
 import { Fragment, useEffect, useState } from 'react';
 import type { ChargerModel, ProcessStatus, ProjectDetail } from '@/types/project';
 import { PROCESS_STATUSES } from '@/types/project';
-import { PROCESS_DOCS } from '@/lib/doc-rules';
+import { PROCESS_DOCS, processDocsFor, type ProcessDocKey } from '@/lib/doc-rules';
 import { bandOfColumn } from '@/lib/board';
 import { advanceBlockers,
   canEnter, isHanbaekOnlyProcessField, statusIndex, STATUS_GATES, type ProcessEdit,
@@ -73,7 +73,8 @@ interface GroupCheck {
 interface Group {
   title: string;
   rows: MilestoneRow[];
-  docs: string[];
+  /** 이 상자가 그리는 서류 — 타입이라 오타가 컴파일에서 걸린다(옛 string[] 은 조용히 없었다) */
+  docs: ProcessDocKey[];
   /** 이 묶음을 끝냈다는 사람의 선언 */
   check?: GroupCheck;
   /**
@@ -115,6 +116,8 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
   const p = detail.process;
   /** 설치 실적 옆에 두는 비교 기준 — 계약과 실제가 다른 것은 흔하다 */
   const contractQty = detail.lines.reduce((s, l) => s + l.qty, 0);
+  /** 조건부 서류가 보는 것 — 그 현장에 그 서류가 필요한가(doc-rules 의 only) */
+  const docCtx = { powerType: detail.project.powerType, bizType: detail.project.bizType };
   const { busyKey, error, run } = useAction();
 
   /*
@@ -395,8 +398,8 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
         rows: [],
         /*
          * 준공에 받는 서류 (한백 2026-08-27) — 환경부 제출분 둘, 대관서류 넷.
-         * 「준공서류」 칸은 그대로 둔다: 이 구간에 들어오는 조건이 그 칸이다(STATUS_GATES).
-         * 전기안전관리자 선임신고증명서는 한전불입 현장에만 낸다 — 혼용도 한전불입을 쓴다.
+         * 조건부 서류(전기안전관리자 선임신고증명서 = 한전불입만)는 여기 적지 않는다 —
+         * 조건은 정의 옆에 있고(doc-rules 의 only), processDocsFor 가 걸러 준다.
          */
         docs: [
           /*
@@ -404,11 +407,11 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
            * 그 파일이 화면에서 사라진다(상자가 그리는 종류만 보인다). 새 현장은 아래
            * 세부 칸에 낸다. 이 구간에 들어오는 조건도 설치완료확인서로 옮겼다.
            */
-          ...(uploaded('completion') ? ['completion'] : []),
+          ...(uploaded('completion') ? (['completion'] as const) : []),
           'completeConfirm',
           'costSurvey',
           'safety',
-          ...(detail.project.powerType?.includes('한전불입') ? ['safetyMgr'] : []),
+          'safetyMgr',
           'useInspect',
           'asBuilt',
         ],
@@ -644,9 +647,9 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
                       */}
                     {g.extras?.map((x) => extraRow(x))}
 
-                    {(!g.need || Boolean(p[g.need.field])) && g.docs.map((kind) => {
-                      const spec = PROCESS_DOCS.find((x) => x.key === kind);
-                      if (!spec) return null;
+                    {(!g.need || Boolean(p[g.need.field]))
+                      && processDocsFor(g.docs, docCtx).map((spec) => {
+                      const kind = spec.key;
                       return (
                         <DocRow
                           key={kind}

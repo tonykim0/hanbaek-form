@@ -759,10 +759,19 @@ function PaymentSection({
                             {won(amount)}
                           </span>
                         </td>
-                        {/* 지급시기 — 상태는 둘뿐이다: 지급완료(날짜) 또는 미지급 */}
+                        {/*
+                          지급시기 — 지급완료(날짜) · 미지급 · 초과 충당.
+                          ★셋째가 필요했다★(한백 지적 2026-08-28): 회차 완료를 금액 누적으로
+                          재는 탓에, 앞 회차에 계획보다 많이 나가면 뒤 회차가 날짜도 없이
+                          「지급완료」로 보였다. 나갈 돈이 없는 것은 맞으니 그렇게 적는다.
+                        */}
                         {/* 태그 아래 날짜 — 옆으로 붙이면 마지막 열이 날짜만큼 밀려 표가 가로로 넘친다 */}
                         <td className="whitespace-nowrap px-3 py-2.5">
-                          {done ? (
+                          {done && !at ? (
+                            <span className="rounded-tag bg-slate-100 px-1.5 py-0.5 text-tiny font-bold text-slate-600">
+                              초과 충당
+                            </span>
+                          ) : done ? (
                             <span className="inline-flex flex-col items-start gap-0.5">
                               <span className="rounded-tag bg-brand-50 px-1.5 py-0.5 text-tiny font-bold text-brand-800">
                                 지급완료

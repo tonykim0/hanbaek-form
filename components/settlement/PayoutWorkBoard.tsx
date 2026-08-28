@@ -263,6 +263,14 @@ function StepCells({
   const done = no === 1 ? p.step1Done : p.step2Done;
   const at = no === 1 ? p.step1At : p.step2At;
   const entryId = no === 1 ? p.step1EntryId : p.step2EntryId;
+  /*
+   * ★원장에 없는 회차는 「지급됨」이 아니다★ (한백 지적 2026-08-28).
+   *
+   * 회차 완료는 금액 누적으로 판정한다 — 앞 회차에 계획보다 많이 나가면 뒤 회차가 저절로
+   * 채워진다. 그것을 「지급됨」이라 적으면 나가지도 않은 돈에 날짜 없는 완료 표시가 붙는다
+   * (반달마을푸르지오 영업비 2차가 그랬다). 나갈 돈이 없는 것은 맞으니 「초과 충당」이라 적는다.
+   */
+  const covered = done && entryId === null && at === null;
   const amount = p.open?.no === no ? p.open.amount : no === 1 ? p.step1Amount : p.step2Amount;
   const openHere = p.open?.no === no;
   const release = payoutReleaseOf(p.kind, no, p.milestones);
@@ -293,7 +301,9 @@ function StepCells({
 
       {/* 지급일 — 배치에 실렸으면 그 날짜, 지급 가능이면 규칙(익월 10·25일)을 예정으로 */}
       <td className="whitespace-nowrap px-3 py-2.5 text-right align-top">
-        {done ? (
+        {covered ? (
+          <span className="text-slate-300">—</span>
+        ) : done ? (
           <p className="text-small font-bold tabular-nums text-brand-800">{at ?? '지급됨'}</p>
         ) : openHere && p.state === '지급 가능' && release.metAt ? (
           <p className="text-micro font-bold text-slate-400">
@@ -318,7 +328,9 @@ function StepCells({
         그 밖의 사정(수수료 미정 등)은 상태가 아니라 이유라 배지 밑에 글로 남는다.
       */}
       <td className="whitespace-nowrap px-3 py-2.5 align-top">
-        {done && state ? (
+        {covered ? (
+          <Badge tone="mute">초과 충당</Badge>
+        ) : done && state ? (
           <Badge tone={
             state === '확정' ? 'ok'
               : state === '가확정' ? 'warn'

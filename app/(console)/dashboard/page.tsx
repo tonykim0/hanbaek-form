@@ -284,6 +284,12 @@ function MonthBars({
   );
 }
 
+/** 현장당 설치기수 — 한 자리까지. 「3.5」·「4」처럼 군더더기 0 을 안 붙인다 */
+function avgOf(row: { projects: number; qty: number }): string {
+  if (row.projects === 0) return '0';
+  return String(Math.round((row.qty / row.projects) * 10) / 10);
+}
+
 function Breakdown({
   title,
   rows,
@@ -325,8 +331,15 @@ function Breakdown({
               <div className="mb-1.5 flex items-baseline gap-2">
                 <span className="min-w-0 flex-1 truncate text-small font-bold text-slate-700">{row.value}</span>
                 <span className="text-small font-black tabular-nums text-slate-900">{percent}%</span>
-                <span className="w-[64px] text-right text-tiny tabular-nums text-slate-400">
+                {/*
+                  현장당 평균 기수 (한백 2026-08-29) — 대수와 건수만 있으면 「많이 판 곳」과
+                  「크게 판 곳」이 구별되지 않는다. 10건 35대와 2건 35대는 같은 35대지만
+                  다른 영업이다. 한 자리까지만 적는다 — 소수 둘째 자리는 판단을 안 바꾼다.
+                  계약연수 카드에서는 그 연수 라인만의 평균이다(그 축의 대수와 현장 수라서).
+                */}
+                <span className="w-[124px] whitespace-nowrap text-right text-tiny tabular-nums text-slate-400">
                   {row.qty}대 · {row.projects}건
+                  <span className="ml-1 text-slate-300">평균 {avgOf(row)}대</span>
                 </span>
               </div>
               <div className="h-1.5 overflow-hidden rounded-full bg-slate-100">

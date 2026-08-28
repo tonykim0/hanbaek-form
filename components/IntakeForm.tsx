@@ -25,15 +25,17 @@ import { useRouter } from 'next/navigation';
 import type {
   BizType, BuildingType, ContractParty, CpoName, IntakeDraft, PowerType, PreInstall, ReplType,
 } from '@/types/project';
-import { bizTypeOfRepl, replLabel, SPLITS_SELF_REPL } from '@/types/project';
+import { replLabel, SPLITS_SELF_REPL } from '@/types/project';
 import { uploadIntakeFile, uploadIntakeZip } from '@/lib/intake-upload';
 import { buildDocContext, evaluateDocs } from '@/lib/doc-rules';
 import { checkDraft } from '@/lib/intake-validate';
 import { regionPrefixOf, withRegionPrefix } from '@/lib/region';
 import { useLeaveGuard } from '@/lib/use-leave-guard';
 // 부품은 콘솔·포털이 같이 쓴다 — 같은 일에 같은 모양이어야 접수 폼이 다른 앱처럼 보이지 않는다
-import { Btn, FIELD, Picks } from '@/components/ui';
-import type { DocFinding, DocReview, AutoIntakeResult } from '@/types/intake-auto';
+import { Btn, FIELD } from '@/components/ui';
+import { Card, Field, OrgPicks, QtyGrid, Select } from './intake/parts';
+import { DocSection } from './intake/DocSection';
+import type { DocReview } from '@/types/intake-auto';
 
 const CPOS: CpoName[] = ['플러그링크', '나이스인프라', '현대엔지니어링', 'SK일렉링크', '에버온'];
 const BLDG: BuildingType[] = ['공동주택', '상업시설'];
@@ -42,27 +44,6 @@ const POWERS: PowerType[] = ['한전불입', '모자분리', '한전불입+모�
 const BIZ: BizType[] = ['환경부', '자체투자', '연동'];
 const PRE: PreInstall[] = ['없음', '있음'];
 const TERMS = [5, 7, 10];
-
-/**
- * 서류를 세 묶음으로 나눈다.
- *
- * 필수만 접수를 막는다. 한 그리드에 16칸을 늘어놓으면 무엇이 접수를 막는지 배지를
- * 하나씩 읽어야 알 수 있어서, 막는 것과 아닌 것을 자리로 갈랐다.
- */
-const DOC_SECTIONS = [
-  { req: 'm' as const, label: '필수', rule: 'bg-red-400', note: '없으면 접수되지 않습니다' },
-  { req: 'c' as const, label: '조건부', rule: 'bg-amber-400', note: '해당되면 냅니다' },
-  { req: 'o' as const, label: '선택', rule: 'bg-slate-300', note: '있으면 함께 냅니다' },
-];
-
-/** 필수 → 조건부 → 선택 순으로 세운다 */
-const REQ_ORDER: Record<'m' | 'c' | 'o', number> = { m: 0, c: 1, o: 2 };
-const REQ_LABEL: Record<'m' | 'c' | 'o', string> = { m: '필수', c: '조건부', o: '선택' };
-const REQ_STYLE: Record<'m' | 'c' | 'o', string> = {
-  m: 'bg-slate-800 text-white',
-  c: 'bg-amber-100 text-amber-900',
-  o: 'bg-slate-100 text-slate-500',
-};
 
 interface Line {
   termYears: number;
@@ -471,7 +452,7 @@ export default function IntakeForm({ org, isAdmin = false, knownOrgs = [] }: {
             <Select value={cpo} onChange={(v) => { setCpo(v as CpoName); touched('cpo'); }} options={CPOS} />
           </Field>
           <Field label="현장명" required auto={auto.has('name')}>
-            <input value={name} onChange={(e) => { setName(e.target.value); touched('name'); }} placeholder="서울 강남 행복아파트" className={inputClass} />
+            <input value={name} onChange={(e) => { setName(e.target.value); touched('name'); }} placeholder="서울 강남 행복아파트" className={FIELD} />
             {/*
               * 판독이 채운 이름에는 이미 지역이 붙어 있다(lib/region). 사람이 직접 칠 때만
               * 이 자리가 나타난다 — 치는 중에 이름을 몰래 고치지는 않는다.
@@ -487,19 +468,19 @@ export default function IntakeForm({ org, isAdmin = false, knownOrgs = [] }: {
             )}
           </Field>
           <Field label="주소" span auto={auto.has('addr')}>
-            <input value={addr} onChange={(e) => { setAddr(e.target.value); touched('addr'); }} placeholder="서울 강남구 역삼동 123" className={inputClass} />
+            <input value={addr} onChange={(e) => { setAddr(e.target.value); touched('addr'); }} placeholder="서울 강남구 역삼동 123" className={FIELD} />
           </Field>
           <Field label="건축물유형" auto={auto.has('bldgType')}>
             <Select value={bldgType ?? ''} onChange={(v) => { setBldgType((v || null) as BuildingType | null); touched('bldgType'); }} options={BLDG} blank />
           </Field>
           <Field label="총 주차면수" auto={auto.has('parkTotal')}>
-            <input value={parkTotal} onChange={(e) => { setParkTotal(e.target.value.replace(/\D/g, '')); touched('parkTotal'); }} inputMode="numeric" placeholder="120" className={inputClass} />
+            <input value={parkTotal} onChange={(e) => { setParkTotal(e.target.value.replace(/\D/g, '')); touched('parkTotal'); }} inputMode="numeric" placeholder="120" className={FIELD} />
           </Field>
           <Field label="계약연수" required auto={auto.has('termYears')}>
             <select
               value={termYears}
               onChange={(e) => { setTermYears(Number(e.target.value)); touched('termYears'); }}
-              className={inputClass}
+              className={FIELD}
             >
               {TERMS.map((t) => <option key={t} value={t}>{t}년</option>)}
             </select>
@@ -547,157 +528,16 @@ export default function IntakeForm({ org, isAdmin = false, knownOrgs = [] }: {
         </div>
       </Card>
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-5">
-        <div className="mb-1 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-          <h2 className="text-base font-black tracking-[-0.02em] text-slate-900">서류</h2>
-          <p className="text-small font-bold text-slate-500">
-            필수 <span className="tabular-nums text-slate-900">{check.satisfiedCount}</span>
-            <span className="text-slate-300"> / </span>
-            <span className="tabular-nums">{check.requiredCount}</span>
-            {issueCount > 0 && (
-              <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-tiny text-amber-900">
-                확인 필요 {issueCount}
-              </span>
-            )}
-          </p>
-        </div>
-
-        {/* 얼마나 남았는지는 숫자보다 길이로 먼저 읽힌다 */}
-        <div className="mb-1.5 h-1.5 overflow-hidden rounded-full bg-slate-100">
-          <div
-            className="h-full rounded-full bg-brand-500 transition-[width]"
-            style={{
-              width: `${check.requiredCount === 0 ? 100 : Math.round((check.satisfiedCount / check.requiredCount) * 100)}%`,
-            }}
-          />
-        </div>
-        <p className="mb-4 text-tiny leading-relaxed text-slate-400">
-          {review
-            ? '올린 서류를 한 장씩 읽어 확인했습니다. 짚은 것이 있으면 그 칸에 적혀 있습니다 — 접수를 막지는 않습니다.'
-            : '운영사·계약주체·수전방식에 따라 필요한 서류가 바뀝니다. 파일은 접수가 끝난 뒤 이어서 올라갑니다.'}
-        </p>
-
-        <div className="flex flex-col gap-5">
-          {DOC_SECTIONS.map((sec) => {
-            const list = docs.filter((d) => d.req === sec.req);
-            if (list.length === 0) return null;
-            const done = list.filter((d) => staged[d.key]).length;
-            return (
-              <div key={sec.req}>
-                <div className="mb-2 flex items-baseline gap-2">
-                  <span className={`h-[3px] w-5 rounded-full ${sec.rule}`} />
-                  <h3 className="text-tiny font-black tracking-[0.1em] text-slate-500">
-                    {sec.label}
-                  </h3>
-                  <span className="text-tiny font-bold tabular-nums text-slate-400">
-                    {done}/{list.length}
-                  </span>
-                  <span className="text-tiny text-slate-400">{sec.note}</span>
-                </div>
-
-                <div className="grid gap-2 lg:grid-cols-2">
-                  {list.map((d) => {
-                    const filled = staged[d.key];
-                    const uploading = picking[d.key];
-                    const finding = review?.findings.find((f) => f.kind === d.key);
-                    const flagged = finding !== undefined && !finding.ok;
-                    const missing = !filled && d.req === 'm';
-
-                    return (
-                      <div
-                        key={d.key}
-                        className={`flex gap-2.5 rounded-xl border border-l-[3px] p-3 transition ${
-                          flagged
-                            ? 'border-slate-200 border-l-amber-500 bg-amber-50/50'
-                            : filled
-                              ? 'border-slate-200 border-l-brand-500 bg-white'
-                              : missing
-                                ? 'border-slate-200 border-l-red-400 bg-white'
-                                : 'border-dashed border-slate-200 border-l-slate-200 bg-white'
-                        }`}
-                      >
-                        <div className="min-w-0 flex-1">
-                          <p className="flex flex-wrap items-baseline gap-x-1.5 break-keep text-base font-bold leading-snug text-slate-800">
-                            {d.label}
-                            {d.ext && (
-                              <span className="text-micro font-bold text-slate-400">{d.ext}</span>
-                            )}
-                          </p>
-
-                          {uploading !== undefined ? (
-                            <div className="mt-1.5">
-                              <div className="h-1 overflow-hidden rounded-full bg-slate-100">
-                                <div
-                                  className="h-full rounded-full bg-brand-500 transition-[width]"
-                                  style={{ width: `${uploading}%` }}
-                                />
-                              </div>
-                              <p className="mt-1 text-tiny font-bold text-brand-700">
-                                올리는 중 {uploading}%
-                              </p>
-                            </div>
-                          ) : filled ? (
-                            <p
-                              className="mt-1 truncate text-tiny text-slate-500"
-                              title={filled.filename}
-                            >
-                              {filled.filename}
-                            </p>
-                          ) : (
-                            <p
-                              className={`mt-1 text-tiny font-bold ${
-                                missing ? 'text-red-700' : 'text-slate-300'
-                              }`}
-                            >
-                              {missing ? '미제출' : '없음'}
-                            </p>
-                          )}
-
-                          {finding && <Finding finding={finding} />}
-                        </div>
-
-                        <div className="flex shrink-0 flex-col items-end gap-1">
-                          <label className="inline-flex cursor-pointer items-center rounded-lg border border-slate-300 bg-white px-2 py-1 text-tiny font-bold text-slate-700 transition hover:border-brand-400 hover:text-brand-800">
-                            {filled ? '바꾸기' : '고르기'}
-                            <input
-                              type="file"
-                              className="hidden"
-                              onChange={(e) => {
-                                const f = e.target.files?.[0];
-                                e.target.value = ''; // 같은 파일을 다시 고를 수 있게 비운다
-                                if (f) void pick(d.key, f);
-                              }}
-                            />
-                          </label>
-                          {filled && <Preview url={filled.blobUrl} />}
-                          {/*
-                            * ZIP 자동분류가 엉뚱한 칸에 넣는 일이 있다. 바꿀 파일이 따로
-                            * 없으면 비우는 길이 있어야 한다 — 아직 접수 전이라 화면에서만 뺀다.
-                            * 임시본은 사흘 뒤 청소가 걷어간다(lib/intake-stage).
-                            */}
-                          {filled && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const next = { ...staged };
-                                delete next[d.key];
-                                setStaged(next);
-                              }}
-                              className="text-tiny font-bold text-slate-400 underline decoration-slate-300 transition hover:text-red-700"
-                            >
-                              빼기
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </section>
+      <DocSection
+        docs={docs}
+        check={check}
+        issueCount={issueCount}
+        review={review}
+        staged={staged}
+        picking={picking}
+        onPick={pick}
+        onRemove={(kind: string) => setStaged((st) => { const next = { ...st }; delete next[kind]; return next; })}
+      />
 
       {/*
         * 한백이 대신 접수하는 자리.
@@ -718,7 +558,7 @@ export default function IntakeForm({ org, isAdmin = false, knownOrgs = [] }: {
                 value={salesOrg}
                 onChange={(e) => setSalesOrg(e.target.value)}
                 placeholder="계정 없는 업체면 이름만"
-                className={inputClass}
+                className={FIELD}
               />
               <OrgPicks names={knownOrgs} onPick={setSalesOrg} />
             </Field>
@@ -727,7 +567,7 @@ export default function IntakeForm({ org, isAdmin = false, knownOrgs = [] }: {
                 value={gcOrg}
                 onChange={(e) => setGcOrg(e.target.value)}
                 placeholder="영업과 같으면 같은 이름"
-                className={inputClass}
+                className={FIELD}
               />
               <OrgPicks names={knownOrgs} onPick={setGcOrg} />
             </Field>
@@ -741,7 +581,7 @@ export default function IntakeForm({ org, isAdmin = false, knownOrgs = [] }: {
           onChange={(e) => setNote(e.target.value)}
           rows={3}
           placeholder="영업비 차감하여 프로모션을 적용했다면 그 내용을 적어주세요"
-          className={inputClass}
+          className={FIELD}
         />
       </Card>
 
@@ -766,228 +606,4 @@ export default function IntakeForm({ org, isAdmin = false, knownOrgs = [] }: {
       </div>
     </div>
   );
-}
-
-
-// ── 조각 ────────────────────────────────────────────────────────
-/* 입력칸 모양은 부품이 쥔다 — 접수 폼도 콘솔과 같은 칸을 쓴다(ui.tsx FIELD) */
-const inputClass = FIELD;
-
-function Card({
-  title, note, children,
-}: {
-  title: string;
-  note?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-5">
-      <div className="mb-3">
-        <h2 className="text-base font-black tracking-[-0.02em] text-slate-900">{title}</h2>
-        {note && <p className="mt-0.5 text-tiny text-slate-400">{note}</p>}
-      </div>
-      {children}
-    </section>
-  );
-}
-
-function Field({
-  label, required, hint, span, auto, children,
-}: {
-  label: string;
-  required?: boolean;
-  hint?: string;
-  span?: boolean;
-  /** 판독이 채운 칸 — 사람이 고치면 표시가 사라진다 */
-  auto?: boolean;
-  children: React.ReactNode;
-}) {
-  return (
-    <label className={`block ${span ? 'sm:col-span-2' : ''}`}>
-      <span className="mb-1 flex items-baseline gap-1.5 text-tiny font-bold tracking-[0.06em] text-slate-400">
-        {label}
-        {required && <span className="text-red-500">*</span>}
-        {auto && (
-          <span className="rounded bg-brand-100 px-1 py-0.5 text-[9px] font-bold text-brand-800">
-            판독
-          </span>
-        )}
-      </span>
-      {children}
-      {hint && <span className="mt-1 block text-tiny text-slate-400">{hint}</span>}
-    </label>
-  );
-}
-
-/**
- * 서류 한 장의 검수 결과.
- *
- * 문제가 없으면 「확인됨」한 줄이다. 있으면 무엇이 어떻게 문제인지 그대로 적는다 —
- * 「확인 필요」만 띄우면 원본을 다 열어봐야 한다.
- */
-function Finding({ finding }: { finding: DocFinding }) {
-  if (!finding.checked) {
-    return <p className="mt-1.5 text-micro text-slate-400">검수하지 못했습니다</p>;
-  }
-  if (finding.ok) {
-    return (
-      <p className="mt-1.5 text-micro font-bold text-brand-700">이상없음</p>
-    );
-  }
-  return (
-    <ul className="mt-1.5 flex flex-col gap-0.5">
-      {finding.issues.map((x) => (
-        <li key={x} className="text-micro leading-snug text-amber-900">
-          · {x}
-        </li>
-      ))}
-    </ul>
-  );
-}
-
-/**
- * 올린 서류 열어보기.
- *
- * ZIP 에서 나온 것은 이미 Blob 에 있어서 주소를 그대로 열면 된다.
- * 손으로 고른 것은 아직 안 올라갔으므로 브라우저 안에서만 주소를 만들어 연다 —
- * 접수 전에도 「내가 넣은 게 이게 맞나」를 확인할 수 있어야 한다.
- *
- * 만든 주소는 새 탭이 읽은 뒤에 되돌린다. 바로 지우면 탭이 빈 화면을 띄운다.
- */
-function Preview({ url }: { url: string }) {
-  function open() {
-    window.open(url, '_blank', 'noopener');
-  }
-
-  return (
-    <button
-      type="button"
-      onClick={open}
-      className="mt-1 text-tiny font-bold text-brand-700 underline-offset-2 transition hover:underline"
-    >
-      미리보기
-    </button>
-  );
-}
-
-/**
- * 대수 입력 칸.
- *
- * 행이 교체유형, 열이 수전방식이다. 축이 하나뿐이면 칸도 하나만 나온다 —
- * 표를 억지로 그리면 「환경부 신규 × 한전불입」 한 칸에 머리글이 둘 붙어 읽기 어렵다.
- */
-/*
- * 행 타입을 제네릭으로 받는다 — 예전에는 `keyOf: (row: never, col: never)` 라서 부르는 쪽마다
- * `as never` 를 붙여야 했다. 캐스팅은 타입 검사를 끄는 일이라, 행 종류가 바뀌어도 안 걸린다.
- */
-function QtyGrid<R extends string>({
-  rows, cols, value, keyOf, onChange, rowLabel,
-}: {
-  rows: R[];
-  cols: Array<string | null>;
-  value: Record<string, number>;
-  keyOf: (row: R, col: string | null) => string;
-  onChange: (key: string, n: number) => void;
-  /** 행 이름 — 키는 그대로 두고 보이는 말만 바꾼다(교체유형을 안 가르는 운영사) */
-  rowLabel?: (row: R) => string;
-}) {
-  const single = rows.length === 1 && cols.length === 1;
-  const num = (e: React.ChangeEvent<HTMLInputElement>) =>
-    Number(e.target.value.replace(/\D/g, '') || 0);
-
-  if (single) {
-    const k = keyOf(rows[0], cols[0]);
-    return (
-      <span className="flex items-baseline gap-1.5">
-        <input
-          value={value[k] || ''}
-          inputMode="numeric"
-          placeholder="3"
-          onChange={(e) => onChange(k, num(e))}
-          className={inputClass}
-        />
-        <span className="shrink-0 text-sm text-slate-400">기</span>
-      </span>
-    );
-  }
-
-  const total = rows.reduce(
-    (n, r) => n + cols.reduce((m, c) => m + (value[keyOf(r, c)] ?? 0), 0),
-    0
-  );
-
-  return (
-    /*
-     * 좁은 화면에서는 옆으로 흐른다 (2026-08-27) — 겸용(한전불입+모자분리) 현장은 열이
-     * 늘어나는데, overflow-hidden 만 두었더니 스크롤이 아니라 ★잘려 나갔다★. 대수 칸이
-     * 화면 밖으로 밀린 줄 모른 채 접수되면 대수가 빠진 계약이 된다.
-     * 둥근 모서리를 지키는 겉과 흐르는 속을 나눈다 — 한 겹에 둘을 주면 세로 스크롤이 딸려온다.
-     */
-    <div className="overflow-hidden rounded-xl border border-slate-200">
-     <div className="overflow-x-auto">
-      <table className="w-full text-sm">
-        {cols.length > 1 && (
-          <thead className="bg-slate-50 text-tiny font-bold text-slate-500">
-            <tr>
-              <th className="px-3 py-2 text-left" />
-              {cols.map((c) => (
-                <th key={c ?? '-'} className="px-3 py-2 text-left">{c}</th>
-              ))}
-            </tr>
-          </thead>
-        )}
-        <tbody className="divide-y divide-slate-100">
-          {rows.map((r) => (
-            <tr key={r}>
-              <th className="w-[150px] px-3 py-2 text-left text-small font-bold text-slate-600">
-                {(rowLabel ? rowLabel(r) : r).replace('자체투자 ', '').replace(/[()]/g, '')}
-              </th>
-              {cols.map((c) => {
-                const k = keyOf(r, c);
-                return (
-                  <td key={c ?? '-'} className="px-3 py-2">
-                    <span className="flex items-baseline gap-1">
-                      <input
-                        value={value[k] || ''}
-                        inputMode="numeric"
-                        placeholder="0"
-                        onChange={(e) => onChange(k, num(e))}
-                        className="w-[72px] rounded-lg border border-slate-200 px-2 py-1 text-sm tabular-nums text-slate-900 placeholder:text-slate-300 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-100"
-                      />
-                      <span className="text-small text-slate-400">기</span>
-                    </span>
-                  </td>
-                );
-              })}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-     </div>
-      <p className="border-t border-slate-100 bg-slate-50 px-3 py-1.5 text-tiny font-bold text-slate-500">
-        합계 <span className="tabular-nums text-slate-800">{total}</span>기
-      </p>
-    </div>
-  );
-}
-
-function Select({
-  value, onChange, options, blank,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  options: readonly string[];
-  blank?: boolean;
-}) {
-  return (
-    <select value={value} onChange={(e) => onChange(e.target.value)} className={inputClass}>
-      {blank && <option value="">선택</option>}
-      {options.map((o) => <option key={o} value={o}>{o}</option>)}
-    </select>
-  );
-}
-
-/** 이미 쓰이는 업체 이름 — 눌러서 넣는다. 계정에 있는 것이 먼저 온다. */
-function OrgPicks({ names, onPick }: { names: string[]; onPick: (v: string) => void }) {
-  return <Picks options={names} onPick={onPick} className="mt-1.5" />;
 }

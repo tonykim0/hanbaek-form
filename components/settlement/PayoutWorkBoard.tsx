@@ -271,6 +271,8 @@ function StepCells({
    * (반달마을푸르지오 영업비 2차가 그랬다). 나갈 돈이 없는 것은 맞으니 「초과 충당」이라 적는다.
    */
   const covered = done && entryId === null && at === null;
+  // 초과로 채워진 것과 딴 명목(선금·차액)으로 나간 것을 가른다 — 뭉뚱그리면 거짓말이 된다
+  const overflow = p.confirmed > p.plan + p.adjust;
   const amount = p.open?.no === no ? p.open.amount : no === 1 ? p.step1Amount : p.step2Amount;
   const openHere = p.open?.no === no;
   const release = payoutReleaseOf(p.kind, no, p.milestones);
@@ -329,7 +331,7 @@ function StepCells({
       */}
       <td className="whitespace-nowrap px-3 py-2.5 align-top">
         {covered ? (
-          <Badge tone="mute">초과 충당</Badge>
+          <Badge tone="mute">{overflow ? '초과 충당' : '다른 명목으로 지급'}</Badge>
         ) : done && state ? (
           <Badge tone={
             state === '확정' ? 'ok'

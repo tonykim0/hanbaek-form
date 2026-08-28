@@ -697,6 +697,13 @@ function PaymentSection({
             over: Math.max(0, paid - (side.plan + adjust)),
             stepAt: (cat: '1차' | '2차') =>
               entries.find((e) => e.kind === side.kind && e.category === cat)?.at ?? null,
+            /*
+             * 그 회차로 실제 나간 금액. 계획(parts)이 아니라 원장이다 —
+             * 「1차 105만 지급완료」라고 적혀 있는데 실제로는 178.5만이 나간 현장이 있었다
+             * (반달마을푸르지오). 계획만 보여 주면 회차가 얼마나 넘쳤는지 화면에 없다.
+             */
+            stepPaid: (cat: '1차' | '2차') =>
+              entries.find((e) => e.kind === side.kind && e.category === cat)?.amount ?? null,
           };
         });
         const unitCell = (unit: number | 'mixed' | null) =>
@@ -750,14 +757,23 @@ function PaymentSection({
                   </td>
                   {([1, 2] as const).map((no) => {
                     const done = no === 1 ? r.steps.step1Done : r.steps.step2Done;
-                    const amount = r.steps.open?.no === no ? r.steps.open.amount : r.steps.parts[no - 1];
+                    const planned = r.steps.open?.no === no ? r.steps.open.amount : r.steps.parts[no - 1];
                     const at = r.stepAt(`${no}차`);
+                    const paidHere = r.stepPaid(`${no}차`);
+                    // 나간 돈이 있으면 그것이 이 칸의 값이다 — 계획은 다를 때만 밑에 남긴다
+                    const amount = paidHere ?? planned;
+                    const gap = paidHere !== null && paidHere !== planned;
                     return (
                       <Fragment key={no}>
                         <td className="whitespace-nowrap border-l border-slate-100 px-3 py-2.5 text-right">
                           <span className={`font-bold ${done ? 'text-slate-900' : 'text-slate-500'}`}>
                             {won(amount)}
                           </span>
+                          {gap && (
+                            <span className="block text-tiny font-semibold text-red-700">
+                              계획 {won(planned)} · {paidHere! > planned ? '초과' : '부족'} {won(Math.abs(paidHere! - planned))}
+                            </span>
+                          )}
                         </td>
                         {/*
                           지급시기 — 지급완료(날짜) · 미지급 · 초과 충당.
@@ -768,8 +784,14 @@ function PaymentSection({
                         {/* 태그 아래 날짜 — 옆으로 붙이면 마지막 열이 날짜만큼 밀려 표가 가로로 넘친다 */}
                         <td className="whitespace-nowrap px-3 py-2.5">
                           {done && !at ? (
+                            /*
+                              그 회차 항목이 원장에 없다. 돈이 어디서 왔는지로 말이 갈린다 —
+                              계획을 넘겨 나갔으면 「초과 충당」, 그렇지 않으면 선금·차액 같은
+                              딴 명목으로 나간 것이다. 둘을 뭉뚱그리면 초과가 아닌 현장에도
+                              초과라고 적힌다(개발 시험에서 실제로 그랬다).
+                            */
                             <span className="rounded-tag bg-slate-100 px-1.5 py-0.5 text-tiny font-bold text-slate-600">
-                              초과 충당
+                              {r.over > 0 ? '초과 충당' : '다른 명목으로 지급'}
                             </span>
                           ) : done ? (
                             <span className="inline-flex flex-col items-start gap-0.5">

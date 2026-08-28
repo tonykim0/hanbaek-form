@@ -6,7 +6,7 @@ import { getSessionUser, viewerOf } from '@/lib/auth/session';
 import { isHanbaek } from '@/lib/roles';
 import { won, wonCompact } from '@/lib/format';
 import YearTabs from '@/components/YearTabs';
-import { Blank, PANEL } from '@/components/ui';
+import { Blank, PANEL, Tag } from '@/components/ui';
 import type { ReactNode } from 'react';
 
 export const metadata = { title: '정산 현황 — 한백 전기차사업관리' };
@@ -112,6 +112,8 @@ export default async function FinancePage({
   const paidAll = overview.plans.reduce((sum, row) => sum + row.confirmed, 0);
   const restOut = overview.plans.reduce((sum, row) => sum + restOf(row), 0);
   const margin = settlements.reduce((sum, s) => sum + s.marginTotal, 0);
+  /* 마진이 실제보다 적게 나오는 현장 수 — 단가가 안 붙은 라인은 셀 금액이 없다 */
+  const unpricedSites = settlements.filter((s) => s.unpricedLines > 0).length;
 
   if (collected.length === 0 && paid.length === 0 && overview.plans.length === 0) {
     return (
@@ -155,17 +157,24 @@ export default async function FinancePage({
         </Panel>
 
         {/*
-          ★곁말을 다 걷었다 (한백 2026-08-29).★ 「총 받아야 할 돈 − 내려줄 지급」(계산식)
-          ·「단가가 붙은 라인만」(범위)·「단가 미지정 라인이 있는 현장 N건」(주의)이 숫자
-          하나를 둘러싸고 있었다. 매일 보는 사람에게는 그 셋이 다 아는 말이라 숫자를
-          가릴 뿐이다 — 규칙은 문장이 아니라 동작으로 보이게 만든다(화면 규칙 2).
-          계산식과 범위는 위 margin 을 세는 자리가 들고 있다.
+          ★곁말을 걷었다 (한백 2026-08-29).★ 「총 받아야 할 돈 − 내려줄 지급」(계산식)과
+          「단가가 붙은 라인만」(범위)이 숫자 하나를 둘러싸고 있었다. 매일 보는 사람에게는
+          다 아는 말이라 숫자를 가릴 뿐이다 — 규칙은 문장이 아니라 동작으로 보이게 만든다
+          (화면 규칙 2). 계산식과 범위는 위 margin 을 세는 자리가 들고 있다.
 
-          ★단가 미지정 경고도 같이 걷었다.★ 그 현장이 몇 건인지는 계약관리 표의
-          「단가 미지정」 꼬리표가 말하고, 고치는 자리도 거기다 — 여기서 다시 세지 않는다.
+          ★단가 미지정만 남긴다 — 문장이 아니라 꼬리표로.★ 한 번 걷었다가 되돌렸다
+          (한백 2026-08-29). 계약관리 표의 같은 이름 꼬리표와 겹쳐 보이지만 다른 사실이다:
+          저쪽은 「이 현장에 단가가 없다」이고, 여기 필요한 말은 「그래서 이 합계가 실제보다
+          적다」다. 숫자를 믿고 판단하는 자리에서 틀린 줄 모르는 숫자가 가장 위험하다.
+          두 줄짜리 문장이 숫자를 가렸던 것이지 사실이 군더더기였던 것이 아니다 —
+          세어진 것은 꼬리표다(화면 규칙 11).
         */}
         {isAdmin && (
-          <Panel eyebrow="한백 몫" title="한백 마진">
+          <Panel
+            eyebrow="한백 몫"
+            title="한백 마진"
+            side={unpricedSites > 0 ? <Tag tone="warn">단가 미지정 {unpricedSites}건</Tag> : undefined}
+          >
             <Facts rows={[{ label: '합계', value: margin, tone: 'in' }]} />
           </Panel>
         )}

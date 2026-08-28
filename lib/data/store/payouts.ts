@@ -89,38 +89,10 @@ export const payoutStore: Pick<
         .limit(1);
       if (!line) throw new Error('계약 라인을 찾을 수 없습니다.');
 
-      // 없는 케이스를 붙이면 조회할 때 rule 이 null 이 되어 「단가 미지정」으로 보인다.
-      // 저장은 됐는데 화면엔 안 붙는 상태라 원인을 찾기 어렵다 — 여기서 막는다.
-      let suggestedSettlement: string | null = null;
-      if (pricingRuleId) {
-        const [rule] = await tx
-          .select({
-            id: pricingRules.id,
-            active: pricingRules.active,
-            settle: pricingRules.defaultSettlementRuleId,
-          })
-          .from(pricingRules)
-          .where(eq(pricingRules.id, pricingRuleId))
-          .limit(1);
-        if (!rule) throw new Error('없는 단가 케이스입니다.');
-        if (!rule.active) throw new Error('중지된 단가 케이스는 지정할 수 없습니다.');
-        suggestedSettlement = rule.settle;
-      }
+      const suggestedSettlement = pricingRuleId ? await checkPricingRule(tx, pricingRuleId) : null;
       if (line.ruleId === pricingRuleId) return;
 
-      /*
-       * ★확정된 지급조건은 못 바꾼다★ (migrations/0035, 한백 지시 2026-08-28).
-       * 단가 케이스가 계획·잔액·기성·마진을 전부 정하므로, 돈이 움직인 뒤에 갈아 끼우면
-       * 지급과 기성 구조가 같이 뒤틀린다. 고쳐야 하면 확정을 먼저 해제한다.
-       */
-      const [locked] = await tx
-        .select({ at: projects.payoutTermsConfirmedAt })
-        .from(projects)
-        .where(eq(projects.id, line.projectId))
-        .limit(1);
-      if (locked?.at) {
-        throw new Error(`지급조건이 확정된 현장입니다(${locked.at}) — 확정을 해제한 뒤 바꾸세요.`);
-      }
+      await assertTermsOpen(tx, line.projectId);
 
       const day = today();
       await tx
@@ -129,30 +101,8 @@ export const payoutStore: Pick<
         .where(eq(contractLines.id, lineId));
       await tx.update(projects).set({ lastProgressAt: day }).where(eq(projects.id, line.projectId));
 
-      /*
-       * 케이스의 정산 규칙 제안값을 현장에 옮긴다 — 현장에 아직 규칙이 없을 때만.
-       *
-       * project.settlementRuleId 를 넣는 코드가 여기 말고는 없었다. 시드 현장만 값이 있고,
-       * 새 현장은 단가를 붙여도 기성이 영구히 「정산 규칙 미적용」이었다 — 케이스가
-       * 제안값(defaultSettlementRuleId)을 들고 있는데 아무도 읽지 않았다.
-       * 이미 규칙이 있는 현장은 건드리지 않는다 — 사람이 정한 값을 덮지 않는다.
-       */
       if (suggestedSettlement) {
-        const [p] = await tx
-          .select({ settle: projects.settlementRuleId })
-          .from(projects)
-          .where(eq(projects.id, line.projectId))
-          .limit(1);
-        if (p && !p.settle) {
-          await tx
-            .update(projects)
-            .set({ settlementRuleId: suggestedSettlement, settlementAppliedAt: day })
-            .where(eq(projects.id, line.projectId));
-          await writeAudit(tx, {
-            projectId: line.projectId, actor, action: '정산 규칙 적용',
-            field: 'settlementRuleId', oldValue: null, newValue: suggestedSettlement,
-          });
-        }
+        await applySuggestedSettlement(tx, line.projectId, suggestedSettlement, day, actor);
       }
 
       await writeAudit(tx, {
@@ -604,5 +554,70 @@ async function writePayoutStep(
   await writeAudit(tx, {
     projectId, actor, action: '지급 확정',
     field: `${kind} ${category}`, oldValue: null, newValue: `${open.amount}원 · ${at}`,
+  });
+}
+
+/**
+ * 붙일 단가 케이스가 쓸 수 있는 것인지 보고, 케이스가 든 정산 규칙 제안값을 돌려준다.
+ *
+ * 없는 케이스를 붙이면 조회할 때 rule 이 null 이 되어 「단가 미지정」으로 보인다 —
+ * 저장은 됐는데 화면엔 안 붙는 상태라 원인을 찾기 어렵다. 여기서 막는다.
+ */
+async function checkPricingRule(tx: TxLike, pricingRuleId: string): Promise<string | null> {
+  const [rule] = await tx
+    .select({
+      id: pricingRules.id,
+      active: pricingRules.active,
+      settle: pricingRules.defaultSettlementRuleId,
+    })
+    .from(pricingRules)
+    .where(eq(pricingRules.id, pricingRuleId))
+    .limit(1);
+  if (!rule) throw new Error('없는 단가 케이스입니다.');
+  if (!rule.active) throw new Error('중지된 단가 케이스는 지정할 수 없습니다.');
+  return rule.settle;
+}
+
+/**
+ * ★확정된 지급조건은 못 바꾼다★ (migrations/0035, 한백 지시 2026-08-28).
+ *
+ * 단가 케이스가 계획·잔액·기성·마진을 전부 정하므로, 돈이 움직인 뒤에 갈아 끼우면
+ * 지급과 기성 구조가 같이 뒤틀린다. 고쳐야 하면 확정을 먼저 해제한다.
+ */
+async function assertTermsOpen(tx: TxLike, projectId: string): Promise<void> {
+  const [locked] = await tx
+    .select({ at: projects.payoutTermsConfirmedAt })
+    .from(projects)
+    .where(eq(projects.id, projectId))
+    .limit(1);
+  if (locked?.at) {
+    throw new Error(`지급조건이 확정된 현장입니다(${locked.at}) — 확정을 해제한 뒤 바꾸세요.`);
+  }
+}
+
+/**
+ * 케이스의 정산 규칙 제안값을 현장에 옮긴다 — 현장에 아직 규칙이 없을 때만.
+ *
+ * project.settlementRuleId 를 넣는 코드가 여기 말고는 없었다. 시드 현장만 값이 있고,
+ * 새 현장은 단가를 붙여도 기성이 영구히 「정산 규칙 미적용」이었다 — 케이스가
+ * 제안값(defaultSettlementRuleId)을 들고 있는데 아무도 읽지 않았다.
+ * 이미 규칙이 있는 현장은 건드리지 않는다 — 사람이 정한 값을 덮지 않는다.
+ */
+async function applySuggestedSettlement(
+  tx: TxLike, projectId: string, suggested: string, day: string, actor: Actor
+): Promise<void> {
+  const [p] = await tx
+    .select({ settle: projects.settlementRuleId })
+    .from(projects)
+    .where(eq(projects.id, projectId))
+    .limit(1);
+  if (!p || p.settle) return;
+  await tx
+    .update(projects)
+    .set({ settlementRuleId: suggested, settlementAppliedAt: day })
+    .where(eq(projects.id, projectId));
+  await writeAudit(tx, {
+    projectId, actor, action: '정산 규칙 적용',
+    field: 'settlementRuleId', oldValue: null, newValue: suggested,
   });
 }

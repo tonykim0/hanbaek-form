@@ -102,7 +102,7 @@ export const SEED_RECORDS: ProjectRecord[] = [
       { id: 'PE-018-2', projectId: 'HB-2026-018', kind: '영업비', category: '차액', amount: 4280000, at: '2026-05-11', note: '1차 잔여분', createdAt: '2026-05-11 10:00' },
       { id: 'PE-018-3', projectId: 'HB-2026-018', kind: '시공비', category: '1차', amount: 4410000, at: '2026-07-10', note: null, createdAt: '2026-07-10 10:00' },
     ],
-    collected: { 1: '2026-03-06' },
+    collected: { 1: { at: '2026-03-06', amount: null } },
     court: '운영사',
     lastProgressAt: '2026-07-08',
   },

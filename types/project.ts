@@ -670,6 +670,13 @@ export interface SettlementStep {
   planAmount: number | null;
   state: StepState;
   collectedAt: string | null;
+  /**
+   * 실제로 받은 금액. null 이면 계획액(planAmount)대로 받은 것이다.
+   *
+   * 협의로 턴키단가와 다르게 받는 현장이 있어서 따로 적는다(migrations/0034) —
+   * 그 한 건 때문에 협의용 단가 케이스를 만들면 단가표가 정책표가 아니게 된다.
+   */
+  collectedAmount: number | null;
 }
 
 export interface Settlement {

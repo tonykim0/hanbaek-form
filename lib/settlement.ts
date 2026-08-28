@@ -224,6 +224,7 @@ const EMPTY_STEP = (no: 1 | 2 | 3): SettlementStep => ({
   planAmount: null,
   state: 'na',
   collectedAt: null,
+  collectedAmount: null,
 });
 
 /**
@@ -235,7 +236,8 @@ export function settlementForProject(
   rule: SettlementRule | null,
   process: ProcessInfo,
   closeDate: string | null,
-  collected: Partial<Record<1 | 2 | 3, string>> = {}
+  /** 차수별 수금 기록 — 날짜와 실수금액은 한 사실이라 같이 온다 */
+  collected: Partial<Record<1 | 2 | 3, { at: string; amount: number | null }>> = {}
 ): SettlementStep[] {
   const steps: SettlementStep[] = [EMPTY_STEP(1), EMPTY_STEP(2), EMPTY_STEP(3)];
   if (!rule) return steps;
@@ -251,7 +253,8 @@ export function settlementForProject(
       if (turnkey === null) return sum;
       return sum + stepAmounts(rule, turnkey, l.qty)[i];
     }, 0);
-    const collectedAt = collected[no] ?? null;
+    const got = collected[no] ?? null;
+    const collectedAt = got?.at ?? null;
     const state: StepState = collectedAt
       ? 'collected'
       : triggerMet(stepRule.trigger, process, closeDate)
@@ -265,6 +268,7 @@ export function settlementForProject(
       planAmount: priced.length > 0 ? amount : null,
       state,
       collectedAt,
+      collectedAmount: got?.amount ?? null,
     };
   });
 

@@ -110,7 +110,7 @@ export interface ProjectRecord {
   documents: ProjectDocument[];
   process: ProcessInfo;
   settlementRaw: Omit<Settlement, 'steps'>;
-  collected: Partial<Record<1 | 2 | 3, string>>;
+  collected: Partial<Record<1 | 2 | 3, { at: string; amount: number | null }>>;
   court: Court;
   lastProgressAt: string;
   /**
@@ -359,7 +359,13 @@ export function settlementSummaryOf(r: ProjectRecord, rules: RuleMap, settles: S
     ruleName: admin.settlementRule?.name ?? null,
     steps,
     planTotal: sum(steps),
-    collectedTotal: sum(steps.filter((x) => x.state === 'collected')),
+    /*
+     * 받은 돈은 ★실수금액이 있으면 그것★이다 — 계획액은 협의로 달라질 수 있다(0034).
+     * 옛 기록은 실수금액이 없으므로 계획액을 그대로 쓴다.
+     */
+    collectedTotal: steps
+      .filter((x) => x.state === 'collected')
+      .reduce((n, x) => n + (x.collectedAmount ?? x.planAmount ?? 0), 0),
     cpoCloseDate: admin.cpoCloseDate,
     salesOrg: d.project.salesOrg,
     gcOrg: d.project.gcOrg,

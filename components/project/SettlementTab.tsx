@@ -124,14 +124,11 @@ export function ReceivableTab({
               수금률 <span className="tabular-nums text-slate-800">{rate}%</span>
             </span>
           )}
-          <span className="text-tiny font-bold text-slate-500">
-            준공마감{' '}
-            {admin?.cpoCloseDate ? (
-              <span className="tabular-nums text-slate-800">{admin.cpoCloseDate}</span>
-            ) : (
-              <span className="text-amber-700">통보 없음</span>
-            )}
-          </span>
+          <CloseDateFact
+            projectId={detail.project.id}
+            date={admin?.cpoCloseDate ?? null}
+            canEdit={canReview}
+          />
         </div>
       </div>
 
@@ -159,10 +156,153 @@ export function ReceivableTab({
             <span className="w-28 shrink-0 text-right text-lead font-black tabular-nums text-slate-800">
               {s.planAmount === null ? <span className="text-slate-300">—</span> : won(s.planAmount)}
             </span>
+            <CollectControl projectId={detail.project.id} step={s} canEdit={canReview} />
           </div>
         ))}
       </div>
     </section>
+  );
+}
+
+/**
+ * 준공마감일 — 운영사가 통보하는 날. 평소엔 글자, 고칠 때만 달력(화면 규칙 4).
+ *
+ * 공정에서 유도할 수 없어 사람이 적는다. 대부분 마지막 기성(잔액)의 트리거라,
+ * 이 칸이 비어 있으면 그 차수가 영원히 「대기」로 남는다 — 그래서 비었을 때를
+ * 노랑으로 둔다(화면 규칙 10: 「미지정」은 넣어야 하는데 안 넣은 것이다).
+ */
+function CloseDateFact({
+  projectId, date, canEdit,
+}: {
+  projectId: string;
+  date: string | null;
+  canEdit: boolean;
+}) {
+  const { busy, error, run } = useAction();
+  const [editing, setEditing] = useState(false);
+
+  const save = (v: string | null) =>
+    void run({
+      url: `/api/projects/${projectId}/settlement`,
+      body: { closeDate: v },
+      fail: '준공마감일을 저장하지 못했습니다.',
+    }).then((ok) => { if (ok) setEditing(false); });
+
+  return (
+    <span className="flex flex-wrap items-center gap-2 text-tiny font-bold text-slate-500">
+      준공마감{' '}
+      {editing ? (
+        <>
+          <DatePicker value={date} onChange={save} disabled={busy} ariaLabel="준공마감일" />
+          <Btn size="sm" kind="quiet" disabled={busy} onClick={() => setEditing(false)}>취소</Btn>
+        </>
+      ) : (
+        <>
+          {date ? (
+            <span className="tabular-nums text-slate-800">{date}</span>
+          ) : (
+            <span className="text-amber-700">통보 없음</span>
+          )}
+          {canEdit && (
+            <Btn size="sm" kind="quiet" onClick={() => setEditing(true)}>
+              {date ? '수정' : '지정'}
+            </Btn>
+          )}
+        </>
+      )}
+      <Err>{error}</Err>
+    </span>
+  );
+}
+
+/**
+ * 기성 한 차수의 수금 기록.
+ *
+ * ★날짜와 금액을 같이 받는다.★ 「받았다」는 날짜로 표시하고, 받은 금액이 계획액과
+ * 다르면 그 금액을 적는다 — 협의로 턴키단가와 다르게 받는 현장이 있다(예: 케이스는
+ * 150만/기인데 190만/기로 협의). 금액을 비우면 계획액대로 받은 것이다.
+ *
+ * 조건이 안 찬 차수(waiting)에는 단추를 두지 않는다 — 무엇을 기다리는지는 같은 줄의
+ * 배지와 트리거가 이미 말한다(화면 규칙 2·3).
+ */
+function CollectControl({
+  projectId, step, canEdit,
+}: {
+  projectId: string;
+  step: SettlementStep;
+  canEdit: boolean;
+}) {
+  const { busy, error, run } = useAction();
+  const [open, setOpen] = useState(false);
+  const [at, setAt] = useState<string | null>(today());
+  const [amount, setAmount] = useState('');
+
+  if (step.state === 'na') return null;
+
+  const send = (body: unknown, fail: string) =>
+    void run({ url: `/api/projects/${projectId}/settlement`, body, fail })
+      .then((ok) => { if (ok) { setOpen(false); setAmount(''); } });
+
+  if (step.state === 'collected') {
+    return (
+      <span className="flex shrink-0 flex-wrap items-center gap-2">
+        <span className="text-tiny font-bold tabular-nums text-brand-800">
+          {step.collectedAt}
+          {step.collectedAmount !== null && step.collectedAmount !== step.planAmount && (
+            <span className="ml-1 text-slate-600">받은 금액 {won(step.collectedAmount)}</span>
+          )}
+        </span>
+        {canEdit && (
+          <Btn
+            size="sm" kind="quiet" busy={busy} busyLabel="되돌리는 중…"
+            onClick={() => send({ collected: { no: step.no, at: null } }, '수금을 되돌리지 못했습니다.')}
+          >
+            되돌리기
+          </Btn>
+        )}
+        <Err>{error}</Err>
+      </span>
+    );
+  }
+
+  if (!canEdit || step.state !== 'open') return null;
+
+  if (!open) {
+    return (
+      <span className="flex shrink-0 items-center gap-2">
+        <Btn size="sm" onClick={() => setOpen(true)}>수금 기록</Btn>
+      </span>
+    );
+  }
+
+  return (
+    <span className="flex shrink-0 flex-wrap items-center gap-2">
+      <DatePicker value={at} onChange={setAt} disabled={busy} ariaLabel={`${step.no}차 수금일`} />
+      <input
+        type="text"
+        inputMode="numeric"
+        value={amount}
+        disabled={busy}
+        onChange={(e) => setAmount(e.target.value.replace(/[^0-9]/g, ''))}
+        placeholder={step.planAmount === null ? '받은 금액' : `${won(step.planAmount)} (계획대로면 비움)`}
+        aria-label={`${step.no}차 받은 금액`}
+        className={`${FIELD} w-52 text-right tabular-nums`}
+      />
+      <Btn
+        size="sm" busy={busy} busyLabel="저장 중…"
+        disabled={!at}
+        onClick={() => send(
+          { collected: { no: step.no, at, amount: amount === '' ? null : Number(amount) } },
+          '수금을 기록하지 못했습니다.'
+        )}
+      >
+        {at ? '저장' : '수금일을 고르세요'}
+      </Btn>
+      <Btn size="sm" kind="quiet" disabled={busy} onClick={() => { setOpen(false); setAmount(''); }}>
+        취소
+      </Btn>
+      <Err>{error}</Err>
+    </span>
   );
 }
 

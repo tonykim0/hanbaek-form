@@ -362,6 +362,30 @@ export interface ProjectRepository {
   setSettlementRule(projectId: string, ruleId: string | null, actor: Actor): Promise<void>;
 
   /**
+   * 운영사가 통보한 준공마감일. [한백 전용]
+   *
+   * 공정에서 유도할 수 없어 따로 받는다 — 대부분 운영사의 마지막 기성(잔액) 트리거라,
+   * 이 값이 없으면 그 차수가 영원히 「대기」로 남는다. null 은 통보 취소다.
+   */
+  setCpoCloseDate(projectId: string, date: string | null, actor: Actor): Promise<void>;
+
+  /**
+   * 기성 차수의 수금 기록. [한백 전용]
+   *
+   * ★날짜와 금액은 한 사실이다★ — 「받았다」는 날짜로 표시하고, 받은 금액이 계획액과
+   * 다르면 그 금액을 같이 적는다(협의로 턴키단가와 다르게 받는 현장이 있다).
+   * amount 가 null 이면 계획액대로 받은 것이다. value 가 null 이면 수금을 되돌린다.
+   *
+   * 차수가 열리지 않았으면(트리거 미충족) 받을 수 없다 — 저장소가 막는다.
+   */
+  setSettlementCollected(
+    projectId: string,
+    no: 1 | 2 | 3,
+    value: { at: string; amount: number | null } | null,
+    actor: Actor
+  ): Promise<void>;
+
+  /**
    * 회차 지급 확정 — 지금 지급할 회차(1차/2차)를 모아서 한 지급일로 기록한다. [한백 전용]
    *
    * ★금액은 받지 않는다.★ 1차 = 지급할 총액(계획+조정)의 70%, 2차 = 잔액으로 정해져

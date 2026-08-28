@@ -236,11 +236,14 @@ function toPayoutEntry(r: typeof payoutEntries.$inferSelect): PayoutEntry {
   };
 }
 
-function toCollected(r: SettlementRow | undefined): Partial<Record<1 | 2 | 3, string>> {
-  const out: Partial<Record<1 | 2 | 3, string>> = {};
-  if (r?.collected1At) out[1] = r.collected1At;
-  if (r?.collected2At) out[2] = r.collected2At;
-  if (r?.collected3At) out[3] = r.collected3At;
+function toCollected(
+  r: SettlementRow | undefined
+): Partial<Record<1 | 2 | 3, { at: string; amount: number | null }>> {
+  const out: Partial<Record<1 | 2 | 3, { at: string; amount: number | null }>> = {};
+  // 날짜가 곧 「받았다」는 표시다 — 금액은 협의로 계획과 달라졌을 때만 있다(migrations/0034)
+  if (r?.collected1At) out[1] = { at: r.collected1At, amount: r.collected1Amount ?? null };
+  if (r?.collected2At) out[2] = { at: r.collected2At, amount: r.collected2Amount ?? null };
+  if (r?.collected3At) out[3] = { at: r.collected3At, amount: r.collected3Amount ?? null };
   return out;
 }
 
@@ -1110,6 +1113,94 @@ export const pgRepository: ProjectRepository = {
       await writeAudit(tx, {
         projectId, actor, action: ruleId ? '정산 규칙 적용' : '정산 규칙 해제',
         field: 'settlementRuleId', oldValue: row.settle, newValue: ruleId,
+      });
+    });
+  },
+
+  async setCpoCloseDate(projectId, date: string | null, actor): Promise<void> {
+    assertAdmin(actor, '준공마감일 지정');
+    if (date !== null && !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      throw new Error('준공마감일은 YYYY-MM-DD 형식이어야 합니다.');
+    }
+    const db = getDb();
+    await db.transaction(async (tx) => {
+      const [before] = await tx
+        .select({ closeDate: settlements.closeDate })
+        .from(settlements)
+        .where(eq(settlements.projectId, projectId))
+        .limit(1);
+      if ((before?.closeDate ?? null) === date) return;
+
+      await tx
+        .insert(settlements)
+        .values({ projectId, closeDate: date })
+        .onConflictDoUpdate({ target: settlements.projectId, set: { closeDate: date } });
+
+      await writeAudit(tx, {
+        projectId, actor, action: date ? '준공마감일 지정' : '준공마감일 해제',
+        field: 'cpoCloseDate', oldValue: before?.closeDate ?? null, newValue: date,
+      });
+    });
+  },
+
+  async setSettlementCollected(projectId, no: 1 | 2 | 3, value, actor): Promise<void> {
+    assertAdmin(actor, '기성 수금 기록');
+    if (value) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(value.at)) {
+        throw new Error('수금일은 YYYY-MM-DD 형식이어야 합니다.');
+      }
+      if (value.amount !== null
+        && (!Number.isInteger(value.amount) || value.amount <= 0)) {
+        throw new Error('수금액은 0 보다 큰 원 단위 정수여야 합니다.');
+      }
+    }
+
+    const atCol = ([settlements.collected1At, settlements.collected2At, settlements.collected3At])[no - 1];
+    const amountCol = ([settlements.collected1Amount, settlements.collected2Amount, settlements.collected3Amount])[no - 1];
+    const atKey = (['collected1At', 'collected2At', 'collected3At'] as const)[no - 1];
+    const amountKey = (['collected1Amount', 'collected2Amount', 'collected3Amount'] as const)[no - 1];
+
+    const db = getDb();
+    await db.transaction(async (tx) => {
+      const [row] = await tx.select().from(projects).where(eq(projects.id, projectId)).limit(1);
+      if (!row) throw new Error('현장을 찾을 수 없습니다.');
+
+      const [before] = await tx
+        .select({ at: atCol, amount: amountCol })
+        .from(settlements)
+        .where(eq(settlements.projectId, projectId))
+        .limit(1);
+
+      /*
+       * ★열리지 않은 차수는 받을 수 없다.★
+       * 조건(환경부 승인·착공·준공마감)이 차야 청구가 열린다 — 그 전에 수금이 찍히면
+       * 계획에 없던 돈이 들어온 것으로 보이고, 차수 상태(대기/청구가능/수금)도 뒤집힌다.
+       * 되돌리는 것(value === null)은 언제나 열어 둔다.
+       */
+      if (value) {
+        const [record] = await recordsOf([row]);
+        const steps = toDetail(record, await ruleMap(), await settleMap()).admin?.steps ?? [];
+        const step = steps.find((x) => x.no === no);
+        if (!step || step.state === 'na') throw new Error(`${no}차는 이 현장의 정산 규칙에 없습니다.`);
+        if (step.state === 'waiting') {
+          throw new Error(`${no}차(${step.trigger})는 아직 조건이 차지 않았습니다.`);
+        }
+      }
+
+      await tx
+        .insert(settlements)
+        .values({ projectId, [atKey]: value?.at ?? null, [amountKey]: value?.amount ?? null })
+        .onConflictDoUpdate({
+          target: settlements.projectId,
+          set: { [atKey]: value?.at ?? null, [amountKey]: value?.amount ?? null },
+        });
+
+      await writeAudit(tx, {
+        projectId, actor,
+        action: value ? `기성 ${no}차 수금` : `기성 ${no}차 수금 해제`,
+        field: atKey,
+        oldValue: before?.at ?? null,
+        newValue: value ? `${value.at}${value.amount === null ? '' : ` · ${value.amount}원`}` : null,
       });
     });
   },

@@ -343,6 +343,14 @@ export const settlements = pgTable('settlements', {
   collected1At: text('collected_1_at'),
   collected2At: text('collected_2_at'),
   collected3At: text('collected_3_at'),
+  /*
+   * 실수금액 — 받은 금액을 그대로 적는다(migrations/0034). null 이면 계획액대로 받은 것이다.
+   * 협의로 턴키단가와 다르게 받는 현장이 있어서 둔다 — 그 한 건 때문에 협의용 단가 케이스를
+   * 만들면 단가표가 정책표가 아니게 된다.
+   */
+  collected1Amount: integer('collected_1_amount'),
+  collected2Amount: integer('collected_2_amount'),
+  collected3Amount: integer('collected_3_amount'),
   safetyFee: integer('safety_fee'),
   /** 지급 관련 메모 — 감액·보류 사유 등 금액만으로 설명되지 않는 것 */
   payNote: text('pay_note'),

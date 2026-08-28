@@ -207,9 +207,12 @@ async function seedProjects() {
       const s = r.settlementRaw;
       await tx.insert(settlements).values({
         projectId: p.id, closeDate: s.cpoCloseDate,
-        collected1At: r.collected[1] ?? null,
-        collected2At: r.collected[2] ?? null,
-        collected3At: r.collected[3] ?? null,
+        collected1At: r.collected[1]?.at ?? null,
+        collected2At: r.collected[2]?.at ?? null,
+        collected3At: r.collected[3]?.at ?? null,
+        collected1Amount: r.collected[1]?.amount ?? null,
+        collected2Amount: r.collected[2]?.amount ?? null,
+        collected3Amount: r.collected[3]?.amount ?? null,
         safetyFee: s.safetyFee,
       });
 

@@ -109,6 +109,12 @@ const GROUPS: Group[] = [
        */
       { href: '/contracts', label: '계약서 작성', short: '작성' },
       { href: '/projects/new', label: '서류 접수', short: '접수', note: '접수하면 계약접수 칸으로' },
+      /*
+       * 서류 재발행 — 옛 양식으로 받은 스캔본을 최신 운영사 양식으로 다시 뽑는다.
+       * 한백만 쓰던 자리였는데(옛 /admin/reissue) 협력사도 쓰게 열었다(한백 2026-08-28).
+       * 접수 밑에 둔다 — 낼 서류를 만드는 일이라 같은 묶음이다.
+       */
+      { href: '/reissue', label: '서류 재발행', short: '재발행', note: '옛 양식 스캔본을 최신 양식으로' },
     ],
   },
   {

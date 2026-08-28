@@ -48,6 +48,7 @@ const CONSOLE_PATHS = [
   '/projects',
   '/construction',
   '/contracts',
+  '/reissue',
   '/payments',
   '/payouts',
   '/receivables',
@@ -105,7 +106,7 @@ export async function middleware(request: NextRequest) {
      * 구역이 셋이다. 대행 중(asId)이면 눈이 협력사이므로 앞의 둘은 언제나 막힌다 —
      * 바탕이 관리자여도 그렇다.
      *
-     *   adminOnly    쓰는 자리. 관리자만. (계정·자료실·재발행)
+     *   adminOnly    쓰는 자리. 관리자만. (계정·자료실)
      *   hanbaekOnly  보는 자리. 관리자와 열람 전용. (기성·단가·디자인 기준·협력사 정보)
      *   writerOnly   내는 자리. 열람 전용만 못 들어간다. (접수·계약서 작성·사업자 정보)
      *
@@ -124,7 +125,8 @@ export async function middleware(request: NextRequest) {
     /** /admin 이지만 한백의 눈이면 보는 자리 — 보기만 하고 쓰기는 API 가 막는다 */
     const adminReadable = ['/admin/partners'];
     const hanbaekOnly = ['/receivables', '/pricing', '/design'];
-    const writerOnly = ['/projects/new', '/contracts', '/settings'];
+    // 재발행도 「내는 자리」다 — 서류를 만들어 내보내는 일이라 열람 전용의 자리가 아니다
+    const writerOnly = ['/projects/new', '/contracts', '/reissue', '/settings'];
 
     const blocked =
       (starts(adminOnly) && !starts(adminReadable) && (session.role !== 'admin' || session.asId))

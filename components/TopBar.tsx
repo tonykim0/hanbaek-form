@@ -27,7 +27,7 @@ const ADMIN_INTAKE = [
   { href: '/projects/new', label: '서류 접수' },
   { href: '/contracts', label: '계약서 작성' },
   // 사이드바 관리에 있던 것을 올렸다(한백 확인) — 접수·계약서와 같은 「가끔 하는 서류 일」이다
-  { href: '/admin/reissue', label: '서류 재발행' },
+  { href: '/reissue', label: '서류 재발행' },
 ];
 
 export default function TopBar({ role, onMenu }: {

@@ -45,7 +45,7 @@ export function receivableTodos(rows: SettlementSummary[], now: Date = new Date(
         href: `/projects/${r.id}?tab=receivable`,
         name: r.name,
         what: `${nosOf(open)} ${priced ? `${won(amount)}원` : '금액 미정'} · ${triggersOf(open)} 충족`,
-        group: '정산',
+        group: '기성',
         kind: '기성 수금',
         stalledDays: 0,
         /* 받을 수 있게 된 뒤 지난 날 — 정체일과 같은 자다(하루 = 1) */
@@ -68,7 +68,7 @@ export function receivableTodos(rows: SettlementSummary[], now: Date = new Date(
         href: `/projects/${r.id}?tab=receivable`,
         name: r.name,
         what: `${nosOf(closing)} ${amount > 0 ? `${won(amount)}원` : '금액 미정'} · 준공마감일 없음`,
-        group: '정산',
+        group: '기성',
         kind: '준공마감일 지정',
         stalledDays: 0,
         /*
@@ -92,7 +92,7 @@ export function receivableTodos(rows: SettlementSummary[], now: Date = new Date(
         href: `/projects/${r.id}?tab=receivable`,
         name: r.name,
         what: `${r.qty}대 · 기성 계산 안 됨`,
-        group: '정산',
+        group: '기성',
         kind: '정산 규칙 미지정',
         stalledDays: 0,
         /*

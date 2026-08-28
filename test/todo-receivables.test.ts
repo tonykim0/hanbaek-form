@@ -53,7 +53,7 @@ describe('기성 수금 — 조건이 찬 차수', () => {
       steps: [step({ no: 1, state: 'open', openedAt: '2026-08-18' }), step({ no: 2 }), step({ no: 3 })],
     })], 오늘);
     expect(t.kind).toBe('기성 수금');
-    expect(t.group).toBe('정산');
+    expect(t.group).toBe('기성');
     expect(t.what).toBe('1차 기성 300,000원 · 환경부 승인 충족');
     expect(t.href).toBe('/projects/p1?tab=receivable');
   });

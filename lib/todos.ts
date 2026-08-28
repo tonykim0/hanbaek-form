@@ -9,7 +9,7 @@
  *
  * ★세 갈래가 들어온다★ 현장의 공 차례 · 지급 배치 · ★기성★(한백 지시 2026-08-28).
  * 기성은 운영사에게서 받을 돈이라 한백 관리자만의 일이다 — 협력사에게는 차례가 없고,
- * 열람 전용은 넣을 칸이 없다.
+ * 열람 전용은 넣을 칸이 없다. 돈의 두 방향은 칸이 갈린다: 지급(→협력사) · 기성(운영사→).
  */
 import { getRepository } from '@/lib/data';
 import { bandOfColumn, boardColumnOf } from '@/lib/board';
@@ -97,7 +97,7 @@ export async function todosOf(session: SessionPayload): Promise<TodoItem[]> {
       href: '/statements',
       name: `세금계산서 발행 — ${b.kind}`,
       what: `공급가액 ${won(b.total)}원`,
-      group: '정산',
+      group: '지급',
       kind: '세금계산서 발행',
       stalledDays: 0,
       /*
@@ -117,7 +117,7 @@ export async function todosOf(session: SessionPayload): Promise<TodoItem[]> {
       href: '/statements',
       name: `확정 누락 — ${b.org} ${b.kind}`,
       what: `공급가액 ${won(b.total)}원`,
-      group: '정산',
+      group: '지급',
       kind: '확정 누락',
       stalledDays: 0,
       /*

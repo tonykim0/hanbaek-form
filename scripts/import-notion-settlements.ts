@@ -35,6 +35,16 @@ const argOf = (name: string) => {
 const WRITE = args.includes('--write');
 /** 금액이 콘솔 계획과 어긋나는 줄은 빼고 넣는다 — 맞는 것부터 채우는 갈래 */
 const ONLY_MATCHING = args.includes('--only-matching');
+/*
+ * 어긋나도 넣기로 정한 정산번호 (--accept ST353,ST278).
+ *
+ * ★이미 나간 돈은 나간 대로 적는다★ (한백 지시 2026-08-28). 계획과 다르면 그 차이는
+ * 남은 지급으로 보이거나 마진으로 남는데, 그 판단은 사람이 한 번 하고 여기 번호로 남긴다 —
+ * 목록에 없는 번호는 여전히 --only-matching 이 걸러 낸다.
+ */
+const ACCEPT = new Set(
+  (argOf('--accept') ?? '').split(',').map((x) => x.trim()).filter(Boolean)
+);
 const ENV_FILE = argOf('--env');
 const SETTLEMENTS = argOf('--settlements');
 const SITES = argOf('--sites');
@@ -269,9 +279,15 @@ async function main() {
    * 금액이 맞는 것부터 채우고, 어긋난 것은 왜 다른지 정한 뒤에 넣는다. 조용히 빼지 않는다 —
    * 위 목록이 그대로 「아직 안 들어간 것」의 명세다. 다시 돌리면 그때 들어간다(멱등).
    */
-  const target = ONLY_MATCHING ? moves.filter((m) => !gapOf.has(keyOf(m))) : moves;
+  const target = ONLY_MATCHING
+    ? moves.filter((m) => !gapOf.has(keyOf(m)) || ACCEPT.has(m.no))
+    : moves;
   if (ONLY_MATCHING) {
+    const forced = target.filter((m) => gapOf.has(keyOf(m)));
     console.log(`\n--only-matching — 어긋난 ${moves.length - target.length}건을 빼고 ${target.length}건만 넣습니다.`);
+    if (forced.length > 0) {
+      console.log(`  그중 --accept 로 통과시킨 것 ${forced.length}건: ${forced.map((m) => `${m.no} ${m.amount.toLocaleString('ko-KR')}원`).join(' · ')}`);
+    }
   }
 
   // 미래 날짜 — 예정으로 적어 둔 것이 실지급으로 들어가면 나간 돈이 부풀려진다

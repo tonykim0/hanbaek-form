@@ -18,7 +18,7 @@
 import { useMemo } from 'react';
 import type { SettlementSummary } from '@/types/project';
 import { STEP_LABEL, STEP_TONE } from '@/lib/settlement';
-import { Badge, Blank, Empty, Note } from '@/components/ui';
+import { Badge, Blank, Empty, Tag } from '@/components/ui';
 import { Frame, SiteLink, Tile, won } from './parts';
 
 export default function ReceivableBoard({ rows }: { rows: SettlementSummary[] }) {
@@ -30,7 +30,6 @@ export default function ReceivableBoard({ rows }: { rows: SettlementSummary[] })
       open: sum((r) =>
         r.steps.filter((s) => s.state === 'open').reduce((m, s) => m + (s.planAmount ?? 0), 0)
       ),
-      noRule: rows.filter((r) => r.ruleName === null).length,
     };
   }, [rows]);
 
@@ -51,15 +50,13 @@ export default function ReceivableBoard({ rows }: { rows: SettlementSummary[] })
         * 정산 규칙 열은 표에서 뺐다(한백 확인 2026-08-23) — 규칙 이름은 차수·금액을 그대로
         * 풀어 쓴 긴 문자열이라 표에서 한 열을 통째로 먹으면서, 정작 표가 답해야 하는
         * 「어느 차수까지 왔고 얼마 남았나」와는 상관이 없다. 규칙은 현장 상세의 기성 탭에서 본다.
-        * 규칙이 아예 없어 계산이 안 되는 현장은 세어서 여기 띠로 남긴다 — 그건 막힘이다.
+        *
+        * ★세어서 띠로 알리던 것도 걷었다★ (한백 지시 2026-08-28) — 「정산 규칙이 없는 현장
+        * 6건 — … 기성 탭에서 지정해야 합니다」는 안내문이었다(화면 규칙 2). 대신 그 사실을
+        * 해당 줄에 꼬리표로 남긴다: 규칙이 없으면 차수가 전부 「해당없음」으로 보여서, 기성이
+        * 원래 없는 현장과 계산이 안 되는 현장이 같아 보인다(화면 규칙 10 — 미지정과 해당없음은
+        * 다른 값이다). 세어서 위에 적는 것보다 그 줄에서 보이는 것이 고칠 곳으로 데려간다.
         */}
-      {money.noRule > 0 && (
-        <Note tone="warn" className="mb-4">
-          정산 규칙이 없는 현장 <b>{money.noRule}건</b> — 기성 차수와 금액이 계산되지 않습니다.
-          현장 상세의 기성 탭에서 규칙을 지정해야 합니다.
-        </Note>
-      )}
-
       {rows.length === 0 ? (
         <Blank>현장 0건</Blank>
       ) : (
@@ -81,8 +78,9 @@ export default function ReceivableBoard({ rows }: { rows: SettlementSummary[] })
               <tr key={r.id} className="transition hover:bg-brand-50/40">
                 <td className="px-3 py-2.5">
                   <SiteLink id={r.id} name={r.name} tab="receivable" />
-                  <p className="mt-0.5 text-tiny text-slate-400">
-                    {r.cpo} · {r.qty}대 · {r.status}
+                  <p className="mt-0.5 flex flex-wrap items-center gap-1.5 text-tiny text-slate-400">
+                    <span>{r.cpo} · {r.qty}대 · {r.status}</span>
+                    {r.ruleName === null && <Tag tone="warn">정산 규칙 미지정</Tag>}
                   </p>
                 </td>
                 {([1, 2, 3] as const).map((no) => (

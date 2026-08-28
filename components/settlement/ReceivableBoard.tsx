@@ -114,6 +114,8 @@ export default function ReceivableBoard({ rows }: { rows: SettlementSummary[] })
       collected: sum((r) => r.collectedTotal),
       open: sum(openOf),
       unpaid: sum(unpaidOf),
+      /* 미수금에서 아직 조건이 안 찬 몫 — 총액의 나머지 한 토막이다 */
+      waiting: Math.max(0, sum(unpaidOf) - sum(openOf)),
     };
   }, [shown]);
 
@@ -122,25 +124,47 @@ export default function ReceivableBoard({ rows }: { rows: SettlementSummary[] })
 
   return (
     <div>
+      {/*
+        * 네 숫자는 서로 관계가 있다 — 그 관계가 읽히게 놓는다 (한백 지시 2026-08-28):
+        *
+        *   총 받아야 할 돈 = 수금 완료 + 미수금
+        *   미수금          = 받을 수 있는 돈(조건이 찬 것) + 조건 대기
+        *
+        * 순서도 그 뜻대로다: 총액 → ★지금 받을 수 있는 것★ → 받은 것 → 남은 것.
+        * 「받을 수 있는 돈」이 둘째인 이유는 그것이 이 화면을 여는 이유이기 때문이다.
+        * 예전에는 「받을 기성 · 수금 · 미수금 · 청구 가능」 순으로 나란히만 놓여 있어,
+        * 무엇이 무엇의 부분인지 읽히지 않았다.
+        */}
       <section aria-label="기성 합계" className="mb-5">
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <Tile label="받을 기성" value={money.plan} />
-          <Tile label="수금" value={money.collected} tone="in"
+          <Tile label="총 받아야 할 돈" value={money.plan}
+            note={`현장 ${shown.length}건`} />
+          <Tile label="받을 수 있는 돈" value={money.open} tone="wait"
+            note={money.open > 0 ? '조건이 찬 차수' : '조건이 찬 차수 없음'} />
+          <Tile label="수금 완료" value={money.collected} tone="in"
             note={rate !== null ? `수금률 ${rate}%` : undefined} />
-          <Tile label="미수금" value={money.unpaid} />
-          {/*
-            * 청구 가능은 ★미수금의 부분집합★이다. 넷을 나란히만 놓았더니 그 관계가 읽히지
-            * 않아, 받을 기성 = 수금 + 미수금이고 그중 얼마가 지금 청구 가능인지를 적는다.
-            */}
-          <Tile label="청구 가능" value={money.open} tone="wait"
-            note={money.unpaid > 0 ? `미수금 ${won(money.unpaid)}원 중` : '조건이 찬 돈'} />
+          {/* 다 받은 목록에 「전부 청구 가능」이 뜨면 안 된다 — 0원에는 부기를 달지 않는다 */}
+          <Tile label="미수금" value={money.unpaid}
+            note={money.unpaid === 0 ? undefined
+              : money.waiting > 0 ? `조건 대기 ${won(money.waiting)}원 포함` : '전부 청구 가능'} />
         </div>
 
-        {/* 비율 한 줄 — 숫자 넷보다 「어디까지 왔나」가 먼저 읽힌다 (파랑 수금 · 노랑 청구 가능) */}
+        {/*
+          * 한 줄로 본 총액의 구성 — 수금 완료 · 받을 수 있는 돈 · 조건 대기. 셋을 더하면
+          * 총액이다. 숫자 넷보다 「어디까지 왔나」가 먼저 읽힌다.
+          */}
         {money.plan > 0 && (
-          <div className="mt-3 flex h-2 overflow-hidden rounded-full bg-slate-100">
-            <div className="bg-brand-500" style={{ width: `${(money.collected / money.plan) * 100}%` }} />
-            <div className="bg-amber-300" style={{ width: `${(money.open / money.plan) * 100}%` }} />
+          <div className="mt-3">
+            <div className="flex h-2.5 overflow-hidden rounded-full bg-slate-100">
+              <div className="bg-brand-500" style={{ width: `${(money.collected / money.plan) * 100}%` }} />
+              <div className="bg-amber-400" style={{ width: `${(money.open / money.plan) * 100}%` }} />
+              <div className="bg-slate-300" style={{ width: `${(money.waiting / money.plan) * 100}%` }} />
+            </div>
+            <p className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-tiny font-semibold text-slate-500">
+              <Legend color="bg-brand-500" label="수금 완료" value={money.collected} />
+              <Legend color="bg-amber-400" label="받을 수 있는 돈" value={money.open} />
+              <Legend color="bg-slate-300" label="조건 대기" value={money.waiting} />
+            </p>
           </div>
         )}
       </section>
@@ -290,5 +314,15 @@ function StepCell({
         {note && <span className="ml-1 font-semibold text-slate-400">· {note}</span>}
       </p>
     </td>
+  );
+}
+
+/** 띠의 한 토막이 무엇인지 — 색과 이름과 금액을 한 자리에 둔다 */
+function Legend({ color, label, value }: { color: string; label: string; value: number }) {
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      <span aria-hidden className={`h-2 w-2 rounded-full ${color}`} />
+      {label} <span className="tabular-nums text-slate-700">{won(value)}</span>
+    </span>
   );
 }

@@ -11,7 +11,7 @@
  * 조회는 현장 수와 무관하게 쿼리 5~6번이다. 현장마다 관련 행을 따로 읽는 N+1 을 피하려고
  * id 목록으로 한 번에 긁어와 메모리에서 묶는다.
  */
-import { and, desc, eq, inArray, or, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNull, or, sql } from 'drizzle-orm';
 import { getDb } from '@/lib/db/client';
 import { writeAudit } from '@/lib/db/audit';
 import { allSlots } from './db-slot';
@@ -120,6 +120,7 @@ function toProject(r: ProjectRow): Project {
     envQueueNo: r.envQueueNo,
     note: r.note,
     contractConfirmedAt: r.contractConfirmedAt,
+    payoutTermsConfirmedAt: r.payoutTermsConfirmedAt,
     contractFixAskedAt: r.contractFixAskedAt,
     contractSubmittedAt: r.contractSubmittedAt,
     createdAt: dayOf(r.createdAt),
@@ -1012,6 +1013,20 @@ export const pgRepository: ProjectRepository = {
       }
       if (line.ruleId === pricingRuleId) return;
 
+      /*
+       * ★확정된 지급조건은 못 바꾼다★ (migrations/0035, 한백 지시 2026-08-28).
+       * 단가 케이스가 계획·잔액·기성·마진을 전부 정하므로, 돈이 움직인 뒤에 갈아 끼우면
+       * 지급과 기성 구조가 같이 뒤틀린다. 고쳐야 하면 확정을 먼저 해제한다.
+       */
+      const [locked] = await tx
+        .select({ at: projects.payoutTermsConfirmedAt })
+        .from(projects)
+        .where(eq(projects.id, line.projectId))
+        .limit(1);
+      if (locked?.at) {
+        throw new Error(`지급조건이 확정된 현장입니다(${locked.at}) — 확정을 해제한 뒤 바꾸세요.`);
+      }
+
       const day = today();
       await tx
         .update(contractLines)
@@ -1059,13 +1074,23 @@ export const pgRepository: ProjectRepository = {
 
     const db = getDb();
     await db.transaction(async (tx) => {
+      /*
+       * ★정산 행이 없으면 만든다.★ (2026-08-28 버그 수정)
+       *
+       * 여기가 UPDATE 뿐이라, settlements 행이 없는 현장에서는 메모가 조용히 저장되지
+       * 않았다 — 실제로 현장 149곳 중 129곳에 그 행이 없었다(접수도 이관도 안 만든다).
+       * 「현장을 찾을 수 없습니다」라는 문구까지 틀렸다: 현장은 있고 정산 행이 없던 것이다.
+       */
       const [row] = await tx.select().from(settlements).where(eq(settlements.projectId, projectId)).limit(1);
-      if (!row) throw new Error('현장을 찾을 수 없습니다.');
+      const before = row ?? null;
 
-      const changed = fields.filter((f) => (row[f] ?? null) !== (patch[f] ?? null));
+      const changed = fields.filter((f) => (before?.[f] ?? null) !== (patch[f] ?? null));
       if (changed.length === 0) return;
 
-      await tx.update(settlements).set(patch).where(eq(settlements.projectId, projectId));
+      await tx
+        .insert(settlements)
+        .values({ projectId, ...patch })
+        .onConflictDoUpdate({ target: settlements.projectId, set: patch });
       await tx
         .update(projects)
         .set({ lastProgressAt: today() })
@@ -1074,9 +1099,43 @@ export const pgRepository: ProjectRepository = {
       for (const f of changed) {
         await writeAudit(tx, {
           projectId, actor, action: '지급 정보 변경',
-          field: f, oldValue: row[f] ?? null, newValue: patch[f] ?? null,
+          field: f, oldValue: before?.[f] ?? null, newValue: patch[f] ?? null,
         });
       }
+    });
+  },
+
+  async setPayoutTermsConfirmed(projectId, confirmed: boolean, actor): Promise<void> {
+    assertAdmin(actor, '지급조건 확정');
+    const db = getDb();
+    await db.transaction(async (tx) => {
+      const [row] = await tx.select().from(projects).where(eq(projects.id, projectId)).limit(1);
+      if (!row) throw new Error('현장을 찾을 수 없습니다.');
+      const before = row.payoutTermsConfirmedAt ?? null;
+
+      if (confirmed) {
+        if (before) return;
+        /*
+         * ★덜 된 조건을 굳히지 않는다.★ 단가가 안 붙은 라인이 있으면 계획 금액이 비어
+         * 있고, 정산 규칙이 없으면 기성 차수가 계산되지 않는다 — 그 상태로 잠그면
+         * 「고칠 수도 없고 계산도 안 되는」 현장이 된다.
+         */
+        const lines = await tx.select().from(contractLines).where(eq(contractLines.projectId, projectId));
+        if (lines.length === 0) throw new Error('계약 라인이 없어 확정할 수 없습니다.');
+        const unpriced = lines.filter((l) => !l.pricingRuleId).length;
+        if (unpriced > 0) throw new Error(`단가 미지정 라인 ${unpriced}건 — 단가를 지정한 뒤 확정하세요.`);
+        if (!row.settlementRuleId) throw new Error('정산 규칙이 없어 확정할 수 없습니다.');
+      } else if (!before) {
+        return;
+      }
+
+      const at = confirmed ? today() : null;
+      await tx.update(projects).set({ payoutTermsConfirmedAt: at }).where(eq(projects.id, projectId));
+      await writeAudit(tx, {
+        projectId, actor,
+        action: confirmed ? '지급조건 확정' : '지급조건 확정 해제',
+        field: 'payoutTermsConfirmedAt', oldValue: before, newValue: at,
+      });
     });
   },
 
@@ -1103,6 +1162,16 @@ export const pgRepository: ProjectRepository = {
         .limit(1);
       if (!row) throw new Error('현장을 찾을 수 없습니다.');
       if (row.settle === ruleId) return;
+
+      // 정산 규칙도 지급조건의 일부다 — 기성 차수·금액이 여기서 나온다(setLinePricing 주석)
+      const [lockedRule] = await tx
+        .select({ at: projects.payoutTermsConfirmedAt })
+        .from(projects)
+        .where(eq(projects.id, projectId))
+        .limit(1);
+      if (lockedRule?.at) {
+        throw new Error(`지급조건이 확정된 현장입니다(${lockedRule.at}) — 확정을 해제한 뒤 바꾸세요.`);
+      }
 
       // lastProgressAt 은 건드리지 않는다 — 규칙을 고르는 것은 설정이지 현장의 진척이 아니다
       await tx
@@ -1281,6 +1350,15 @@ export const pgRepository: ProjectRepository = {
           createdAt: stampOf(new Date()),
         });
         await tx.update(projects).set({ lastProgressAt: today() }).where(eq(projects.id, item.projectId));
+        /*
+         * ★지급이 나가면 지급조건을 잠근다★ (한백 지시 2026-08-28). 돈이 움직인 뒤에
+         * 단가를 갈아 끼우면 잔액과 기성이 같이 뒤틀린다 — 고쳐야 하면 확정을 해제한다.
+         * 이미 확정된 현장은 그대로 둔다(확정일이 앞당겨지면 안 된다).
+         */
+        await tx
+          .update(projects)
+          .set({ payoutTermsConfirmedAt: at })
+          .where(and(eq(projects.id, item.projectId), isNull(projects.payoutTermsConfirmedAt)));
         await writeAudit(tx, {
           projectId: item.projectId, actor, action: '지급 확정',
           field: `${item.kind} ${category}`, oldValue: null, newValue: `${open.amount}원 · ${at}`,
@@ -1316,6 +1394,16 @@ export const pgRepository: ProjectRepository = {
       });
       // 지급을 적는 것도 진척이다 — 정체일 기준을 갱신한다
       await tx.update(projects).set({ lastProgressAt: today() }).where(eq(projects.id, projectId));
+      /*
+       * 손으로 적는 지급(선금·차액·회수 …)도 돈이 나간 것이다 — 같은 이유로 조건을 잠근다.
+       * 조정(자재비·차감 등)은 계획을 바꾸는 것이라 잠그지 않는다.
+       */
+      if (entryTypeOf(input.category) === '지급') {
+        await tx
+          .update(projects)
+          .set({ payoutTermsConfirmedAt: input.at })
+          .where(and(eq(projects.id, projectId), isNull(projects.payoutTermsConfirmedAt)));
+      }
       await writeAudit(tx, {
         projectId, actor, action: '지급 기록 추가',
         field: `${input.kind} ${input.category}`,

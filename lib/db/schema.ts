@@ -181,6 +181,12 @@ export const projects = pgTable('projects', {
    * 확인일과 짝이다 — 이쪽은 협력사가 「다 냈다」, 저쪽은 한백이 「봤다」.
    */
   contractSubmittedAt: text('contract_submitted_at'),
+  /*
+   * 지급조건(단가 케이스·정산 규칙)을 확정한 날 — 확정되면 못 바꾼다(migrations/0035).
+   * 지급이 나가면 자동으로 찍힌다: 돈이 움직인 뒤에 조건을 갈아 끼우면 잔액과 기성이
+   * 같이 뒤틀리기 때문이다. 고쳐야 하면 관리자가 해제하고 고친 뒤 다시 확정한다.
+   */
+  payoutTermsConfirmedAt: text('payout_terms_confirmed_at'),
   /** 한백이 현장별로 적용하는 정산 규칙 */
   settlementRuleId: text('settlement_rule_id').references(() => settlementRules.id),
   settlementAppliedAt: text('settlement_applied_at'),

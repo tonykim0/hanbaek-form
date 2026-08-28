@@ -36,6 +36,7 @@ function docs(
 export const SEED_RECORDS: ProjectRecord[] = [
   {
     project: {
+      payoutTermsConfirmedAt: null,
       id: 'HB-2026-041', mgmtNo: 'HB-2026-041', cpo: '플러그링크',
       salesOrg: '에코일렉', gcOrg: '에코일렉', name: '속초 ES아뜨리움',
       addr: '강원 속초시 조양동 1451', bldgType: '공동주택', contractParty: '입주자대표회의',
@@ -68,6 +69,7 @@ export const SEED_RECORDS: ProjectRecord[] = [
   },
   {
     project: {
+      payoutTermsConfirmedAt: null,
       id: 'HB-2026-018', mgmtNo: 'HB-2026-018', cpo: '플러그링크',
       salesOrg: '대상전력', gcOrg: '대상전력', name: '신안비치팔레스1차',
       addr: '경기 화성시 능동 1043', bldgType: '공동주택', contractParty: '입주자대표회의',
@@ -108,6 +110,7 @@ export const SEED_RECORDS: ProjectRecord[] = [
   },
   {
     project: {
+      payoutTermsConfirmedAt: null,
       id: 'HB-2026-052', mgmtNo: 'HB-2026-052', cpo: '현대엔지니어링',
       salesOrg: '제일전기통신', gcOrg: null, name: '동탄 센트럴파크뷰',
       addr: '경기 화성시 오산동 967', bldgType: '공동주택', contractParty: '건설사',
@@ -131,6 +134,7 @@ export const SEED_RECORDS: ProjectRecord[] = [
   },
   {
     project: {
+      payoutTermsConfirmedAt: null,
       id: 'HB-2026-055', mgmtNo: 'HB-2026-055', cpo: 'SK일렉링크',
       salesOrg: '네이비인프라', gcOrg: '네이비인프라', name: '울산 태화강아이파크',
       addr: '울산 중구 태화동 452', bldgType: '공동주택', contractParty: '입주자대표회의',
@@ -154,6 +158,7 @@ export const SEED_RECORDS: ProjectRecord[] = [
   },
   {
     project: {
+      payoutTermsConfirmedAt: null,
       id: 'HB-2026-033', mgmtNo: 'HB-2026-033', cpo: '나이스인프라',
       salesOrg: '이에프이노베이션', gcOrg: '이에프이노베이션', name: '청주 리버파크자이',
       addr: '충북 청주시 흥덕구 복대동 2298', bldgType: '공동주택', contractParty: '입주자대표회의',

@@ -56,34 +56,34 @@ export function SettlementTab({
           lines={lines}
           cpo={detail.project.cpo}
           ruleOptions={ruleOptions}
+          confirmedAt={detail.project.payoutTermsConfirmedAt}
+          paidCount={detail.payoutEntries.filter((e) => entryTypeOf(e.category) === '지급').length}
         />
       )}
 
       {/*
-        * 적용조건·지급관리 두 표가 같은 폭으로 나란히 서고, 메모가 오른쪽 기둥
-        * 전체를 쓴다(한백 확인) — 메모는 표 하나가 아니라 정산 전체에 딸린 기록이다.
+        * ★메모를 오른쪽 기둥에서 지급 내역 밑으로 내렸다 (한백 지시 2026-08-28).★
+        * 380px 짜리 오른쪽 기둥에 있으면 표가 그만큼 좁아지고, 메모를 적으려면 눈이
+        * 화면을 가로질러야 했다. 위에서 아래로 읽는 순서(조건 → 라인 → 지급 → 메모)가
+        * 실제로 일하는 순서와도 같다.
         */}
-      <div className="grid items-start gap-x-6 gap-y-7 xl:grid-cols-[minmax(0,1fr)_380px]">
-        <div className="flex min-w-0 flex-col gap-7">
-          <ContractLines lines={lines} cpo={detail.project.cpo} vis={vis} />
+      <ContractLines lines={lines} cpo={detail.project.cpo} vis={vis} />
 
-          <PaymentSection
-            projectId={detail.project.id}
-            lines={lines}
-            entries={detail.payoutEntries}
-            salesOrg={detail.project.salesOrg}
-            gcOrg={detail.project.gcOrg}
-            vis={vis}
-            canReview={canReview}
-          />
-        </div>
+      <PaymentSection
+        projectId={detail.project.id}
+        lines={lines}
+        entries={detail.payoutEntries}
+        salesOrg={detail.project.salesOrg}
+        gcOrg={detail.project.gcOrg}
+        vis={vis}
+        canReview={canReview}
+      />
 
-        <PayNoteBox
-          projectId={detail.project.id}
-          payNote={settlement.payNote}
-          canReview={canReview}
-        />
-      </div>
+      <PayNoteBox
+        projectId={detail.project.id}
+        payNote={settlement.payNote}
+        canReview={canReview}
+      />
     </div>
   );
 }
@@ -465,15 +465,21 @@ function Money({ show, value }: { show: boolean; value: number | null }) {
  * 라인 이름과 셀렉트를 한 줄에 둔다 — 박스가 세로로 길면 조건 두 개에 화면 반이 나간다.
  */
 function PayConditions({
-  projectId, lines, cpo, ruleOptions,
+  projectId, lines, cpo, ruleOptions, confirmedAt, paidCount,
 }: {
   projectId: string;
   lines: ProjectDetail['lines'];
   /** 교체유형 표기가 운영사로 갈린다 — 안 가르는 운영사는 「자체투자」 한 마디다 */
   cpo: CpoName;
   ruleOptions: RuleOptions;
+  /** 확정한 날 — 값이 있으면 잠긴 것이다 */
+  confirmedAt: string | null;
+  /** 이미 나간 지급 건수 — 해제할 때 무엇이 걸려 있는지 말해 준다 */
+  paidCount: number;
 }) {
   const { busy, error, run } = useAction();
+  const locked = Boolean(confirmedAt);
+  const unpriced = lines.filter((l) => !l.pricingRuleId).length;
 
   const pickRule = (lineId: string, ruleId: string) =>
     void run({
@@ -485,7 +491,39 @@ function PayConditions({
 
   return (
     <section>
-      <h2 className="mb-2 text-h3 font-black text-slate-900">지급조건</h2>
+      <div className="mb-2 flex flex-wrap items-center gap-3">
+        <h2 className="text-h3 font-black text-slate-900">지급조건</h2>
+        {locked ? (
+          <>
+            <Badge tone="ok">확정 {confirmedAt}</Badge>
+            {/*
+              * 해제는 되돌릴 길이다(화면 규칙 7). 이미 나간 지급이 있으면 그 사실을
+              * 단추 이름에 적는다 — 무엇이 걸려 있는지 모르고 풀지 않도록(규칙 3).
+              */}
+            <Btn
+              kind="undo" size="sm" busy={busy} busyLabel="해제 중…"
+              onClick={() => void run({
+                url: `/api/projects/${projectId}/payout-terms`,
+                body: { confirmed: false },
+                fail: '확정을 해제하지 못했습니다.',
+              })}
+            >
+              {paidCount > 0 ? `확정 해제 — 지급 ${paidCount}건이 이미 나갔습니다` : '확정 해제'}
+            </Btn>
+          </>
+        ) : (
+          <Btn
+            size="sm" busy={busy} busyLabel="확정 중…" disabled={unpriced > 0}
+            onClick={() => void run({
+              url: `/api/projects/${projectId}/payout-terms`,
+              body: { confirmed: true },
+              fail: '확정하지 못했습니다.',
+            })}
+          >
+            {unpriced > 0 ? `단가 미지정 ${unpriced}건 — 확정 불가` : '지급조건 확정'}
+          </Btn>
+        )}
+      </div>
       <div className="flex flex-col gap-1.5">
         {lines.map((l) => {
           const opts = ruleOptions[l.id];
@@ -504,6 +542,12 @@ function PayConditions({
                   */}
                 {l.replType && <Tag>{replLabel(cpo, l.replType)}</Tag>}
                 {l.powerType && <Tag>{l.powerType}</Tag>}
+                {/* 확정된 조건은 글자로 굳힌다 — 못 바꾸는 것은 눌리지 않게(화면 규칙 3·4) */}
+                {locked ? (
+                  <span className="min-w-[240px] flex-1 text-base font-bold text-slate-800">
+                    {l.rule?.caseName ?? <span className="text-amber-700">단가 미지정</span>}
+                  </span>
+                ) : (
                 <select
                   value={l.pricingRuleId ?? ''}
                   disabled={busy}
@@ -542,6 +586,7 @@ function PayConditions({
                     </optgroup>
                   )}
                 </select>
+                )}
               </div>
               {(opts || turnkey !== null) && (
                 <p className="mt-1 text-tiny tabular-nums text-slate-400">
@@ -860,7 +905,7 @@ function PayNoteBox({
   };
 
   return (
-    /* 오른쪽 기둥 전체가 메모다 — 표들과 같은 급의 상자로 세워 자리를 잡아 준다 */
+    /* 지급 내역 아래에 선다(2026-08-28) — 표들과 같은 급의 상자다 */
     <div className="rounded-box border border-slate-200 bg-white p-3.5">
       <div className="mb-2 flex items-baseline gap-2">
         <h3 className="text-base font-black text-slate-900">메모</h3>

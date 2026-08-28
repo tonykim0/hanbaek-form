@@ -359,6 +359,20 @@ export interface ProjectRepository {
    *
    * null 은 미지정으로 되돌린다 — 기성 단계·금액 계산이 멈춘다.
    */
+  /**
+   * 지급조건 확정 — 단가 케이스와 정산 규칙을 잠근다. [한백 전용]
+   *
+   * ★왜 잠그는가★ 그 둘이 계획·잔액·기성·마진을 전부 정한다. 중간에 누가 갈아 끼우면
+   * 이미 나간 지급과 앞으로 받을 기성이 같이 뒤틀린다(한백 지시 2026-08-28).
+   *
+   * 지급이 나가면 자동으로 확정된다(runPayoutBatch·addPayoutEntry) — 돈이 움직인 뒤의
+   * 변경이 가장 위험하기 때문이다. 덜 된 조건은 굳히지 않는다: 단가가 안 붙은 라인이
+   * 있거나 정산 규칙이 없으면 확정을 거절한다.
+   *
+   * false 는 해제다 — 확정 뒤에 진짜 오류가 드러나는 일이 있어 되돌릴 길을 둔다.
+   */
+  setPayoutTermsConfirmed(projectId: string, confirmed: boolean, actor: Actor): Promise<void>;
+
   setSettlementRule(projectId: string, ruleId: string | null, actor: Actor): Promise<void>;
 
   /**

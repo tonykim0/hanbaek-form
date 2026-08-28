@@ -653,9 +653,9 @@ function PaymentSection({
           <h2 className="text-h3 font-black text-slate-900">지급관리</h2>
           <span className="text-tiny text-slate-400">계약 {totalQty}대 기준</span>
         </div>
-        {/* 지급 내역·거래명세서는 이 데이터에서 유도된다 — 같은 것의 다른 면 */}
-        <Link href="/payments" className="text-tiny font-bold text-brand-700 hover:underline">
-          지급 내역 · 거래명세서 →
+        {/* 거래명세서는 이 데이터에서 유도된다 — 같은 것의 다른 면 (지급 내역이 그리로 합쳐졌다) */}
+        <Link href="/statements" className="text-tiny font-bold text-brand-700 hover:underline">
+          협력사 거래명세서 →
         </Link>
       </div>
 

@@ -1,17 +1,15 @@
 /**
  * 월별 지급 그래프 — 달마다 영업비·시공비가 얼마 나갔는지 한눈에 좇는다.
  *
- * 막대 하나가 한 달이고, 누르면 아래 그 달의 묶음으로 내려간다 — 그래프가 곧 목차다.
- * 예전에는 막대가 `?month=` 로 화면을 다시 불러 그 달만 보여줬는데, 지금은 달마다
- * 묶여 전부 나와 있어서(한백 요청 2026-08-24) 고를 것이 없다. 지급이 없는 달은 내려갈
- * 곳이 없으므로 링크가 아니다 — 눌리는 것과 안 눌리는 것을 모양으로 가른다(화면 규칙 3·11번).
+ * 막대 하나가 한 달이다. ★읽는 것이지 누르는 것이 아니다★ (2026-08-28) — 예전에는
+ * 아래 그 달의 묶음으로 내려가는 목차였는데, 지급 내역 화면이 거래명세서로 합쳐지면서
+ * 내려갈 묶음이 없어졌다. 내려갈 곳 없는 링크를 남기면 눌러 보고 알게 된다.
  * 지급이 없는 달도 자리는 지킨다(0원) — 안 나간 달이 보이는 것도 정보다.
  *
  * 라이브러리를 쓰지 않는다. 막대 두 조각(영업비·시공비)을 div 높이로 그린다 —
  * 이 화면이 필요한 것은 추세와 비교뿐이라 축·눈금·툴팁이 없어도 읽힌다.
  * 회수가 큰 달은 합이 음수가 될 수 있다 — 막대는 0 으로 두고 숫자만 음수로 적는다.
  */
-import Link from 'next/link';
 import { wonCompact } from '@/lib/format';
 
 export interface MonthBar {
@@ -57,9 +55,7 @@ export default function PayChart({
             const on = m.month === thisMonth;
             const money = `영업비 ${wonCompact(m.sales)} · 시공비 ${wonCompact(m.cons)}`;
             const cls = 'group flex w-14 shrink-0 flex-col items-center gap-1';
-            const title = m.has ? `${m.month} ${money} — 누르면 그 달로` : `${m.month} 지급 0건`;
-            /* 눌리는 것(Link)과 안 눌리는 것(span)을 태그로 가른다 — 한 태그에 href 를 넣고
-               빼면 타입이 갈리고, 무엇보다 안 눌리는 막대가 눌리는 것처럼 보인다 */
+            const title = m.has ? `${m.month} ${money}` : `${m.month} 지급 0건`;
             const bar = (
               <>
                 <span
@@ -92,11 +88,7 @@ export default function PayChart({
                 </span>
               </>
             );
-            return m.has ? (
-              <Link key={m.month} href={`#m-${m.month}`} className={cls} title={title} aria-current={on ? 'true' : undefined}>
-                {bar}
-              </Link>
-            ) : (
+            return (
               <span key={m.month} className={cls} title={title} aria-current={on ? 'true' : undefined}>
                 {bar}
               </span>

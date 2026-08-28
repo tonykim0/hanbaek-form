@@ -52,9 +52,10 @@ export default async function StatementsPage() {
   const barBy = new Map<string, MonthBar>();
   for (const r of history) {
     const key = r.paidAt.slice(0, 7);
-    const bar = barBy.get(key) ?? { month: key, sales: 0, cons: 0, has: true };
+    const bar = barBy.get(key) ?? { month: key, sales: 0, cons: 0, has: true, count: 0 };
     if (r.kind === '영업비') bar.sales += r.amount;
     else bar.cons += r.amount;
+    bar.count += 1;
     barBy.set(key, bar);
   }
   const series = [...barBy.values()].sort((a, b) => a.month.localeCompare(b.month));

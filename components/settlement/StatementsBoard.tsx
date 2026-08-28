@@ -100,6 +100,9 @@ export default function StatementsBoard({
     [batches, state, org, kind, month]
   );
   const filtered = shown.length !== batches.length;
+  /* 지금 보이는 것의 합 — 달을 고르면 그 달의 합이 된다(한백 2026-08-29) */
+  const shownTotal = shown.reduce((n, b) => n + b.total, 0);
+  const shownCount = shown.reduce((n, b) => n + b.count, 0);
 
   /* 상태별 건수 — 드롭다운 옵션에 적는다. 지급처·구분 필터와 무관한 전체 기준이다 */
   const countByState = useMemo(() => {
@@ -196,6 +199,30 @@ export default function StatementsBoard({
               <BatchRow key={`${b.paidAt}|${b.org ?? ''}|${b.kind}`} b={b} seesAll={seesAll} canEdit={canEdit} />
             ))}
           </tbody>
+          {/*
+            합계는 열 아래에 선다 — 위 필터 줄에 적으면 어느 열의 합인지 눈이 짝지어야 한다.
+            ★지금 보이는 것의 합이다★ (한백 2026-08-29): 달을 고르면 그 달의 합이고,
+            지급처·구분을 고르면 그 몫의 합이다. 그래서 무엇을 걸렀는지 왼쪽에 같이 적는다 —
+            안 적으면 걸러진 합계가 전체 합계처럼 읽힌다.
+          */}
+          <tfoot className="border-t-2 border-slate-200 bg-slate-50/60 text-slate-800">
+            <tr>
+              <td className="px-3 py-2.5 text-tiny font-bold tracking-[0.06em] text-slate-500" colSpan={3}>
+                합계
+                {filtered && (
+                  <span className="ml-1.5 font-semibold text-slate-400">
+                    {month !== ALL && `${month.slice(0, 4)}년 ${Number(month.slice(5))}월 · `}
+                    {shown.length}/{batches.length}배치
+                  </span>
+                )}
+              </td>
+              <td className="whitespace-nowrap px-3 py-2.5 text-right tabular-nums text-slate-500">{shownCount}건</td>
+              <td className={`whitespace-nowrap px-3 py-2.5 text-right text-lead font-black tabular-nums ${shownTotal < 0 ? 'text-amber-800' : 'text-slate-900'}`}>
+                {won(shownTotal)}
+              </td>
+              <td colSpan={3} />
+            </tr>
+          </tfoot>
         </Frame>
       )}
     </section>

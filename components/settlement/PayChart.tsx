@@ -3,20 +3,25 @@
 /**
  * 월별 지급 그래프 — 달마다 영업비·시공비가 얼마 나갔는지 한눈에 좇는다.
  *
- * ★한 해를 1월부터 12월까지 통째로 세운다 (한백 2026-08-29).★ 예전에는 첫 지급이
- * 있던 달부터 이번 달까지만 그렸다 — 그러면 해가 바뀔 때 막대 수가 달라져 같은 그래프가
- * 매달 다른 모양이 되고, 「올해 아직 안 나간 달」이 자리조차 없어 보이지 않았다.
- * 열두 칸은 늘 같은 자리에 있고, 지급이 없는 달은 0원으로 선다 — 안 나간 달이 보이는
- * 것도 정보다(빈 값도 자리를 지킨다, 화면 규칙 6).
+ * ★수주 현황(/dashboard)의 그래프와 같은 얼개다 (한백 2026-08-29).★ 그전에는 이것만
+ * 눈금선도 축도 없이 고정폭 막대를 늘어놓아서, 같은 콘솔의 두 그래프가 다른 물건으로
+ * 보였다. 같은 얼개를 쓴다: 왼쪽에 눈금 넷(최대·66%·33%·0)과 가로선, 막대는 폭을 나눠
+ * 갖고, 아래에 얇은 선을 긋고 달 이름과 건수를 적는다. 다른 것은 이 그래프가 두 조각을
+ * 쌓는다는 것뿐이다 — 영업비와 시공비는 따로 나가는 돈이라 합만 보면 무엇이 큰지 모른다.
+ *
+ * ★한 해를 1월부터 12월까지 통째로 세운다.★ 그전에는 첫 지급이 있던 달부터 이번 달까지만
+ * 그렸다 — 달이 갈 때마다 막대 수가 늘어 같은 그래프가 매달 다른 모양이 되고, 「올해 아직
+ * 안 나간 달」은 자리조차 없었다. 열두 칸은 늘 같은 자리에 있고 지급이 없는 달은 0원으로
+ * 선다(빈 값도 자리를 지킨다, 화면 규칙 6).
  *
  * 해는 왼쪽 위에서 고른다. 필터는 보는 것 바로 위에 있어야 무엇을 거르는지 안다 —
  * 화면 맨 위에 두면 아래 배치 표까지 거르는 것으로 읽힌다(그것은 표가 따로 거른다).
  *
- * 막대는 ★읽는 것이지 누르는 것이 아니다★ (2026-08-28) — 예전에는 아래 그 달의 묶음으로
- * 내려가는 목차였는데, 지급 내역 화면이 거래명세서로 합쳐지면서 내려갈 묶음이 없어졌다.
+ * 막대는 ★읽는 것이지 누르는 것이 아니다★ — 예전에는 아래 그 달의 묶음으로 내려가는
+ * 목차였는데, 지급 내역 화면이 거래명세서로 합쳐지면서 내려갈 묶음이 없어졌다.
  *
- * 라이브러리를 쓰지 않는다. 막대 두 조각(영업비·시공비)을 div 높이로 그린다 —
- * 이 화면이 필요한 것은 추세와 비교뿐이라 축·눈금·툴팁이 없어도 읽힌다.
+ * 라이브러리를 쓰지 않는다. 막대를 div 높이로 그린다 — 이 화면이 필요한 것은 추세와
+ * 비교뿐이라 축·눈금·툴팁이 없어도 읽힌다.
  * 회수가 큰 달은 합이 음수가 될 수 있다 — 막대는 0 으로 두고 숫자만 음수로 적는다.
  */
 import { useMemo, useState } from 'react';
@@ -30,9 +35,12 @@ export interface MonthBar {
   cons: number;
   /** 이 달에 나간 지급이 있나 — 0원인 달과 「지급 0건」인 달을 가른다 */
   has: boolean;
+  /** 그 달의 지급 건수 — 축 아래에 적는다(수주 현황이 「N건」을 적는 자리와 같다) */
+  count: number;
 }
 
-const BAR_H = 120;
+/** 수주 현황 그래프와 같은 높이 — 두 그래프가 나란히 놓여도 눈높이가 맞는다 */
+const H = 196;
 const yearOf = (month: string) => month.slice(0, 4);
 
 export default function PayChart({
@@ -65,7 +73,7 @@ export default function PayChart({
   const slots: MonthBar[] = useMemo(
     () => Array.from({ length: 12 }, (_, i) => {
       const key = `${year}-${String(i + 1).padStart(2, '0')}`;
-      return byMonth.get(key) ?? { month: key, sales: 0, cons: 0, has: false };
+      return byMonth.get(key) ?? { month: key, sales: 0, cons: 0, has: false, count: 0 };
     }),
     [byMonth, year]
   );
@@ -73,7 +81,7 @@ export default function PayChart({
   /* 높이는 고른 해 안에서만 견준다 — 해마다 축이 다시 잡혀야 그 해의 굴곡이 보인다 */
   const max = Math.max(1, ...slots.map((m) => Math.max(0, m.sales) + Math.max(0, m.cons)));
   const yearTotal = slots.reduce((n, m) => n + m.sales + m.cons, 0);
-  const yearCount = slots.filter((m) => m.has).length;
+  const yearCount = slots.reduce((n, m) => n + m.count, 0);
 
   return (
     <section aria-label="월별 지급" className="rounded-panel border border-slate-200 bg-white p-5">
@@ -95,7 +103,7 @@ export default function PayChart({
             </select>
           </span>
           <span className="text-tiny font-bold tabular-nums text-slate-500">
-            {yearCount === 0 ? '지급 0건' : <>{won(yearTotal)}원</>}
+            {yearCount === 0 ? '지급 0건' : `${yearCount}건 · ${won(yearTotal)}원`}
           </span>
         </div>
         <div className="flex flex-wrap items-center gap-4">
@@ -108,53 +116,84 @@ export default function PayChart({
         </div>
       </div>
 
-      <div className="overflow-x-auto">
-        <div className="flex min-w-fit items-end gap-1.5">
-          {slots.map((m) => {
-            const sales = Math.max(0, m.sales);
-            const cons = Math.max(0, m.cons);
-            const total = m.sales + m.cons;
-            const on = m.month === thisMonth;
-            const money = `영업비 ${wonCompact(m.sales)} · 시공비 ${wonCompact(m.cons)}`;
-            return (
-              <span
-                key={m.month}
-                className="group flex w-14 shrink-0 flex-col items-center gap-1"
-                title={m.has ? `${m.month} ${money}` : `${m.month} 지급 0건`}
-                aria-current={on ? 'true' : undefined}
-              >
-                <span
-                  className={`text-micro font-bold tabular-nums ${
-                    total === 0 ? 'text-slate-300' : total < 0 ? 'text-amber-700' : 'text-slate-600'
-                  }`}
-                >
-                  {total === 0 ? '0' : wonCompact(total)}
-                </span>
-                <span
-                  className="flex w-9 flex-col justify-end overflow-hidden rounded-t-[4px]"
-                  style={{ height: BAR_H }}
-                  aria-hidden
-                >
-                  {/* 위가 시공비, 아래가 영업비 — 범례 순서와 같다 */}
-                  <span className="w-full bg-brand-500 transition group-hover:bg-brand-600"
-                    style={{ height: Math.round((cons / max) * BAR_H) }} />
-                  <span className="w-full bg-sky-400 transition group-hover:bg-sky-500"
-                    style={{ height: Math.round((sales / max) * BAR_H) }} />
-                  {sales + cons === 0 && <span className="h-px w-full bg-slate-200" />}
-                </span>
-                {/* 열두 칸이 늘 같은 자리라 이름은 「N월」 하나면 된다 — 연도는 위에서 고른다 */}
-                <span
-                  className={`rounded-tag px-1.5 py-0.5 text-tiny font-bold tabular-nums ${
-                    on ? 'bg-slate-900 text-white'
-                      : m.has ? 'text-slate-500 group-hover:text-slate-800'
-                        : 'text-slate-300'
-                  }`}
-                >
-                  {Number(m.month.slice(5))}월
-                </span>
-              </span>
-            );
-          })}
+      <div className="overflow-x-auto pb-1">
+        <div
+          role="img"
+          aria-label={`${year}년 월별 지급: ${slots
+            .map((m) => `${Number(m.month.slice(5))}월 ${m.has ? `${won(m.sales + m.cons)}원` : '0건'}`)
+            .join(', ')}`}
+          className="min-w-[520px]"
+        >
+          <div className="relative" style={{ height: H }}>
+            {/* 눈금 넷 — 수주 현황과 같은 간격(최대·66%·33%·0). 금액이라 압축 표기다 */}
+            <div aria-hidden className="absolute inset-0 flex flex-col justify-between">
+              {[max, Math.round(max * 0.66), Math.round(max * 0.33), 0].map((tick, i) => (
+                <div key={i} className="flex items-center gap-3">
+                  <span className="w-12 text-right text-micro font-semibold tabular-nums text-slate-300">
+                    {tick === 0 ? '0' : wonCompact(tick)}
+                  </span>
+                  <div className="flex-1 border-t border-slate-100" />
+                </div>
+              ))}
+            </div>
+
+            <div className="absolute inset-y-0 left-[3.75rem] right-0 flex items-end gap-1">
+              {slots.map((m) => {
+                const sales = Math.max(0, m.sales);
+                const cons = Math.max(0, m.cons);
+                const total = m.sales + m.cons;
+                const on = m.month === thisMonth;
+                /* 막대 몸통이 쓸 높이 — 위 숫자 자리를 뺀다(수주 현황과 같은 30px) */
+                const body = H - 30;
+                return (
+                  <div key={m.month} className="flex h-full min-w-0 flex-1 flex-col justify-end">
+                    {total !== 0 && (
+                      <span
+                        className={`mb-1.5 text-center text-tiny font-black tabular-nums ${
+                          total < 0 ? 'text-amber-700' : on ? 'text-brand-800' : 'text-slate-600'
+                        }`}
+                      >
+                        {wonCompact(total)}
+                      </span>
+                    )}
+                    {/* 위가 시공비, 아래가 영업비 — 범례 순서와 같다 */}
+                    <div
+                      className="flex flex-col justify-end overflow-hidden rounded-t-[6px]"
+                      style={{ height: `${Math.max(3, ((sales + cons) / max) * body)}px` }}
+                      title={`${m.month} · 영업비 ${wonCompact(m.sales)} · 시공비 ${wonCompact(m.cons)}`}
+                    >
+                      <div
+                        className="w-full bg-brand-500 transition"
+                        style={{ height: `${(cons / max) * body}px` }}
+                      />
+                      <div
+                        className="w-full bg-sky-400 transition"
+                        style={{ height: `${(sales / max) * body}px` }}
+                      />
+                      {sales + cons === 0 && <div className="h-full w-full bg-slate-200" />}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* 축 — 달 이름과 그 달의 건수. 수주 현황이 「N건」을 적는 자리와 같다 */}
+          <div className="ml-[3.75rem] mt-2 flex gap-1 border-t border-slate-200 pt-2">
+            {slots.map((m) => {
+              const on = m.month === thisMonth;
+              return (
+                <div key={m.month} className="min-w-0 flex-1 text-center">
+                  <p className={`text-tiny font-bold ${on ? 'text-brand-800' : m.has ? 'text-slate-500' : 'text-slate-300'}`}>
+                    {Number(m.month.slice(5))}월
+                  </p>
+                  <p className={`mt-0.5 text-micro tabular-nums ${m.has ? 'text-slate-400' : 'text-slate-300'}`}>
+                    {m.count}건
+                  </p>
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
     </section>

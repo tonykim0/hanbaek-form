@@ -2,7 +2,7 @@ import { getRepository } from '@/lib/data';
 import { actorOf, getSessionUser, viewerOf } from '@/lib/auth/session';
 import { isHanbaek } from '@/lib/roles';
 import { redirect } from 'next/navigation';
-import { monthShift, thisMonth as seoulMonth } from '@/lib/date';
+import { thisMonth as seoulMonth } from '@/lib/date';
 import { won } from '@/lib/format';
 import PayChart, { type MonthBar } from '@/components/settlement/PayChart';
 import StatementsBoard from '@/components/settlement/StatementsBoard';
@@ -43,26 +43,21 @@ export default async function StatementsPage() {
   ]);
 
   /*
-   * 월별 흐름 — 첫 지급이 있던 달부터 이번 달(또는 마지막 지급 달)까지 빈 달 없이 잇는다.
-   * 지급이 없는 달이 빠지면 추세가 실제보다 매끈해 보인다. 열은 24개까지만 — 잘못 찍힌
-   * 먼 미래 날짜 하나가 축을 못 쓰게 만들지 않게 한다. (옛 /payments 에서 그대로 옮겼다)
+   * 지급이 있는 달만 접어 넘긴다 — 빈 달을 여기서 채우지 않는다.
+   * 그래프가 고른 해의 1~12월을 스스로 세우므로(PayChart), 없는 달은 거기서 0원이 된다.
+   * 예전에는 여기서 첫 지급 달부터 이번 달까지 이어 붙이고 24개월로 잘랐다 — 해를 고르게
+   * 되면서 그 자름이 오히려 지난 해를 못 보게 막았다.
    */
   const thisMonth = seoulMonth();
-  const paidMonths = history.map((r) => r.paidAt.slice(0, 7));
-  const first = paidMonths.length > 0 ? [...paidMonths].sort()[0] : thisMonth;
-  const last = [thisMonth, ...paidMonths].sort().slice(-1)[0];
-  const has = new Set(paidMonths);
-  const series: MonthBar[] = [];
-  for (let m = first; m <= last && series.length < 24; m = monthShift(m, 1)) {
-    series.push({ month: m, sales: 0, cons: 0, has: has.has(m) });
-  }
-  const barBy = new Map(series.map((b) => [b.month, b]));
+  const barBy = new Map<string, MonthBar>();
   for (const r of history) {
-    const bar = barBy.get(r.paidAt.slice(0, 7));
-    if (!bar) continue;
+    const key = r.paidAt.slice(0, 7);
+    const bar = barBy.get(key) ?? { month: key, sales: 0, cons: 0, has: true };
     if (r.kind === '영업비') bar.sales += r.amount;
     else bar.cons += r.amount;
+    barBy.set(key, bar);
   }
+  const series = [...barBy.values()].sort((a, b) => a.month.localeCompare(b.month));
   const total = history.reduce((n, r) => n + r.amount, 0);
 
   return (

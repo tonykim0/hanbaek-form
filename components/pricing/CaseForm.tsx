@@ -3,9 +3,7 @@
 import {
   useEffect, useRef, useState,
 } from 'react';
-import {
-  BUILDING_TYPES, bizTypeOfRepl, CHANNELS, CPO_NAMES, powerTypesOfRepl, replTypesOf, type BuildingType, type Channel, type CpoName, type ReplType, type BizType, type PromoStep, type SettlementRule, type SettlementStepRule, type Trigger,
-} from '@/types/project';
+import { BUILDING_TYPES, bizTypeOfRepl, CHANNELS, CPO_NAMES, powerTypesOfRepl, replTypesOf, type BuildingType, type Channel, type CpoName, type ReplType, type BizType, type PromoStep, type SettlementRule, type SettlementStepRule } from '@/types/project';
 import { replLabel } from '@/types/project';
 import { won } from '@/lib/format';
 import { useAction } from '@/lib/use-action';
@@ -13,24 +11,15 @@ import { useAction } from '@/lib/use-action';
 import {
   startKey,
 } from '@/lib/pricing-match';
-import {
-  checkSettlementSteps, RECEIVE_TRIGGERS, stepUnits,
-} from '@/lib/settlement';
-import {
-  Btn, Choice, Err, FIELD, FIELD_CELL, PANEL, Tag,
-} from '@/components/ui';
+import { checkSettlementSteps, stepUnits } from '@/lib/settlement';
+import { Btn, Choice, Err, FIELD, PANEL } from '@/components/ui';
 import {
   POWER_TYPES, TERMS, type Prefill,
 } from './shared';
+import { Chips, Field, FormSection, Money, koDate } from './form-parts';
+import { PromoSection, StepsSection, TermsSection, type StepDraft } from './form-sections';
 
 /* ── 케이스 폼 — 새 케이스·수정·개정이 같은 폼이다 ───────────────────────── */
-
-/** 기성 단계 한 줄의 입력 상태 — 값 칸은 고정이면 원, 비율이면 % 다 */
-interface StepDraft {
-  trigger: Trigger;
-  kind: '고정' | '비율' | '잔액';
-  value: string;
-}
 
 export function CaseForm({
   prefill, editId, stepShapeOf, onDone,
@@ -430,101 +419,17 @@ export function CaseForm({
       </FormSection>
 
       {/* ④ 기성 단계 — 받는 단가를 운영사에게 받는 차수. 현장 기성 탭·운영사 기성관리에 이대로 선다 */}
-      <FormSection
-        title="기성 단계"
-        hint={stepsLocked
-          ? '단계는 운영사가 정한다 — 케이스마다 다른 것은 차수 금액뿐'
-          : '받는 단가를 어느 시점에 얼마씩 받는가 — 합이 받는 단가와 같아야 한다'}
-      >
-        {steps.length === 0 ? (
-          <Tag tone="warn">
-            {stepsLocked
-              ? '이 운영사·사업구분의 기성 모양이 아직 없음 — 첫 케이스면 단계를 직접 정의'
-              : '기성 미정 — 이 케이스로 지정된 현장은 기성이 계산되지 않음'}
-          </Tag>
-        ) : (
-          <div className="flex max-w-2xl flex-col gap-2">
-            {steps.map((s, i) => (
-              <div key={i} className="flex flex-wrap items-center gap-2">
-                <span className="w-8 shrink-0 text-tiny font-bold text-slate-400">{i + 1}차</span>
-                {stepsLocked ? (
-                  /* 모양은 운영사 것 — 트리거·방식은 글자로 굳히고 고정액만 연다 (화면 규칙 4번) */
-                  <span className="font-bold text-slate-700">
-                    {s.trigger}
-                    <span className="ml-1.5 text-tiny font-semibold text-slate-400">
-                      {s.kind === '고정' ? '고정액' : s.kind === '비율' ? `${s.value}%` : '잔액'}
-                    </span>
-                  </span>
-                ) : (
-                  <>
-                    <select
-                      value={s.trigger}
-                      onChange={(e) => setStep(i, { trigger: e.target.value as Trigger })}
-                      className={FIELD_CELL}
-                    >
-                      {RECEIVE_TRIGGERS.map((t) => <option key={t} value={t}>{t}</option>)}
-                    </select>
-                    <select
-                      value={s.kind}
-                      onChange={(e) => setStep(i, { kind: e.target.value as StepDraft['kind'] })}
-                      className={FIELD_CELL}
-                    >
-                      <option value="고정">고정액</option>
-                      <option value="비율">비율</option>
-                      <option value="잔액">잔액</option>
-                    </select>
-                  </>
-                )}
-                {s.kind === '고정' && (
-                  <span className="flex items-baseline gap-1">
-                    <input
-                      value={s.value}
-                      onChange={(e) => setStep(i, { value: e.target.value })}
-                      inputMode="numeric"
-                      placeholder="0"
-                      className={`${FIELD_CELL} w-28 text-right tabular-nums`}
-                    />
-                    <span className="shrink-0 text-micro text-slate-400">원</span>
-                  </span>
-                )}
-                {!stepsLocked && s.kind === '비율' && (
-                  <span className="flex items-baseline gap-1">
-                    <input
-                      value={s.value}
-                      onChange={(e) => setStep(i, { value: e.target.value })}
-                      inputMode="numeric"
-                      placeholder="0"
-                      className={`${FIELD_CELL} w-20 text-right tabular-nums`}
-                    />
-                    <span className="shrink-0 text-micro text-slate-400">%</span>
-                  </span>
-                )}
-                <span className="ml-auto text-tiny tabular-nums text-slate-500">
-                  {receive > 0 ? `대당 ${won(stepAmount[i] ?? 0)}원` : '—'}
-                </span>
-                {!stepsLocked && (
-                  <Btn size="sm" kind="quiet" onClick={() => setSteps((p) => p.filter((_, x) => x !== i))}>
-                    빼기
-                  </Btn>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-
-        <div className="mt-3 flex flex-wrap items-center gap-3">
-          {stepsLocked ? (
-            <Btn size="sm" kind="quiet" onClick={() => setStepsLocked(false)}>
-              단계 직접 정의 — 운영사 모양이 바뀌었을 때만
-            </Btn>
-          ) : (
-            steps.length < 3 && <Btn size="sm" kind="side" onClick={addStep}>차수 추가</Btn>
-          )}
-          {steps.length > 0 && receive > 0 && stepBad.length > 0 && (
-            <span className="text-tiny font-semibold text-red-600">{stepBad[0]}</span>
-          )}
-        </div>
-      </FormSection>
+      <StepsSection
+        steps={steps}
+        stepsLocked={stepsLocked}
+        receive={receive}
+        stepAmount={stepAmount}
+        stepBad={stepBad}
+        setStep={setStep}
+        setSteps={setSteps}
+        setStepsLocked={setStepsLocked}
+        addStep={addStep}
+      />
 
       {/* 접힌 구역의 단추가 상태를 말한다 — 값은 사라지는 게 아니라 원 케이스 그대로 실린다 */}
       {(!showRates || !showTerms) && (
@@ -544,195 +449,26 @@ export function CaseForm({
 
       {/* ⑤ 요금 — 정상 요금이 먼저, 그 요금을 깎는 프로모션과 연장이 그 아래로 */}
       {showRates && (
-      <FormSection title="요금·프로모션" hint="현장에 안내되는 충전요금 조건 — 비워 두면 「미지정」">
-        <div className="flex flex-col gap-4">
-          <div className="w-44">
-            <Field label="충전요금" hint="원/kWh · 프로모션이 끝난 뒤의 정상 요금">
-              <input
-                value={chargeRate}
-                onChange={(e) => setChargeRate(e.target.value)}
-                inputMode="numeric"
-                placeholder="292"
-                className={`${FIELD} text-right tabular-nums`}
-              />
-            </Field>
-          </div>
-
-          {/*
-            프로모션은 구간이 이어진다 — 「6개월 149원 → 6개월 220원」. 한 쌍만 두면
-            뒤 구간이 비고 문장으로 새어나간다. 기성 단계와 같은 모양으로 늘린다.
-          */}
-          <div className="flex flex-col gap-1.5">
-            <span className="flex items-baseline gap-2">
-              <span className="text-tiny font-bold tracking-[0.04em] text-slate-500">프로모션</span>
-              <span className="text-micro text-slate-400">할인 구간이 순서대로 이어진다 · 없으면 「미지정」</span>
-            </span>
-            {promo.length > 0 && (
-              <div className="flex flex-col gap-2">
-                {promo.map((x, i) => (
-                  <div key={i} className="flex flex-wrap items-center gap-2">
-                    <span className="w-8 shrink-0 text-tiny font-bold text-slate-400">{i + 1}구간</span>
-                    <input
-                      value={x.months}
-                      onChange={(e) => setPromo((p) => p.map((v, k) => (k === i ? { ...v, months: e.target.value } : v)))}
-                      inputMode="numeric"
-                      placeholder="6"
-                      className={`${FIELD_CELL} w-20 text-right tabular-nums`}
-                    />
-                    <span className="shrink-0 text-micro text-slate-400">개월</span>
-                    <input
-                      value={x.rate}
-                      onChange={(e) => setPromo((p) => p.map((v, k) => (k === i ? { ...v, rate: e.target.value } : v)))}
-                      inputMode="numeric"
-                      placeholder="149"
-                      className={`${FIELD_CELL} w-24 text-right tabular-nums`}
-                    />
-                    <span className="shrink-0 text-micro text-slate-400">원/kWh</span>
-                    <Btn
-                      size="sm"
-                      kind="quiet"
-                      className="ml-auto"
-                      onClick={() => setPromo((p) => p.filter((_, k) => k !== i))}
-                    >
-                      빼기
-                    </Btn>
-                  </div>
-                ))}
-              </div>
-            )}
-            {promo.length < 4 && (
-              <div className="mt-1">
-                <Btn size="sm" kind="side" onClick={() => setPromo((p) => [...p, { months: '', rate: '' }])}>
-                  구간 추가
-                </Btn>
-              </div>
-            )}
-          </div>
-
-          {/*
-            프로모션 연장 — 프로모션 구간과 같은 모양의 반복 행이다. 늘리는 요금마다
-            차감액이 갈려서(플러그링크: 6개월 149원 20만 · 6개월 249원 10만) 숫자 한 칸으로는
-            적을 자리가 없다 — 프로모션 구간을 배열로 둔 것과 같은 이유다.
-          */}
-          <div className="flex flex-col gap-1.5">
-            <span className="flex items-baseline gap-2">
-              <span className="text-tiny font-bold tracking-[0.04em] text-slate-500">프로모션 연장</span>
-              <span className="text-micro text-slate-400">고를 수 있는 연장을 다 적는다 · 차감은 영업비에서</span>
-            </span>
-            {promoExtend.length > 0 && (
-              <div className="flex flex-col gap-2">
-                {promoExtend.map((x, i) => (
-                  <div key={i} className="flex flex-wrap items-center gap-2">
-                    <input
-                      value={x.months}
-                      onChange={(e) => setPromoExtend((p) => p.map((v, k) => (k === i ? { ...v, months: e.target.value } : v)))}
-                      inputMode="numeric"
-                      placeholder="6"
-                      className={`${FIELD_CELL} w-20 text-right tabular-nums`}
-                    />
-                    <span className="shrink-0 text-micro text-slate-400">개월</span>
-                    <input
-                      value={x.rate}
-                      onChange={(e) => setPromoExtend((p) => p.map((v, k) => (k === i ? { ...v, rate: e.target.value } : v)))}
-                      inputMode="numeric"
-                      placeholder="149"
-                      className={`${FIELD_CELL} w-24 text-right tabular-nums`}
-                    />
-                    <span className="shrink-0 text-micro text-slate-400">원/kWh 연장 시</span>
-                    <input
-                      value={x.deduct}
-                      onChange={(e) => setPromoExtend((p) => p.map((v, k) => (k === i ? { ...v, deduct: e.target.value } : v)))}
-                      inputMode="numeric"
-                      placeholder="200,000"
-                      className={`${FIELD_CELL} w-28 text-right tabular-nums`}
-                    />
-                    <span className="shrink-0 text-micro text-slate-400">원 차감</span>
-                    <Btn
-                      size="sm"
-                      kind="quiet"
-                      className="ml-auto"
-                      onClick={() => setPromoExtend((p) => p.filter((_, k) => k !== i))}
-                    >
-                      빼기
-                    </Btn>
-                  </div>
-                ))}
-              </div>
-            )}
-            {promoExtend.length < 4 && (
-              <div className="mt-1">
-                <Btn
-                  size="sm"
-                  kind="side"
-                  onClick={() => setPromoExtend((p) => [...p, { months: '', rate: '', deduct: '' }])}
-                >
-                  연장 추가
-                </Btn>
-              </div>
-            )}
-          </div>
-        </div>
-      </FormSection>
+        <PromoSection
+          chargeRate={chargeRate}
+          setChargeRate={setChargeRate}
+          promo={promo}
+          setPromo={setPromo}
+          promoExtend={promoExtend}
+          setPromoExtend={setPromoExtend}
+        />
       )}
 
       {/* ⑥ 지원·조건 — 매트릭스의 지급자재·설치조건·병행·기타지원·기타 행이 이 값 그대로다 */}
       {showTerms && (
-      <FormSection title="지원·조건" hint="매트릭스의 조건 행에 이 값이 그대로 선다 — 비워 두면 「미지정」">
-        <div className="flex flex-col gap-4">
-          <Field label="지급자재" hint="운영사가 대주는 품목 · 미지급품목도 같이">
-            <input
-              value={supplyItems}
-              onChange={(e) => setSupplyItems(e.target.value)}
-              placeholder="충전기 / 열화상카메라(POE허브 포함) / 스탠드폴 / 가림막"
-              className={FIELD}
-            />
-          </Field>
-
-          <Field label="설치조건" hint="할 수 있는가를 정하는 것 — 주차면 비율 · 내구연한 · 기수 산정">
-            <textarea
-              value={installTerms}
-              onChange={(e) => setInstallTerms(e.target.value)}
-              rows={2}
-              className={FIELD}
-            />
-          </Field>
-
-          <Field label="병행" hint="다른 운영사와 같은 현장에 함께 설 수 있는가">
-            <input
-              value={coexistTerms}
-              onChange={(e) => setCoexistTerms(e.target.value)}
-              className={FIELD}
-            />
-          </Field>
-
-          <Field label="기타지원" hint="운영사가 대주는 것 — 한전불입금 · 안전점검 수수료 등">
-            <textarea
-              value={otherSupport}
-              onChange={(e) => setOtherSupport(e.target.value)}
-              rows={2}
-              className={FIELD}
-            />
-          </Field>
-
-          <Field label="기타" hint="위 어디에도 안 드는 조건 — 항목마다 「· 」로 줄을 가른다">
-            <textarea
-              value={miscTerms}
-              onChange={(e) => setMiscTerms(e.target.value)}
-              rows={2}
-              className={FIELD}
-            />
-          </Field>
-
-          <Field label="부기" hint="매트릭스 단가 칸 밑에 붙는 한 줄 — 그 금액과 같이 봐야 하는 조건">
-            <input
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              placeholder="한전불입금 지원은 10기 이내"
-              className={`${FIELD} max-w-xl`}
-            />
-          </Field>
-        </div>
-      </FormSection>
+        <TermsSection
+          supplyItems={supplyItems} setSupplyItems={setSupplyItems}
+          installTerms={installTerms} setInstallTerms={setInstallTerms}
+          otherSupport={otherSupport} setOtherSupport={setOtherSupport}
+          coexistTerms={coexistTerms} setCoexistTerms={setCoexistTerms}
+          miscTerms={miscTerms} setMiscTerms={setMiscTerms}
+          note={note} setNote={setNote}
+        />
       )}
 
       <div className="mt-5 border-t border-slate-100 pt-4">
@@ -753,76 +489,6 @@ export function CaseForm({
         </div>
       </div>
     </section>
-  );
-}
-
-/** 날짜칸의 ISO 값을 저장 표기로 — 「2026-08-22」 → 「2026년 8월 22일」 */
-function koDate(iso: string): string {
-  const [y, m, d] = iso.split('-').map(Number);
-  return `${y}년 ${m}월 ${d}일`;
-}
-
-/** 폼의 구획 — 계약 축 → 적용 시작 → 돈 → 기성 → 요금 → 지원·조건 순서가 읽히게 약한 선 한 겹으로 가른다 */
-function FormSection({
-  title, hint, first, children,
-}: { title: string; hint?: string; first?: boolean; children: React.ReactNode }) {
-  return (
-    <div className={first ? undefined : 'mt-5 border-t border-slate-100 pt-4'}>
-      <p className="mb-3 flex items-baseline gap-2">
-        <span className="text-tiny font-bold tracking-[0.04em] text-slate-500">{title}</span>
-        {hint && <span className="text-micro text-slate-400">{hint}</span>}
-      </p>
-      {children}
-    </div>
-  );
-}
-
-function Field({
-  label, hint, children,
-}: { label: string; hint?: string; children: React.ReactNode }) {
-  return (
-    <label className="flex flex-col gap-1.5">
-      <span className="flex items-baseline gap-2">
-        <span className="text-tiny font-bold tracking-[0.04em] text-slate-500">{label}</span>
-        {hint && <span className="text-micro text-slate-400">{hint}</span>}
-      </span>
-      {children}
-    </label>
-  );
-}
-
-/** 여럿 고르는 칸 — 고른 상태의 모양은 Choice 부품이 정한다 */
-function Chips<T extends string | number>({
-  options, picked, onToggle,
-}: {
-  options: Array<[T, string]>;
-  picked: T[];
-  onToggle: (v: T) => void;
-}) {
-  return (
-    <div className="flex flex-wrap gap-1.5">
-      {options.map(([v, label]) => (
-        <Choice key={String(v)} on={picked.includes(v)} onClick={() => onToggle(v)}>
-          {label}
-        </Choice>
-      ))}
-    </div>
-  );
-}
-
-function Money({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-  const n = Number(value.replace(/[^0-9]/g, '')) || 0;
-  return (
-    <span className="flex items-baseline gap-1.5">
-      <input
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        inputMode="numeric"
-        placeholder="0"
-        className={`${FIELD} tabular-nums`}
-      />
-      <span className="shrink-0 text-micro text-slate-400">{n > 0 ? `${won(n)}원` : '원'}</span>
-    </span>
   );
 }
 

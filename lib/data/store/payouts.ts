@@ -24,14 +24,16 @@ import {
 import {
   contractStateFor, payoutMilestonesFor, payoutPlansOf, payoutRowsOf, settlementSummaryOf, toDetail,
 } from '../assemble';
+import type { ProjectRecord, RuleMap } from '../assemble';
 import type { Viewer } from '@/lib/auth/types';
 import type {
-  NewPayoutEntry, PayoutCategory, PayoutRow, SettlementSummary,
+  NewPayoutEntry, PayoutCategory, PayoutKind, PayoutRow, SettlementSummary,
 } from '@/types/project';
-import type { PaymentPatch, ProjectRepository } from '../repository';
+import type { Actor, PaymentPatch, ProjectRepository } from '../repository';
 import {
   accessWhere, assertAdmin, recordsOf, resolveSettlementRule, ruleMap, settleMap,
 } from './shared';
+import type { TxLike } from './shared';
 
 /** pgRepository 가 펼쳐 담는 조각 — 이름과 시그니처는 인터페이스가 정한다 */
 export const payoutStore: Pick<
@@ -384,78 +386,9 @@ export const payoutStore: Pick<
       for (const item of items) {
         const r = records.get(item.projectId);
         if (!r) throw new Error(`현장을 찾을 수 없습니다 — ${item.projectId}`);
-        const name = r.project.name;
-
-        const org = item.kind === '영업비' ? r.project.salesOrg : r.project.gcOrg;
-        const prerequisites = payoutPrerequisiteBlockersOf({
-          kind: item.kind,
-          org,
-          unpriced: r.lines.filter((line) => !line.pricingRuleId).length,
-          feeMissing: item.kind === '영업비' ? contractStateFor(r).feeMissing : [],
-        });
-        if (prerequisites.length > 0) throw new Error(`${name} ${item.kind} — ${prerequisites[0]}`);
-
-        const plan = r.lines.reduce((n, l) => {
-          const rule = l.pricingRuleId ? rules.get(l.pricingRuleId) : null;
-          const unit = item.kind === '영업비' ? rule?.salesUnit : rule?.consUnit;
-          return n + (unit ?? 0) * l.qty;
-        }, 0);
-        const { adjust, paid } = payoutSideOf(r.payoutEntries ?? [], item.kind);
-        const { open } = payoutStepsOf(plan, adjust, paid);
-        if (!open) throw new Error(`${name} ${item.kind} — 확정할 회차가 없습니다 (잔액 0 이거나 이미 확정됐습니다).`);
-        const release = payoutReleaseOf(item.kind, open.no, payoutMilestonesFor(r));
-        if (!release.met) {
-          throw new Error(`${name} ${item.kind} ${open.no}차 — ${release.trigger} 후 지급할 수 있습니다.`);
-        }
-
-        // 확정된 배치에는 얹지 못한다 — 잠긴 합계가 바뀐다
-        if (org) {
-          const [fin] = await tx
-            .select({ id: batchFinals.id })
-            .from(batchFinals)
-            .where(and(
-              eq(batchFinals.org, org),
-              eq(batchFinals.kind, item.kind),
-              eq(batchFinals.payDate, at),
-            ))
-            .limit(1);
-          if (fin) {
-            throw new Error(`${name} ${item.kind} — ${at} ${org} ${item.kind} 배치는 최종 확정돼 잠겨 있습니다.`);
-          }
-        }
-
-        // 두 번 눌러도 두 번 안 나가게 — 같은 회차 줄이 이미 있으면 배치를 통째로 세운다
-        const category = `${open.no}차`;
-        const [dup] = await tx
-          .select({ id: payoutEntries.id })
-          .from(payoutEntries)
-          .where(and(
-            eq(payoutEntries.projectId, item.projectId),
-            eq(payoutEntries.kind, item.kind),
-            eq(payoutEntries.category, category)
-          ))
-          .limit(1);
-        if (dup) throw new Error(`${name} ${item.kind} ${category} — 이미 지급 확정된 회차입니다.`);
-
-        await tx.insert(payoutEntries).values({
-          id: crypto.randomUUID(), projectId: item.projectId,
-          kind: item.kind, category, amount: open.amount, at, note: null,
-          createdAt: stampOf(new Date()),
-        });
-        await tx.update(projects).set({ lastProgressAt: today() }).where(eq(projects.id, item.projectId));
-        /*
-         * ★지급이 나가면 지급조건을 잠근다★ (한백 지시 2026-08-28). 돈이 움직인 뒤에
-         * 단가를 갈아 끼우면 잔액과 기성이 같이 뒤틀린다 — 고쳐야 하면 확정을 해제한다.
-         * 이미 확정된 현장은 그대로 둔다(확정일이 앞당겨지면 안 된다).
-         */
-        await tx
-          .update(projects)
-          .set({ payoutTermsConfirmedAt: at })
-          .where(and(eq(projects.id, item.projectId), isNull(projects.payoutTermsConfirmedAt)));
-        await writeAudit(tx, {
-          projectId: item.projectId, actor, action: '지급 확정',
-          field: `${item.kind} ${category}`, oldValue: null, newValue: `${open.amount}원 · ${at}`,
-        });
+        const open = openStepFor(r, item.kind, rules);
+        await assertBatchOpen(tx, r, item.kind, open.no, at);
+        await writePayoutStep(tx, r.project.id, item.kind, open, at, actor);
         total += open.amount;
       }
     });
@@ -568,3 +501,108 @@ export const payoutStore: Pick<
     });
   },
 };
+
+/**
+ * 이번에 확정할 회차와 금액 — 못 하면 왜 못 하는지로 던진다.
+ *
+ * 계획은 단가 × 대수, 회차는 그 70% 와 잔액이다(lib/settlement). 그 앞에 지급 자체를
+ * 막는 사정(받는 곳 미지정·단가 미지정·영업비 서류 미비)이 있으면 먼저 걸린다.
+ */
+function openStepFor(
+  r: ProjectRecord,
+  kind: PayoutKind,
+  rules: RuleMap
+): { no: 1 | 2; amount: number } {
+  const name = r.project.name;
+  const org = kind === '영업비' ? r.project.salesOrg : r.project.gcOrg;
+  const prerequisites = payoutPrerequisiteBlockersOf({
+    kind,
+    org,
+    unpriced: r.lines.filter((line) => !line.pricingRuleId).length,
+    feeMissing: kind === '영업비' ? contractStateFor(r).feeMissing : [],
+  });
+  if (prerequisites.length > 0) throw new Error(`${name} ${kind} — ${prerequisites[0]}`);
+
+  const plan = r.lines.reduce((n, l) => {
+    const rule = l.pricingRuleId ? rules.get(l.pricingRuleId) : null;
+    const unit = kind === '영업비' ? rule?.salesUnit : rule?.consUnit;
+    return n + (unit ?? 0) * l.qty;
+  }, 0);
+  const { adjust, paid } = payoutSideOf(r.payoutEntries ?? [], kind);
+  const { open } = payoutStepsOf(plan, adjust, paid);
+  if (!open) throw new Error(`${name} ${kind} — 확정할 회차가 없습니다 (잔액 0 이거나 이미 확정됐습니다).`);
+
+  const release = payoutReleaseOf(kind, open.no, payoutMilestonesFor(r));
+  if (!release.met) {
+    throw new Error(`${name} ${kind} ${open.no}차 — ${release.trigger} 후 지급할 수 있습니다.`);
+  }
+  return open;
+}
+
+/**
+ * 그 배치에 얹을 수 있는가 — 잠긴 배치와 두 번 확정을 막는다.
+ *
+ * 최종 확정된 배치에 얹으면 잠긴 합계가 바뀐다. 같은 회차 줄이 이미 있으면 두 번 눌린
+ * 것이라 배치를 통째로 세운다 — 한 건만 빼고 넘어가면 어느 것이 나갔는지 알 수 없다.
+ */
+async function assertBatchOpen(
+  tx: TxLike,
+  r: ProjectRecord,
+  kind: PayoutKind,
+  no: 1 | 2,
+  at: string
+): Promise<void> {
+  const name = r.project.name;
+  const org = kind === '영업비' ? r.project.salesOrg : r.project.gcOrg;
+  if (org) {
+    const [fin] = await tx
+      .select({ id: batchFinals.id })
+      .from(batchFinals)
+      .where(and(eq(batchFinals.org, org), eq(batchFinals.kind, kind), eq(batchFinals.payDate, at)))
+      .limit(1);
+    if (fin) throw new Error(`${name} ${kind} — ${at} ${org} ${kind} 배치는 최종 확정돼 잠겨 있습니다.`);
+  }
+
+  const [dup] = await tx
+    .select({ id: payoutEntries.id })
+    .from(payoutEntries)
+    .where(and(
+      eq(payoutEntries.projectId, r.project.id),
+      eq(payoutEntries.kind, kind),
+      eq(payoutEntries.category, `${no}차`)
+    ))
+    .limit(1);
+  if (dup) throw new Error(`${name} ${kind} ${no}차 — 이미 지급 확정된 회차입니다.`);
+}
+
+/**
+ * 회차 한 줄을 원장에 적고 그 뒷일을 한다.
+ *
+ * ★지급이 나가면 지급조건을 잠근다★ (한백 지시 2026-08-28) — 돈이 움직인 뒤에 단가를
+ * 갈아 끼우면 잔액과 기성이 같이 뒤틀린다. 이미 확정된 현장은 그대로 둔다(확정일이
+ * 앞당겨지면 안 된다).
+ */
+async function writePayoutStep(
+  tx: TxLike,
+  projectId: string,
+  kind: PayoutKind,
+  open: { no: 1 | 2; amount: number },
+  at: string,
+  actor: Actor
+): Promise<void> {
+  const category = `${open.no}차`;
+  await tx.insert(payoutEntries).values({
+    id: crypto.randomUUID(), projectId,
+    kind, category, amount: open.amount, at, note: null,
+    createdAt: stampOf(new Date()),
+  });
+  await tx.update(projects).set({ lastProgressAt: today() }).where(eq(projects.id, projectId));
+  await tx
+    .update(projects)
+    .set({ payoutTermsConfirmedAt: at })
+    .where(and(eq(projects.id, projectId), isNull(projects.payoutTermsConfirmedAt)));
+  await writeAudit(tx, {
+    projectId, actor, action: '지급 확정',
+    field: `${kind} ${category}`, oldValue: null, newValue: `${open.amount}원 · ${at}`,
+  });
+}

@@ -10,8 +10,8 @@
  * 착공·준공마감은 상태가 아니라 날짜다. 기성 트리거가 실착공일·준공마감일에서 직접
  * 판정하므로(lib/settlement.ts) 같은 사실을 상태로 한 번 더 두지 않는다.
  */
-import type { Court, ProcessInfo, ProjectDocument, ProcessStatus } from '@/types/project';
-import { PROCESS_STATUSES } from '@/types/project';
+import type { BizType, Court, ProcessInfo, ProjectDocument, ProcessStatus } from '@/types/project';
+import { PROCESS_STATUSES, subsidized } from '@/types/project';
 import { normalizeOrg } from '@/lib/roles';
 
 /**
@@ -33,7 +33,32 @@ export interface Blocker {
  * 한 번 더 손으로 적었다. 두 벌이니 어긋났다: 충전기 발주 조건을 넣을 때 모뎀 발주 수량을
  * 화면 쪽에만 빠뜨렸다(2026-08-26). 목록으로 돌려주면 화면은 판정하지 않고 첫 항목만 적는다.
  */
-export type StatusGate = (process: ProcessInfo) => Blocker[];
+export type StatusGate = (process: ProcessInfo, ctx: GateContext) => Blocker[];
+
+/**
+ * 게이트가 보는 현장 사정 — 공정의 값이 아니라서 따로 받는다.
+ *
+ * ProcessInfo 에 끼워 넣지 않는다: 그것은 「이 현장의 공정이 어디까지 갔나」이고
+ * 사업구분은 계약의 값이다. 섞어 두면 다음 사람이 공정 화면에서 사업구분을 고치려 든다.
+ */
+export interface GateContext {
+  /**
+   * 환경부 보조 사업인가 (types/project subsidized).
+   *
+   * ★자체투자·연동은 환경부 승인도 대기번호도 없다★ (한백 2026-08-28) — 그런데
+   * 「충전기 발주」가 승인일을 요구해서 자체투자 17건 중 16건이 행위신고에 갇혀 있었다
+   * (전남 무안 전남개발공사에서 나왔다). 없는 서류를 기다리게 두면 안 넘어간다.
+   */
+  subsidized: boolean;
+}
+
+/**
+ * 현장에서 게이트 사정을 뽑는다 — 부르는 자리마다 손으로 세면 판정이 갈린다.
+ * 게이트를 부르는 모든 자리가 이것을 거친다(저장소 · 요약 · 시공 탭).
+ */
+export function gateContextOf(project: { bizType: BizType | null }): GateContext {
+  return { subsidized: subsidized(project.bizType) };
+}
 
 /** 없는 것만 남긴다 — 조건마다 `조건 && {key,label}` 로 적고 여기서 거른다 */
 const missing = (list: Array<Blocker | false | null | undefined>): Blocker[] =>
@@ -87,8 +112,9 @@ export const STATUS_GATES: Record<ProcessStatus, StatusGate | null> = {
      * 전에는 cpoApprovalDate 를 봤다. 두 날짜를 같은 날로 보기로 했고, 남은 칸이
      * envApprovalDate 다(기성 트리거의 근거이자 한백 전용 칸).
      */
-    (p) => missing([
-      !p.envApprovalDate && { key: 'envApprovalDate', label: '환경부 승인일' },
+    (p, ctx) => missing([
+      // 자체투자·연동에는 환경부 승인이 없다 — 없는 것을 기다리게 두지 않는다
+      ctx.subsidized && !p.envApprovalDate && { key: 'envApprovalDate', label: '환경부 승인일' },
       !p.notifyDoneAt && !p.notifySkippedAt
         && { key: 'notifyDoneAt', label: '행위신고 대상 여부' },
     ]),
@@ -163,8 +189,8 @@ export function statusIndex(status: ProcessStatus): number {
  * 보드가 카드를 끌기 전에 놓을 수 없는 칸을 미리 흐리게 하려고 쓴다 —
  * 끌어다 놓고 나서 거절당하는 것보다 못 놓는다는 걸 먼저 보여주는 편이 낫다.
  */
-export function entryOkOf(process: ProcessInfo): ProcessStatus[] {
-  return PROCESS_STATUSES.filter((s) => canEnter(s, process).ok);
+export function entryOkOf(process: ProcessInfo, ctx: GateContext): ProcessStatus[] {
+  return PROCESS_STATUSES.filter((s) => canEnter(s, process, ctx).ok);
 }
 
 /**
@@ -183,13 +209,14 @@ export function entryOkOf(process: ProcessInfo): ProcessStatus[] {
  */
 export function canEnter(
   status: ProcessStatus,
-  process: ProcessInfo
+  process: ProcessInfo,
+  ctx: GateContext
 ): { ok: true } | { ok: false; blockedBy: string } {
   const from = statusIndex(process.status);
   const to = statusIndex(status);
   if (to <= from) return { ok: true };
   for (const st of PROCESS_STATUSES.slice(from + 1, to + 1)) {
-    const blockers = STATUS_GATES[st]?.(process) ?? [];
+    const blockers = STATUS_GATES[st]?.(process, ctx) ?? [];
     if (blockers.length > 0) {
       return { ok: false, blockedBy: blockers.map((b) => b.label).join(' · ') };
     }
@@ -306,10 +333,11 @@ const missingLabels = (list: Array<string | false | null | undefined>): string[]
 export function advanceBlockers(
   target: ProcessStatus,
   declares: string | null,
-  process: ProcessInfo
+  process: ProcessInfo,
+  ctx: GateContext
 ): string[] {
   const fromDeclaration = declares ? CHECK_REQUIRES[declares]?.(process) ?? [] : [];
-  const fromGate = (STATUS_GATES[target]?.(process) ?? [])
+  const fromGate = (STATUS_GATES[target]?.(process, ctx) ?? [])
     .filter((b) => b.key !== declares)
     .map((b) => b.label);
   // 선언 조건이 먼저다 — 그것이 이 화면에서 채울 것이고, 게이트는 딴 화면의 값일 수 있다

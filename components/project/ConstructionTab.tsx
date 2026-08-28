@@ -20,7 +20,8 @@ import { PROCESS_STATUSES } from '@/types/project';
 import { PROCESS_DOCS, processDocsFor, type ProcessDocKey } from '@/lib/doc-rules';
 import { bandOfColumn } from '@/lib/board';
 import { advanceBlockers,
-  canEnter, isHanbaekOnlyProcessField, statusIndex, STATUS_GATES, type ProcessEdit,
+  canEnter, gateContextOf, isHanbaekOnlyProcessField, statusIndex, STATUS_GATES,
+  type ProcessEdit,
 } from '@/lib/process';
 import { DocDelete, DocFileActions, DocUpload, DownloadAll } from '@/components/DocFiles';
 import { DatePicker } from '@/components/DatePicker';
@@ -114,6 +115,8 @@ interface Group {
 
 export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit: ProcessEdit }) {
   const p = detail.process;
+  /* 게이트가 보는 현장 사정 — 자체투자에는 환경부 승인이 없다(gateContextOf) */
+  const gate = gateContextOf(detail.project);
   /** 설치 실적 옆에 두는 비교 기준 — 계약과 실제가 다른 것은 흔하다 */
   const contractQty = detail.lines.reduce((s, l) => s + l.qty, 0);
   /** 조건부 서류가 보는 것 — 그 현장에 그 서류가 필요한가(doc-rules 의 only) */
@@ -478,7 +481,7 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
             // 자리 비교는 전역 순서(statusIndex)로 — STEPS 는 행위신고부터라 i 가 어긋난다
             const idx = statusIndex(st);
             const state = idx < now ? 'past' : idx === now ? 'current' : 'future';
-            const entry = canEnter(st, p);
+            const entry = canEnter(st, p, gate);
             const tone =
               state === 'current'
                 ? 'bg-brand-700 text-white'
@@ -517,11 +520,11 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
         {(() => {
           const selIdx = statusIndex(selected);
           const selState = selIdx < now ? 'past' : selIdx === now ? 'current' : 'future';
-          const selEntry = canEnter(selected, p);
+          const selEntry = canEnter(selected, p, gate);
           const selGroups = GROUPS_BY_STATUS[selected] ?? [];
           // 지금 구간의 다음 걸음 — 무엇이 차면 어디로 가는지 이 자리에 보여야 한다
           const nextStatus = PROCESS_STATUSES[now + 1] ?? null;
-          const nextEntry = nextStatus ? canEnter(nextStatus, p) : null;
+          const nextEntry = nextStatus ? canEnter(nextStatus, p, gate) : null;
           /*
            * 지금 보고 있는 구간 다음의 구간 — 상자 이름에 쓴다.
            *
@@ -563,7 +566,7 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
                     </button>
                   ) : (
                     <p className="text-tiny font-semibold text-slate-400">
-                      🔒 {(STATUS_GATES[selected]?.(p) ?? []).map((b) => b.label).join(' · ')} 필요
+                      🔒 {(STATUS_GATES[selected]?.(p, gate) ?? []).map((b) => b.label).join(' · ')} 필요
                     </p>
                   )
                 )}
@@ -671,7 +674,7 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
                     {g.advance && selState === 'current' && (
                       <AdvanceRow
                         label={g.advance.label}
-                        blockers={advanceBlockers(g.advance.target, g.advance.field ?? null, p)}
+                        blockers={advanceBlockers(g.advance.target, g.advance.field ?? null, p, gate)}
                         /*
                          * 선언 칸(체크)이 있는 구간은 그 현장의 시공사도 누른다 — 체크가
                          * 곧 전이다. 선언 칸이 없는 발주 칸은 단계를 직접 옮기므로 한백만이다

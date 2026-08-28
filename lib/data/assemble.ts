@@ -31,7 +31,7 @@ import { bizTypeOfRepl } from '@/types/project';
 import { buildDocContext, evaluateDocs, PROCESS_DOCS } from '@/lib/doc-rules';
 import { entryTypeOf, payoutSideOf, settlementForProject } from '@/lib/settlement';
 import { contractStateOf, deriveStage, docsOutsideConsole, stalledDaysSince } from '@/lib/stage';
-import { canEnter, entryOkOf } from '@/lib/process';
+import { canEnter, entryOkOf, gateContextOf, type GateContext } from '@/lib/process';
 import { PROCESS_STATUSES } from '@/types/project';
 import { effectiveVisibility, type Visibility } from '@/lib/roles';
 import type { Viewer } from '@/lib/auth/types';
@@ -302,8 +302,8 @@ export function summaryOf(r: ProjectRecord, rules: RuleMap, settles: SettleMap):
     docsFilled: d.contract.docsFilled,
     submitted: d.project.contractSubmittedAt !== null,
     fixAsked: d.project.contractFixAskedAt !== null,
-    entryOk: entryOkOf(d.process),
-    nextStep: nextStepOf(d.process),
+    entryOk: entryOkOf(d.process, gateContextOf(d.project)),
+    nextStep: nextStepOf(d.process, gateContextOf(d.project)),
     milestones: {
       envApprovalDate: d.process.envApprovalDate,
       cpoApprovalDate: d.process.cpoApprovalDate,
@@ -326,11 +326,14 @@ export function summaryOf(r: ProjectRecord, rules: RuleMap, settles: SettleMap):
  * 다음 단계와 그 준비 상태 — 보드 카드가 「다음: 무엇」을 밀어주는 데 쓴다.
  * 마지막 단계(준공)면 null. 조건 문구는 게이트의 need 그대로다 — 따로 적으면 갈린다.
  */
-function nextStepOf(process: ProjectRecord['process']): ProjectSummary['nextStep'] {
+function nextStepOf(
+  process: ProjectRecord['process'],
+  ctx: GateContext
+): ProjectSummary['nextStep'] {
   const idx = PROCESS_STATUSES.indexOf(process.status);
   const next = PROCESS_STATUSES[idx + 1];
   if (!next) return null;
-  const entry = canEnter(next, process);
+  const entry = canEnter(next, process, ctx);
   return { status: next, ready: entry.ok, need: entry.ok ? null : entry.blockedBy };
 }
 

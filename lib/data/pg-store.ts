@@ -32,7 +32,8 @@ import type { Viewer } from '@/lib/auth/types';
 import { canAccessProject, canWrite, effectiveVisibility, isHanbaek, normalizeOrg } from '@/lib/roles';
 import { needsPreInstallCheck, PROCESS_DOCS } from '@/lib/doc-rules';
 import {
-  asProcessStatus, assertProcessWrite, canEnter, CHECK_ADVANCES, COURT_AFTER_STATUS, statusIndex,
+  asProcessStatus, assertProcessWrite, canEnter, CHECK_ADVANCES, COURT_AFTER_STATUS,
+  gateContextOf, statusIndex,
 } from '@/lib/process';
 import type { Actor, PaymentPatch, ProcessPatch, ProjectRepository } from './repository';
 import { checkPricingRule, duplicateOf, normalizePricingRule, pricingRuleId } from '@/lib/pricing-match';
@@ -435,7 +436,7 @@ async function advanceAfterCheck(projectId: string, patch: ProcessPatch, actor: 
 
   const cur = record.process.status;
   if (statusIndex(target) !== statusIndex(cur) + 1) return;      // 바로 다음 한 걸음만
-  if (!canEnter(target, record.process).ok) return;              // 조건이 아직 안 찼다
+  if (!canEnter(target, record.process, gateContextOf(record.project)).ok) return; // 조건이 아직 안 찼다
   if (toDetail(record, await ruleMap(), await settleMap()).stage === 'intake') return;
   await moveStatus(projectId, cur, target, actor, '진행 단계 변경 (완료 체크)');
 }
@@ -1861,7 +1862,7 @@ export const pgRepository: ProjectRepository = {
     if (toDetail(record, await ruleMap(), await settleMap()).stage === 'intake') {
       throw new Error('계약이 끝나기 전에는 진행 단계를 옮길 수 없습니다.');
     }
-    const entry = canEnter(status, record.process);
+    const entry = canEnter(status, record.process, gateContextOf(record.project));
     if (!entry.ok) throw new Error(`${status} 로 넘기려면 ${entry.blockedBy} 이(가) 필요합니다.`);
 
     /*

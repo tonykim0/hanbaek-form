@@ -649,6 +649,12 @@ function ApprovalFacts({
         busy={busyKey === 'envApprovalDate'}
         onSave={(v) => save('envApprovalDate', v)}
         hint="기성 「환경부 승인」 트리거와 「충전기 발주」 조건이 이 날짜로 열립니다"
+        /*
+         * 자체투자·연동에는 환경부 승인이 없다 (한백 2026-08-28) — 대기번호와 같은 자리다.
+         * 빈 칸으로 두면 「아직 안 왔다(—)」로 읽혀 기다리게 된다. 「충전기 발주」 조건에서도
+         * 빠진다(lib/process GateContext) — 화면과 게이트가 같은 판정을 봐야 한다.
+         */
+        na={isSelfInvest}
       />
       {/* 실패 문구는 누른 칸 옆이 아니라 그 줄 끝이다 — 격자 한 칸에 들어가면 잘린다 */}
       <Err className="col-span-full self-center">{error}</Err>
@@ -659,7 +665,7 @@ function ApprovalFacts({
 
 /** 머리말의 날짜 사실 — 평소엔 글자, 고칠 때만 달력(화면 규칙 4). EditableFact 의 날짜판. */
 function DateFact({
-  label, value, canEdit, busy, onSave, hint,
+  label, value, canEdit, busy, onSave, hint, na = false,
 }: {
   label: string;
   value: string | null;
@@ -667,8 +673,23 @@ function DateFact({
   busy: boolean;
   onSave: (v: string | null) => void;
   hint?: string;
+  /**
+   * 이 현장에는 해당없는 날짜인가 — 칸을 없애지 않는다(화면 규칙 6·10).
+   * 「빠뜨린 것」과 「원래 없는 것」은 다른 말이고, 칸이 사라지면 둘이 같아 보인다.
+   * 고치는 자리는 주지 않는다 — 못 하는 일은 눌리지 않게.
+   */
+  na?: boolean;
 }) {
   const [editing, setEditing] = useState(false);
+  if (na) {
+    return (
+      <div className="min-w-0" title={hint}>
+        <dt className="text-tiny font-bold tracking-[0.04em] text-slate-400">{label}</dt>
+        <dd className="mt-0.5"><Empty kind="na" /></dd>
+      </div>
+    );
+  }
+
   const open = editing && canEdit;
   return (
     // 달력이 열리면 격자의 한 칸으로는 좁다 — 그때만 한 줄을 쓴다(EditableFact 와 같다)

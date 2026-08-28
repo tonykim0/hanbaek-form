@@ -193,74 +193,18 @@ export const pgRepository: ProjectRepository = {
 
       const id = `HB-2026-${String((await maxSeqIn(tx)) + 1).padStart(3, '0')}`;
 
-      await tx.insert(projects).values({
-        id,
-        mgmtNo: id,
-        cpo: draft.cpo,
-        /*
-         * 협력사가 접수하면 접수자의 소속이 영업사·시공사다 — 그래야 자기 현장으로 보인다.
-         * ★협력사가 보낸 업체명은 쓰지 않는다★ — 남의 회사 이름을 넣어 남의 현장을 만들 수
-         * 있으면 안 된다. 한백이 대신 접수할 때만 적어 넣는다(계정 없는 업체의 1건).
-         */
-        salesOrg: actor.role === 'admin' ? normalizeOrg(draft.salesOrg) : actor.org,
-        gcOrg: actor.role === 'admin' ? normalizeOrg(draft.gcOrg) : actor.org,
-        name: draft.name,
-        addr: draft.addr,
-        bldgType: draft.bldgType,
-        contractParty: draft.contractParty,
-        parkTotal: draft.parkTotal,
-        mgr: draft.mgr,
-        tel: draft.tel,
-        mail: draft.mail,
-        preInstall: draft.preInstall,
-        preNote: draft.preNote,
-        // 접수 때는 아직 조사 전이다 — 판독이 「있음」이라 적어도 사람이 확인해야 한다
-        preChecked: false,
-        powerType: draft.powerType,
-        // 안 가르는 운영사의 신규위치는 눕혀서 넣는다 — 접수 API 는 화면 없이도 부를 수 있다
-        replType: normalizeRepl(draft.cpo, draft.replType),
-        bizType: draft.bizType,
-        // 사업연도는 접수 연도로 시작한다 — 이월 현장만 한백이 고친다
-        bizYear: Number(day.slice(0, 4)),
-        // 환경부 대기번호는 접수 뒤에 나온다 — 한백이 콘솔에서 채운다
-        envQueueNo: null,
-        note: draft.note,
-        // 정산 규칙은 한백이 검수 단계에서 현장별로 적용한다
-        settlementRuleId: null,
-        settlementAppliedAt: null,
-        court: '한백', // 접수하면 공이 한백으로 넘어간다 (검수 차례)
-        lastProgressAt: day,
-      });
-
-      if (draft.lines.length > 0) {
-        await tx.insert(contractLines).values(
-          draft.lines.map((l, i) => ({
-            id: `${id}-L${i + 1}`,
-            projectId: id,
-            termYears: l.termYears,
-            qty: l.qty,
-            powerType: l.powerType,
-            replType: normalizeRepl(draft.cpo, l.replType),
-            memo: l.memo,
-            // 단가 케이스는 한백이 검수 후 지정한다
-            pricingRuleId: null,
-            pricedAt: null,
-          }))
-        );
-      }
-
+      await tx.insert(projects).values(projectRowOf(id, draft, actor, day));
+      if (draft.lines.length > 0) await tx.insert(contractLines).values(lineRowsOf(id, draft));
       // 올라온 서류만 행으로 남긴다. 안 올라온 칸은 조회할 때 mergeDocs 가 채운다.
       if (draft.documents.length > 0) {
-        await tx.insert(documents).values(
-          draft.documents.map((d) => ({
-            projectId: id,
-            kind: d.kind,
-            filename: d.filename,
-            status: 'uploaded', // 검수 대기 — 승인은 한백이 한다
-            uploadedBy: actor.name,
-            uploadedAt: day,
-          }))
-        );
+        await tx.insert(documents).values(draft.documents.map((d) => ({
+          projectId: id,
+          kind: d.kind,
+          filename: d.filename,
+          status: 'uploaded', // 검수 대기 — 승인은 한백이 한다
+          uploadedBy: actor.name,
+          uploadedAt: day,
+        })));
       }
 
       await tx.insert(processes).values({ projectId: id });
@@ -579,3 +523,60 @@ export const pgRepository: ProjectRepository = {
     });
   },
 };
+
+/**
+ * 접수 한 건의 현장 행.
+ *
+ * ★협력사가 보낸 업체명은 쓰지 않는다★ — 접수자의 소속이 영업사·시공사다. 남의 회사
+ * 이름을 넣어 남의 현장을 만들 수 있으면 안 된다. 한백이 대신 접수할 때만 적어 넣는다.
+ */
+function projectRowOf(id: string, draft: IntakeDraft, actor: Actor, day: string) {
+  return {
+    id,
+    mgmtNo: id,
+    cpo: draft.cpo,
+    salesOrg: actor.role === 'admin' ? normalizeOrg(draft.salesOrg) : actor.org,
+    gcOrg: actor.role === 'admin' ? normalizeOrg(draft.gcOrg) : actor.org,
+    name: draft.name,
+    addr: draft.addr,
+    bldgType: draft.bldgType,
+    contractParty: draft.contractParty,
+    parkTotal: draft.parkTotal,
+    mgr: draft.mgr,
+    tel: draft.tel,
+    mail: draft.mail,
+    preInstall: draft.preInstall,
+    preNote: draft.preNote,
+    // 접수 때는 아직 조사 전이다 — 판독이 「있음」이라 적어도 사람이 확인해야 한다
+    preChecked: false,
+    powerType: draft.powerType,
+    // 안 가르는 운영사의 신규위치는 눕혀서 넣는다 — 접수 API 는 화면 없이도 부를 수 있다
+    replType: normalizeRepl(draft.cpo, draft.replType),
+    bizType: draft.bizType,
+    // 사업연도는 접수 연도로 시작한다 — 이월 현장만 한백이 고친다
+    bizYear: Number(day.slice(0, 4)),
+    // 환경부 대기번호는 접수 뒤에 나온다 — 한백이 콘솔에서 채운다
+    envQueueNo: null,
+    note: draft.note,
+    // 정산 규칙은 한백이 검수 단계에서 현장별로 적용한다
+    settlementRuleId: null,
+    settlementAppliedAt: null,
+    court: '한백' as const, // 접수하면 담당이 한백으로 넘어간다 (검수 차례)
+    lastProgressAt: day,
+  };
+}
+
+/** 계약 라인들 — 단가 케이스는 한백이 검수 후 지정한다 */
+function lineRowsOf(id: string, draft: IntakeDraft) {
+  return draft.lines.map((l, i) => ({
+    id: `${id}-L${i + 1}`,
+    projectId: id,
+    termYears: l.termYears,
+    qty: l.qty,
+    powerType: l.powerType,
+    replType: normalizeRepl(draft.cpo, l.replType),
+    memo: l.memo,
+    pricingRuleId: null,
+    pricedAt: null,
+  }));
+}

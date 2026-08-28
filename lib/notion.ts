@@ -14,7 +14,7 @@ import { CPO_NAMES } from '@/types/project';
 import type { CpoName, PowerType } from '@/types/project';
 import type { NormalizedFile } from './files';
 import { buildStandardName, isPdfFile } from './files';
-import { excelCategory, kindOfCategory } from './doc-category-map';
+import { categoryFromFileName, excelCategory, kindOfCategory } from './doc-category-map';
 import { buildDocContext, evaluateDocs, type DocContext } from './doc-rules';
 import { splitPdf, mergePdfs } from './pdf-split';
 import { createHash } from 'crypto';
@@ -231,8 +231,11 @@ export async function buildUploadItems(
     ) ?? [];
 
     if (matchedInfos.length <= 1) {
-      // 일반 케이스: 1파일 = 1서류 (또는 metadata 없음)
-      const category = matchedInfos[0]?.category ?? '기타';
+      /*
+       * 일반 케이스: 1파일 = 1서류 (또는 metadata 없음).
+       * 이름이 분명한 서류는 판독을 덮는다 — 비결정적인 판정보다 앞선다.
+       */
+      const category = categoryFromFileName(normalName) ?? matchedInfos[0]?.category ?? '기타';
       items.push({
         originalName: file.name,
         category,
@@ -327,6 +330,9 @@ async function mergeKaptWithBuildingLedger(
  */
 function passthroughCategory(name: string): FileCategory {
   const lower = name.toLowerCase();
+  // 이름이 분명한 서류가 먼저다 — 확장자 규칙에 걸려 남의 칸으로 가지 않게
+  const byName = categoryFromFileName(name);
+  if (byName) return byName;
   if (/\.xlsx?$/.test(lower)) return excelCategory(name);
   if (/\.pptx?$/.test(lower)) return '설치승인서'; // 현대 설치승인서
   return '기타';

@@ -22,7 +22,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import type { SettlementSummary } from '@/types/project';
 import { STEP_LABEL, STEP_TONE } from '@/lib/settlement';
-import { Badge, Blank, Empty, FIELD, Tag } from '@/components/ui';
+import { Badge, Blank, Empty, FIELD, FIELD_BASE, Tag } from '@/components/ui';
 import { Frame, SiteLink, Tile, won } from './parts';
 
 /** 거르는 축 — 상태는 「그 현장에 그런 차수가 하나라도 있나」로 본다 */
@@ -165,7 +165,7 @@ export default function ReceivableBoard({ rows }: { rows: SettlementSummary[] })
           aria-label="운영사"
           value={cpo}
           onChange={(e) => setCpo(e.target.value)}
-          className={`${FIELD} w-auto bg-white`}
+          className={`${FIELD_BASE} w-[150px] shrink-0 bg-white`}
         >
           <option value="">운영사 전체</option>
           {cpoOptions.map((c) => <option key={c} value={c}>{c}</option>)}
@@ -174,7 +174,7 @@ export default function ReceivableBoard({ rows }: { rows: SettlementSummary[] })
           aria-label="정렬"
           value={sort}
           onChange={(e) => setSort(e.target.value as SortKey)}
-          className={`${FIELD} w-auto bg-white`}
+          className={`${FIELD_BASE} w-[190px] shrink-0 bg-white`}
         >
           {SORTS.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
         </select>

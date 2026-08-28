@@ -371,8 +371,23 @@ export function Blank({ children }: { children: ReactNode }) {
  *
  * 부품이 아니라 클래스 이름으로 둔다 — input 은 넘길 속성이 자리마다 너무 다르다.
  */
-export const FIELD =
-  'w-full rounded-ctl border border-slate-200 px-3 py-2 text-base text-slate-900 placeholder:text-slate-300 transition focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-100 disabled:bg-slate-50 disabled:text-slate-400';
+/**
+ * ★폭은 이 클래스에 덧붙여 바꿀 수 없다★ (2026-08-28 실측) — 안에 `w-full` 이 박혀 있고,
+ * Tailwind 는 `.w-full` 을 폭 유틸리티 중 가장 나중에 내보낸다(실측: `.w-56`(0) →
+ * `.w-auto`(26) → `.w-full`(53)). 클래스 문자열의 순서는 아무 상관이 없다 — CSS 에 늦게
+ * 나온 쪽이 이긴다. 그래서 `${FIELD} w-auto` 는 조용히 full 로 남는다(기성관리 필터의
+ * 드롭다운 둘이 각각 한 줄을 차지하던 원인이다).
+ *
+ * 폭을 정해야 하면 **FIELD_BASE 를 쓰고 폭을 직접 준다**. 아니면 부모에 폭을 주고 이 칸이
+ * 그것을 채우게 한다.
+ */
+const FIELD_LOOK =
+  'rounded-ctl border border-slate-200 px-3 py-2 text-base text-slate-900 placeholder:text-slate-300 transition focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-100 disabled:bg-slate-50 disabled:text-slate-400';
+
+/** 폭을 부르는 자리에서 정하는 칸 — `${FIELD_BASE} w-40` 처럼 쓴다 */
+export const FIELD_BASE = FIELD_LOOK;
+
+export const FIELD = `w-full ${FIELD_LOOK}`;
 
 /**
  * 표 안에서 여러 개가 붙는 좁은 칸 (화면 규칙 4번의 예외 자리 — 여러 건을 쭉 넣는다).
@@ -381,8 +396,16 @@ export const FIELD =
  * 테두리는 평소에도 보인다. 「hover 하면 나타나는 테두리」로 만들었던 적이 있는데,
  * 그러면 어디를 고칠 수 있는지 마우스를 얹어 봐야 알 수 있다.
  */
-export const FIELD_CELL =
-  'w-full rounded-ctl border border-slate-200 px-2 py-1 text-small text-slate-900 transition focus:border-brand-400 focus:outline-none focus:ring-1 focus:ring-brand-100 disabled:bg-slate-50 disabled:text-slate-400';
+const FIELD_CELL_LOOK =
+  'rounded-ctl border border-slate-200 px-2 py-1 text-small text-slate-900 transition focus:border-brand-400 focus:outline-none focus:ring-1 focus:ring-brand-100 disabled:bg-slate-50 disabled:text-slate-400';
+
+/**
+ * 폭을 부르는 자리에서 정하는 좁은 칸 — `${FIELD_CELL_BASE} w-24` 처럼 쓴다.
+ * FIELD 와 같은 함정이 있다(위 설명): FIELD_CELL 에 w-* 를 덧붙이면 안 먹는다.
+ */
+export const FIELD_CELL_BASE = FIELD_CELL_LOOK;
+
+export const FIELD_CELL = `w-full ${FIELD_CELL_LOOK}`;
 
 /* ── 카드 ──────────────────────────────────────────────────────────────────
  * 화면 단위 상자는 panel, 그 안의 표·구역은 box 다. 상자 안에 상자를 넣지 않는다 —

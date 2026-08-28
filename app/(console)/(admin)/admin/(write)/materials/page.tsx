@@ -29,7 +29,7 @@ export default async function MaterialsAdminPage() {
             <div>
               <h1 className="text-h1 font-black text-slate-900">자료실 관리</h1>
               <p className="text-base text-slate-500 mt-1">
-                운영사별 영업자료 · 시방서 업로드 · 삭제 (현재 {fileCount}개)
+                운영사별 자료 업로드 · 삭제 (현재 {fileCount}개)
               </p>
             </div>
           </div>

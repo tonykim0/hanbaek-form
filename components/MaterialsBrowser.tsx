@@ -46,7 +46,7 @@ export default function MaterialsBrowser({ groups }: { groups: MaterialGroup[] }
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
 
   /**
-   * 분류 칩은 지금 고른 충전사업자 안에서 실제로 있는 분류만, 건수와 함께.
+   * 분류 칩은 지금 고른 운영사 안에서 실제로 있는 분류만, 건수와 함께.
    * 사업자를 바꿔 그 분류가 사라지면 칩째 사라지고 아래 effectiveCategory 가 전체로 되돌린다.
    */
   const categories = useMemo(() => {
@@ -115,7 +115,7 @@ export default function MaterialsBrowser({ groups }: { groups: MaterialGroup[] }
 
         {/* 칩 줄마다 무엇을 고르는 것인지 이름을 붙인다 — 처음 온 사람은 회사 이름만으로는 못 고른다 */}
         <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5">
-          <span className="w-16 flex-none text-tiny font-bold text-gray-400">충전사업자</span>
+          <span className="w-16 flex-none text-tiny font-bold text-gray-400">운영사</span>
           <button
             type="button"
             onClick={() => setActiveGroup(null)}

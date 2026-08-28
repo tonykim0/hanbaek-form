@@ -283,7 +283,7 @@ export default function Home() {
             <FeatureCard
               href="/materials"
               eyebrow="RESOURCES"
-              title="영업자료 · 시방서"
+              title="운영사 자료실"
               description="운영사별 최신 자료를 검색하고 내려받습니다."
               cta="자료실 열기"
               tone="amber"

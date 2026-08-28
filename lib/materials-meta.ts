@@ -53,19 +53,50 @@ export const GROUP_LABELS: Record<string, string> = {
 /** 표시 순서 — 여기에 없는 키는 뒤에 이름순으로 붙습니다 */
 export const GROUP_ORDER = ['common', 'pluglink', 'hec', 'nice', 'sk'];
 
-/** 분류 폴더명 → 표시 이름 */
+/**
+ * 분류 폴더명 → 표시 이름.
+ *
+ * ★여섯으로 갈랐다 (한백 2026-08-28).★ 「영업자료 · 시방서 · 기타」 셋이었는데, 실제로
+ * 올라오는 것이 그 셋에 안 맞았다 — 사업자등록증·보험증권·착공전서류·준공서류가 전부
+ * 「영업자료」나 「시방서」에 뭉쳐 있었다. 일의 순서대로 나눈다:
+ * 팔고(영업자료) → 회사를 확인하고(법인관련·업체·보험) → 공사를 시작하고(착공·안전) →
+ * 허가를 받고(인허가·전기) → 세우고 끝낸다(설치·준공).
+ *
+ * ★옛 분류는 이름을 지우지 않는다.★ 이미 올라간 파일이 그 폴더에 있어서, 이름을 빼면
+ * 화면에 폴더명(spec)이 그대로 뜬다. 새로 올릴 수는 없고(UPLOAD_CATEGORY_KEYS) 읽고
+ * 옮기고 지울 수는 있다 — 옮기고 나면 저절로 사라진다.
+ */
 export const CATEGORY_LABELS: Record<string, string> = {
   sales: '영업자료',
+  corp: '법인관련',
+  vendor: '업체·보험',
+  safety: '착공·안전',
+  permit: '인허가·전기',
+  install: '설치·준공',
+  // ↓ 옛 분류 — 읽기·옮기기·지우기만 된다
   spec: '시방서',
   etc: '기타',
 };
 
-export const CATEGORY_ORDER = ['sales', 'spec', 'etc'];
+/** 새로 올릴 수 있는 분류 — 화면의 고르는 자리가 이것만 내놓는다 */
+export const UPLOAD_CATEGORY_KEYS = [
+  'sales', 'corp', 'vendor', 'safety', 'permit', 'install',
+];
 
-/** 분류 폴더 없이 운영사 바로 아래 올린 파일이 담기는 분류 */
+/** 옛 분류 — 새로 올리지는 못하고, 이미 있는 파일만 읽고 옮기고 지운다 */
+export const LEGACY_CATEGORY_KEYS = ['spec', 'etc'];
+
+/** 표시 순서 — 옛 분류는 뒤에 선다 */
+export const CATEGORY_ORDER = [...UPLOAD_CATEGORY_KEYS, ...LEGACY_CATEGORY_KEYS];
+
+/**
+ * 분류 폴더 없이 운영사 바로 아래 올린 파일이 담기는 분류.
+ * 옛 분류지만 자리는 지킨다 — 그런 파일이 사라지는 것보다 「기타」에 서 있는 편이 낫다.
+ */
 export const LOOSE_CATEGORY = 'etc';
 
 export const GROUP_KEYS = GROUP_ORDER;
+/** 경로 검사가 받아들이는 분류 — 옛 것도 있어야 이미 올라간 파일을 옮기고 지운다 */
 export const CATEGORY_KEYS = CATEGORY_ORDER;
 
 export function groupLabel(key: string): string {

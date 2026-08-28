@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import {
-  CATEGORY_KEYS,
+  UPLOAD_CATEGORY_KEYS,
   GROUP_KEYS,
   buildMaterialPath,
   categoryLabel,
@@ -110,6 +110,36 @@ export default function MaterialsAdmin({ groups }: { groups: MaterialGroup[] }) 
         text: `${files.length}개 파일을 올렸습니다. 자료실에 바로 반영됩니다.`,
       });
       if (fileInputRef.current) fileInputRef.current.value = '';
+      router.refresh();
+    } catch (error) {
+      setMessage({ kind: 'err', text: (error as Error).message });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  /**
+   * 분류 옮기기 — 이름 바꾸기와 같은 길(경로를 바꾼다)이라 같은 라우트를 쓴다.
+   *
+   * 되묻지 않는다: 고른 값이 곧 그 일이고, 잘못 골랐으면 다시 고르면 된다.
+   * 되돌릴 수 없는 것(삭제)만 확정을 묻는다(화면 규칙 12).
+   */
+  async function handleMove(url: string, newCategory: string) {
+    if (!password) {
+      setMessage({ kind: 'err', text: '관리자 비밀번호를 입력해주세요.' });
+      return;
+    }
+    setBusy(true);
+    setMessage(null);
+    try {
+      const res = await fetch('/api/materials/rename', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password, url, newCategory }),
+      });
+      const data = (await res.json().catch(() => null)) as { error?: string } | null;
+      if (!res.ok) throw new Error(data?.error ?? '옮기지 못했습니다.');
+      setMessage({ kind: 'ok', text: `「${categoryLabel(newCategory)}」로 옮겼습니다.` });
       router.refresh();
     } catch (error) {
       setMessage({ kind: 'err', text: (error as Error).message });
@@ -230,7 +260,7 @@ export default function MaterialsAdmin({ groups }: { groups: MaterialGroup[] }) 
               onChange={(e) => setCategory(e.target.value)}
               className={selectClass}
             >
-              {CATEGORY_KEYS.map((key) => (
+              {UPLOAD_CATEGORY_KEYS.map((key) => (
                 <option key={key} value={key}>
                   {categoryLabel(key)}
                 </option>
@@ -356,6 +386,29 @@ export default function MaterialsAdmin({ groups }: { groups: MaterialGroup[] }) 
                             </p>
                           </div>
                           <div className="flex-none flex items-center gap-1.5">
+                            {/*
+                              * 분류를 고르면 그 자리에서 옮겨진다 — 표의 칸이라 늘 열려
+                              * 있다(화면 규칙 4의 예외 자리: 여러 건을 쭉 고치는 자리다).
+                              */}
+                            <div className="w-32">
+                              <select
+                                aria-label="분류 옮기기"
+                                value={c.key}
+                                disabled={busy}
+                                onChange={(e) => void handleMove(f.url, e.target.value)}
+                                className={`${FIELD} bg-white`}
+                              >
+                                {/* 옛 분류에 있는 파일 — 지금 자리를 보여주되 되돌아갈 수는 없다 */}
+                                {!UPLOAD_CATEGORY_KEYS.includes(c.key) && (
+                                  <option value={c.key} disabled>
+                                    {categoryLabel(c.key)} (옛 분류)
+                                  </option>
+                                )}
+                                {UPLOAD_CATEGORY_KEYS.map((k) => (
+                                  <option key={k} value={k}>{categoryLabel(k)}</option>
+                                ))}
+                              </select>
+                            </div>
                             <button
                               type="button"
                               onClick={() => handleRename(f.url, f.fileName)}

@@ -1,16 +1,22 @@
 /**
- * POST /api/materials/rename
+ * POST /api/materials/rename — 자료의 자리를 옮긴다 (이름 · 분류)
  *
- * 자료 이름 바꾸기. Blob 안에서 복사한 뒤 원본을 지우는 방식이라
- * 파일을 다시 올릴 필요가 없습니다(대용량 파일도 서버에서 처리).
+ * Blob 안에서 복사한 뒤 원본을 지우는 방식이라 파일을 다시 올릴 필요가 없습니다
+ * (대용량 파일도 서버에서 처리).
  *
  * 파일명이 곧 화면에 보이는 자료명이므로, 자동 정리 규칙으로 부족할 때
  * 이 기능으로 제목을 직접 다듬습니다.
+ *
+ * ★분류 옮기기도 같은 일이다 (2026-08-28).★ 둘 다 「경로를 바꾼다」이고, 분류를
+ * 여섯으로 가르면서(materials-meta) 이미 올라간 30건을 다시 나눌 길이 필요해졌다.
+ * 따로 라우트를 두면 비밀번호 확인·경로 검사·덮어쓰기 방지가 두 벌이 된다.
+ * 이름만 · 분류만 · 둘 다 — 무엇을 넘기든 안 넘긴 쪽은 그대로다.
  */
 import { copy, del, head } from '@vercel/blob';
 import { NextResponse } from 'next/server';
 import {
   MATERIALS_PREFIX,
+  UPLOAD_CATEGORY_KEYS,
   isValidMaterialPath,
   sanitizeFileName,
 } from '@/lib/materials-meta';
@@ -23,10 +29,11 @@ export async function POST(request: Request) {
   }
 
   try {
-    const { password, url, newFileName } = (await request.json()) as {
+    const { password, url, newFileName, newCategory } = (await request.json()) as {
       password?: string;
       url?: string;
       newFileName?: string;
+      newCategory?: string;
     };
 
     const adminPassword = process.env.MATERIALS_ADMIN_PASSWORD;
@@ -44,11 +51,15 @@ export async function POST(request: Request) {
       );
     }
 
-    if (!url || !newFileName?.trim()) {
+    if (!url || (!newFileName?.trim() && !newCategory)) {
       return NextResponse.json(
-        { error: '바꿀 이름이 비어 있습니다.' },
+        { error: '바꿀 이름도 분류도 없습니다.' },
         { status: 400 }
       );
+    }
+    // 옛 분류로 되돌리는 길은 두지 않는다 — 옮기는 것은 새 분류로만
+    if (newCategory && !UPLOAD_CATEGORY_KEYS.includes(newCategory)) {
+      return NextResponse.json({ error: '없는 분류입니다.' }, { status: 400 });
     }
 
     const info = await head(url);
@@ -60,16 +71,20 @@ export async function POST(request: Request) {
       .slice(MATERIALS_PREFIX.length)
       .split('/');
 
-    // 확장자는 원본을 그대로 유지합니다 (빠뜨리고 입력해도 붙여줌)
-    const dot = oldFileName.lastIndexOf('.');
-    const ext = dot > 0 ? oldFileName.slice(dot) : '';
-    let nextName = sanitizeFileName(newFileName.trim());
-    if (ext && nextName.toLowerCase().endsWith(ext.toLowerCase())) {
-      nextName = nextName.slice(0, nextName.length - ext.length);
+    // 이름을 안 넘겼으면 쓰던 이름 그대로 — 분류만 옮기는 경우다
+    let nextName = oldFileName;
+    if (newFileName?.trim()) {
+      // 확장자는 원본을 그대로 유지합니다 (빠뜨리고 입력해도 붙여줌)
+      const dot = oldFileName.lastIndexOf('.');
+      const ext = dot > 0 ? oldFileName.slice(dot) : '';
+      nextName = sanitizeFileName(newFileName.trim());
+      if (ext && nextName.toLowerCase().endsWith(ext.toLowerCase())) {
+        nextName = nextName.slice(0, nextName.length - ext.length);
+      }
+      nextName = `${nextName.trim()}${ext}`;
     }
-    nextName = `${nextName.trim()}${ext}`;
 
-    const nextPath = `${MATERIALS_PREFIX}${group}/${category}/${nextName}`;
+    const nextPath = `${MATERIALS_PREFIX}${group}/${newCategory ?? category}/${nextName}`;
     if (!isValidMaterialPath(nextPath)) {
       return NextResponse.json(
         { error: '바꿀 이름에 쓸 수 없는 문자가 있습니다.' },

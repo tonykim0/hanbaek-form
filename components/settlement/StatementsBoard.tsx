@@ -67,12 +67,17 @@ export default function StatementsBoard({
   /*
    * 필터 — 이 화면은 할 일 목록이다. 「계산서를 발행해야 하는 것」만 보는 것이 첫 쓰임이라
    * 상태가 첫 칸이다. 지급처는 한백에게만 준다 — 협력사는 자기 것 하나뿐이라 고를 게 없다.
-   * 달 필터는 두지 않았다: 목록이 지급일 내림차순이고 「지급완료」를 걸러내면 남는 것이
-   * 곧 앞으로의 것이라, 달을 또 고르게 하면 칸만 늘고 얻는 것이 없다.
+   *
+   * ★달 필터를 넣었다 (한백 2026-08-29).★ 없던 이유는 「지급완료를 걸러내면 남는 것이 곧
+   * 앞으로의 것」이라서였는데, 지난 달을 되짚는 일(그 달에 무엇이 나갔나·계산서는 다
+   * 받았나)이 실제로 있었다. 위 그래프에서 어느 달이 튀는지 보고 그 달을 여기서 여는
+   * 것이 한 흐름이다. 해와 달을 한 칸으로 고른다 — 두 칸이면 「2026 × 3월」처럼 빈
+   * 조합을 고를 수 있고, 있는 달만 내놓으면 그 일이 안 생긴다.
    */
   const [state, setState] = useState<string>(ALL);
   const [org, setOrg] = useState<string>(ALL);
   const [kind, setKind] = useState<string>(ALL);
+  const [month, setMonth] = useState<string>(ALL);
 
   /* 지급처 후보는 실제로 있는 배치에서 뽑는다 — 없는 곳을 고를 수 있으면 0건이 나온다 */
   const orgs = useMemo(
@@ -80,12 +85,19 @@ export default function StatementsBoard({
     [batches]
   );
 
+  /* 달 후보는 실제로 배치가 있는 달만 — 최신이 위. 없는 달을 고를 수 있으면 0건이 나온다 */
+  const months = useMemo(
+    () => [...new Set(batches.map((b) => b.paidAt.slice(0, 7)))].sort().reverse(),
+    [batches]
+  );
+
   const shown = useMemo(
     () => batches.filter((b) =>
       (state === ALL || batchStateOf(b) === state)
       && (org === ALL || (b.org ?? NO_ORG) === org)
-      && (kind === ALL || b.kind === kind)),
-    [batches, state, org, kind]
+      && (kind === ALL || b.kind === kind)
+      && (month === ALL || b.paidAt.slice(0, 7) === month)),
+    [batches, state, org, kind, month]
   );
   const filtered = shown.length !== batches.length;
 
@@ -131,6 +143,18 @@ export default function StatementsBoard({
             ))}
           </select>
         </div>
+        {/* 달 — 배치가 한 달치뿐이면 고를 것이 없다(칸만 늘고 얻는 것이 없다) */}
+        {months.length > 1 && (
+          <div className="w-36">
+            <select aria-label="지급월" className={FIELD} value={month} onChange={(e) => setMonth(e.target.value)}>
+              {[ALL, ...months].map((v) => (
+                <option key={v} value={v}>
+                  {v === ALL ? '지급월 전체' : `${v.slice(0, 4)}년 ${Number(v.slice(5))}월`}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
         <span className="text-tiny font-bold tabular-nums text-slate-400">
           {shown.length}건
           {/* 걸러서 몇 건이 빠졌는지 적는다 — 안 적으면 걸러진 목록이 전부처럼 보인다 */}

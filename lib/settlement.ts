@@ -40,11 +40,18 @@ interface MoneyParts {
   margin: number | null;
 }
 
-export function triggerMet(
+/**
+ * 조건이 찬 날 — 안 찼으면 null.
+ *
+ * ★날짜가 정본이고 「찼나」는 그 유무다.★ 예전에는 triggerMet 이 참·거짓만 답했다.
+ * 언제 찼는지가 필요해졌다(할 일의 급함 — 받을 수 있게 된 지 며칠인가). 판정을 둘로
+ * 갈라 두면 「열렸다는데 날짜가 없다」가 생기므로 한 함수에서 낸다.
+ */
+export function triggerDate(
   trigger: Trigger,
   process: ProcessInfo,
   closeDate: string | null
-): boolean {
+): string | null {
   switch (trigger) {
     /*
      * 화면에서는 「환경부 승인일」 한 칸이다 (한백 2026-08-27) — 운영사 시공승인도 같은
@@ -52,14 +59,23 @@ export function triggerMet(
      * 바꾸면 이미 걸린 규칙이 어느 트리거인지 못 찾는다.
      */
     case '환경부 승인':
-      return Boolean(process.envApprovalDate);
+      return process.envApprovalDate || null;
     case '착공':
-      return Boolean(process.startActualDate);
+      return process.startActualDate || null;
     case '준공마감':
-      return Boolean(closeDate);
+      return closeDate || null;
     case '해당없음':
-      return false;
+      return null;
   }
+}
+
+/** 조건이 찼나 — 날짜가 있으면 찬 것이다 */
+export function triggerMet(
+  trigger: Trigger,
+  process: ProcessInfo,
+  closeDate: string | null
+): boolean {
+  return triggerDate(trigger, process, closeDate) !== null;
 }
 
 /** 트리거의 근거가 어디서 오는지 — 화면 설명용 */
@@ -235,6 +251,7 @@ const EMPTY_STEP = (no: 1 | 2 | 3): SettlementStep => ({
   basisLabel: '해당없음',
   planAmount: null,
   state: 'na',
+  openedAt: null,
   collectedAt: null,
   collectedAmount: null,
 });
@@ -267,11 +284,9 @@ export function settlementForProject(
     }, 0);
     const got = collected[no] ?? null;
     const collectedAt = got?.at ?? null;
-    const state: StepState = collectedAt
-      ? 'collected'
-      : triggerMet(stepRule.trigger, process, closeDate)
-        ? 'open'
-        : 'waiting';
+    /* 조건이 찬 날 — 수금했더라도 남긴다. 언제부터 받을 수 있었는지가 사실이다 */
+    const openedAt = triggerDate(stepRule.trigger, process, closeDate);
+    const state: StepState = collectedAt ? 'collected' : openedAt ? 'open' : 'waiting';
 
     steps[i] = {
       no,
@@ -279,6 +294,7 @@ export function settlementForProject(
       basisLabel: basisLabel(stepRule.basis),
       planAmount: priced.length > 0 ? amount : null,
       state,
+      openedAt,
       collectedAt,
       collectedAmount: got?.amount ?? null,
     };

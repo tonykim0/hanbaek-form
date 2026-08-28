@@ -6,6 +6,10 @@
  *
  * 두 자리가 같이 쓴다: 상단 바의 드롭다운(/api/todos)과 할 일 대시보드(/todos).
  * 한쪽은 훑는 자리고 한쪽은 작업대다 — 조립이 두 벌이면 배지와 페이지가 다른 것을 센다.
+ *
+ * ★세 갈래가 들어온다★ 현장의 공 차례 · 지급 배치 · ★기성★(한백 지시 2026-08-28).
+ * 기성은 운영사에게서 받을 돈이라 한백 관리자만의 일이다 — 협력사에게는 차례가 없고,
+ * 열람 전용은 넣을 칸이 없다.
  */
 import { getRepository } from '@/lib/data';
 import { bandOfColumn, boardColumnOf } from '@/lib/board';
@@ -17,6 +21,7 @@ import { today } from '@/lib/date';
 import type { SessionPayload } from '@/lib/auth/types';
 import type { Court } from '@/types/project';
 import { TODO_GROUPS, type TodoItem } from '@/lib/todo-types';
+import { receivableTodos } from '@/lib/todo-receivables';
 
 /* 타입은 lib/todo-types 에 있다 — 클라이언트 부품이 이 파일을 안 끌어오게(빌드가 깨졌다) */
 export { TODO_GROUPS, type TodoGroup, type TodoItem } from '@/lib/todo-types';
@@ -39,16 +44,22 @@ const COURTS_OF_ROLE: Record<Role, Court[]> = {
 export async function todosOf(session: SessionPayload): Promise<TodoItem[]> {
   const mine = COURTS_OF_ROLE[session.role];
   /*
-   * 발행은 협력사의 일, 확정 누락은 관리자의 일이다 — 열람 전용은 배치 읽기 자체를 안 건다.
-   * 화면을 옮길 때마다 불리므로(TopBar) 세 읽기를 한꺼번에 시작한다 —
-   * 현장 목록을 기다렸다 배치를 읽으면 걸리는 시간이 그대로 더해진다.
+   * 발행은 협력사의 일, 확정 누락은 관리자의 일이다 — 열람 전용은 배치 확정 읽기를 안 건다.
+   * 화면을 옮길 때마다 불리므로(TopBar) 두 읽기를 한꺼번에 시작한다 —
+   * 하나를 기다렸다 다음을 읽으면 걸리는 시간이 그대로 더해진다.
    */
   const wantsInvoices = !isHanbaek(session.role) && session.org !== null;
   const wantsMissed = session.role === 'admin';
   const wantsBatches = wantsInvoices || wantsMissed;
-  const [projects, history, finals] = await Promise.all([
-    getRepository().listProjects(viewerOf(session)),
-    wantsBatches ? getRepository().listPayouts(viewerOf(session)) : [],
+  /* 기성은 한백이 운영사에게서 받는 돈이다 — 넣는 칸이 있는 사람만 차례가 온다 */
+  const wantsReceivables = session.role === 'admin';
+  /*
+   * 현장·지급 내역·기성을 한 번의 읽기로 받는다(listTodoSources) — 예전에는 현장 목록과
+   * 지급 내역을 따로 불러 같은 현장을 두 번 읽었다. 여기에 기성까지 붙이면 세 번이 되고,
+   * 이 조립은 화면을 옮길 때마다 돈다.
+   */
+  const [{ projects, history, settlements }, finals] = await Promise.all([
+    getRepository().listTodoSources(viewerOf(session)),
     wantsBatches ? getRepository().listBatchFinals(actorOf(session)) : [],
   ]);
 
@@ -117,8 +128,17 @@ export async function todosOf(session: SessionPayload): Promise<TodoItem[]> {
       urgencyLabel: labelUntil(b.paidAt),
     }));
 
+  /*
+   * 기성 — 멈춘 현장은 뺀다. 위 현장 카드와 같은 판정이다(보류·계약중단은 누구 차례도
+   * 아니다). 기성 요약에는 멈춤이 없으므로 현장 목록에서 가져와 건넨다.
+   */
+  const held = new Set(projects.filter((p) => p.holdState).map((p) => p.id));
+  const receivables = !wantsReceivables
+    ? []
+    : receivableTodos(settlements.filter((s) => !held.has(s.id)));
+
   /* 급한 순 — 업무를 넘어 한 자로 잰다. 같으면 업무 순서(계약 → 시공 → 정산) */
-  return [...missed, ...invoices, ...items].sort(
+  return [...missed, ...invoices, ...receivables, ...items].sort(
     (a, b) => b.urgency - a.urgency
       || TODO_GROUPS.indexOf(a.group) - TODO_GROUPS.indexOf(b.group)
   );

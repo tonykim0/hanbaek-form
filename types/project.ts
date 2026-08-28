@@ -677,6 +677,13 @@ export interface SettlementStep {
   /** 계획액 = 대당금액 × 대수, 잔액이면 (턴키 − 앞단계 정액합) × 대수 */
   planAmount: number | null;
   state: StepState;
+  /**
+   * 조건이 찬 날 — 트리거의 근거 날짜다(환경부 승인일·실착공일·준공마감일).
+   *
+   * 수금일(collectedAt)과 다르다: 이쪽은 「언제부터 받을 수 있었나」고 저쪽은 「언제 받았나」다.
+   * 할 일 목록이 이 날로 급함을 잰다 — 받을 수 있게 된 지 오래된 것이 위로 선다.
+   */
+  openedAt: string | null;
   collectedAt: string | null;
   /**
    * 실제로 받은 금액. null 이면 계획액(planAmount)대로 받은 것이다.

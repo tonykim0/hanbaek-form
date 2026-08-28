@@ -65,6 +65,24 @@ export interface ProjectRepository {
   }>;
 
   /**
+   * 할 일 조립이 보는 것 — 현장·지급 내역·기성을 ★한 번의 읽기로★.
+   *
+   * ★왜 전용 조회인가★ 할 일(lib/todos)은 화면을 옮길 때마다 불린다(상단 바의 배지).
+   * 예전에는 `listProjects` 와 `listPayouts` 를 나란히 불러 같은 현장을 두 번 읽었고,
+   * 여기에 기성까지 붙이면 세 번이 된다 — 지급관리 화면이 그 방식으로 죽은 적이 있다
+   * (300초 타임아웃, 2026-08-21). 현장을 한 번 읽어 셋을 같이 조립한다.
+   *
+   * 기성(settlements)은 한백 전용이라 협력사에게는 빈 목록이다 — 금액을 읽어 보내고
+   * 화면에서 가리는 방식은 쓰지 않는다(listSettlements 와 같은 규칙).
+   * 누가 무엇을 할 일로 받는지는 이 계층이 아니라 할 일 규칙이 정한다.
+   */
+  listTodoSources(viewer: Viewer): Promise<{
+    projects: ProjectSummary[];
+    history: PayoutRow[];
+    settlements: SettlementSummary[];
+  }>;
+
+  /**
    * 접수 — 협력사가 콘솔에서 현장을 만든다.
    * 영업사·시공사는 접수한 사람의 소속으로 채운다(자기 현장이 되도록).
    */

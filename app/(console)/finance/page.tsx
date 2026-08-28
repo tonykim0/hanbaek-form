@@ -130,7 +130,7 @@ export default async function FinancePage({
 
       <div className={`grid gap-5 ${isAdmin ? 'lg:grid-cols-3' : 'lg:grid-cols-2'}`}>
         {isAdmin && (
-          <Panel eyebrow="받는 돈" title="운영사 기성" side="계획에는 날짜가 없다">
+          <Panel eyebrow="받는 돈" title="운영사 기성">
             <Facts
               rows={[
                 { label: '총 받아야 할 돈', value: planIn },
@@ -144,7 +144,6 @@ export default async function FinancePage({
         <Panel
           eyebrow={isAdmin ? '주는 돈' : '받는 돈'}
           title={isAdmin ? '협력사 지급' : '내 지급'}
-          side="계획에는 날짜가 없다"
         >
           <Facts
             rows={[
@@ -155,15 +154,19 @@ export default async function FinancePage({
           />
         </Panel>
 
+        {/*
+          ★곁말을 다 걷었다 (한백 2026-08-29).★ 「총 받아야 할 돈 − 내려줄 지급」(계산식)
+          ·「단가가 붙은 라인만」(범위)·「단가 미지정 라인이 있는 현장 N건」(주의)이 숫자
+          하나를 둘러싸고 있었다. 매일 보는 사람에게는 그 셋이 다 아는 말이라 숫자를
+          가릴 뿐이다 — 규칙은 문장이 아니라 동작으로 보이게 만든다(화면 규칙 2).
+          계산식과 범위는 위 margin 을 세는 자리가 들고 있다.
+
+          ★단가 미지정 경고도 같이 걷었다.★ 그 현장이 몇 건인지는 계약관리 표의
+          「단가 미지정」 꼬리표가 말하고, 고치는 자리도 거기다 — 여기서 다시 세지 않는다.
+        */}
         {isAdmin && (
-          <Panel eyebrow="한백 몫" title="총 받아야 할 돈 − 내려줄 지급" side="단가가 붙은 라인만">
-            <Facts rows={[{ label: '마진 합계', value: margin, tone: 'in' }]} />
-            {settlements.some((s) => s.unpricedLines > 0) && (
-              <p className="mt-3 text-tiny font-semibold text-amber-700">
-                단가 미지정 라인이 있는 현장 {settlements.filter((s) => s.unpricedLines > 0).length}건 —
-                그만큼 금액이 실제보다 적습니다.
-              </p>
-            )}
+          <Panel eyebrow="한백 몫" title="한백 마진">
+            <Facts rows={[{ label: '합계', value: margin, tone: 'in' }]} />
           </Panel>
         )}
       </div>

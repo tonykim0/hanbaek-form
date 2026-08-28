@@ -18,8 +18,9 @@ import { needsPreInstallCheck } from '@/lib/doc-rules';
 import { asProcessStatus, COURT_AFTER_STATUS, statusIndex } from '@/lib/process';
 import { contractStateFor, missingRequiredDocs } from '../assemble';
 import type { PreInstall, Project } from '@/types/project';
-import type { ProjectRepository } from '../repository';
+import type { Actor, ProjectRepository } from '../repository';
 import { assertAdmin, recordsOf } from './shared';
+import type { TxLike } from './shared';
 
 /** pgRepository 가 펼쳐 담는 조각 — 이름과 시그니처는 인터페이스가 정한다 */
 export const contractStore: Pick<
@@ -195,43 +196,8 @@ export const contractStore: Pick<
 
     const db = getDb();
     await db.transaction(async (tx) => {
-      for (const kind of kinds) {
-        const row = {
-          projectId,
-          kind,
-          filename: null,
-          blobUrl: null,
-          status: ask ? 'rejected' : 'none',
-          rejectReason: ask ? why : null,
-          uploadedBy: null,
-          uploadedAt: null,
-        };
-        await tx
-          .insert(documents)
-          .values(row)
-          .onConflictDoUpdate({
-            target: [documents.projectId, documents.kind],
-            // 파일 칸은 건드리지 않는다 — 겨냥한 것이 「파일 없는 칸」이라 비어 있지만,
-            // 덮어쓰기로 남의 파일을 지우는 길을 열어두지 않는다.
-            set: { status: row.status, rejectReason: row.rejectReason },
-          });
-      }
-
-      await tx
-        .update(projects)
-        .set({
-          lastProgressAt: day,
-          ...(ask
-            ? {
-                // 반려와 같은 일이다 — 확인을 무효로 만들고, 공은 보완할 쪽으로
-                contractConfirmedAt: null,
-                contractFixAskedAt: sql`coalesce(${projects.contractFixAskedAt}, ${day})`,
-                court: '영업사',
-              }
-            : // 되돌리면 볼 차례는 다시 한백이다. 확인은 사람이 다시 눌러야 한다.
-              { court: '한백' }),
-        })
-        .where(eq(projects.id, projectId));
+      for (const kind of kinds) await markMissing(tx, projectId, kind, ask, why);
+      await applyAskSideEffects(tx, projectId, ask, day);
 
       await writeAudit(tx, {
         projectId, actor,
@@ -259,26 +225,7 @@ export const contractStore: Pick<
         .where(eq(projects.id, projectId))
         .limit(1);
       if (!row) throw new Error('현장을 찾을 수 없습니다.');
-      /*
-       * 자체투자는 기설치 조사를 하지 않는다 — 환경부 보조금이 기설치 여부로 갈리기
-       * 때문에 하는 조사다. 화면에서 조작을 주지 않지만 여기서도 막는다.
-       */
-      if (!needsPreInstallCheck(row.bizType as Project['bizType'])) {
-        throw new Error('자체투자 현장은 기설치 조사를 하지 않습니다.');
-      }
-      // 조사는 현장에 가는 쪽이 한다 — 그 현장의 협력사와 한백만
-      if (!canAccessProject(actor.role, actor.org, row)) {
-        throw new Error('이 현장의 기설치를 적을 권한이 없습니다.');
-      }
-
-      /*
-       * 조사 반려 — 한백이 「다시 조사해라」를 사유와 함께 되돌린다(한백 확인).
-       * 사유를 적으면 조사 표시가 풀리고 공이 영업사로 넘어간다. 협력사가 조사를
-       * 다시 저장하면(값 선택·확인 표시) 사유가 지워진다 — 보완이 반려를 푼다.
-       */
-      if (patch.preRejectReason !== undefined && actor.role !== 'admin') {
-        throw new Error('기설치 조사 반려는 한백 관리자만 할 수 있습니다.');
-      }
+      checkPreInstallWrite(row, patch, actor);
       const rejecting =
         typeof patch.preRejectReason === 'string' && patch.preRejectReason.trim() !== '';
       const fixing = patch.preInstall !== undefined || patch.preChecked === true;
@@ -300,38 +247,7 @@ export const contractStore: Pick<
         && next.preRejectReason === row.preRejectReason
       ) return;
 
-      const day = today();
-      /* 착공 뒤에는 계약 단계로 내려가지 않는다 — 서류 반려와 같은 규칙(한백 지시 2026-08-26) */
-      const [proc] = await tx
-        .select({ status: processes.status })
-        .from(processes)
-        .where(eq(processes.projectId, projectId))
-        .limit(1);
-      const started = statusIndex(asProcessStatus(proc?.status)) >= statusIndex('착공');
-
-      await tx
-        .update(projects)
-        /*
-         * 조사는 진척이다 — 정체일 기준을 갱신한다. 반려는 보완 차례라 담당이 영업사로.
-         *
-         * ★반려는 서류 반려와 같은 뒷일을 한다(한백 지적 2026-08-26).★ 앞서 한 계약
-         * 확인을 지우고, 보완요청이 있었다는 사실을 남긴다(첫 번째 것만). 안 지우면
-         * 확인일이 남아 단계가 시공으로 유도되고(lib/stage), 그러면 보드의 계약 세 칸
-         * 판정 자체를 안 타서 반려해 놓고도 현장이 제자리에 서 있다 —
-         * 전주태평에스케이뷰가 그랬다. 문구도 reviewDocument 쪽과 같은 뜻으로 맞춘다.
-         */
-        .set({
-          ...next,
-          lastProgressAt: day,
-          ...(rejecting
-            ? {
-                court: '영업사' as const,
-                ...(started ? {} : { contractConfirmedAt: null }),
-                contractFixAskedAt: sql`coalesce(${projects.contractFixAskedAt}, ${day})`,
-              }
-            : {}),
-        })
-        .where(eq(projects.id, projectId));
+      await savePreInstall(tx, projectId, next, rejecting);
 
       await writeAudit(tx, {
         projectId, actor,
@@ -345,3 +261,121 @@ export const contractStore: Pick<
     });
   },
 };
+
+/**
+ * 파일 없는 칸 하나를 보완요청으로 세우거나(ask) 되돌린다.
+ *
+ * 파일 칸은 건드리지 않는다 — 겨냥한 것이 「파일 없는 칸」이라 비어 있지만, 덮어쓰기로
+ * 남의 파일을 지우는 길을 열어두지 않는다.
+ */
+async function markMissing(
+  tx: TxLike,
+  projectId: string,
+  kind: string,
+  ask: boolean,
+  why: string
+): Promise<void> {
+  const status = ask ? 'rejected' : 'none';
+  const rejectReason = ask ? why : null;
+  await tx
+    .insert(documents)
+    .values({
+      projectId, kind, filename: null, blobUrl: null,
+      status, rejectReason, uploadedBy: null, uploadedAt: null,
+    })
+    .onConflictDoUpdate({
+      target: [documents.projectId, documents.kind],
+      set: { status, rejectReason },
+    });
+}
+
+/**
+ * 보완요청의 뒷일 — 반려와 같다. 확인을 무효로 만들고 담당을 보완할 쪽으로 넘긴다.
+ * 되돌리면 볼 차례는 다시 한백이다(확인은 사람이 다시 눌러야 한다).
+ */
+async function applyAskSideEffects(
+  tx: TxLike,
+  projectId: string,
+  ask: boolean,
+  day: string
+): Promise<void> {
+  await tx
+    .update(projects)
+    .set({
+      lastProgressAt: day,
+      ...(ask
+        ? {
+            contractConfirmedAt: null,
+            contractFixAskedAt: sql`coalesce(${projects.contractFixAskedAt}, ${day})`,
+            court: '영업사' as const,
+          }
+        : { court: '한백' as const }),
+    })
+    .where(eq(projects.id, projectId));
+}
+
+/**
+ * 기설치 조사를 적을 수 있는가 — 아니면 던진다.
+ *
+ * 자체투자는 조사 자체를 하지 않는다 — 환경부 보조금이 기설치 여부로 갈리기 때문에 하는
+ * 조사다. 조사는 현장에 가는 쪽(그 현장의 협력사·한백)이 하고, ★반려는 한백 관리자만★
+ * 한다 — 「다시 조사해라」는 판정이라 조사하는 쪽이 스스로 걸 수 없다.
+ */
+function checkPreInstallWrite(
+  row: { salesOrg: string | null; gcOrg: string | null; bizType: string | null },
+  patch: { preRejectReason?: string | null },
+  actor: Actor
+): void {
+  if (!needsPreInstallCheck(row.bizType as Project['bizType'])) {
+    throw new Error('자체투자 현장은 기설치 조사를 하지 않습니다.');
+  }
+  if (!canAccessProject(actor.role, actor.org, row)) {
+    throw new Error('이 현장의 기설치를 적을 권한이 없습니다.');
+  }
+  if (patch.preRejectReason !== undefined && actor.role !== 'admin') {
+    throw new Error('기설치 조사 반려는 한백 관리자만 할 수 있습니다.');
+  }
+}
+
+/**
+ * 조사 결과를 저장한다. 조사는 진척이라 정체일 기준을 갱신한다.
+ *
+ * ★반려는 서류 반려와 같은 뒷일을 한다★ (한백 지적 2026-08-26) — 담당이 영업사로 가고,
+ * 앞서 한 계약 확인을 지우고, 보완요청이 있었다는 사실을 남긴다(첫 번째 것만). 안 지우면
+ * 확인일이 남아 단계가 시공으로 유도되고(lib/stage), 보드의 계약 세 칸 판정을 안 타서
+ * 반려해 놓고도 현장이 제자리에 선다 — 전주태평에스케이뷰가 그랬다.
+ *
+ * 착공 뒤에는 확인을 지우지 않는다 — 시작된 공사를 계약 칸으로 끌어내리지 않는다.
+ */
+async function savePreInstall(
+  tx: TxLike,
+  projectId: string,
+  next: {
+    preInstall: PreInstall; preNote: string | null;
+    preChecked: boolean; preRejectReason: string | null;
+  },
+  rejecting: boolean
+): Promise<void> {
+  const day = today();
+  const [proc] = await tx
+    .select({ status: processes.status })
+    .from(processes)
+    .where(eq(processes.projectId, projectId))
+    .limit(1);
+  const started = statusIndex(asProcessStatus(proc?.status)) >= statusIndex('착공');
+
+  await tx
+    .update(projects)
+    .set({
+      ...next,
+      lastProgressAt: day,
+      ...(rejecting
+        ? {
+            court: '영업사' as const,
+            ...(started ? {} : { contractConfirmedAt: null }),
+            contractFixAskedAt: sql`coalesce(${projects.contractFixAskedAt}, ${day})`,
+          }
+        : {}),
+    })
+    .where(eq(projects.id, projectId));
+}

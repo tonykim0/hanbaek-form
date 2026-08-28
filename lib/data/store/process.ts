@@ -52,45 +52,8 @@ export const processStore: Pick<
         .where(eq(processes.projectId, projectId))
         .limit(1);
 
-      /*
-       * ★실제로 풀린 체크만 해제로 본다★ — 라우트가 행위신고 상호배제로 반대쪽에 심는
-       * null 은 「원래도 null」이라 여기서 걸러진다. 안 걸러서 체크가 단계를 올린 직후
-       * 스스로 되돌리는 일이 있었다(2026-08-26 실사고).
-       *
-       * ★거절은 저장 전에 한다★ — 예전에는 커밋 뒤 트랜잭션 밖에서 던져서, 「해제할 수
-       * 없습니다」를 띄우면서 값은 이미 지워져 있었다. 그 값이 지급 트리거면 근거가
-       * 조용히 사라진다(개통완료·설치완료).
-       */
-      unchecked = fields.find(
-        (f) => f in CHECK_ADVANCES && patch[f] === null && before?.[f as keyof typeof before] != null
-      ) as keyof typeof CHECK_ADVANCES | undefined ?? null;
-      if (unchecked) {
-        const opened = CHECK_ADVANCES[unchecked];
-        const cur = asProcessStatus(before?.status);
-        if (statusIndex(cur) > statusIndex(opened)) {
-          throw new Error(`이미 ${cur} 까지 진행돼 해제할 수 없습니다 — 단계를 먼저 되돌리세요.`);
-        }
-      }
-
-      /*
-       * ★완료 체크는 그 구간에 와서 한다★ (2026-08-26 발견).
-       *
-       * 체크 필드가 곧 지급 트리거다(설치완료 → 시공비 1차, 개통완료 → 양쪽 2차 —
-       * assemble.payoutMilestonesFor). 그런데 화면의 스테퍼는 미래 구간도 열어 주고
-       * 서버는 「누가 적는가」만 봤다 — 충전기 발주 현장에서 설치완료·개통완료 칩을
-       * 골라 체크하면 ★착공도 안 한 현장의 지급이 전액 열렸다★. 단계는 한 걸음씩만
-       * 오르므로(advanceAfterCheck) 보드는 제자리인 채 돈만 열리는 조합이었다.
-       *
-       * 이미 지난 구간의 체크는 막지 않는다 — 되돌려 고치는 길이다(화면 규칙 7).
-       */
-      const cur = asProcessStatus(before?.status);
-      for (const f of fields) {
-        if (!(f in CHECK_ADVANCES) || patch[f] == null) continue;
-        const opened = CHECK_ADVANCES[f as keyof typeof CHECK_ADVANCES];
-        if (statusIndex(cur) < statusIndex(opened) - 1) {
-          throw new Error(`아직 그 구간이 아닙니다 — 지금은 ${cur} 입니다.`);
-        }
-      }
+      unchecked = uncheckedField(fields, patch, before);
+      checkStepWindow(fields, patch, before, unchecked);
 
       // 공정 행이 없는 현장이 있다 — update 는 0행을 조용히 지나가므로 없으면 만들어 넣는다
       if (before) {
@@ -277,4 +240,52 @@ async function moveStatus(
       field: 'process.status', oldValue: cur, newValue: target,
     });
   });
+}
+
+/** 공정 행 한 줄 — 저장 전 판정에 쓰는 만큼만 */
+type ProcRowLike = Record<string, unknown> & { status?: string | null };
+
+/**
+ * 실제로 풀린 체크 칸을 고른다.
+ *
+ * ★원래도 null 인 칸은 해제가 아니다★ — 라우트가 행위신고 상호배제로 반대쪽에 심는 null 이
+ * 그렇다. 안 걸러서 체크가 단계를 올린 직후 스스로 되돌리는 일이 있었다(2026-08-26 실사고).
+ */
+function uncheckedField(
+  fields: Array<keyof ProcessPatch>,
+  patch: ProcessPatch,
+  before: ProcRowLike | undefined
+): keyof typeof CHECK_ADVANCES | null {
+  return fields.find(
+    (f) => f in CHECK_ADVANCES && patch[f] === null && before?.[f as string] != null
+  ) as keyof typeof CHECK_ADVANCES | undefined ?? null;
+}
+
+/**
+ * 그 구간에 와서 체크하는가 — 아니면 던진다. ★거절은 저장 전에 한다★ (예전에는 커밋 뒤에
+ * 던져서 「해제할 수 없습니다」를 띄우면서 값은 이미 지워져 있었다 — 그 값이 지급 트리거면
+ * 근거가 조용히 사라진다).
+ *
+ * 체크 필드가 곧 지급 트리거다(설치완료 → 시공비 1차, 개통완료 → 양쪽 2차). 화면 스테퍼는
+ * 미래 구간도 열어 주고 서버는 「누가 적는가」만 봐서, 충전기 발주 현장에서 설치완료·개통완료를
+ * 체크하면 ★착공도 안 한 현장의 지급이 전액 열렸다★. 이미 지난 구간의 체크는 막지 않는다 —
+ * 되돌려 고치는 길이다(화면 규칙 7).
+ */
+function checkStepWindow(
+  fields: Array<keyof ProcessPatch>,
+  patch: ProcessPatch,
+  before: ProcRowLike | undefined,
+  unchecked: keyof typeof CHECK_ADVANCES | null
+): void {
+  const cur = asProcessStatus(before?.status);
+  if (unchecked && statusIndex(cur) > statusIndex(CHECK_ADVANCES[unchecked])) {
+    throw new Error(`이미 ${cur} 까지 진행돼 해제할 수 없습니다 — 단계를 먼저 되돌리세요.`);
+  }
+  for (const f of fields) {
+    if (!(f in CHECK_ADVANCES) || patch[f] == null) continue;
+    const opened = CHECK_ADVANCES[f as keyof typeof CHECK_ADVANCES];
+    if (statusIndex(cur) < statusIndex(opened) - 1) {
+      throw new Error(`아직 그 구간이 아닙니다 — 지금은 ${cur} 입니다.`);
+    }
+  }
 }

@@ -116,9 +116,16 @@ export 가 붙음)이다. 그리고 그 8개도 하나씩 보니 넷은 지우�
 
 **끝난 것**: 지운 뒤 `tsc` 0 · 화면 회귀 없음. 남긴 export 는 왜 남겼는지 한 줄.
 
-## 2층 · 경계 (3~4일)
+## 2층 · 경계 — **끝났다 (2026-08-29)**
 
-### 2-1. `pg-store.ts` 2,664줄을 도메인별로 (2일)
+### 2-1. `pg-store.ts` 도메인별로 — **했다 (2026-08-29)**
+
+2,844 → 581줄. `lib/data/store/` 아래 shared 385 · pricing 291 · batches 275 ·
+payouts 623 · docs 452 · contract 380 · process 330 으로 갈랐다. 슬라이스마다
+`Pick<ProjectRepository, …>` 로 타입을 박아 두어 인터페이스에서 빠지면 컴파일이 막는다.
+호출부는 한 줄도 안 바뀌었다.
+
+### (계획 원문) 2-1. `pg-store.ts` 2,664줄을 도메인별로 (2일)
 
 한 파일에 현장·서류·공정·지급·배치·계정이 다 있다. **동시 세션이 가장 자주 부딪히는
 파일**이기도 하다(이번 주에 여러 번 겹쳤다).
@@ -129,7 +136,21 @@ export 가 붙음)이다. 그리고 그 8개도 하나씩 보니 넷은 지우�
 
 **끝난 것**: 파일당 600줄 이하 · 호출부 무변경 · 0층 테스트 통과.
 
-### 2-2. 긴 함수 쪼개기 (반나절)
+### 2-2. 긴 함수 쪼개기 — **했다 (2026-08-29)**
+
+`lib/data` 아래 80줄 넘는 함수가 0개다. 일곱 함수를 열여덟으로 갈랐다:
+uploadDocument·setDocumentStatus(→ appendedFiles·putProcessDoc·putContractDoc·checkReviewable·
+applyReviewSideEffects) · askMissingDocs·setPreInstall(→ markMissing·applyAskSideEffects·
+checkPreInstallWrite·savePreInstall) · runPayoutBatch(→ openStepFor·assertBatchOpen·
+writePayoutStep) · updateProcess(→ uncheckedField·checkStepWindow) · createProject(→
+projectRowOf·lineRowsOf) · setLinePricing(→ checkPricingRule·assertTermsOpen·
+applySuggestedSettlement).
+
+인터페이스는 한 줄도 안 바뀌었다. 파일마다 커밋 하나에 다섯 관문(tsc·lint·테스트 146·
+`npm run check`·프로덕션 빌드)과 개발 DB 실행 점검을 붙였다 — 막는 자리는 실제로
+막히는지, 정상 경로는 실제로 저장되는지 눌러 보고 넘어갔다.
+
+### (계획 원문) 2-2. 긴 함수 쪼개기 (반나절)
 
 `uploadDocument` 169줄 · `setDocumentStatus` 107줄 · `askMissingDocs` 102줄 ·
 `createProject` 101줄 · `setPreInstall` 100줄 · `updateProcess` 93줄 · `runPayoutBatch` 86줄.
@@ -137,7 +158,32 @@ export 가 붙음)이다. 그리고 그 8개도 하나씩 보니 넷은 지우�
 
 **끝난 것**: 80줄 넘는 함수 0개.
 
-### 2-3. 화면 세 개 분해 (1~1.5일)
+### 2-3. 화면 세 개 분해 — **했다 (2026-08-29), 400줄 바는 넷이 못 넘겼다**
+
+여섯 커밋으로 셋을 열둘로 갈랐다. 갈 때마다 **가르기 전후의 HTML 을 견줘 한 글자도
+다르지 않은 것**을 확인했다(개발 서버 렌더 · 빌드 해시만 제외) — 화면 리팩토링에서
+「똑같이 보인다」를 눈이 아니라 바이트로 확인하는 길이다.
+
+| 화면 | 전 | 후 | 나눈 것 |
+|---|---|---|---|
+| 단가 케이스 | 1,779 | **208** | pricing/{shared 121 · Grid 392 · CaseList 327 · CaseForm 494 · form-sections 353 · form-parts 81} |
+| 시공 탭 | 1,266 | **570** | construction/{milestones 255 · rows 288 · steps 225} |
+| 접수 폼 | 1,077 | **609** | lib/intake-upload 102 · intake/{DocSection 186 · parts 231} |
+
+**넘긴 것**: 정의(구간마다 무엇을 하는가)와 통신 절차(토큰·업로드·SSE)를 화면 밖으로 —
+`groupsByStatus(p)` 는 화면 상태를 모르고, `uploadIntakeZip/File` 은 폼을 모른다.
+
+**못 넘긴 것 — 400줄 바를 넷이 넘는다**(IntakeForm 609 · ConstructionTab 570 ·
+CaseForm 494 · rows 288 은 통과). 남은 것은 전부 **상태를 쥔 몸통**이라, 더 가르려면
+프롭 스무 개를 실어 나르는 부품이 생긴다 — 고치는 자리를 하나 더 만드는 일이다.
+값이 있는 다음 수는 줄 수가 아니라 **상태 묶기**(useReducer 나 폼 상태 훅)이고,
+그것은 3층에서 운영사 어댑터와 같이 본다.
+
+**「부품이 /design 에서 그려진다」는 아직이다** — 내린 부품들은 이 화면 전용이라
+카탈로그에 세울 것이 아니다. 카탈로그에 갈 만한 일반 부품(칸·칩·돈칸)은
+`components/ui.tsx` 에 이미 있고, 이번에 그쪽으로 옮긴 것은 없다.
+
+### (계획 원문) 2-3. 화면 세 개 분해 (1~1.5일)
 
 ConstructionTab 1,263 · PricingMatrix 1,779 · IntakeForm 1,073. 각각 「표시 부품」과
 「상태·판정」이 한 파일에 있다. 부품을 `components/<화면>/` 아래로 내리고, 판정은 lib 로.

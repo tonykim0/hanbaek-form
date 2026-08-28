@@ -23,6 +23,7 @@ import {
 } from '@/lib/board';
 import type { AttrFilters, AttrKey } from '@/lib/project-filter';
 import { Badge, Blank, Tag } from '@/components/ui';
+import CheckMenu from '@/components/CheckMenu';
 
 type SortKey = 'name' | 'stage' | 'qty' | 'term' | 'created';
 
@@ -612,77 +613,18 @@ function ColumnFilter({
   picked: string[];
   onChange: (values: string[]) => void;
 }) {
-  const [open, setOpen] = useState(false);
-  const box = useRef<HTMLDivElement>(null);
-
-  // 바깥을 누르면 닫는다. 열린 채로 표를 훑으면 아래 줄이 가린다.
-  useEffect(() => {
-    if (!open) return;
-    const off = (e: MouseEvent) => {
-      if (!box.current?.contains(e.target as Node)) setOpen(false);
-    };
-    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
-    document.addEventListener('mousedown', off);
-    document.addEventListener('keydown', esc);
-    return () => {
-      document.removeEventListener('mousedown', off);
-      document.removeEventListener('keydown', esc);
-    };
-  }, [open]);
-
-  if (options.length === 0) return null;
-  const on = picked.length > 0;
-
+  /*
+   * 모양·동작은 공용 부품이 갖는다(components/CheckMenu) — 기성관리 필터가 같은 것을
+   * 쓰면서 두 벌이 되었고, 두 벌이면 한쪽만 고쳐진다(2026-08-28). 여기는 표 머리글이라
+   * 작은 ▾ 로 뜬다. 값이 문자열 목록이라 그대로 옵션으로 옮긴다.
+   */
   return (
-    <div ref={box} className="relative">
-      <button
-        type="button"
-        aria-label={`${label} 필터`}
-        aria-expanded={open}
-        onClick={() => setOpen((v) => !v)}
-        className={`rounded-tag px-1 py-0.5 text-micro font-black leading-none transition ${
-          on
-            ? 'bg-brand-600 text-white'
-            : 'text-slate-300 hover:bg-slate-200 hover:text-slate-600'
-        }`}
-      >
-        {on ? picked.length : '▾'}
-      </button>
-
-      {open && (
-        <div className="absolute left-0 top-full z-20 mt-1 w-[190px] rounded-box border border-slate-200 bg-white p-1.5 shadow-lg">
-          <div className="max-h-[280px] overflow-y-auto">
-            {options.map((v) => {
-              const checked = picked.includes(v);
-              return (
-                <label
-                  key={v}
-                  className="flex cursor-pointer items-center gap-2 rounded-ctl px-2 py-1.5 text-small font-semibold text-slate-700 hover:bg-slate-50"
-                >
-                  <input
-                    type="checkbox"
-                    checked={checked}
-                    onChange={() =>
-                      onChange(checked ? picked.filter((x) => x !== v) : [...picked, v])
-                    }
-                    className="h-3.5 w-3.5 accent-brand-600"
-                  />
-                  <span className="truncate">{v}</span>
-                </label>
-              );
-            })}
-          </div>
-          {on && (
-            <button
-              type="button"
-              onClick={() => { onChange([]); setOpen(false); }}
-              className="mt-1 w-full rounded-ctl border-t border-slate-100 px-2 py-1.5 text-tiny font-bold text-slate-400 transition hover:text-slate-700"
-            >
-              이 열 필터 지우기
-            </button>
-          )}
-        </div>
-      )}
-    </div>
+    <CheckMenu
+      label={label}
+      trigger="chip"
+      options={options.map((v) => ({ value: v, label: v }))}
+      picked={picked}
+      onChange={onChange}
+    />
   );
 }

@@ -23,6 +23,7 @@ import { useSearchParams } from 'next/navigation';
 import type { SettlementSummary } from '@/types/project';
 import { STEP_LABEL, STEP_TONE } from '@/lib/settlement';
 import { Badge, Blank, Empty, FIELD, FIELD_BASE, Tag } from '@/components/ui';
+import CheckMenu from '@/components/CheckMenu';
 import { Frame, SiteLink, Tile, won } from './parts';
 
 /** 거르는 축 — 상태는 「그 현장에 그런 차수가 하나라도 있나」로 본다 */
@@ -58,8 +59,8 @@ export default function ReceivableBoard({ rows }: { rows: SettlementSummary[] })
   const [flags, setFlags] = useState<Flag[]>(
     () => (sp.get('flag')?.split(',').filter(Boolean) ?? []) as Flag[]
   );
-  /** 운영사는 하나만 고른다 — 드롭다운이라 여럿을 담을 자리가 없다(한백 지시 2026-08-28) */
-  const [cpo, setCpo] = useState(() => sp.get('cpo') ?? '');
+  /** 운영사·상태 모두 여럿 고른다 — 드롭다운 안에서 체크한다(한백 지시 2026-08-28) */
+  const [cpos, setCpos] = useState<string[]>(() => sp.get('cpo')?.split(',').filter(Boolean) ?? []);
   const [sort, setSort] = useState<SortKey>(() => (sp.get('sort') as SortKey) ?? 'open');
 
   /* 걸린 것은 주소에 남긴다 — 링크로 보내면 같은 화면이 열린다(현장 보드와 같은 방식) */
@@ -67,11 +68,11 @@ export default function ReceivableBoard({ rows }: { rows: SettlementSummary[] })
     const p = new URLSearchParams();
     if (q.trim()) p.set('q', q.trim());
     if (flags.length) p.set('flag', flags.join(','));
-    if (cpo) p.set('cpo', cpo);
+    if (cpos.length) p.set('cpo', cpos.join(','));
     if (sort !== 'open') p.set('sort', sort);
     const qs = p.toString();
     window.history.replaceState(null, '', qs ? `?${qs}` : window.location.pathname);
-  }, [q, flags, cpo, sort]);
+  }, [q, flags, cpos, sort]);
 
   /** 목록에 실제로 있는 운영사만 고를 수 있게 한다 — 없는 값을 고르는 자리를 두지 않는다 */
   const cpoOptions = useMemo(
@@ -83,7 +84,7 @@ export default function ReceivableBoard({ rows }: { rows: SettlementSummary[] })
     const needle = q.trim();
     const passes = (r: SettlementSummary) => {
       if (needle && !r.name.includes(needle)) return false;
-      if (cpo && r.cpo !== cpo) return false;
+      if (cpos.length && !cpos.includes(r.cpo)) return false;
       // 상태끼리는 OR 다 — 「청구 가능이거나 미수금인 것」을 보고 싶을 때가 있다
       if (flags.length === 0) return true;
       return flags.some((f) =>
@@ -100,7 +101,7 @@ export default function ReceivableBoard({ rows }: { rows: SettlementSummary[] })
       name: (a, b) => a.name.localeCompare(b.name, 'ko'),
     };
     return rows.filter(passes).sort(by[sort]);
-  }, [rows, q, flags, cpo, sort]);
+  }, [rows, q, flags, cpos, sort]);
 
   /*
    * 합계는 ★보고 있는 목록★의 합이다 — 거른 뒤에도 전체 합을 보여주면 화면의 숫자와 표가
@@ -117,9 +118,7 @@ export default function ReceivableBoard({ rows }: { rows: SettlementSummary[] })
   }, [shown]);
 
   const rate = money.plan > 0 ? Math.round((money.collected / money.plan) * 1000) / 10 : null;
-  const active = flags.length + (cpo ? 1 : 0) + (q.trim() ? 1 : 0);
-  const toggle = <T,>(list: T[], v: T): T[] =>
-    list.includes(v) ? list.filter((x) => x !== v) : [...list, v];
+  const active = flags.length + cpos.length + (q.trim() ? 1 : 0);
 
   return (
     <div>
@@ -147,9 +146,9 @@ export default function ReceivableBoard({ rows }: { rows: SettlementSummary[] })
       </section>
 
       {/*
-        * 위 줄은 「무엇을 찾나」 — 현장명 · 운영사 · 정렬. 상태는 표 왼쪽 상단으로 내렸다
-        * (한백 지시 2026-08-28): 상태는 표를 보면서 켜고 끄는 것이라 표에 붙어 있어야 한다.
-        * 운영사는 다섯이라 칩으로 늘어놓으면 줄을 먹는다 — 드롭다운 한 칸이면 된다.
+        * 위 줄은 「어느 현장을 찾나」 — 현장명과 정렬. 거르는 자리는 표 바로 위다.
+        * ★폭은 FIELD 에 덧붙여 못 바꾼다★ — w-full 이 박혀 있어 뒤에 붙는 w-* 가 안 먹는다
+        * (2026-08-28 실측, components/ui.tsx 의 설명). FIELD_BASE 를 쓰고 폭을 직접 준다.
         */}
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <label className="relative min-w-[180px] flex-1">
@@ -162,15 +161,6 @@ export default function ReceivableBoard({ rows }: { rows: SettlementSummary[] })
           />
         </label>
         <select
-          aria-label="운영사"
-          value={cpo}
-          onChange={(e) => setCpo(e.target.value)}
-          className={`${FIELD_BASE} w-[150px] shrink-0 bg-white`}
-        >
-          <option value="">운영사 전체</option>
-          {cpoOptions.map((c) => <option key={c} value={c}>{c}</option>)}
-        </select>
-        <select
           aria-label="정렬"
           value={sort}
           onChange={(e) => setSort(e.target.value as SortKey)}
@@ -178,30 +168,27 @@ export default function ReceivableBoard({ rows }: { rows: SettlementSummary[] })
         >
           {SORTS.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
         </select>
+      </div>
+
+      {/*
+        * 표 왼쪽 상단 — 거르는 자리. 노션처럼 접힌 드롭다운 안에서 체크한다(한백 지시
+        * 2026-08-28): 상태 넷과 운영사 다섯을 칩으로 늘어놓으면 필터가 표보다 커진다.
+        * 줄 수는 같은 줄 오른쪽 끝이다.
+        */}
+      <div className="mb-2 flex flex-wrap items-center gap-2">
+        <CheckMenu label="상태" options={FLAGS.map((f) => ({ value: f.key, label: f.label }))}
+          picked={flags} onChange={(v) => setFlags(v as Flag[])} />
+        <CheckMenu label="운영사" options={cpoOptions.map((c) => ({ value: c, label: c }))}
+          picked={cpos} onChange={setCpos} width={200} />
         {active > 0 && (
           <button
             type="button"
-            onClick={() => { setQ(''); setFlags([]); setCpo(''); }}
-            className="rounded-ctl px-2.5 py-2 text-lead font-semibold text-slate-500 transition hover:text-slate-800"
+            onClick={() => { setQ(''); setFlags([]); setCpos([]); }}
+            className="rounded-ctl px-2.5 py-2 text-small font-semibold text-slate-500 transition hover:text-slate-800"
           >
             지우기
           </button>
         )}
-      </div>
-
-      {/* 표 왼쪽 상단 — 표를 보면서 켜고 끄는 것들. 줄 수는 같은 줄 오른쪽 끝이다 */}
-      <div className="mb-2 flex flex-wrap items-center gap-x-4 gap-y-2">
-        {FLAGS.map((f) => (
-          <label key={f.key} className="flex cursor-pointer items-center gap-1.5 text-small font-bold text-slate-600">
-            <input
-              type="checkbox"
-              checked={flags.includes(f.key)}
-              onChange={() => setFlags(toggle(flags, f.key))}
-              className="h-4 w-4 rounded-ctl accent-brand-600"
-            />
-            {f.label}
-          </label>
-        ))}
         <p className="ml-auto text-small font-semibold text-slate-500">
           {active > 0 ? (
             <>

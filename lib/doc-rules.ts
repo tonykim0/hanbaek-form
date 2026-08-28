@@ -83,7 +83,12 @@ const AGREEMENT_CPOS: CpoName[] = ['플러그링크', '나이스인프라'];
 const envOnly = (c: DocContext): DocReq => (c.bizType === '환경부' ? 'm' : 'o');
 
 const SPECS: DocSpec[] = [
-  { key: 'contract', name: '전기차충전 토탈솔루션 계약서', req: () => 'm' },
+  /*
+   * 「전기차충전 토탈솔루션 계약서」였다 (한백 2026-08-28) — 운영사가 그 양식에 붙인
+   * 상품명이라, 우리 화면과 ZIP 파일명에까지 따라와 있었다. 어느 운영사든 이 칸에 오는
+   * 것은 계약서 하나뿐이고, 운영사 이름은 이미 현장에 적혀 있다.
+   */
+  { key: 'contract', name: '계약서', req: () => 'm' },
   {
     key: 'agreement',
     name: '프로모션 요금 합의서',

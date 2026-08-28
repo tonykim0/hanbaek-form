@@ -55,7 +55,7 @@ req 값: `m`=필수, `c`=조건부필수, `o`=해당없음. `fee`=영업비 지�
 
 ```
 key         라벨                        필수 조건
-contract    전기차충전 토탈솔루션 계약서   항상 m
+contract    계약서                     항상 m
 agreement   합의서                       플러그링크·나이스인프라만 m, 그 외 o
 sealuse     직인사용 동의서               항상 m
 privacy     개인정보 수집·이용 동의서      항상 m (상시 수집)

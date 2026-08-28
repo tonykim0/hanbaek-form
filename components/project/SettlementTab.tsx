@@ -10,7 +10,7 @@
  * 협력사에게는 자기 몫만 보인다. 가리는 것이 아니라 저장소에서 지워서 온다
  * (redactForViewer) — 서버가 렌더한 데이터는 브라우저에 통째로 실린다.
  */
-import { Fragment, useState } from 'react';
+import { Fragment, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import type {
   CpoName, PayoutCategory, PayoutEntry, PayoutKind, ProjectDetail, SettlementRule,
@@ -18,8 +18,8 @@ import type {
 } from '@/types/project';
 import { PAYOUT_CATEGORIES, replLabel } from '@/types/project';
 import {
-  collectionRate, distributionUnit, entryTypeOf, payoutSideOf, payoutStepsOf, STEP_LABEL, STEP_TONE,
-  triggerSource, turnkeyUnit,
+  adjustEntriesOf, collectionRate, distributionUnit, entryTypeOf, payoutSideOf, payoutStepsOf,
+  STEP_LABEL, STEP_TONE, triggerSource, turnkeyUnit,
 } from '@/lib/settlement';
 import type { Visibility } from '@/lib/roles';
 import type { RuleOptions } from '@/lib/pricing-match';
@@ -27,7 +27,7 @@ import { useAction } from '@/lib/use-action';
 import { won } from '@/lib/format';
 import { today } from '@/lib/date';
 import {
-  Badge, Btn, Choice, Empty, Err, FIELD, FIELD_CELL, FIELD_CELL_BASE, HR, Note, Saved, Tag,
+  Badge, Btn, Choice, Confirm, Empty, Err, FIELD, FIELD_BASE, FIELD_CELL, HR, Note, Saved, Tag,
 } from '@/components/ui';
 import { DatePicker } from '@/components/DatePicker';
 
@@ -859,22 +859,25 @@ const ADJUST_CATEGORIES = PAYOUT_CATEGORIES.filter((c) => c.type === '조정' &&
 /**
  * 조정 내역 — 계획에 없는 돈을 한 건씩 적고, ★적은 것을 되돌린다★.
  *
- * ★적을 수만 있고 되돌릴 수 없었다★ (한백 지적 2026-08-29, 부산 거제미소지움).
- * 프로모션 차감을 적으면 표의 「조정 −100,000 포함」 한 줄로만 접혀서, 무엇이 왜 깎였는지
- * 볼 수도 지울 수도 없었다 — 지우는 길(DELETE /payouts)은 처음부터 있었는데 그것을 부르는
- * 자리가 화면에 없었다. 줄을 보이게 하고 줄마다 지우기를 준다.
- *
- * ★고치기(PATCH)는 없다 — 지우고 다시 적는 것이 고치는 길이다.★ 금액·날짜를 반쯤 고친
+ * ★적을 수만 있고 되돌릴 수 없었다★ (한백 지적 2026-08-29, 부산 거제미소지움). 차감을
+ * 적으면 지급관리 표의 「조정 −100,000 포함」 한 줄로만 접혀서, 무엇이 왜 깎였는지 볼
+ * 수도 지울 수도 없었다 — 지우는 길은 처음부터 있었는데 그것을 부르는 자리가 화면에
+ * 없었다. 고치기(PATCH)는 없다: ★지우고 다시 적는 것이 고치는 길이다★ — 반쯤 고친
  * 흔적보다 지운 값이 감사 로그에 온전히 남는 것이 낫다(라우트와 같은 판단).
  *
- * ★명목을 전부 연다★ (한백 지시 2026-08-29). 프로모션 차감 하나만 열려 있어서, 다른
- * 차감과 추가공사비는 비고 문장으로만 떠돌았다 — 노션 정산관리 115행 중 10행이 그랬고,
- * 원장에 없으면 총 지급액·1차 70%·명세서에 반영되지 않는다.
+ * ★모양을 다시 잡았다★ (한백 지적 2026-08-29 「엉망이야」). 세 가지가 문제였다:
+ *  1. 줄이 flex 로 흘러서 금액이 세로로 안 맞았다 — 표로 세워 자릿수를 맞춰 훑는다.
+ *  2. 적는 자리가 칸 일곱 개짜리 한 줄이었다. 이름표도 없고, 좁은 칸(FIELD_CELL)과
+ *     날짜 고르개가 높이가 달라 들쭉날쭉했다 — 칸마다 이름을 붙이고 두 줄로 나눴다.
+ *  3. 지우기를 인라인 두 단추로 물었다 — 이 저장소는 되돌릴 수 없는 것을 Confirm
+ *     대화상자로 묻는다(파일 빼기·현장 삭제와 같은 모양).
  *
- * 부호는 명목이 정한다(PAYOUT_CATEGORIES.sign) — ★사람은 양수만 적는다.★ 「-100000」을
- * 치게 하면 부호를 빠뜨린 반대 입력이 생긴다. 방향이 정해지지 않은 재정산만 화면이 받는다.
+ * 명목은 다 열려 있다 — 프로모션 차감 하나만 열려 있어서 다른 차감과 추가공사비는 비고
+ * 문장으로만 떠돌았다(노션 정산관리 115행 중 10행). 원장에 없으면 총 지급액·1차 70%·
+ * 거래명세서에 반영되지 않는다. 부호는 명목이 정하고 사람은 양수만 적는다 — 「-100000」을
+ * 치게 하면 부호를 빠뜨린 반대 입력이 생긴다. 무엇이 될 일인지는 단추 이름이 말한다.
  *
- * 회수는 여기 없다 — 그것은 조정이 아니라 음수 지급이라 배치·세금계산서에 묶인다.
+ * 회수는 여기 없다 — 조정이 아니라 음수 지급이라 배치·세금계산서에 묶인다.
  */
 function AdjustBox({
   projectId, entries, kinds, canReview,
@@ -886,15 +889,17 @@ function AdjustBox({
 }) {
   const { busy, busyKey, error, run } = useAction();
   const [open, setOpen] = useState(false);
-  /** 지우기는 한 번 더 묻는다 — 돈이 남긴 기록이다 */
-  const [confirming, setConfirming] = useState<string | null>(null);
-  const [kind, setKind] = useState<PayoutKind>(kinds[0] ?? '영업비');
+  /** 지우기는 대화상자로 묻는다 — 되돌릴 수 없다 */
+  const [killing, setKilling] = useState<PayoutEntry | null>(null);
   const [category, setCategory] = useState<PayoutCategory>('차감');
+  const [kind, setKind] = useState<PayoutKind>(kinds[0] ?? '영업비');
+  /** 추가공사비를 누가 안나 — 영업비에서 빼거나, 한백이 안는다 */
+  const [bears, setBears] = useState<'영업비' | '한백'>('영업비');
+  /** 재정산의 방향 — 깎기인가 더 주기인가 */
+  const [minus, setMinus] = useState(true);
   const [amount, setAmount] = useState('');
   const [at, setAt] = useState<string>(today());
   const [note, setNote] = useState('');
-  /** 재정산의 방향 — 추가 지급인가 감액인가 */
-  const [minus, setMinus] = useState(true);
 
   /* 최근 것이 위로 — 같은 날이 여럿이면 적은 순서를 지킨다 */
   const list = entries
@@ -902,16 +907,35 @@ function AdjustBox({
     .sort((a, b) => b.at.localeCompare(a.at) || a.createdAt.localeCompare(b.createdAt));
 
   const cat = ADJUST_CATEGORIES.find((c) => c.key === category) ?? ADJUST_CATEGORIES[0];
-  const sign = cat.sign !== 0 ? cat.sign : minus ? -1 : 1;
-  const parsed = Number(amount.replace(/[,\s]/g, ''));
+  const extra = category === '추가공사비';
+  const parsed = Number(amount);
   const valid = Number.isInteger(parsed) && parsed > 0;
+  /* 무엇이 원장에 남을지는 규칙이 정한다(lib/settlement) — 화면은 그것을 보여주고 보낸다 */
+  const planned = valid
+    ? adjustEntriesOf({
+      category,
+      kind: extra ? '영업비' : kind,
+      amount: parsed,
+      at,
+      note: note.trim() || null,
+      minus,
+      hanbaekBears: extra && bears === '한백',
+    })
+    : [];
+  const label = !valid ? '금액을 적으세요'
+    : planned.length > 1
+      ? `${planned[0].kind}에서 ${won(parsed)}원 빼서 ${planned[1].kind}로`
+      : planned[0].amount < 0
+        ? `${planned[0].kind}에서 ${won(parsed)}원 빼기`
+        : `${planned[0].kind}에 ${won(parsed)}원 더하기`;
 
   const save = async () => {
     const ok = await run({
       /* 줄마다 지우기가 도니 무엇이 도는 중인지 열쇠로 가른다 — 안 주면 단추가 다 같이 돈다 */
       key: 'save',
       url: `/api/projects/${projectId}/payouts`,
-      body: { kind, category, amount: sign * parsed, at, note: note.trim() || null },
+      // 배열이면 한 트랜잭션이다 — 추가공사비의 두 줄이 반쪽만 남으면 안 된다
+      body: planned,
       fail: '조정을 적지 못했습니다.',
     });
     if (ok) { setOpen(false); setAmount(''); setNote(''); }
@@ -925,12 +949,12 @@ function AdjustBox({
       body: { entryId },
       fail: '지우지 못했습니다.',
     });
-    if (ok) setConfirming(null);
+    if (ok) setKilling(null);
   };
 
   return (
-    <div className="mt-3 rounded-box border border-slate-200 bg-white p-3.5">
-      <div className="mb-2 flex flex-wrap items-baseline gap-2">
+    <div className="mt-3 rounded-box border border-slate-200 bg-white">
+      <div className="flex flex-wrap items-baseline gap-2 px-3.5 pb-2 pt-3">
         <h3 className="text-base font-black text-slate-900">조정 내역</h3>
         <span className="text-tiny text-slate-400">{list.length}건</span>
         {canReview && !open && (
@@ -940,96 +964,173 @@ function AdjustBox({
         )}
       </div>
 
-      <ul className="divide-y divide-slate-100">
-        {list.map((e) => (
-          <li key={e.id} className="flex flex-wrap items-baseline gap-x-2 gap-y-1 py-1.5">
-            <span className="text-small font-bold text-slate-700">{e.kind}</span>
-            <Tag tone="mute">{e.category}</Tag>
-            {/* 나가는 돈과 빼는 돈이 한눈에 갈려야 한다 — 부호와 색이 같이 말한다 */}
-            <span className={`text-small font-black tabular-nums ${e.amount < 0 ? 'text-red-700' : 'text-slate-900'}`}>
-              {e.amount < 0 ? '−' : '+'}{won(Math.abs(e.amount))}
-            </span>
-            <span className="text-tiny tabular-nums text-slate-400">{e.at}</span>
-            {e.note && <span className="text-tiny text-slate-500">{e.note}</span>}
-            {canReview && (
-              <span className="ml-auto flex items-center gap-1">
-                {confirming === e.id ? (
-                  <>
-                    <Btn size="sm" kind="undo" busy={busyKey === e.id} busyLabel="지우는 중…"
-                      onClick={() => void remove(e.id)}>
-                      지웁니다
-                    </Btn>
-                    <Btn size="sm" kind="quiet" disabled={busy} onClick={() => setConfirming(null)}>그만</Btn>
-                  </>
-                ) : (
-                  <Btn size="sm" kind="quiet" disabled={busy} onClick={() => setConfirming(e.id)}>지우기</Btn>
-                )}
-              </span>
-            )}
-          </li>
-        ))}
-        {list.length === 0 && <li className="py-1.5 text-tiny text-slate-400">0건</li>}
-      </ul>
+      {/* 표로 세운다 — 금액은 자릿수를 맞춰 훑는 자리다 */}
+      {list.length === 0 ? (
+        <p className="px-3.5 pb-3 text-tiny text-slate-400">0건</p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[540px] text-small">
+            <thead className="border-y border-slate-100 bg-slate-50/70 text-micro font-bold tracking-[0.06em] text-slate-500">
+              <tr>
+                <th className="px-3 py-1.5 text-left">구분</th>
+                <th className="px-3 py-1.5 text-left">명목</th>
+                <th className="px-3 py-1.5 text-right">금액</th>
+                <th className="px-3 py-1.5 text-left">반영일</th>
+                <th className="px-3 py-1.5 text-left">사유</th>
+                {canReview && <th className="px-3 py-1.5" />}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {list.map((e) => (
+                <tr key={e.id}>
+                  <td className="whitespace-nowrap px-3 py-2 font-bold text-slate-700">{e.kind}</td>
+                  <td className="whitespace-nowrap px-3 py-2 text-slate-600">{e.category}</td>
+                  {/* 나가는 돈과 빼는 돈이 한눈에 갈려야 한다 — 부호와 색이 같이 말한다 */}
+                  <td className={`whitespace-nowrap px-3 py-2 text-right font-black tabular-nums ${
+                    e.amount < 0 ? 'text-red-700' : 'text-slate-900'
+                  }`}>
+                    {e.amount < 0 ? '−' : '+'}{won(Math.abs(e.amount))}
+                  </td>
+                  <td className="whitespace-nowrap px-3 py-2 tabular-nums text-slate-500">{e.at}</td>
+                  <td className="px-3 py-2 text-tiny text-slate-500">
+                    {e.note ?? <Empty kind="wait" />}
+                  </td>
+                  {canReview && (
+                    <td className="whitespace-nowrap px-3 py-2 text-right">
+                      <Btn size="sm" kind="quiet" disabled={busy} onClick={() => setKilling(e)}>지우기</Btn>
+                    </td>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {open && (
         <>
           {/* 상자 안에 상자를 넣지 않는다 — 얇은 선으로 나눈다(화면 규칙 1번) */}
-          <HR className="my-2.5" />
-          <div className="flex flex-wrap items-center gap-2">
-            {/* 구분이 하나만 보이는 눈에게는 고를 것이 없다 */}
-            {kinds.length > 1 && (
-              <span className="flex gap-1">
-                {kinds.map((k) => (
-                  <Choice key={k} on={kind === k} disabled={busy} onClick={() => setKind(k)}>{k}</Choice>
-                ))}
-              </span>
-            )}
-            <select
-              aria-label="명목"
-              className={`${FIELD_CELL_BASE} w-40`}
-              value={category}
-              disabled={busy}
-              onChange={(e) => setCategory(e.target.value as PayoutCategory)}
-            >
-              {ADJUST_CATEGORIES.map((c) => (
-                <option key={c.key} value={c.key}>{c.key}</option>
-              ))}
-            </select>
-            {/* 재정산만 방향이 없다 — 명목이 정하지 못하는 것만 사람에게 묻는다 */}
-            {cat.sign === 0 && (
-              <span className="flex gap-1">
-                <Choice on={minus} disabled={busy} onClick={() => setMinus(true)}>깎기</Choice>
-                <Choice on={!minus} disabled={busy} onClick={() => setMinus(false)}>더 주기</Choice>
-              </span>
-            )}
-            <input
-              inputMode="numeric"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              placeholder="금액 (원)"
-              disabled={busy}
-              className={`${FIELD_CELL_BASE} w-32 text-right tabular-nums`}
-            />
-            <DatePicker ariaLabel="반영일" value={at} onChange={(v) => setAt(v ?? today())} disabled={busy} />
-            <input
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              placeholder="사유 — 예: 6개월 250원 프로모션 연장"
-              disabled={busy}
-              className={`${FIELD_CELL_BASE} min-w-[220px] flex-1`}
-            />
-            {/* 무엇이 될 일인지 단추 이름이 말한다 — 부호를 사람이 안 적으므로 */}
-            <Btn size="sm" busy={busyKey === 'save'} busyLabel="적는 중…" disabled={!valid}
-              onClick={() => void save()}>
-              {!valid ? '금액을 적으세요'
-                : sign < 0 ? `${kind}에서 ${won(parsed)}원 빼기`
-                  : `${kind}에 ${won(parsed)}원 더하기`}
-            </Btn>
-            <Btn size="sm" kind="quiet" disabled={busy} onClick={() => setOpen(false)}>그만</Btn>
+          <HR />
+          <div className="px-3.5 py-3">
+            {/* 칸마다 이름을 붙인다 — 이름 없는 칸 일곱 개가 한 줄에 흐르면 무엇을 적는지 모른다 */}
+            <div className="flex flex-wrap items-end gap-x-2.5 gap-y-2">
+              <Cell label="명목">
+                <select
+                  aria-label="명목"
+                  className={`${FIELD_BASE} w-44`}
+                  value={category}
+                  disabled={busy}
+                  onChange={(e) => setCategory(e.target.value as PayoutCategory)}
+                >
+                  {ADJUST_CATEGORIES.map((c) => (
+                    <option key={c.key} value={c.key}>{c.key}</option>
+                  ))}
+                </select>
+              </Cell>
+
+              {/*
+                * 추가공사비는 갈 곳이 정해져 있다 — 시공사가 받는다(한백 지시 2026-08-29).
+                * 그래서 묻는 것이 「어느 쪽 돈이냐」가 아니라 ★누가 안느냐★다.
+                */}
+              {extra ? (
+                <Cell label="부담">
+                  <span className="flex gap-1">
+                    {(['영업비', '한백'] as const).map((b) => (
+                      <Choice key={b} on={bears === b} disabled={busy} onClick={() => setBears(b)}>
+                        {b}
+                      </Choice>
+                    ))}
+                  </span>
+                </Cell>
+              ) : kinds.length > 1 && (
+                <Cell label="구분">
+                  <span className="flex gap-1">
+                    {kinds.map((k) => (
+                      <Choice key={k} on={kind === k} disabled={busy} onClick={() => setKind(k)}>{k}</Choice>
+                    ))}
+                  </span>
+                </Cell>
+              )}
+
+              {/* 방향이 없는 명목(재정산)만 사람에게 묻는다 */}
+              {cat.sign === 0 && (
+                <Cell label="방향">
+                  <span className="flex gap-1">
+                    <Choice on={minus} disabled={busy} onClick={() => setMinus(true)}>깎기</Choice>
+                    <Choice on={!minus} disabled={busy} onClick={() => setMinus(false)}>더 주기</Choice>
+                  </span>
+                </Cell>
+              )}
+
+              <Cell label="금액">
+                <input
+                  inputMode="numeric"
+                  aria-label="금액"
+                  value={amount}
+                  disabled={busy}
+                  /* 숫자만 남긴다 — 부호는 명목이 정하므로 사람이 못 적는다 */
+                  onChange={(e) => setAmount(e.target.value.replace(/[^0-9]/g, ''))}
+                  placeholder="0"
+                  className={`${FIELD_BASE} w-36 text-right tabular-nums`}
+                />
+              </Cell>
+
+              <Cell label="반영일">
+                <DatePicker ariaLabel="반영일" value={at} onChange={(v) => setAt(v ?? today())} disabled={busy} />
+              </Cell>
+            </div>
+
+            <div className="mt-2.5 flex flex-wrap items-end gap-x-2.5 gap-y-2">
+              <Cell label="사유" className="min-w-[240px] flex-1">
+                <input
+                  aria-label="사유"
+                  value={note}
+                  disabled={busy}
+                  onChange={(e) => setNote(e.target.value)}
+                  placeholder="예: 6개월 250원 프로모션 연장"
+                  className={`${FIELD_BASE} w-full`}
+                />
+              </Cell>
+              {/* 무엇이 될 일인지 단추 이름이 말한다 — 부호를 사람이 안 적으므로 */}
+              <Btn busy={busyKey === 'save'} busyLabel="적는 중…" disabled={!valid} onClick={() => void save()}>
+                {label}
+              </Btn>
+              <Btn kind="quiet" disabled={busy} onClick={() => setOpen(false)}>취소</Btn>
+            </div>
+            <Err className="mt-1.5">{error}</Err>
           </div>
         </>
       )}
-      <Err className="mt-1.5">{error}</Err>
+
+      <Confirm
+        open={killing !== null}
+        title={killing
+          ? `${killing.kind} ${killing.category} ${killing.amount < 0 ? '−' : '+'}${won(Math.abs(killing.amount))}원을 지웁니다`
+          : ''}
+        detail="총 지급액과 1·2차 회차 금액이 다시 계산됩니다. 고치려면 지운 뒤 다시 적으세요."
+        confirmLabel="지웁니다"
+        busy={busyKey === killing?.id}
+        busyLabel="지우는 중…"
+        error={error}
+        onConfirm={() => { if (killing) void remove(killing.id); }}
+        onCancel={() => setKilling(null)}
+      />
+    </div>
+  );
+}
+
+/** 적는 칸 한 개 — 이름표가 위에 붙는다. 칸 안 컨트롤이 aria-label 을 갖는다 */
+function Cell({
+  label, children, className = '',
+}: {
+  label: string;
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={`flex flex-col gap-1 ${className}`}>
+      <span className="text-micro font-bold tracking-[0.06em] text-slate-400">{label}</span>
+      {children}
     </div>
   );
 }

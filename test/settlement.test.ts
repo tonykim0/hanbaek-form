@@ -6,6 +6,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import {
+  adjustEntriesOf, checkPayoutEntry,
   checkSettlementSteps, payInstallments, payoutStepsOf, stepAmounts, stepUnits,
   settlementRuleNameOf, settlementStepsKeyOf, turnkeyUnit,
 } from '@/lib/settlement';
@@ -130,5 +131,69 @@ describe('규칙 이름·키 — 같은 모양이면 같은 규칙이다', () =>
 describe('turnkeyUnit — 받는 단가 = 영업 + 시공 + 마진', () => {
   it('셋을 더한다', () => {
     expect(turnkeyUnit({ salesUnit: 1_000_000, consUnit: 1_000_000, margin: 200_000 })).toBe(2_200_000);
+  });
+});
+
+describe('adjustEntriesOf — 조정 한 건이 원장에 남기는 줄', () => {
+  const base = { amount: 300_000, at: '2026-08-29', note: '전기 인입 추가' } as const;
+
+  it('차감은 한 줄, 음수 — 사람은 양수만 적는다', () => {
+    expect(adjustEntriesOf({ ...base, category: '차감', kind: '영업비' })).toEqual([
+      { kind: '영업비', category: '차감', amount: -300_000, at: '2026-08-29', note: '전기 인입 추가' },
+    ]);
+  });
+
+  it('자재비는 나가는 돈이라 양수다', () => {
+    const [e] = adjustEntriesOf({ ...base, category: '자재비', kind: '시공비' });
+    expect(e.amount).toBe(300_000);
+  });
+
+  it('★추가공사비는 영업비에서 빼서 시공비로 넘긴다★ — 한 사실이 두 줄', () => {
+    const rows = adjustEntriesOf({ ...base, category: '추가공사비', kind: '영업비' });
+    expect(rows).toEqual([
+      { kind: '영업비', category: '차감', amount: -300_000, at: '2026-08-29', note: '추가공사비 · 전기 인입 추가' },
+      { kind: '시공비', category: '추가공사비', amount: 300_000, at: '2026-08-29', note: '전기 인입 추가' },
+    ]);
+  });
+
+  it('두 줄의 합은 0 — 한백의 마진은 그대로다', () => {
+    const rows = adjustEntriesOf({ ...base, category: '추가공사비', kind: '영업비' });
+    expect(rows.reduce((n, e) => n + e.amount, 0)).toBe(0);
+  });
+
+  it('사유가 없어도 빼는 줄은 까닭을 적는다 — 명목이 「차감」이라 안 적으면 알 수 없다', () => {
+    const [minus] = adjustEntriesOf({ ...base, note: null, category: '추가공사비', kind: '영업비' });
+    expect(minus.note).toBe('추가공사비');
+  });
+
+  it('한백이 안으면 빼는 줄이 없다 — 시공비 한 줄(마진이 그만큼 줄어든다)', () => {
+    expect(adjustEntriesOf({ ...base, category: '추가공사비', kind: '영업비', hanbaekBears: true }))
+      .toEqual([
+        { kind: '시공비', category: '추가공사비', amount: 300_000, at: '2026-08-29', note: '전기 인입 추가' },
+      ]);
+  });
+
+  it('시공비에서 빼서 시공비로 줄 수는 없다 — 한백이 안는 것과 같다', () => {
+    expect(adjustEntriesOf({ ...base, category: '추가공사비', kind: '시공비' })).toHaveLength(1);
+  });
+
+  it('재정산만 방향을 받는다', () => {
+    const [down] = adjustEntriesOf({ ...base, category: '재정산', kind: '영업비', minus: true });
+    const [up] = adjustEntriesOf({ ...base, category: '재정산', kind: '영업비', minus: false });
+    expect(down.amount).toBe(-300_000);
+    expect(up.amount).toBe(300_000);
+  });
+
+  it('★나온 줄은 서버 검사를 통과한다★ — 부호 규칙이 둘로 갈리면 저장에서 막힌다', () => {
+    for (const category of ['차감', '자재비', '추가공사비', '프로모션 비용 차감', '재정산'] as const) {
+      for (const rows of [
+        adjustEntriesOf({ ...base, category, kind: '영업비' }),
+        adjustEntriesOf({ ...base, category, kind: '시공비' }),
+      ]) {
+        for (const row of rows) {
+          expect(checkPayoutEntry(row, { manualOnly: true })).toBeNull();
+        }
+      }
+    }
   });
 });

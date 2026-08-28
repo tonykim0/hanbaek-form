@@ -10,7 +10,8 @@
  *   준공마감     — 한백이 판단해 지정한다. 공정 일정에서 유도하지 않는다.
  */
 import type {
-  ContractLineView, PayoutCategory, PayoutEntry, PayoutKind, PayoutMilestones, PricingRule, ProcessInfo,
+  ContractLineView, NewPayoutEntry, PayoutCategory, PayoutEntry, PayoutKind, PayoutMilestones,
+  PricingRule, ProcessInfo,
   SettlementRule, SettlementStep, SettlementStepRule, StepBasis, StepState, Trigger,
 } from '@/types/project';
 import { PAYOUT_CATEGORIES, PAYOUT_KINDS } from '@/types/project';
@@ -426,6 +427,49 @@ export function payoutStepsOf(plan: number, adjust: number, paid: number): {
     else if (!step2Done) open = { no: 2, amount: due - paid };
   }
   return { due, parts: [a, b], open, step1Done, step2Done };
+}
+
+/**
+ * 조정 한 건이 원장에 남기는 줄 — ★한 사실이 두 줄일 수 있다.★
+ *
+ * ★추가공사비는 영업비에서 빼서 시공비로 넘긴다★ (한백 지시 2026-08-29). 시공사가 더
+ * 받는 돈이고 그 돈은 영업비에서 나온다 — 한 줄만 적으면 시공비는 늘었는데 그 돈이
+ * 어디서 왔는지가 원장에 없다. 그래서 두 줄이다: 영업비 −X(차감) · 시공비 +X(추가공사비).
+ * 한백이 안고 가는 현장은 시공비 한 줄뿐이다(마진이 그만큼 줄어드는 것이 사실이다).
+ *
+ * 부호는 명목이 정한다(PAYOUT_CATEGORIES.sign) — 부르는 쪽은 ★양수만★ 준다. 방향이
+ * 정해지지 않은 명목(재정산)만 minus 로 받는다.
+ *
+ * 두 줄은 한 트랜잭션으로 들어가야 한다(addPayoutEntries) — 뒤가 실패하면 영업비만
+ * 깎인 현장이 남는다.
+ */
+export function adjustEntriesOf(input: {
+  category: PayoutCategory;
+  /** 어느 쪽 돈인가. 추가공사비에서는 ★어디서 빼는가★다 */
+  kind: PayoutKind;
+  /** 양수 */
+  amount: number;
+  at: string;
+  note: string | null;
+  /** 방향 없는 명목(재정산)에서 빼는 것인가 */
+  minus?: boolean;
+  /** 추가공사비를 한백이 안고 가나 — 그러면 빼는 줄이 없다 */
+  hanbaekBears?: boolean;
+}): NewPayoutEntry[] {
+  const { category, kind, amount, at, note } = input;
+  if (category === '추가공사비') {
+    const paid: NewPayoutEntry = { kind: '시공비', category: '추가공사비', amount, at, note };
+    // 시공비에서 빼서 시공비로 줄 수는 없다 — 그때도 한백이 안는 것과 같다
+    if (input.hanbaekBears || kind === '시공비') return [paid];
+    return [
+      /* 명목은 「차감」이고 사유가 그 까닭을 말한다 — 추가공사비는 나가는 돈이라 음수가 못 된다 */
+      { kind, category: '차감', amount: -amount, at, note: note ? `추가공사비 · ${note}` : '추가공사비' },
+      paid,
+    ];
+  }
+  const cat = CATEGORY_BY_KEY.get(category)!;
+  const sign = cat.sign !== 0 ? cat.sign : input.minus ? -1 : 1;
+  return [{ kind, category, amount: sign * amount, at, note }];
 }
 
 /** 한쪽(영업비/시공비)의 원장 합 — 잔액 = 계획 + adjust − paid */

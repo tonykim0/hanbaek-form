@@ -445,6 +445,15 @@ export interface ProjectRepository {
   addPayoutEntry(projectId: string, input: NewPayoutEntry, actor: Actor): Promise<string>;
 
   /**
+   * 원장에 여러 줄을 ★한 사실로★ 넣는다 — 전부 들어가거나 하나도 안 들어간다. [한백 전용]
+   *
+   * ★왜 필요한가★ 추가공사비는 영업비에서 빼서 시공비로 넘긴다(한백 지시 2026-08-29) —
+   * 한 사실이 두 줄이다. 두 번 따로 부르면 뒤가 실패했을 때 영업비만 깎인 현장이 남고,
+   * 화면에는 그 이유가 안 보인다. 한 트랜잭션에서 같이 쓴다.
+   */
+  addPayoutEntries(projectId: string, inputs: NewPayoutEntry[], actor: Actor): Promise<string[]>;
+
+  /**
    * 배치의 지급일을 옮긴다. [한백 전용]
    *
    * 배치 = 그 지급일에 그 지급처로 나간 그 구분(영업비/시공비)의 지급 줄 전부 —

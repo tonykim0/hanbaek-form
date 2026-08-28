@@ -38,7 +38,7 @@ export const payoutStore: Pick<
   ProjectRepository,
   'listSettlements' | 'listPayouts' | 'listPayoutOverview' | 'setLinePricing' | 'setPayment'
   | 'setPayoutTermsConfirmed' | 'setSettlementRule' | 'setCpoCloseDate' | 'setSettlementCollected'
-  | 'runPayoutBatch' | 'addPayoutEntry' | 'deletePayoutEntry'
+  | 'runPayoutBatch' | 'addPayoutEntry' | 'addPayoutEntries' | 'deletePayoutEntry'
 > = {
   async listSettlements(viewer: Viewer): Promise<SettlementSummary[]> {
     // 한백이 아니면 금액을 읽어오지도 않는다
@@ -463,14 +463,25 @@ export const payoutStore: Pick<
   },
 
   async addPayoutEntry(projectId, input: NewPayoutEntry, actor): Promise<string> {
+    const [id] = await this.addPayoutEntries(projectId, [input], actor);
+    return id;
+  },
+
+  async addPayoutEntries(projectId, inputs: NewPayoutEntry[], actor): Promise<string[]> {
     assertAdmin(actor, '지급 기록');
+    if (inputs.length === 0) throw new Error('넣을 값이 없습니다.');
     // 회차(1차·2차)는 여기로 못 들어온다 — 금액이 정해져 있어 runPayoutBatch 가 계산해 넣는다
-    const bad = checkPayoutEntry(input, { manualOnly: true });
-    if (bad) throw new Error(bad);
-    const note = typeof input.note === 'string' && input.note.trim() ? input.note.trim() : null;
+    for (const input of inputs) {
+      const bad = checkPayoutEntry(input, { manualOnly: true });
+      if (bad) throw new Error(bad);
+    }
+    const rows = inputs.map((input) => ({
+      id: crypto.randomUUID(),
+      input,
+      note: typeof input.note === 'string' && input.note.trim() ? input.note.trim() : null,
+    }));
 
     const db = getDb();
-    const id = crypto.randomUUID();
     await db.transaction(async (tx) => {
       const [project] = await tx
         .select({ id: projects.id })
@@ -479,31 +490,34 @@ export const payoutStore: Pick<
         .limit(1);
       if (!project) throw new Error('현장을 찾을 수 없습니다.');
 
-      await tx.insert(payoutEntries).values({
-        id, projectId,
-        kind: input.kind, category: input.category,
-        amount: input.amount, at: input.at, note,
-        createdAt: stampOf(new Date()),
-      });
+      const stamp = stampOf(new Date());
+      for (const { id, input, note } of rows) {
+        await tx.insert(payoutEntries).values({
+          id, projectId,
+          kind: input.kind, category: input.category,
+          amount: input.amount, at: input.at, note,
+          createdAt: stamp,
+        });
+        /*
+         * 손으로 적는 지급(선금·차액·회수 …)도 돈이 나간 것이다 — 같은 이유로 조건을 잠근다.
+         * 조정(자재비·차감 등)은 계획을 바꾸는 것이라 잠그지 않는다.
+         */
+        if (entryTypeOf(input.category) === '지급') {
+          await tx
+            .update(projects)
+            .set({ payoutTermsConfirmedAt: input.at })
+            .where(and(eq(projects.id, projectId), isNull(projects.payoutTermsConfirmedAt)));
+        }
+        await writeAudit(tx, {
+          projectId, actor, action: '지급 기록 추가',
+          field: `${input.kind} ${input.category}`,
+          oldValue: null, newValue: `${input.amount}원 · ${input.at}${note ? ` · ${note}` : ''}`,
+        });
+      }
       // 지급을 적는 것도 진척이다 — 정체일 기준을 갱신한다
       await tx.update(projects).set({ lastProgressAt: today() }).where(eq(projects.id, projectId));
-      /*
-       * 손으로 적는 지급(선금·차액·회수 …)도 돈이 나간 것이다 — 같은 이유로 조건을 잠근다.
-       * 조정(자재비·차감 등)은 계획을 바꾸는 것이라 잠그지 않는다.
-       */
-      if (entryTypeOf(input.category) === '지급') {
-        await tx
-          .update(projects)
-          .set({ payoutTermsConfirmedAt: input.at })
-          .where(and(eq(projects.id, projectId), isNull(projects.payoutTermsConfirmedAt)));
-      }
-      await writeAudit(tx, {
-        projectId, actor, action: '지급 기록 추가',
-        field: `${input.kind} ${input.category}`,
-        oldValue: null, newValue: `${input.amount}원 · ${input.at}${note ? ` · ${note}` : ''}`,
-      });
     });
-    return id;
+    return rows.map((r) => r.id);
   },
 
   async deletePayoutEntry(projectId, entryId, actor): Promise<void> {

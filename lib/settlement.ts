@@ -204,9 +204,17 @@ export function checkSettlementSteps(steps: SettlementStepRule[], turnkey: numbe
  * na 는 배지가 아니다 — 규칙상 없는 것은 빈 값(`<Empty kind="na">`)으로 보인다.
  * 그래서 말투에는 na 가 없다.
  */
+/**
+ * 차수의 상태 이름.
+ *
+ * ★「트리거 대기」를 「조건 대기」로 바꿨다★ (한백 지시 2026-08-28) — 「트리거」는 우리끼리
+ * 쓰는 말이다. 실제로 「착공 트리거가 뭐냐」는 물음이 나왔다(2026-08-28). 지급 쪽은 같은 뜻을
+ * 이미 「조건 대기」로 쓰고 있다(payout-board 의 WorkState) — 같은 개념에 같은 말을 쓴다.
+ * 무엇을 기다리는지는 차수 칸의 부기가 적는다(「660,000 · 준공마감」).
+ */
 export const STEP_LABEL: Record<StepState, string> = {
   na: '해당없음',
-  waiting: '트리거 대기',
+  waiting: '조건 대기',
   open: '청구 가능',
   collected: '수금 완료',
 };

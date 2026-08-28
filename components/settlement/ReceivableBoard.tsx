@@ -22,7 +22,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import type { SettlementSummary } from '@/types/project';
 import { STEP_LABEL, STEP_TONE } from '@/lib/settlement';
-import { Badge, Blank, Choice, Empty, FIELD, Tag } from '@/components/ui';
+import { Badge, Blank, Empty, FIELD, Tag } from '@/components/ui';
 import { Frame, SiteLink, Tile, won } from './parts';
 
 /** 거르는 축 — 상태는 「그 현장에 그런 차수가 하나라도 있나」로 본다 */
@@ -58,7 +58,8 @@ export default function ReceivableBoard({ rows }: { rows: SettlementSummary[] })
   const [flags, setFlags] = useState<Flag[]>(
     () => (sp.get('flag')?.split(',').filter(Boolean) ?? []) as Flag[]
   );
-  const [cpos, setCpos] = useState<string[]>(() => sp.get('cpo')?.split(',').filter(Boolean) ?? []);
+  /** 운영사는 하나만 고른다 — 드롭다운이라 여럿을 담을 자리가 없다(한백 지시 2026-08-28) */
+  const [cpo, setCpo] = useState(() => sp.get('cpo') ?? '');
   const [sort, setSort] = useState<SortKey>(() => (sp.get('sort') as SortKey) ?? 'open');
 
   /* 걸린 것은 주소에 남긴다 — 링크로 보내면 같은 화면이 열린다(현장 보드와 같은 방식) */
@@ -66,11 +67,11 @@ export default function ReceivableBoard({ rows }: { rows: SettlementSummary[] })
     const p = new URLSearchParams();
     if (q.trim()) p.set('q', q.trim());
     if (flags.length) p.set('flag', flags.join(','));
-    if (cpos.length) p.set('cpo', cpos.join(','));
+    if (cpo) p.set('cpo', cpo);
     if (sort !== 'open') p.set('sort', sort);
     const qs = p.toString();
     window.history.replaceState(null, '', qs ? `?${qs}` : window.location.pathname);
-  }, [q, flags, cpos, sort]);
+  }, [q, flags, cpo, sort]);
 
   /** 목록에 실제로 있는 운영사만 고를 수 있게 한다 — 없는 값을 고르는 자리를 두지 않는다 */
   const cpoOptions = useMemo(
@@ -82,7 +83,7 @@ export default function ReceivableBoard({ rows }: { rows: SettlementSummary[] })
     const needle = q.trim();
     const passes = (r: SettlementSummary) => {
       if (needle && !r.name.includes(needle)) return false;
-      if (cpos.length && !cpos.includes(r.cpo)) return false;
+      if (cpo && r.cpo !== cpo) return false;
       // 상태끼리는 OR 다 — 「청구 가능이거나 미수금인 것」을 보고 싶을 때가 있다
       if (flags.length === 0) return true;
       return flags.some((f) =>
@@ -99,7 +100,7 @@ export default function ReceivableBoard({ rows }: { rows: SettlementSummary[] })
       name: (a, b) => a.name.localeCompare(b.name, 'ko'),
     };
     return rows.filter(passes).sort(by[sort]);
-  }, [rows, q, flags, cpos, sort]);
+  }, [rows, q, flags, cpo, sort]);
 
   /*
    * 합계는 ★보고 있는 목록★의 합이다 — 거른 뒤에도 전체 합을 보여주면 화면의 숫자와 표가
@@ -116,7 +117,7 @@ export default function ReceivableBoard({ rows }: { rows: SettlementSummary[] })
   }, [shown]);
 
   const rate = money.plan > 0 ? Math.round((money.collected / money.plan) * 1000) / 10 : null;
-  const active = flags.length + cpos.length + (q.trim() ? 1 : 0);
+  const active = flags.length + (cpo ? 1 : 0) + (q.trim() ? 1 : 0);
   const toggle = <T,>(list: T[], v: T): T[] =>
     list.includes(v) ? list.filter((x) => x !== v) : [...list, v];
 
@@ -133,7 +134,7 @@ export default function ReceivableBoard({ rows }: { rows: SettlementSummary[] })
             * 않아, 받을 기성 = 수금 + 미수금이고 그중 얼마가 지금 청구 가능인지를 적는다.
             */}
           <Tile label="청구 가능" value={money.open} tone="wait"
-            note={money.unpaid > 0 ? `미수금 ${won(money.unpaid)}원 중` : '트리거가 열린 돈'} />
+            note={money.unpaid > 0 ? `미수금 ${won(money.unpaid)}원 중` : '조건이 찬 돈'} />
         </div>
 
         {/* 비율 한 줄 — 숫자 넷보다 「어디까지 왔나」가 먼저 읽힌다 (파랑 수금 · 노랑 청구 가능) */}
@@ -145,21 +146,30 @@ export default function ReceivableBoard({ rows }: { rows: SettlementSummary[] })
         )}
       </section>
 
+      {/*
+        * 위 줄은 「무엇을 찾나」 — 현장명 · 운영사 · 정렬. 상태는 표 왼쪽 상단으로 내렸다
+        * (한백 지시 2026-08-28): 상태는 표를 보면서 켜고 끄는 것이라 표에 붙어 있어야 한다.
+        * 운영사는 다섯이라 칩으로 늘어놓으면 줄을 먹는다 — 드롭다운 한 칸이면 된다.
+        */}
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <label className="relative min-w-[180px] flex-1">
-          <span className="sr-only">현장 검색</span>
+          <span className="sr-only">현장명 검색</span>
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="현장명"
+            placeholder="현장명 검색"
             className={`${FIELD} bg-white`}
           />
         </label>
-        {FLAGS.map((f) => (
-          <Choice key={f.key} on={flags.includes(f.key)} onClick={() => setFlags(toggle(flags, f.key))}>
-            {f.label}
-          </Choice>
-        ))}
+        <select
+          aria-label="운영사"
+          value={cpo}
+          onChange={(e) => setCpo(e.target.value)}
+          className={`${FIELD} w-auto bg-white`}
+        >
+          <option value="">운영사 전체</option>
+          {cpoOptions.map((c) => <option key={c} value={c}>{c}</option>)}
+        </select>
         <select
           aria-label="정렬"
           value={sort}
@@ -171,7 +181,7 @@ export default function ReceivableBoard({ rows }: { rows: SettlementSummary[] })
         {active > 0 && (
           <button
             type="button"
-            onClick={() => { setQ(''); setFlags([]); setCpos([]); }}
+            onClick={() => { setQ(''); setFlags([]); setCpo(''); }}
             className="rounded-ctl px-2.5 py-2 text-lead font-semibold text-slate-500 transition hover:text-slate-800"
           >
             지우기
@@ -179,26 +189,29 @@ export default function ReceivableBoard({ rows }: { rows: SettlementSummary[] })
         )}
       </div>
 
-      {/* 운영사는 목록에 둘 이상일 때만 고르는 자리를 낸다 */}
-      {cpoOptions.length > 1 && (
-        <div className="mb-3 flex flex-wrap items-center gap-1.5">
-          {cpoOptions.map((c) => (
-            <Choice key={c} on={cpos.includes(c)} onClick={() => setCpos(toggle(cpos, c))}>
-              {c}
-            </Choice>
-          ))}
-        </div>
-      )}
-
-      <p className="mb-3 text-small font-semibold text-slate-500">
-        {active > 0 ? (
-          <>
-            {shown.length}건 <span className="font-normal text-slate-400">/ 전체 {rows.length}건</span>
-          </>
-        ) : (
-          <>전체 {rows.length}건</>
-        )}
-      </p>
+      {/* 표 왼쪽 상단 — 표를 보면서 켜고 끄는 것들. 줄 수는 같은 줄 오른쪽 끝이다 */}
+      <div className="mb-2 flex flex-wrap items-center gap-x-4 gap-y-2">
+        {FLAGS.map((f) => (
+          <label key={f.key} className="flex cursor-pointer items-center gap-1.5 text-small font-bold text-slate-600">
+            <input
+              type="checkbox"
+              checked={flags.includes(f.key)}
+              onChange={() => setFlags(toggle(flags, f.key))}
+              className="h-4 w-4 rounded-ctl accent-brand-600"
+            />
+            {f.label}
+          </label>
+        ))}
+        <p className="ml-auto text-small font-semibold text-slate-500">
+          {active > 0 ? (
+            <>
+              {shown.length}건 <span className="font-normal text-slate-400">/ 전체 {rows.length}건</span>
+            </>
+          ) : (
+            <>전체 {rows.length}건</>
+          )}
+        </p>
+      </div>
 
       {/*
         * 정산 규칙 열은 표에서 뺐다(한백 확인 2026-08-23) — 규칙 이름은 차수·금액을 그대로

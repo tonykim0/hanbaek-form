@@ -134,7 +134,7 @@ const BADGE_SIZE = {
   lg: 'px-3 py-1 text-base font-black',
 };
 
-/** 좁은 표 칸에서 「트리거 대기」가 두 줄로 접혔다 — 배지·꼬리표는 줄을 바꾸지 않는다 */
+/** 좁은 표 칸에서 상태 배지(「조건 대기」)가 두 줄로 접혔다 — 배지·꼬리표는 줄을 바꾸지 않는다 */
 const PILL = 'inline-block whitespace-nowrap';
 
 export function Badge({

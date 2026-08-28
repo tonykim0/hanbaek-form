@@ -9,42 +9,196 @@
  *
  * 협력사 지급은 여기 없다. 별도 화면이다 — 두 방향을 한 표에 놓으면 상계해서 보는
  * 사람이 생기고, 「얼마 남았나」가 어느 쪽 이야기인지 매번 따져야 한다.
- * 화면 아래에 협력사 지급 합계를 건너가는 줄로 붙여 뒀던 것도 걷어냈다(한백 확인
- * 2026-08-23) — 받을 돈만 보는 화면에 내려줄 돈의 총액이 있으면 그 상계를 부른다.
  *
  * ★말★ 들어오는 돈은 「수금」이다. 「회수」는 지급 원장에서 협력사에게 잘못 준 돈을
  * 돌려받는 뜻으로 이미 쓰고 있어서(PAYOUT_KINDS), 같은 글자가 정반대 방향을 가리켰다.
+ *
+ * ★이 화면이 답해야 하는 질문★ (한백 2026-08-28 — UX 개선)
+ *   지금 청구할 것이 무엇인가 · 무엇을 기다리는가 · 얼마가 안 들어왔나.
+ * 전에는 전 현장이 저장소 순서로 쭉 나왔고 거를 자리도 정렬도 없었다. 무엇을 기다리는지도
+ * 화면에 없었다(트리거 열을 걷으면서 정보까지 사라졌다). 그 셋을 메운다.
  */
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import type { SettlementSummary } from '@/types/project';
 import { STEP_LABEL, STEP_TONE } from '@/lib/settlement';
-import { Badge, Blank, Empty, Tag } from '@/components/ui';
+import { Badge, Blank, Choice, Empty, FIELD, Tag } from '@/components/ui';
 import { Frame, SiteLink, Tile, won } from './parts';
 
+/** 거르는 축 — 상태는 「그 현장에 그런 차수가 하나라도 있나」로 본다 */
+type Flag = 'open' | 'unpaid' | 'done' | 'norule';
+const FLAGS: Array<{ key: Flag; label: string }> = [
+  { key: 'open', label: '청구 가능' },
+  { key: 'unpaid', label: '미수금' },
+  { key: 'done', label: '수금 완료' },
+  { key: 'norule', label: '규칙 미지정' },
+];
+
+/**
+ * 정렬 — 기본은 청구 가능액이 큰 것부터다.
+ *
+ * 그것이 이 화면을 여는 이유다: 「지금 받을 수 있는 돈이 어디 있나」. 예전 기본값은
+ * 저장소 순서(현장 번호)였는데 그 순서는 이 질문과 아무 상관이 없다.
+ */
+type SortKey = 'open' | 'unpaid' | 'plan' | 'name';
+const SORTS: Array<{ key: SortKey; label: string }> = [
+  { key: 'open', label: '청구 가능액 많은 순' },
+  { key: 'unpaid', label: '미수금 많은 순' },
+  { key: 'plan', label: '받을 기성 많은 순' },
+  { key: 'name', label: '현장명' },
+];
+
+const openOf = (r: SettlementSummary) =>
+  r.steps.filter((s) => s.state === 'open').reduce((n, s) => n + (s.planAmount ?? 0), 0);
+const unpaidOf = (r: SettlementSummary) => Math.max(0, r.planTotal - r.collectedTotal);
+
 export default function ReceivableBoard({ rows }: { rows: SettlementSummary[] }) {
+  const sp = useSearchParams();
+  const [q, setQ] = useState(() => sp.get('q') ?? '');
+  const [flags, setFlags] = useState<Flag[]>(
+    () => (sp.get('flag')?.split(',').filter(Boolean) ?? []) as Flag[]
+  );
+  const [cpos, setCpos] = useState<string[]>(() => sp.get('cpo')?.split(',').filter(Boolean) ?? []);
+  const [sort, setSort] = useState<SortKey>(() => (sp.get('sort') as SortKey) ?? 'open');
+
+  /* 걸린 것은 주소에 남긴다 — 링크로 보내면 같은 화면이 열린다(현장 보드와 같은 방식) */
+  useEffect(() => {
+    const p = new URLSearchParams();
+    if (q.trim()) p.set('q', q.trim());
+    if (flags.length) p.set('flag', flags.join(','));
+    if (cpos.length) p.set('cpo', cpos.join(','));
+    if (sort !== 'open') p.set('sort', sort);
+    const qs = p.toString();
+    window.history.replaceState(null, '', qs ? `?${qs}` : window.location.pathname);
+  }, [q, flags, cpos, sort]);
+
+  /** 목록에 실제로 있는 운영사만 고를 수 있게 한다 — 없는 값을 고르는 자리를 두지 않는다 */
+  const cpoOptions = useMemo(
+    () => [...new Set(rows.map((r) => r.cpo))].sort((a, b) => a.localeCompare(b, 'ko')),
+    [rows]
+  );
+
+  const shown = useMemo(() => {
+    const needle = q.trim();
+    const passes = (r: SettlementSummary) => {
+      if (needle && !r.name.includes(needle)) return false;
+      if (cpos.length && !cpos.includes(r.cpo)) return false;
+      // 상태끼리는 OR 다 — 「청구 가능이거나 미수금인 것」을 보고 싶을 때가 있다
+      if (flags.length === 0) return true;
+      return flags.some((f) =>
+        f === 'open' ? openOf(r) > 0
+          : f === 'unpaid' ? unpaidOf(r) > 0
+            : f === 'done' ? r.planTotal > 0 && r.collectedTotal >= r.planTotal
+              : r.ruleName === null
+      );
+    };
+    const by: Record<SortKey, (a: SettlementSummary, b: SettlementSummary) => number> = {
+      open: (a, b) => openOf(b) - openOf(a),
+      unpaid: (a, b) => unpaidOf(b) - unpaidOf(a),
+      plan: (a, b) => b.planTotal - a.planTotal,
+      name: (a, b) => a.name.localeCompare(b.name, 'ko'),
+    };
+    return rows.filter(passes).sort(by[sort]);
+  }, [rows, q, flags, cpos, sort]);
+
+  /*
+   * 합계는 ★보고 있는 목록★의 합이다 — 거른 뒤에도 전체 합을 보여주면 화면의 숫자와 표가
+   * 어긋나고, 「이 운영사에게 받을 돈」을 볼 방법이 없어진다. 전체는 줄 수로 적는다.
+   */
   const money = useMemo(() => {
-    const sum = (f: (r: SettlementSummary) => number) => rows.reduce((n, r) => n + f(r), 0);
+    const sum = (f: (r: SettlementSummary) => number) => shown.reduce((n, r) => n + f(r), 0);
     return {
       plan: sum((r) => r.planTotal),
       collected: sum((r) => r.collectedTotal),
-      open: sum((r) =>
-        r.steps.filter((s) => s.state === 'open').reduce((m, s) => m + (s.planAmount ?? 0), 0)
-      ),
+      open: sum(openOf),
+      unpaid: sum(unpaidOf),
     };
-  }, [rows]);
+  }, [shown]);
 
   const rate = money.plan > 0 ? Math.round((money.collected / money.plan) * 1000) / 10 : null;
+  const active = flags.length + cpos.length + (q.trim() ? 1 : 0);
+  const toggle = <T,>(list: T[], v: T): T[] =>
+    list.includes(v) ? list.filter((x) => x !== v) : [...list, v];
 
   return (
     <div>
-      <section aria-label="기성 합계" className="mb-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Tile label="받을 기성" value={money.plan} />
-        <Tile label="수금" value={money.collected} tone="in"
-          note={rate !== null ? `수금률 ${rate}%` : undefined} />
-        <Tile label="청구 가능" value={money.open} tone="wait"
-          note="트리거가 열렸고 아직 안 들어온 돈" />
-        <Tile label="미수금" value={Math.max(0, money.plan - money.collected)} />
+      <section aria-label="기성 합계" className="mb-5">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <Tile label="받을 기성" value={money.plan} />
+          <Tile label="수금" value={money.collected} tone="in"
+            note={rate !== null ? `수금률 ${rate}%` : undefined} />
+          <Tile label="미수금" value={money.unpaid} />
+          {/*
+            * 청구 가능은 ★미수금의 부분집합★이다. 넷을 나란히만 놓았더니 그 관계가 읽히지
+            * 않아, 받을 기성 = 수금 + 미수금이고 그중 얼마가 지금 청구 가능인지를 적는다.
+            */}
+          <Tile label="청구 가능" value={money.open} tone="wait"
+            note={money.unpaid > 0 ? `미수금 ${won(money.unpaid)}원 중` : '트리거가 열린 돈'} />
+        </div>
+
+        {/* 비율 한 줄 — 숫자 넷보다 「어디까지 왔나」가 먼저 읽힌다 (파랑 수금 · 노랑 청구 가능) */}
+        {money.plan > 0 && (
+          <div className="mt-3 flex h-2 overflow-hidden rounded-full bg-slate-100">
+            <div className="bg-brand-500" style={{ width: `${(money.collected / money.plan) * 100}%` }} />
+            <div className="bg-amber-300" style={{ width: `${(money.open / money.plan) * 100}%` }} />
+          </div>
+        )}
       </section>
+
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <label className="relative min-w-[180px] flex-1">
+          <span className="sr-only">현장 검색</span>
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="현장명"
+            className={`${FIELD} bg-white`}
+          />
+        </label>
+        {FLAGS.map((f) => (
+          <Choice key={f.key} on={flags.includes(f.key)} onClick={() => setFlags(toggle(flags, f.key))}>
+            {f.label}
+          </Choice>
+        ))}
+        <select
+          aria-label="정렬"
+          value={sort}
+          onChange={(e) => setSort(e.target.value as SortKey)}
+          className={`${FIELD} w-auto bg-white`}
+        >
+          {SORTS.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
+        </select>
+        {active > 0 && (
+          <button
+            type="button"
+            onClick={() => { setQ(''); setFlags([]); setCpos([]); }}
+            className="rounded-ctl px-2.5 py-2 text-lead font-semibold text-slate-500 transition hover:text-slate-800"
+          >
+            지우기
+          </button>
+        )}
+      </div>
+
+      {/* 운영사는 목록에 둘 이상일 때만 고르는 자리를 낸다 */}
+      {cpoOptions.length > 1 && (
+        <div className="mb-3 flex flex-wrap items-center gap-1.5">
+          {cpoOptions.map((c) => (
+            <Choice key={c} on={cpos.includes(c)} onClick={() => setCpos(toggle(cpos, c))}>
+              {c}
+            </Choice>
+          ))}
+        </div>
+      )}
+
+      <p className="mb-3 text-small font-semibold text-slate-500">
+        {active > 0 ? (
+          <>
+            {shown.length}건 <span className="font-normal text-slate-400">/ 전체 {rows.length}건</span>
+          </>
+        ) : (
+          <>전체 {rows.length}건</>
+        )}
+      </p>
 
       {/*
         * 정산 규칙 열은 표에서 뺐다(한백 확인 2026-08-23) — 규칙 이름은 차수·금액을 그대로
@@ -54,17 +208,16 @@ export default function ReceivableBoard({ rows }: { rows: SettlementSummary[] })
         * ★세어서 띠로 알리던 것도 걷었다★ (한백 지시 2026-08-28) — 「정산 규칙이 없는 현장
         * 6건 — … 기성 탭에서 지정해야 합니다」는 안내문이었다(화면 규칙 2). 대신 그 사실을
         * 해당 줄에 꼬리표로 남긴다: 규칙이 없으면 차수가 전부 「해당없음」으로 보여서, 기성이
-        * 원래 없는 현장과 계산이 안 되는 현장이 같아 보인다(화면 규칙 10 — 미지정과 해당없음은
-        * 다른 값이다). 세어서 위에 적는 것보다 그 줄에서 보이는 것이 고칠 곳으로 데려간다.
+        * 원래 없는 현장과 계산이 안 되는 현장이 같아 보인다(화면 규칙 10).
         */}
-      {rows.length === 0 ? (
-        <Blank>현장 0건</Blank>
+      {shown.length === 0 ? (
+        <Blank>{rows.length === 0 ? '현장 0건' : '걸린 조건에 맞는 현장 0건'}</Blank>
       ) : (
         <Frame min="900px">
           <thead className="border-b border-slate-100 bg-slate-50 text-tiny font-bold tracking-[0.06em] text-slate-500">
             <tr>
               <th className="px-3 py-2.5 text-left">현장</th>
-              {/* 차수 열의 값은 그 차수의 상태다. 금액은 그 아래 딸린 값이다(계획액). */}
+              {/* 차수 열의 값은 그 차수의 상태다. 금액과 트리거는 그 아래 딸린 값이다. */}
               <th className="px-3 py-2.5 text-left">1차</th>
               <th className="px-3 py-2.5 text-left">2차</th>
               <th className="px-3 py-2.5 text-left">3차</th>
@@ -74,7 +227,7 @@ export default function ReceivableBoard({ rows }: { rows: SettlementSummary[] })
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {rows.map((r) => (
+            {shown.map((r) => (
               <tr key={r.id} className="transition hover:bg-brand-50/40">
                 <td className="px-3 py-2.5">
                   <SiteLink id={r.id} name={r.name} tab="receivable" />
@@ -93,7 +246,7 @@ export default function ReceivableBoard({ rows }: { rows: SettlementSummary[] })
                   {r.collectedTotal > 0 ? won(r.collectedTotal) : <span className="text-slate-300">—</span>}
                 </td>
                 <td className="px-3 py-2.5 text-right font-bold tabular-nums text-slate-500">
-                  {won(Math.max(0, r.planTotal - r.collectedTotal))}
+                  {won(unpaidOf(r))}
                 </td>
               </tr>
             ))}
@@ -105,13 +258,21 @@ export default function ReceivableBoard({ rows }: { rows: SettlementSummary[] })
 }
 
 /**
- * 차수 한 칸 — 상태가 값이고, 계획액이 그 아래 딸린다.
+ * 차수 한 칸 — 상태가 값이고, 금액과 트리거가 그 아래 딸린다.
  *
- * 트리거(환경부 승인·착공·준공마감)는 걷어냈다(한백 확인 2026-08-23). 그것은 정산 규칙이
- * 정한 것이라 현장마다 바뀌지 않고, 이 표에서 매 줄 반복되면 상태와 금액을 가린다.
- * 어느 트리거를 기다리는지는 현장 상세의 기성 탭에서 본다.
+ * ★트리거를 되살렸다★ (한백 2026-08-28). 2026-08-23 에 트리거 「열」을 걷은 것은 맞았다 —
+ * 매 줄 반복되는 열이 상태와 금액을 가렸다. 그런데 열을 걷으면서 정보까지 사라져서,
+ * 청구 가능한 차수가 무엇으로 열렸는지 · 대기 중인 차수가 무엇을 기다리는지 이 화면에서
+ * 알 수 없었다. 열이 아니라 그 칸의 부기로 되돌린다 — 금액 옆 한 마디다.
+ *
+ * 수금 완료는 트리거 대신 수금일을 적는다 — 끝난 차수에 조건을 다시 적을 이유가 없고,
+ * 그때 궁금한 것은 「언제 들어왔나」다.
  */
-function StepCell({ step }: { step: { state: keyof typeof STEP_LABEL; planAmount: number | null } | null }) {
+function StepCell({
+  step,
+}: {
+  step: Pick<SettlementSummary['steps'][number], 'state' | 'planAmount' | 'trigger' | 'collectedAt'> | null;
+}) {
   // 규칙상 없는 차수는 배지가 아니라 빈 값이다(화면 규칙 10번)
   if (!step || step.state === 'na') {
     return (
@@ -120,11 +281,13 @@ function StepCell({ step }: { step: { state: keyof typeof STEP_LABEL; planAmount
       </td>
     );
   }
+  const note = step.state === 'collected' ? step.collectedAt : step.trigger;
   return (
     <td className="px-3 py-2.5">
       <Badge tone={STEP_TONE[step.state]}>{STEP_LABEL[step.state]}</Badge>
       <p className="mt-0.5 text-tiny font-bold tabular-nums text-slate-700">
         {step.planAmount === null ? '—' : won(step.planAmount)}
+        {note && <span className="ml-1 font-semibold text-slate-400">· {note}</span>}
       </p>
     </td>
   );

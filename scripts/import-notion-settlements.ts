@@ -33,6 +33,8 @@ const argOf = (name: string) => {
   return at >= 0 ? args[at + 1] : undefined;
 };
 const WRITE = args.includes('--write');
+/** 금액이 콘솔 계획과 어긋나는 줄은 빼고 넣는다 — 맞는 것부터 채우는 갈래 */
+const ONLY_MATCHING = args.includes('--only-matching');
 const ENV_FILE = argOf('--env');
 const SETTLEMENTS = argOf('--settlements');
 const SITES = argOf('--sites');
@@ -233,27 +235,43 @@ async function main() {
     });
   }
 
-  const gaps: string[] = [];
+  /** 금액이 어긋난 줄 — 그 줄의 key 로 찾을 수 있게 둔다(--only-matching 이 이것을 뺀다) */
+  const gapOf = new Map<string, string>();
+  const keyOf = (m: Move) => `${m.no}|${m.kind}`;
   for (const m of moves) {
     const plan = planOf.get(m.projectId);
-    if (!plan) { gaps.push(`${m.no} ${m.name} — 콘솔에 계약 라인이 없습니다`); continue; }
-    if (plan.unpriced > 0) { gaps.push(`${m.no} ${m.name} — 단가 미지정 라인 ${plan.unpriced}개 (계획액이 비어 있습니다)`); continue; }
+    if (!plan) { gapOf.set(keyOf(m), `${m.no} ${m.name} — 콘솔에 계약 라인이 없습니다`); continue; }
+    if (plan.unpriced > 0) {
+      gapOf.set(keyOf(m), `${m.no} ${m.name} — 단가 미지정 라인 ${plan.unpriced}개 (계획액이 비어 있습니다)`);
+      continue;
+    }
     const total = m.kind === '영업비' ? plan.sales : plan.cons;
     // 1차 = 총액의 70% (끝수 포함) — lib/settlement 의 회차 계산과 같은 규칙
     const expect = Math.round(total * 0.7);
     if (Math.abs(m.amount - expect) > 1) {
-      gaps.push(
+      gapOf.set(
+        keyOf(m),
         `${m.no} ${m.name} ${m.kind} — 노션 ${m.amount.toLocaleString('ko-KR')}원`
         + ` vs 콘솔 계획 70% ${expect.toLocaleString('ko-KR')}원 (총액 ${total.toLocaleString('ko-KR')}원)`
       );
     }
   }
   console.log(`\n금액 대조 — 노션 1차 금액 vs 콘솔 계획의 70%`);
-  if (gaps.length === 0) console.log('  전부 일치');
+  if (gapOf.size === 0) console.log('  전부 일치');
   else {
-    console.log(`  어긋남 ${gaps.length}건`);
-    for (const line of gaps.slice(0, 20)) console.log(`   - ${line}`);
-    if (gaps.length > 20) console.log(`   … 그 외 ${gaps.length - 20}건`);
+    console.log(`  어긋남 ${gapOf.size}건`);
+    for (const line of [...gapOf.values()]) console.log(`   - ${line}`);
+  }
+
+  /*
+   * ★어긋난 줄을 빼고 넣는 갈래★ (--only-matching, 한백 지시 2026-08-27 「C」)
+   *
+   * 금액이 맞는 것부터 채우고, 어긋난 것은 왜 다른지 정한 뒤에 넣는다. 조용히 빼지 않는다 —
+   * 위 목록이 그대로 「아직 안 들어간 것」의 명세다. 다시 돌리면 그때 들어간다(멱등).
+   */
+  const target = ONLY_MATCHING ? moves.filter((m) => !gapOf.has(keyOf(m))) : moves;
+  if (ONLY_MATCHING) {
+    console.log(`\n--only-matching — 어긋난 ${moves.length - target.length}건을 빼고 ${target.length}건만 넣습니다.`);
   }
 
   // 미래 날짜 — 예정으로 적어 둔 것이 실지급으로 들어가면 나간 돈이 부풀려진다
@@ -268,7 +286,7 @@ async function main() {
   const existing = await db.select({ id: payoutEntries.id }).from(payoutEntries);
   const have = new Set(existing.map((e) => e.id));
   const idOf = (m: Move) => `notion-${m.no}-${m.kind}-${m.category}`;
-  const already = moves.filter((m) => have.has(idOf(m)));
+  const already = target.filter((m) => have.has(idOf(m)));
   console.log(`\n콘솔 원장 ${existing.length}건 · 그중 이 이관으로 이미 들어간 것 ${already.length}건`);
 
   if (!WRITE) {
@@ -279,7 +297,7 @@ async function main() {
   // ── 쓰기 ─────────────────────────────────────────────────
   const now = new Date().toISOString();
   let wrote = 0;
-  for (const m of moves) {
+  for (const m of target) {
     await db.insert(payoutEntries).values({
       id: idOf(m), projectId: m.projectId, kind: m.kind, category: m.category,
       amount: m.amount, at: m.at, note: `노션 정산관리 ${m.no}`, createdAt: now,

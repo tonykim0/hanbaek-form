@@ -970,7 +970,8 @@ function AdjustBox({
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full min-w-[540px] text-small">
-            <thead className="border-y border-slate-100 bg-slate-50/70 text-micro font-bold tracking-[0.06em] text-slate-500">
+            {/* 표 머리는 tiny 다 — 위 지급관리 표와 같은 눈금(2026-08-29 자료실과 같은 손질) */}
+            <thead className="border-y border-slate-100 bg-slate-50/70 text-tiny font-bold tracking-[0.08em] text-slate-500">
               <tr>
                 <th className="px-3 py-1.5 text-left">구분</th>
                 <th className="px-3 py-1.5 text-left">명목</th>
@@ -1129,7 +1130,8 @@ function Cell({
 }) {
   return (
     <div className={`flex flex-col gap-1 ${className}`}>
-      <span className="text-micro font-bold tracking-[0.06em] text-slate-400">{label}</span>
+      {/* 칸 이름표도 tiny 다 — micro 는 단위·꼬리표 자리다 */}
+      <span className="text-tiny font-bold tracking-[0.04em] text-slate-500">{label}</span>
       {children}
     </div>
   );

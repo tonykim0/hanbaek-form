@@ -168,7 +168,15 @@ export default function MaterialsBrowser({ groups }: { groups: MaterialGroup[] }
               <div className="rounded-box border border-slate-200 bg-white">
                 {group.categories.map((category, i) => (
                   <div key={category.key} className={i > 0 ? 'border-t border-slate-100' : ''}>
-                    <p className="px-3.5 pb-1 pt-2.5 text-micro font-bold tracking-[0.06em] text-slate-400">
+                    {/*
+                      ★분류 이름은 꼬리표가 아니라 구역 이름이다★ (한백 지적 2026-08-29
+                      「글씨가 잘 안 보여」). micro(10px)·slate-400 으로 적어 놨는데, 그
+                      등급은 단위·꼬리표 자리다(tailwind.config 의 눈금 설명). 자료를 찾는
+                      사람이 맨 먼저 훑는 것이 이 줄이라 읽혀야 한다 — 띠를 깔아 구역을
+                      가르고 글씨는 tiny·slate-600 으로 올린다. 제목(small·slate-900)보다
+                      세지 않게 하는 일은 띠가 한다.
+                    */}
+                    <p className="border-b border-slate-100 bg-slate-50/80 px-3.5 py-1.5 text-tiny font-black tracking-[0.04em] text-slate-600">
                       {category.label}
                     </p>
                     <ul className="divide-y divide-slate-50">

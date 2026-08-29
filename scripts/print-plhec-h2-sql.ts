@@ -70,7 +70,7 @@ for (const r of PL_RESTORE) {
 
 /* 3. 유지 케이스의 조건을 260629 기준으로 되돌린다 — 기성도 pl-2step 으로 */
 for (const k of PL_KEEP) {
-  const p = plPolicy(true, k.term);
+  const p = plPolicy(true, k.term, k.bldgs);
   console.log(`-- 260629 기준 조건 + 기성 pl-2step 복원: ${k.id}`);
   console.log(`update pricing_rules set
   promo = ${j(p.promo)}, promo_extend = ${j(p.promoExtend)}, charge_rate = ${n(p.chargeRate)},

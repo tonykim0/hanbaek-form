@@ -52,9 +52,30 @@ const PL_PROMO: Record<number, PromoStep[]> = {
   10: [{ months: 6, rate: 149 }, { months: 6, rate: 249 }],
 };
 
-const PL_INSTALL =
-  '총 주차면의 5%까지 지원 · 충전기 최소 2% 전용 구역 도색 필수 · 1개 단지 최대 130대(7년)/120대(10년)'
-  + ' · 상업시설은 주차면 2%만(7년 계약·한전불입 불가 — 대상지: 공영주차장·관공서·주민센터·지식산업센터·4성 이상 호텔/리조트·사옥·골프장·병원)';
+/**
+ * 설치조건 — ★건축물유형마다 다른 조건이다 (한백 2026-08-29).★
+ *
+ * 그전에는 한 덩어리였다: 공동주택 조건을 적고 그 끝에 「· 상업시설은 주차면 2%만…」을
+ * 곁말로 달아 여덟 케이스 전부에 같이 붙였다. 그래서 ★상업시설 케이스를 열면 「5%까지
+ * 지원」과 「1개 단지 최대 130대」가 먼저 보이고★ 정작 자기 조건은 뒤에 딸려 있었다 —
+ * 상업시설 조건이 제 자리에 선 적이 없다. 공동주택 케이스에도 상관없는 상업시설 문구가
+ * 붙어 있었다. 축마다 자기 조건만 갖는다.
+ *
+ * 7년·한전불입이 상업시설에 없는 것은 조건이 아니라 ★그 케이스가 아예 없는 이유★다
+ * (한백 확인 2026-08-29). 조건 칸에 적어 두면 「이 케이스에 그런 제약이 있다」로 읽힌다 —
+ * 여기서는 무엇이 되는지만 적는다.
+ */
+const PL_INSTALL_APT =
+  '총 주차면의 5%까지 지원 · 충전기 최소 2% 전용 구역 도색 필수 · 1개 단지 최대 130대(7년)/120대(10년)';
+
+const PL_INSTALL_BIZ =
+  '총 주차면의 2%까지 지원 · 10년 모자분리만 (7년 계약·한전불입 불가)'
+  + ' · 대상지: 공영주차장 · 관공서 · 주민센터 · 지식산업센터 · 4성 이상 호텔/리조트 · 사옥 · 골프장 · 병원';
+
+/** 그 케이스의 건축물유형이 정한다 — 겸용(둘 다) 케이스는 플러그링크에 없다 */
+function plInstall(bldgTypes: readonly string[]): string {
+  return bldgTypes.includes('상업시설') ? PL_INSTALL_BIZ : PL_INSTALL_APT;
+}
 
 /*
  * 기타 — 네 항목을 걷어냈다(한백 요청 2026-08-23).
@@ -83,15 +104,22 @@ const PL_PROMO_EXTEND: PromoExtendOption[] = [
   { months: 6, rate: 249, deduct: 100_000 },
 ];
 
-/** 260629 를 반영한 조건 — 유지 케이스(update)와 신설 케이스(insert)가 같이 쓴다 */
-export function plPolicy(sub: boolean, termYears: number | null) {
+/**
+ * 260629 를 반영한 조건 — 유지 케이스(update)와 신설 케이스(insert)가 같이 쓴다.
+ * 설치조건은 건축물유형이 가르므로 그 축을 받는다.
+ */
+export function plPolicy(
+  sub: boolean,
+  termYears: number | null,
+  bldgTypes: readonly string[] = ['공동주택']
+) {
   return {
     promo: sub && termYears !== null ? PL_PROMO[termYears] ?? null : null,
     // 연장은 프로모션이 있는 케이스만 — 자체투자는 문서에 프로모션 언급이 없어 미지정이다
     promoExtend: sub && termYears !== null ? PL_PROMO_EXTEND : null,
     chargeRate: 292, // 최종 확정 (한백 2026-08-23) — 자체투자까지 같다
     supplyItems: null as string | null,
-    installTerms: PL_INSTALL,
+    installTerms: plInstall(bldgTypes),
     coexistTerms: null as string | null,
     otherSupport: null as string | null,
     miscTerms: sub ? PL_MISC_SUB : PL_MISC_INV,
@@ -99,11 +127,11 @@ export function plPolicy(sub: boolean, termYears: number | null) {
 }
 
 /** 기존 유지 — 조건만 갱신하고 기성은 pl-2step 으로 되돌린다 */
-export const PL_KEEP: { id: string; term: number }[] = [
-  { id: 'pl-h2-y7-mother-new-apt', term: 7 },
-  { id: 'pl-h2-y10-mother-new-apt', term: 10 },
+export const PL_KEEP: { id: string; term: number; bldgs: string[] }[] = [
+  { id: 'pl-h2-y7-mother-new-apt', term: 7, bldgs: ['공동주택'] },
+  { id: 'pl-h2-y10-mother-new-apt', term: 10, bldgs: ['공동주택'] },
   // 상업 10년(240만) — v1.1 때 넣었지만 260629 의 상업 보조 신규 10년과 금액이 같아 남긴다
-  { id: 'pl-y10-mother-new-biz-2026', term: 10 },
+  { id: 'pl-y10-mother-new-biz-2026', term: 10, bldgs: ['상업시설'] },
 ];
 
 /** v1.1 기준으로 넣었던 것 — 걷어낸다 (참조 가드) */
@@ -167,7 +195,7 @@ export function plNewRules(): NewPricingRule[] {
     supervisionBearer: null,
     safetyFeeBearer: null,
     note: null,
-    ...plPolicy(false, null),
+    ...plPolicy(false, null, [row.bldg]),
     settlementSteps: [],
   }));
 }

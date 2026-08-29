@@ -51,9 +51,10 @@ export function FormSection({
           </button>
         )}
       </div>
-      {collapsed ? (
-        <div className="text-small text-slate-600">{summary}</div>
-      ) : children}
+      {/* 요약이 없는 구획(계약 축)은 접히면 이름만 남는다 — 머리가 이미 같은 값을 보인다 */}
+      {collapsed
+        ? (summary ? <div className="text-small text-slate-600">{summary}</div> : null)
+        : children}
     </div>
   );
 }

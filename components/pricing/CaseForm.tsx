@@ -51,23 +51,36 @@ export function CaseForm({
     ? startKey({ startDate: prefill.startDate, bizYear: prefill.bizYear ?? 0 }).split('-').map(Number)
     : null;
   const opened = new Date();
-  const [year, setYear] = useState(prefill.bizYear ?? opened.getFullYear());
+  /*
+   * ★개정은 다음 반기로 열린다★ (2026-08-29). 그전에는 오늘 기준(올해·이번 반기)으로 열려,
+   * 7월 21일 케이스를 개정하려고 누르면 「2026년 하반기」(= 7월 1일)가 기본값이 됐다 —
+   * 기존보다 이른 시기라 폼이 열리자마자 「개정 시기가 기존보다 늦어야 함」으로 막혀 있었다.
+   * 무엇을 고르든 사람이 다시 정할 값이지만, 기본값은 유효한 쪽이어야 한다.
+   */
+  const nextHalf = (() => {
+    if (!prefill.after) return null;
+    const [y, m] = prefill.after.split('-').map(Number);
+    return m <= 6 ? { year: y, half: '하' as const } : { year: y + 1, half: '상' as const };
+  })();
+  const [year, setYear] = useState(nextHalf?.year ?? prefill.bizYear ?? opened.getFullYear());
   const [half, setHalf] = useState<'상' | '하'>(
-    seed ? (seed[1] >= 7 ? '하' : '상') : opened.getMonth() + 1 >= 7 ? '하' : '상'
+    nextHalf?.half ?? (seed ? (seed[1] >= 7 ? '하' : '상') : opened.getMonth() + 1 >= 7 ? '하' : '상')
   );
+  /* 개정은 새 날짜를 사람이 적는다 — 원 케이스의 날짜를 실으면 그대로 저장돼 막힌다 */
   const [startDay, setStartDay] = useState(
-    seed && seed[1] > 0 && seed[2] > 0
+    !prefill.after && seed && seed[1] > 0 && seed[2] > 0
       ? `${seed[0]}-${String(seed[1]).padStart(2, '0')}-${String(seed[2]).padStart(2, '0')}`
       : ''
   );
-  function pickStartDay(v: string) {
-    setStartDay(v);
-    if (v) {
-      const [y, m] = v.split('-').map(Number);
-      setYear(y);
-      setHalf(m >= 7 ? '하' : '상');
-    }
-  }
+  /*
+   * ★적용 시작을 적는 방법은 둘이고, 둘은 서로를 배제한다★ (한백 2026-08-29 「MECE 하게」).
+   * 그전에는 시작일·연도·반기 세 칸이 같이 서 있고 시작일을 적으면 나머지 둘이 흐려졌다 —
+   * 무엇을 적어야 하는지 화면이 말하지 않았다. 아는 것에 따라 한쪽을 고른다:
+   *   날짜로  계약서에 적힌 날을 안다 → 「2026년 7월 21일」로 저장
+   *   반기로  반기까지만 안다        → 「2026년 하반기」로 저장
+   * 고른 쪽 칸만 선다. 연도·반기는 날짜에서 유도되므로 날짜 모드에서는 아예 없다.
+   */
+  const [dayMode, setDayMode] = useState(Boolean(startDay));
 
   const [receiveUnit, setReceiveUnit] = useState(
     money((prefill.salesUnit ?? 0) + (prefill.consUnit ?? 0) + (prefill.margin ?? 0))
@@ -171,7 +184,7 @@ export function CaseForm({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cpo, bizType, stepsLocked]);
 
-  const startDate = startDay ? koDate(startDay) : `${year}년 ${half}반기`;
+  const startDate = dayMode && startDay ? koDate(startDay) : `${year}년 ${half}반기`;
 
   /*
    * caseName 은 사람이 짓지 않는다 — 시기·축에서 유도되는 표시용 라벨이고, 현장 상세의
@@ -219,6 +232,7 @@ export function CaseForm({
     terms.length === 0 ? '계약연수 미선택'
       : bldgs.length === 0 ? '건축물유형 미선택'
         : receive === 0 ? '받는 단가 미입력'
+          : dayMode && !startDay ? '적용 시작일 미입력'
           : mg > receive ? '마진이 받는 단가보다 큼'
             : !splitOk ? '영업·시공 합이 지급 단가와 다름'
               : promoBad ? promoBad
@@ -332,13 +346,13 @@ export function CaseForm({
           <h2 className="text-h3 font-black text-slate-900" title={editId}>
             {mode === '수정' ? '케이스 수정' : mode === '개정' ? '케이스 개정' : '새 케이스'}
           </h2>
+          {/*
+            머리는 ★어느 케이스인가★만 말한다 — 축과 기존 적용 시작. 새 시작은 아래
+            적용 시작 구역이 말한다(같은 값을 한 화면에 두 번 두지 않는다).
+          */}
           <div className="mt-2 flex flex-wrap items-center gap-1.5">
             {axisTags}
-            {mode === '개정' && afterLabel && (
-              <span className="ml-1 text-tiny font-bold text-slate-500">
-                {afterLabel}부터 <span className="text-slate-300">→</span> {startDate}부터
-              </span>
-            )}
+            {afterLabel && <Tag tone="stage">{afterLabel}부터</Tag>}
           </div>
         </div>
         <Btn kind="quiet" size="sm" disabled={busy} onClick={onDone}>← 단가표로</Btn>
@@ -349,7 +363,6 @@ export function CaseForm({
         first
         title="계약 축"
         collapsed={!showAxis}
-        summary={<span className="flex flex-wrap gap-1.5">{axisTags}</span>}
         onToggle={mode === '개정' ? () => setShowAxis((v) => !v) : undefined}
       >
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -420,38 +433,53 @@ export function CaseForm({
         </div>
       </FormSection>
 
-      {/* ② 언제부터의 단가인가 — 매트릭스의 시기 탭이 이 값으로 갈린다. 시작일이 먼저고 연도·반기는 거기서 유도된다 */}
+      {/* ② 언제부터의 단가인가 — 매트릭스의 시기 탭이 이 값으로 갈린다 */}
       <FormSection title="적용 시작">
-        <div className="flex flex-wrap items-end gap-4">
-          <div className="w-44">
-            <Field label="시작일">
-              <input
-                type="date"
-                value={startDay}
-                onChange={(e) => pickStartDay(e.target.value)}
-                className={FIELD}
-              />
-            </Field>
-          </div>
-          <div className="w-24">
-            <Field label="연도">
-              <input
-                value={year}
-                disabled={Boolean(startDay)}
-                onChange={(e) => setYear(Number(e.target.value.replace(/[^0-9]/g, '')) || 0)}
-                className={`${FIELD} tabular-nums disabled:bg-slate-50 disabled:text-slate-400`}
-              />
-            </Field>
-          </div>
-          <Field label="반기">
-            <div className={`flex flex-wrap gap-1.5 ${startDay ? 'pointer-events-none opacity-50' : ''}`}>
-              {(['상', '하'] as const).map((h) => (
-                <Choice key={h} on={half === h} onClick={() => setHalf(h)}>{h}반기</Choice>
-              ))}
+        <div className="flex flex-wrap items-end gap-x-4 gap-y-3">
+          {/* 아는 것에 따라 한쪽 — 고른 쪽 칸만 선다 */}
+          <Field label="적는 방법">
+            <div className="flex flex-wrap gap-1.5">
+              <Choice on={dayMode} onClick={() => setDayMode(true)}>날짜로</Choice>
+              <Choice on={!dayMode} onClick={() => setDayMode(false)}>반기로</Choice>
             </div>
           </Field>
+          {dayMode ? (
+            <div className="w-44">
+              <Field label="시작일" hint="계약서 날짜 기준">
+                <input
+                  type="date"
+                  value={startDay}
+                  onChange={(e) => setStartDay(e.target.value)}
+                  className={FIELD}
+                />
+              </Field>
+            </div>
+          ) : (
+            <>
+              <div className="w-24">
+                <Field label="연도">
+                  <input
+                    value={year}
+                    onChange={(e) => setYear(Number(e.target.value.replace(/[^0-9]/g, '')) || 0)}
+                    className={`${FIELD} tabular-nums`}
+                  />
+                </Field>
+              </div>
+              <Field label="반기">
+                <div className="flex flex-wrap gap-1.5">
+                  {(['상', '하'] as const).map((h) => (
+                    <Choice key={h} on={half === h} onClick={() => setHalf(h)}>{h}반기</Choice>
+                  ))}
+                </div>
+              </Field>
+            </>
+          )}
           {/* 저장될 표기 — 매트릭스·현장 셀렉트에 이 글자가 선다 */}
-          <span className="pb-2 text-small font-bold text-slate-500">→ {startDate}</span>
+          <span className="pb-2 text-small font-bold text-slate-700">
+            {dayMode && !startDay
+              ? <span className="text-slate-400">날짜를 고르면 여기 적힙니다</span>
+              : <>→ {startDate}부터</>}
+          </span>
         </div>
       </FormSection>
 

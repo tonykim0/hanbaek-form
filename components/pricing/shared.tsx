@@ -81,6 +81,13 @@ export function prefillOf(r: PricingRule, settle: SettlementRule | null): Prefil
     terms: r.termYears, bldgs: r.bldgTypes,
     channel: (r.channel as string) === '시공만' ? '시공' : r.channel,
     bizYear: r.bizYear,
+    /*
+     * ★적용 시작을 안 실으면 수정 폼이 그 값을 잃는다★ (2026-08-29) — 폼은 프리필에
+     * 시작이 없으면 오늘 기준(올해·이번 반기)으로 연다. 참조 없는 케이스를 자리에서
+     * 고치려고 열었을 뿐인데 적용 시작이 조용히 오늘 반기로 바뀌어 저장됐다.
+     * 개정은 이 값을 그대로 쓰지 않는다 — 다음 반기를 기본으로 연다(폼이 판단한다).
+     */
+    startDate: r.startDate,
     salesUnit: r.salesUnit, consUnit: r.consUnit, margin: r.margin,
     steps: settle?.steps,
     supplyItems: r.supplyItems ?? undefined,

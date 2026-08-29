@@ -109,7 +109,7 @@ export const contractStore: Pick<
         .set({
           contractConfirmedAt: after,
           /*
-           * ★공 차례는 그 단계가 정한다★ (한백 지시 2026-08-25).
+           * ★담당는 그 단계가 정한다★ (한백 지시 2026-08-25).
            *
            * 여기서 '시공사' 를 적고 있었다 — 「계약이 끝났으면 다음 손은 시공사」라고 봤는데,
            * 계약완료 다음 일은 ★우리가 운영사에 계약서를 내는 것★이다(COURT_AFTER_STATUS

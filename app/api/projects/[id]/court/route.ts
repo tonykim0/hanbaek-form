@@ -1,5 +1,5 @@
 /**
- * POST /api/projects/[id]/court — 공 차례 넘기기
+ * POST /api/projects/[id]/court — 담당 넘기기
  *
  * 단계(stage)는 서류·단가·계약 확인에서 유도되므로 저장하지 않는다 —
  * 여기서 움직이는 것은 「지금 누가 손을 대야 하는가」뿐이다.

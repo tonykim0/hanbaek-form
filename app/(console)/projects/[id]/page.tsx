@@ -106,7 +106,7 @@ export default async function ProjectPage({
     <ProjectDetailView
       detail={detail}
       vis={effectiveVisibility(session.role, session.org, detail.project)}
-      // 검수·공 차례는 한백만 한다. vis.cost 로 유추하지 않고 명시적으로 넘긴다.
+      // 검수·담당는 한백만 한다. vis.cost 로 유추하지 않고 명시적으로 넘긴다.
       canReview={canEdit}
       /*
        * 진행현황을 남길 때 붙는 이름. 서버(addNote)가 실제로 쓰는 값과 같은 규칙이다 —

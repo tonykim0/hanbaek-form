@@ -696,7 +696,7 @@ function ContractStatus({
  * 지금은 확인한 날이 저장되고(project.contractConfirmedAt) 그것이 단계의 조건이다.
  *
  * 되돌릴 수 있다. 잘못 눌렀을 때 길이 없으면 DB 를 직접 만져야 한다 —
- * 되돌리면 공 차례도 한백으로 돌아온다.
+ * 되돌리면 담당도 한백으로 돌아온다.
  */
 function ConfirmContract({
   projectId,

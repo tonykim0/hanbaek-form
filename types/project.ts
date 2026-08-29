@@ -139,7 +139,7 @@ export type PreInstall = '없음' | '있음';
 
 /** 현장이 통과하는 단계 */
 export type Stage = 'intake' | 'construction' | 'settlement';
-/** 공 차례 — 지금 누가 움직여야 하는가 */
+/** 담당 — 지금 누가 움직여야 하는가 */
 export type Court = '한백' | '영업사' | '시공사' | '운영사';
 
 /**

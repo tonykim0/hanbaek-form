@@ -22,7 +22,7 @@ export type { Actor };
 
 export interface ProjectRepository {
   /**
-   * 현장 목록 — 공 차례·정체일 기준으로 정렬된다.
+   * 현장 목록 — 담당·정체일 기준으로 정렬된다.
    * viewer 를 받는 이유: 권한을 데이터 계층에서 걸기 때문이다.
    */
   listProjects(viewer: Viewer): Promise<ProjectSummary[]>;
@@ -197,7 +197,7 @@ export interface ProjectRepository {
   ): Promise<void>;
 
   /**
-   * 공 차례를 넘긴다. [한백 전용]
+   * 담당를 넘긴다. [한백 전용]
    * 「접수 완료 처리」가 하는 일이 이것이다 — 단계(stage)는 서류·단가에서 유도되므로
    * 따로 저장하지 않는다. 여기서 움직이는 것은 누가 다음에 손을 대야 하는가뿐이다.
    */
@@ -241,7 +241,7 @@ export interface ProjectRepository {
    * 조건이 안 맞으면 거절한다. 필수 서류가 비었거나 반려가 남아 있거나 단가가 없는 계약을
    * 확인해 버리면, 그 뒤로는 무엇이 확인된 것인지 알 수 없어진다.
    *
-   * 확인과 함께 공 차례가 시공사로 넘어간다 — 계약이 끝났다는 것은 다음 손이 시공사라는 뜻이다.
+   * 확인과 함께 담당가 시공사로 넘어간다 — 계약이 끝났다는 것은 다음 손이 시공사라는 뜻이다.
    */
   confirmContract(projectId: string, confirmed: boolean, actor: Actor): Promise<void>;
 

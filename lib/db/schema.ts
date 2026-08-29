@@ -193,7 +193,7 @@ export const projects = pgTable('projects', {
   /** 보류 | DROP. null 이면 정상 진행 중 — 진행 단계와 섞지 않는다. */
   holdState: text('hold_state'),
   holdNote: text('hold_note'),
-  /** 공 차례 — 지금 누가 움직여야 하는가 */
+  /** 담당 — 지금 누가 움직여야 하는가 */
   court: text('court').notNull().default('한백'),
   /** 마지막 진척일. 정체일 계산의 기준 — 노션엔 없던 지표 */
   lastProgressAt: text('last_progress_at').notNull(),

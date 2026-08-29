@@ -68,7 +68,7 @@ export const docStore: Pick<
        * 지우지 않는 값이다 — 몇 번을 돌아도 첫 보완요청일이다.
        *
        * 반려하면 공도 영업사로 넘어간다 — 보완할 차례다. 다시 올라오면 uploadDocument 가
-       * 공을 한백으로 되돌린다. 이 한쪽이 없으면 반려한 뒤에도 공 차례가 「한백」으로 남아,
+       * 공을 한백으로 되돌린다. 이 한쪽이 없으면 반려한 뒤에도 담당가 「한백」으로 남아,
        * 협력사를 기다리는 현장이 한백이 막고 있는 것처럼 보인다.
        */
       await applyReviewSideEffects(tx, input.projectId, input.status === 'rejected');

@@ -9,6 +9,7 @@ import { describe, expect, it } from 'vitest';
 import {
   advanceBlockers, asProcessStatus, assertProcessWrite, canEnter, CHECK_ADVANCES,
   COURT_AFTER_STATUS, isHanbaekOnlyProcessField, statusIndex,
+  canChangeContractDocs, CONTRACT_DOCS_LOCK_AT,
 } from '@/lib/process';
 import type { GateContext } from '@/lib/process';
 import type { ProcessInfo, ProcessStatus } from '@/types/project';
@@ -220,5 +221,31 @@ describe('statusIndex — 칸 순서', () => {
     const order: ProcessStatus[] = ['행위신고', '충전기 발주', '충전기 수령', '착공'];
     const idx = order.map(statusIndex);
     expect(idx).toEqual([...idx].sort((a, b) => a - b));
+  });
+});
+
+describe('canChangeContractDocs — 운영사에 낸 뒤로 계약 서류는 잠긴다', () => {
+  it('낸 자리부터 협력사는 못 바꾼다', () => {
+    expect(canChangeContractDocs('sales', CONTRACT_DOCS_LOCK_AT)).toBe(false);
+    expect(canChangeContractDocs('cons', CONTRACT_DOCS_LOCK_AT)).toBe(false);
+    expect(canChangeContractDocs('salesCons', CONTRACT_DOCS_LOCK_AT)).toBe(false);
+  });
+
+  it('★그 뒤 단계에서도 잠겨 있다★ — 낸 자리 한 칸만 막으면 다음 칸에서 다시 열린다', () => {
+    for (const status of ['행위신고', '충전기 발주', '착공', '설치완료', '준공'] as const) {
+      expect(canChangeContractDocs('sales', status)).toBe(false);
+    }
+  });
+
+  it('내기 전에는 협력사도 바꾼다 — 반려된 서류를 다시 올리는 길이다', () => {
+    expect(canChangeContractDocs('sales', '계약완료')).toBe(true);
+  });
+
+  it('★한백은 낸 뒤에도 바꾼다★ — 운영사가 반려해 다시 내는 길이 있어야 한다', () => {
+    expect(canChangeContractDocs('admin', '준공')).toBe(true);
+  });
+
+  it('열람 전용은 언제나 못 바꾼다', () => {
+    expect(canChangeContractDocs('viewer', '계약완료')).toBe(false);
   });
 });

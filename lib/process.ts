@@ -13,7 +13,7 @@
 import type { BizType, Court, PowerType, ProcessInfo, ProjectDocument, ProcessStatus } from '@/types/project';
 import { processDocsFor, type ProcessDocKey } from '@/lib/doc-rules';
 import { PROCESS_STATUSES, subsidized } from '@/types/project';
-import { normalizeOrg } from '@/lib/roles';
+import { canWrite, isHanbaek, normalizeOrg, type Role } from '@/lib/roles';
 
 /**
  * 없는 것 하나.
@@ -196,6 +196,32 @@ export function asProcessStatus(value: string | null | undefined): ProcessStatus
 export function statusIndex(status: ProcessStatus): number {
   return PROCESS_STATUSES.indexOf(status);
 }
+
+/**
+ * 계약 서류가 잠기는 자리 — ★운영사에 계약서를 낸 뒤★ (한백 지시 2026-08-29).
+ *
+ * 낸 서류가 정본이다. 그 뒤에 협력사가 파일을 갈아 끼우면 운영사가 들고 있는 것과 우리
+ * 화면이 달라지고, 무엇을 냈는지 아무도 답할 수 없게 된다. 한백은 계속 바꿀 수 있다 —
+ * 운영사가 반려해 다시 내는 길이 있어야 하고, 그때 고치는 것은 한백의 일이다.
+ */
+export const CONTRACT_DOCS_LOCK_AT: ProcessStatus = '운영사 계약서 제출';
+
+/**
+ * 계약 서류(계약 묶음·기설치 조사)를 지금 바꿀 수 있나.
+ *
+ * 공정 서류는 이 잠금과 무관하다 — 시공사가 착공 뒤에도 계속 올리는 것들이다.
+ * 판정을 한 곳에 두는 이유: 저장소가 막고 화면이 그 판정으로 단추를 감춘다. 두 벌이면
+ * 「단추는 있는데 눌리지 않는」 자리가 생긴다.
+ */
+export function canChangeContractDocs(role: Role, status: ProcessStatus): boolean {
+  if (!canWrite(role)) return false;
+  if (isHanbaek(role)) return true;
+  return statusIndex(status) < statusIndex(CONTRACT_DOCS_LOCK_AT);
+}
+
+/** 못 바꾸는 이유 — 저장소와 화면이 같은 문장을 쓴다 */
+export const CONTRACT_DOCS_LOCKED_WHY =
+  '운영사에 계약서를 낸 뒤로는 계약 서류를 바꿀 수 없습니다 — 고칠 것이 있으면 진행현황에 남겨주세요.';
 
 /**
  * 지금 넘어갈 수 있는 상태들.

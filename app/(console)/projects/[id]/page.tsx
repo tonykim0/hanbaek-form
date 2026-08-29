@@ -3,7 +3,7 @@ import ProjectDetailView, { type TabKey } from '@/components/project/DetailView'
 import { getRepository } from '@/lib/data';
 import { actorOf, getSessionUser, viewerOf } from '@/lib/auth/session';
 import { canWrite, effectiveVisibility, isHanbaek, normalizeOrg } from '@/lib/roles';
-import type { ProcessEdit } from '@/lib/process';
+import { canChangeContractDocs, type ProcessEdit } from '@/lib/process';
 import { matchingRules, type RuleOptions } from '@/lib/pricing-match';
 import type { SettlementRuleChoice } from '@/types/project';
 import { knownOrgs } from '@/lib/orgs';
@@ -123,6 +123,12 @@ export default async function ProjectPage({
        * 이미 접근 판정을 지난 것이므로(저장소가 걸렀다) 열람 전용만 가른다.
        */
       canSubmit={canWrite(session.role)}
+      /*
+       * 계약 서류를 바꿀 수 있는가 — ★운영사에 낸 뒤로 협력사는 못 바꾼다★
+       * (한백 지시 2026-08-29). 판정은 lib/process 한 곳이고, 저장소도 같은 것을 본다 —
+       * 화면에서 단추만 감추면 주소를 직접 두드리는 길이 남는다.
+       */
+      canEditDocs={canChangeContractDocs(session.role, detail.process.status)}
     />
   );
 }

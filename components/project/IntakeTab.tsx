@@ -9,7 +9,7 @@
 import { useState } from 'react';
 import type { ContractState, ProcessStatus, ProjectDetail, ProjectDocument } from '@/types/project';
 import { PROCESS_STATUSES, replLabel } from '@/types/project';
-import { statusIndex } from '@/lib/process';
+import { CONTRACT_DOCS_LOCKED_WHY, statusIndex } from '@/lib/process';
 import { evaluateDocs, needsPreInstallCheck, type DocReq } from '@/lib/doc-rules';
 import { DocDelete, DocFileActions, DocUpload, DownloadAll } from '@/components/DocFiles';
 import { useAction } from '@/lib/use-action';
@@ -123,7 +123,7 @@ function FactGroup({ title, rows }: { title: string; rows: Array<[string, string
 }
 
 export function IntakeTab({
-  project, evaluated, byKind, contract, projectId, siteName, canReview, canSubmit,
+  project, evaluated, byKind, contract, projectId, siteName, canReview, canSubmit, canEditDocs,
   knownOrgs, status,
 }: {
   knownOrgs: string[];
@@ -137,6 +137,12 @@ export function IntakeTab({
   canReview: boolean;
   /** 계약서 접수를 누를 수 있는가 — 내는 쪽(협력사·한백) */
   canSubmit: boolean;
+  /**
+   * 계약 서류를 올리고 뺄 수 있는가 — ★운영사에 낸 뒤로 협력사는 못 바꾼다★
+   * (한백 지시 2026-08-29). 한백은 그 뒤에도 바꾼다: 운영사가 반려해 다시 내는 길이 있어야 한다.
+   * 판정은 lib/process 의 canChangeContractDocs 한 곳이고 저장소도 같은 것을 본다.
+   */
+  canEditDocs: boolean;
   /** 지금 서 있는 진행 단계 — 계약완료면 여기서 다음 걸음을 민다 */
   status: ProcessStatus;
 }) {
@@ -247,7 +253,7 @@ export function IntakeTab({
         byKind={byKind}
         siteName={siteName}
         canReview={canReview}
-        canRemove={canSubmit || canReview}
+        canRemove={canEditDocs}
       />
 
       <section>
@@ -273,6 +279,18 @@ export function IntakeTab({
             />
           </div>
         </div>
+
+        {/*
+          * 잠긴 이유는 한 번만 적는다 — 칸마다 「못 바꿉니다」를 달면 열여섯 번 같은 말을
+          * 하게 된다. 단추가 사라진 자리의 까닭을 여기서 말하고, 대신 무엇을 하라는 것까지
+          * 적는다(화면 규칙 3). 쓸 수 있는 사람인데 못 바꾸는 경우만이다 — 열람 전용은
+          * 애초에 바꿀 것이 없어서 이 말이 오해가 된다.
+          */}
+        {canSubmit && !canEditDocs && (
+          <Note tone="mute" className="mb-3">
+            {CONTRACT_DOCS_LOCKED_WHY}
+          </Note>
+        )}
 
         {rejected.length > 0 && (
           <Note tone="stop" className="mb-3">
@@ -416,7 +434,7 @@ export function IntakeTab({
                               siteName={siteName}
                               label={d.label}
                               projectId={projectId}
-                              canRemove={canSubmit || canReview}
+                              canRemove={canEditDocs}
                             />
                           </div>
                         )}
@@ -426,9 +444,9 @@ export function IntakeTab({
                           * 올릴 것도 검수할 것도 없다. 빈 줄에 선만 그으면 카드마다 쓸모없는
                           * 층이 하나 늘어난다(화면 규칙 1).
                           */}
-                        {(d.req !== 'o' || (canReview && doc && doc.status !== 'none')) && (
+                        {((d.req !== 'o' && canEditDocs) || (canReview && doc && doc.status !== 'none')) && (
                         <div className="mt-auto flex flex-wrap items-center gap-x-2 gap-y-1 border-t border-slate-900/[0.07] pt-2">
-                          {d.req !== 'o' && (
+                          {d.req !== 'o' && canEditDocs && (
                             <DocUpload
                               projectId={projectId}
                               kind={d.key}

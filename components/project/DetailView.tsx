@@ -48,6 +48,7 @@ export default function ProjectDetailView({
   initialTab,
   processEdit,
   canSubmit,
+  canEditDocs,
 }: {
   detail: ProjectDetail;
   /** 세션에서 계산된 가시성. 화면에서 고를 수 있는 값이 아니다. */
@@ -74,6 +75,11 @@ export default function ProjectDetailView({
   processEdit: ProcessEdit;
   /** 「계약서 접수하기」를 누를 수 있는가 — 내는 쪽(협력사·한백), 열람 전용은 아니다 */
   canSubmit: boolean;
+  /**
+   * 계약 서류를 올리고 뺄 수 있는가 — 운영사에 낸 뒤로 협력사는 못 바꾼다.
+   * 접수하기(canSubmit)와 가르는 이유: 그 단추는 확인 전에만 서고, 이쪽은 낼 때까지 산다.
+   */
+  canEditDocs: boolean;
 }) {
   /*
    * 주소에 탭이 없으면 국면이 정한다 — stage 를 그대로 쓰지 않는다.
@@ -278,6 +284,7 @@ export default function ProjectDetailView({
               siteName={project.name}
               canReview={canReview}
               canSubmit={canSubmit}
+              canEditDocs={canEditDocs}
               status={process.status}
             />
           )}

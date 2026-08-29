@@ -13,8 +13,10 @@ import { getDb } from '@/lib/db/client';
 import { writeAudit } from '@/lib/db/audit';
 import { documents, processDocuments, processes, projects } from '@/lib/db/schema';
 import { today } from '@/lib/date';
-import { canAccessProject, canWrite } from '@/lib/roles';
-import { asProcessStatus, statusIndex } from '@/lib/process';
+import { canAccessProject, canWrite, isHanbaek } from '@/lib/roles';
+import {
+  asProcessStatus, canChangeContractDocs, CONTRACT_DOCS_LOCKED_WHY, statusIndex,
+} from '@/lib/process';
 import { isProcessDocKind } from '../assemble';
 import { PROCESS_DOCS } from '@/lib/doc-rules';
 import type { DocFile, DocStatus, ProjectDocument } from '@/types/project';
@@ -155,6 +157,7 @@ export const docStore: Pick<
       if (!canAccessProject(actor.role, actor.org, project)) {
         throw new Error('이 현장의 서류를 지울 권한이 없습니다.');
       }
+      await assertContractDocsOpen(tx, input.projectId, input.kind, actor);
 
       const table = isProcessDocKind(input.kind) ? processDocuments : documents;
       const where = and(eq(table.projectId, input.projectId), eq(table.kind, input.kind));
@@ -227,6 +230,7 @@ export const docStore: Pick<
       if (!canAccessProject(actor.role, actor.org, project)) {
         throw new Error('이 현장에 서류를 올릴 권한이 없습니다.');
       }
+      await assertContractDocsOpen(tx, input.projectId, input.kind, actor);
 
       /*
        * 계약 서류와 공정 서류는 다른 표에 산다.
@@ -239,6 +243,32 @@ export const docStore: Pick<
   },
 };
 
+
+/**
+ * 계약 서류가 잠겼으면 막는다 — ★운영사에 낸 뒤로 협력사는 못 바꾼다★ (한백 지시 2026-08-29).
+ *
+ * 화면에서 단추를 감추는 것만으로는 부족하다: 주소를 직접 두드리면 그대로 들어온다.
+ * 판정은 lib/process 한 곳이고 여기서는 그것을 부른다. 공정 서류는 이 잠금 밖이다 —
+ * 시공사가 착공 뒤에도 계속 올리는 것들이라, 같이 잠그면 시공이 멈춘다.
+ */
+async function assertContractDocsOpen(
+  tx: TxLike,
+  projectId: string,
+  kind: string,
+  actor: Actor
+): Promise<void> {
+  if (isProcessDocKind(kind)) return;
+  if (isHanbaek(actor.role)) return;
+  const [proc] = await tx
+    .select({ status: processes.status })
+    .from(processes)
+    .where(eq(processes.projectId, projectId))
+    .limit(1);
+  // 공정 행이 아직 없으면 계약완료 자리다 — asProcessStatus 가 그 기본값을 안다
+  if (!canChangeContractDocs(actor.role, asProcessStatus(proc?.status))) {
+    throw new Error(CONTRACT_DOCS_LOCKED_WHY);
+  }
+}
 
 /**
  * 올린 파일을 기존 목록 뒤에 쌓는다 — 갈아치우지 않는다 (한백 지시 2026-08-25).

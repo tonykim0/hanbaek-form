@@ -35,7 +35,7 @@ import { formatKoreanBizIdInput } from '@/lib/bizid';
 import { batchStateOf } from '@/lib/payout-board';
 import { useAction } from '@/lib/use-action';
 import { Badge, Btn, Empty, Err, FIELD_CELL, Saved } from '@/components/ui';
-import { won } from './parts';
+import { SiteLink, won } from './parts';
 import { useFinalizeBatch, useTaxInvoiceUpload } from './use-batch';
 
 /**
@@ -323,8 +323,14 @@ function ItemRow({
 
   return (
     <tr>
+      {/*
+        * 현장명은 누르는 것이다 (한백 지시 2026-08-29) — 그 현장의 협력사 정산관리로 간다.
+        * 명세서에서 「이 줄이 왜 이 금액인가」를 물으면 답은 그 현장의 지급조건·원장에 있다.
+        * 지급관리(PayoutWorkBoard)·기성관리(ReceivableBoard)가 이미 같은 부품으로 같은
+        * 자리를 열고 있어서, 세 화면의 현장명이 같은 곳을 가리키게 된다.
+        */}
       <td className="py-2.5 pr-3 font-semibold text-slate-800">
-        {r.projectName}
+        <SiteLink id={r.projectId} name={r.projectName} tab="settlement" />
         <span className="ml-1.5 text-tiny font-normal text-slate-400">{r.cpo}</span>
       </td>
       {showKind && <td className="whitespace-nowrap px-3 py-2.5 text-slate-600">{r.kind}</td>}

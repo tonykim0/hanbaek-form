@@ -36,6 +36,26 @@ const token = () => process.env.BLOB_READ_WRITE_TOKEN;
  * 주소는 `https://{store}.public.blob.vercel-storage.com/{경로}` 모양이다.
  * 한글 파일이름은 주소에서 인코딩돼 있으므로 되돌린다.
  */
+/**
+ * 우리 Blob 스토어의 https 주소인가 — 맞으면 그 경로를 돌려준다.
+ *
+ * ★클라이언트가 준 주소를 그대로 믿지 않는다.★ 붙이기 단계에 주소가 본문으로 오는데,
+ * 호스트를 안 보면 남의 서버 주소가 우리 기록에 그대로 남고(한백 화면의 링크가 된다),
+ * 지울 때도 그 주소가 그대로 del() 로 나간다. 서류 붙이기가 하던 검사를 여기로 올려
+ * 세금계산서도 같은 것을 보게 한다(2026-08-30 검토에서 갈려 있던 것이 드러났다).
+ */
+const BLOB_HOST_RE = /(^|\.)blob\.vercel-storage\.com$/;
+
+export function ourBlobPathname(blobUrl: string): string | null {
+  try {
+    const u = new URL(blobUrl);
+    if (u.protocol !== 'https:' || !BLOB_HOST_RE.test(u.hostname)) return null;
+    return decodeURIComponent(u.pathname).replace(/^\//, '');
+  } catch {
+    return null;
+  }
+}
+
 export function pathnameOfBlobUrl(blobUrl: string): string | null {
   try {
     return decodeURIComponent(new URL(blobUrl).pathname).replace(/^\//, '');

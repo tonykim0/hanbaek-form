@@ -32,7 +32,7 @@ import type { PayoutKind, PayoutRow, TaxInvoice } from '@/types/project';
 import type { PartnerDetailsView } from '@/lib/auth/partner-details';
 import { HANBAEK } from '@/lib/hanbaek';
 import { formatKoreanBizIdInput } from '@/lib/bizid';
-import { batchStateOf } from '@/lib/payout-board';
+import { batchStateOf, INVOICE_LOCKED_WHY } from '@/lib/payout-board';
 import { useAction } from '@/lib/use-action';
 import { Badge, Btn, Empty, Err, FIELD_CELL, Saved } from '@/components/ui';
 import { SiteLink, won } from './parts';
@@ -51,7 +51,7 @@ import { useFinalizeBatch, useTaxInvoiceUpload } from './use-batch';
 const vatOf = (amount: number) => Math.round(amount * 0.1);
 
 export default function StatementView({
-  rows, org, partner, issuedAt, date, kind, invoice, finalized, canEdit,
+  rows, org, partner, issuedAt, date, kind, invoice, finalized, canEdit, canAttach,
 }: {
   rows: PayoutRow[];
   org: string;
@@ -62,12 +62,17 @@ export default function StatementView({
   date: string;
   /** 배치의 구분 — null 이면 그 지급일 전체를 읽기로만 본다(옛 링크) */
   kind: PayoutKind | null;
-  /** 이 배치의 세금계산서 — 한백의 눈일 때만 내려온다(협력사는 null) */
+  /** 이 배치의 세금계산서 — 협력사에게는 자기 지급처 것만 내려온다(저장소가 가른다) */
   invoice: TaxInvoice | null;
   /** 최종 확정 여부 — batch_finals 의 행 유무. 계산서와 무관하다. */
   finalized: boolean;
   /** 항목 빼기·지급일 변경·세금계산서 관리 — 관리자만, 배치(kind 있음)일 때만 */
   canEdit: boolean;
+  /**
+   * 계산서를 붙이고 바꿀 수 있는가 — 협력사는 자기 지급처의 확정 전 배치만
+   * (판정은 lib/payout-board 의 canAttachInvoice, 저장소도 같은 것을 본다).
+   */
+  canAttach: boolean;
 }) {
   const supply = rows.reduce((n, r) => n + r.amount, 0);
   /*
@@ -253,7 +258,21 @@ export default function StatementView({
               </>
             )}
           </div>
-          <InvoiceCard org={org} kind={kind} date={date} invoice={invoice} />
+          <InvoiceCard org={org} kind={kind} date={date} invoice={invoice} canAttach={canAttach} />
+        </div>
+      )}
+
+      {/*
+        * 협력사 자리 — ★자기가 낸 계산서를 여기서 올리고 본다★ (한백 지시 2026-08-30).
+        * 목록에서도 올릴 수 있지만, 「무엇에 대한 계산서인가」가 가장 잘 보이는 곳이 이 장이다.
+        * 올릴 수 없고 낸 것도 없으면 칸을 세우지 않는다 — 빈 상자만 남는다.
+        */}
+      {!canEdit && kind && (canAttach || invoice) && (
+        <div className="mt-5 print:hidden lg:max-w-md">
+          <InvoiceCard
+            org={org} kind={kind} date={date} invoice={invoice}
+            canAttach={canAttach} pdfOnly
+          />
         </div>
       )}
     </>
@@ -373,16 +392,20 @@ function ItemRow({
  * 확정 여부와 상관없이 언제든 붙이고 바꾸고 지운다.
  */
 function InvoiceCard({
-  org, kind, date, invoice,
+  org, kind, date, invoice, canAttach, pdfOnly = false,
 }: {
   org: string;
   kind: PayoutKind;
   date: string;
   invoice: TaxInvoice | null;
+  /** 못 붙이면 낸 것만 보인다 — 확정된 배치를 협력사가 바꾸지 못하게 */
+  canAttach: boolean;
+  /** 협력사 자리는 PDF 만 */
+  pdfOnly?: boolean;
 }) {
   const router = useRouter();
   // 업로드 흐름은 배치 목록의 줄과 같은 훅이다 — 두 자리가 다른 길로 붙으면 갈린다
-  const { busy, error, inputProps } = useTaxInvoiceUpload(org, kind, date);
+  const { busy, error, inputProps } = useTaxInvoiceUpload(org, kind, date, pdfOnly);
   const del = useAction();
 
   async function remove() {
@@ -400,7 +423,10 @@ function InvoiceCard({
     <section className="rounded-panel border border-slate-200 bg-white p-5">
       <h2 className="mb-3 text-base font-black tracking-[-0.02em] text-slate-900">세금계산서</h2>
 
-      {!invoice ? (
+      {!invoice && !canAttach ? (
+        /* 확정된 배치인데 낸 것이 없다 — 이제 여기서 붙일 수 없다는 사실만 적는다 */
+        <p className="text-small text-slate-400">{INVOICE_LOCKED_WHY}</p>
+      ) : !invoice ? (
         <label className="block">
           <span className="mb-2 block text-small text-slate-500">
             {org}이(가) {kind} 몫으로 발행한 세금계산서를 이 명세서 옆에 붙여 둡니다
@@ -426,18 +452,21 @@ function InvoiceCard({
             <span className="text-tiny text-slate-400">첨부 {invoice.uploadedAt}</span>
           </p>
 
-          <div className="flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3">
-            <label className="cursor-pointer text-small font-bold text-slate-500 transition hover:text-slate-800">
-              파일 교체
-              <input {...inputProps} className="hidden" />
-            </label>
-            <span className="ml-auto" />
-            <Btn kind="quiet" size="sm" busy={del.busy} onClick={() => void remove()}>
-              삭제
-            </Btn>
-            {busy && <span className="text-small font-bold text-slate-500">올리는 중…</span>}
-            <Err>{error ?? del.error}</Err>
-          </div>
+          {/* 바꾸고 지우는 줄은 바꿀 수 있을 때만 — 확정된 뒤에는 낸 것만 보인다 */}
+          {canAttach && (
+            <div className="flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3">
+              <label className="cursor-pointer text-small font-bold text-slate-500 transition hover:text-slate-800">
+                파일 교체
+                <input {...inputProps} className="hidden" />
+              </label>
+              <span className="ml-auto" />
+              <Btn kind="quiet" size="sm" busy={del.busy} onClick={() => void remove()}>
+                삭제
+              </Btn>
+              {busy && <span className="text-small font-bold text-slate-500">올리는 중…</span>}
+              <Err>{error ?? del.error}</Err>
+            </div>
+          )}
         </div>
       )}
     </section>

@@ -15,11 +15,10 @@ import {
   dropBlob,
   moveStagedTo,
   ourBlob,
+  ourBlobPathname,
   pathnameOfBlobUrl,
   stagedPathnameOf,
 } from '@/lib/intake-stage';
-
-const BLOB_HOST_RE = /(^|\.)blob\.vercel-storage\.com$/;
 
 export type AttachResult =
   | { ok: true; already?: boolean }
@@ -53,10 +52,8 @@ export async function attachDocument(input: {
   if (!isKnownDocKind(kind)) {
     return { ok: false, status: 400, error: '서류 종류가 올바르지 않습니다.' };
   }
-  try {
-    const u = new URL(input.blobUrl);
-    if (u.protocol !== 'https:' || !BLOB_HOST_RE.test(u.hostname)) throw new Error();
-  } catch {
+  // 우리 스토어의 주소인가 — 판정은 lib/intake-stage 한 곳이다(세금계산서도 같은 것을 본다)
+  if (!ourBlobPathname(input.blobUrl)) {
     return { ok: false, status: 400, error: '파일 주소가 올바르지 않습니다.' };
   }
 

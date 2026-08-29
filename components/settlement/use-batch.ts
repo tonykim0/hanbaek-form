@@ -17,7 +17,13 @@ import { useAction } from '@/lib/use-action';
  * 파일 입력은 inputProps 를 그대로 편다 — 고른 뒤 value 를 비우는 것(같은 파일을
  * 다시 골라도 onChange 가 뜨게)까지가 한 벌이다.
  */
-export function useTaxInvoiceUpload(org: string, kind: PayoutKind, payDate: string) {
+export function useTaxInvoiceUpload(
+  org: string,
+  kind: PayoutKind,
+  payDate: string,
+  /** 협력사가 올리는 자리는 PDF 만 — 전자세금계산서의 정본이 PDF 다(2026-08-30) */
+  pdfOnly = false
+) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -27,6 +33,11 @@ export function useTaxInvoiceUpload(org: string, kind: PayoutKind, payDate: stri
     setError(null);
     try {
       const ext = file.name.split('.').pop()?.toLowerCase() ?? 'pdf';
+      /* 고르는 창을 넘어오는 길이 있다(드래그·구형 브라우저) — 여기서 한 번 더 본다 */
+      if (pdfOnly && file.type !== 'application/pdf') {
+        setError('세금계산서는 PDF 로 올려주세요.');
+        return;
+      }
       const tokenRes = await fetch('/api/statements/tax-invoice', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -66,7 +77,7 @@ export function useTaxInvoiceUpload(org: string, kind: PayoutKind, payDate: stri
 
   const inputProps: InputHTMLAttributes<HTMLInputElement> = {
     type: 'file',
-    accept: TAX_INVOICE_TYPES.join(','),
+    accept: (pdfOnly ? ['application/pdf'] : TAX_INVOICE_TYPES).join(','),
     disabled: busy,
     onChange: (e) => {
       const f = e.target.files?.[0];

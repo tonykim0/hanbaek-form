@@ -38,8 +38,11 @@ export default async function StatementsPage() {
     getRepository().listPayoutOverview(viewerOf(session)),
     // 가확정/확정 배지의 정본 — 협력사는 자기 지급처 것만 받는다
     getRepository().listBatchFinals(actorOf(session)),
-    // 첨부는 한백의 보관함 — 협력사 화면에는 열 자체가 없다
-    seesAll ? getRepository().listTaxInvoices(actorOf(session)) : Promise.resolve([]),
+    /*
+     * 계산서 — 한백은 전부, ★협력사는 자기 지급처 것만★ (저장소가 가른다, 2026-08-30).
+     * 협력사가 직접 올리게 되면서 자기가 올린 것을 화면에서 봐야 한다.
+     */
+    getRepository().listTaxInvoices(actorOf(session)),
   ]);
 
   /*
@@ -88,6 +91,9 @@ export default async function StatementsPage() {
         invoices={invoices}
         seesAll={seesAll}
         canEdit={session.role === 'admin'}
+        /* 계산서를 붙일 수 있는 배치인지 줄마다 가리려면 보는 사람이 누구인지가 필요하다 */
+        role={session.role}
+        myOrg={session.org}
       />
     </div>
   );

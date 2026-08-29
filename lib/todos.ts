@@ -97,8 +97,12 @@ export async function todosOf(session: SessionPayload): Promise<TodoItem[]> {
    *   관리자   확정 누락 → 확정은 지급의 전제인데 건너뛴 채 지급일이 지난 것
    */
   const batches = batchesOf(history, finals);
+  /*
+   * ★계산서를 이미 올린 배치는 빠진다★ (2026-08-30). 협력사가 콘솔에서 직접 올리게
+   * 되면서, 올린 뒤에도 「세금계산서 발행」이 남으면 처리해도 줄지 않는 할 일이 된다.
+   */
   const invoices: TodoItem[] = !wantsInvoices ? [] : batches
-    .filter((b) => b.org && batchStateOf(b) === '가확정')
+    .filter((b) => b.org && !b.invoice && batchStateOf(b) === '가확정')
     .sort((a, b) => a.paidAt.localeCompare(b.paidAt))
     .map((b) => ({
       id: `invoice|${batchKey(b.paidAt, b.org, b.kind)}`,

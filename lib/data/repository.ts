@@ -470,7 +470,10 @@ export interface ProjectRepository {
     org: string, kind: PayoutKind, from: string, to: string, actor: Actor
   ): Promise<{ moved: number }>;
 
-  /** 세금계산서 목록 — 한백의 보관함. 배치 상태는 listBatchFinals 가 따로 준다. [한백의 눈] */
+  /**
+ * 세금계산서 목록 — 한백은 전부, ★협력사는 자기 지급처 것만★ (2026-08-30).
+ * 배치 상태는 listBatchFinals 가 따로 준다.
+ */
   listTaxInvoices(actor: Actor): Promise<TaxInvoice[]>;
 
   /**
@@ -495,7 +498,8 @@ export interface ProjectRepository {
   ): Promise<{ canceled: number }>;
 
   /**
-   * 세금계산서 저장 — 배치 하나에 한 장(같은 배치에 다시 올리면 교체). [한백 전용]
+   * 세금계산서 저장 — 배치 하나에 한 장(같은 배치에 다시 올리면 교체).
+   * [한백 · 그 지급처의 협력사 — 자기 배치가 확정되기 전까지]
    * 금액(공급가액·세액·합계)은 AI 판독이 검산을 통과했을 때만 실려 온다.
    */
   saveTaxInvoice(
@@ -511,7 +515,10 @@ export interface ProjectRepository {
     actor: Actor
   ): Promise<void>;
 
-  /** 세금계산서 삭제 — 지운 파일 주소를 돌려준다(라우트가 Blob 도 지운다). [한백 전용] */
+  /**
+   * 세금계산서 삭제 — 지운 파일 주소를 돌려준다(라우트가 Blob 도 지운다).
+   * [한백 · 그 지급처의 협력사 — 붙일 수 있는 사람이 뺄 수도 있다]
+   */
   deleteTaxInvoice(id: string, actor: Actor): Promise<{ blobUrl: string }>;
 
   /**

@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { getRepository } from '@/lib/data';
 import { actorOf, getSessionUser, viewerOf } from '@/lib/auth/session';
 import { isHanbaek } from '@/lib/roles';
+import { canAttachInvoice } from '@/lib/payout-board';
 import { PAYOUT_KINDS } from '@/types/project';
 import { getPartnerDetails } from '@/lib/auth/partner-details';
 import { userStore } from '@/lib/auth/users';
@@ -57,7 +58,8 @@ export default async function StatementPage({
     .sort((a, b) => a.projectName.localeCompare(b.projectName, 'ko') || a.kind.localeCompare(b.kind));
 
   // 세금계산서는 한백의 눈만 — 협력사 화면에는 섹션 자체가 없다
-  const invoice = seesAll && kind
+  // 협력사도 자기 지급처 것은 받는다 — 저장소가 가른다(2026-08-30)
+  const invoice = kind
     ? (await getRepository().listTaxInvoices(actorOf(session))).find(
         (i) => i.org === org && i.kind === kind && i.payDate === date
       ) ?? null
@@ -112,6 +114,10 @@ export default async function StatementPage({
         invoice={invoice}
         finalized={finalized}
         canEdit={session.role === 'admin' && kind !== null}
+        /* 계산서를 붙일 수 있는가 — 협력사는 자기 지급처의 확정 전 배치만 */
+        canAttach={kind !== null && canAttachInvoice({
+          role: session.role, org: session.org, batchOrg: org, finalized,
+        })}
       />
     </div>
   );

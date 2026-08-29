@@ -16,7 +16,7 @@ import {
   payoutPrerequisiteBlockersOf, payoutReleaseOf, payoutSideOf, payoutStepsOf,
 } from '@/lib/settlement';
 import { today } from '@/lib/date';
-import type { Visibility } from '@/lib/roles';
+import { canWrite, isHanbaek, normalizeOrg, type Role, type Visibility } from '@/lib/roles';
 
 /**
  * 화면이 받는 지급 줄 — 도메인 타입(PayoutPlanRow)과 같다.
@@ -204,3 +204,40 @@ export function batchesOf(
       || a.kind.localeCompare(b.kind)
   );
 }
+
+/**
+ * 이 배치에 세금계산서를 올리고 뺄 수 있는가 (한백 지시 2026-08-30).
+ *
+ * ★협력사가 직접 올린다.★ 예전에는 한백만 올릴 수 있어서, 협력사가 메일로 보내면 한백이
+ * 받아 옮겨 붙였다. 발행은 협력사의 일이고 그 파일도 협력사가 들고 있으니, 그 자리에서
+ * 바로 붙이는 것이 한 걸음 적다.
+ *
+ * ★자기 지급처의 배치만.★ 배치는 (지급처 × 구분 × 지급일)이라, 남의 지급처를 적어 보내면
+ * 남의 계산서를 갈아치울 수 있다. 소속으로 막는다.
+ *
+ * ★확정되면 잠긴다.★ 확정은 한백이 배치를 잠그는 행위다 — 그 뒤에 협력사가 파일을 바꾸면
+ * 한백이 보고 잠근 것과 붙어 있는 것이 달라진다. 한백은 확정 뒤에도 바꿀 수 있다:
+ * 첨부는 보관이라 잠금과 무관하고(그 판단은 2026-08-24), 잘못 온 계산서를 고치는 것은
+ * 한백의 일이다.
+ *
+ * 열람 전용은 못 한다.
+ */
+export function canAttachInvoice(input: {
+  role: Role;
+  /** 보는 사람의 소속 */
+  org: string | null;
+  /** 그 배치의 지급처 */
+  batchOrg: string | null;
+  /** 그 배치가 최종 확정됐나 */
+  finalized: boolean;
+}): boolean {
+  if (!canWrite(input.role)) return false;
+  if (isHanbaek(input.role)) return true;
+  if (!input.org || !input.batchOrg) return false;
+  if (normalizeOrg(input.org) !== normalizeOrg(input.batchOrg)) return false;
+  return !input.finalized;
+}
+
+/** 못 붙이는 까닭 — 저장소와 화면이 같은 문장을 쓴다 */
+export const INVOICE_LOCKED_WHY =
+  '확정된 배치입니다 — 계산서를 바꾸려면 한백에 알려주세요.';

@@ -13,9 +13,10 @@ import { writeAudit } from '@/lib/db/audit';
 import { batchFinals, payoutEntries, projects, taxInvoices } from '@/lib/db/schema';
 import { today } from '@/lib/date';
 import { entryTypeOf } from '@/lib/settlement';
-import { isHanbaek, normalizeOrg } from '@/lib/roles';
+import { canWrite, isHanbaek, normalizeOrg } from '@/lib/roles';
+import { canAttachInvoice, INVOICE_LOCKED_WHY } from '@/lib/payout-board';
 import type { BatchFinal, PayoutCategory, PayoutKind, TaxInvoice } from '@/types/project';
-import type { ProjectRepository } from '../repository';
+import type { Actor, ProjectRepository } from '../repository';
 import { assertAdmin, assertHanbaek } from './shared';
 
 /** pgRepository 가 펼쳐 담는 조각 — 이름과 시그니처는 인터페이스가 정한다 */
@@ -82,8 +83,24 @@ export const batchStore: Pick<
   },
 
   async listTaxInvoices(actor): Promise<TaxInvoice[]> {
-    // 한백의 보관함이다 — 배치의 확정 상태는 listBatchFinals 가 따로 준다
-    assertHanbaek(actor, '세금계산서 조회');
+    /*
+     * 한백은 전부, ★협력사는 자기 지급처 것만★ (한백 지시 2026-08-30 — 협력사가 직접
+     * 올리게 되면서 자기가 올린 것을 화면에서 봐야 한다). 배치의 확정 상태는
+     * listBatchFinals 가 따로 준다.
+     *
+     * 화면에서 거르지 않는다 — 서버가 렌더한 데이터는 브라우저에 통째로 실린다.
+     */
+    if (!isHanbaek(actor.role)) {
+      if (!actor.org) return [];
+      const mine = await getDb().select().from(taxInvoices)
+        .where(eq(taxInvoices.org, actor.org));
+      return mine.map((r) => ({
+        id: r.id, org: r.org, kind: r.kind as PayoutKind, payDate: r.payDate,
+        blobUrl: r.blobUrl, filename: r.filename,
+        supplyAmount: r.supplyAmount, taxAmount: r.taxAmount, totalAmount: r.totalAmount,
+        uploadedAt: r.uploadedAt,
+      }));
+    }
     const rows = await getDb().select().from(taxInvoices);
     return rows.map((r) => ({
       id: r.id, org: r.org, kind: r.kind as PayoutKind, payDate: r.payDate,
@@ -204,9 +221,25 @@ export const batchStore: Pick<
   },
 
   async saveTaxInvoice(input, actor): Promise<{ id: string; replacedBlobUrl: string | null }> {
-    assertAdmin(actor, '세금계산서 저장');
-    if (!input.org.trim()) throw new Error('지급처가 없습니다.');
+    if (!canWrite(actor.role)) throw new Error('열람 전용 계정입니다.');
+    /*
+     * ★지급처는 여기서 한 번 정규화하고 그 값만 쓴다★ (2026-08-30 검토).
+     * 판정(canAttachInvoice)은 normalizeOrg 로 느슨하게 보는데 조회는 원문으로 하고
+     * 있어서, 이름 가운데 제로폭 문자를 하나 끼우면 소속 판정은 통과하고 확정 조회는
+     * 빗나갔다 — 확정된 배치에 붙는 길이 열려 있었다. DB 의 지급처는 이미 정규화된
+     * 값이라(계정·현장 저장이 그렇게 한다) 정규화한 값으로 맞추는 것이 옳다.
+     */
+    const org = normalizeOrg(input.org);
+    if (!org) throw new Error('지급처가 없습니다.');
+    // 형식 → 배치가 실재하나 → 붙일 권한이 있나. 형식이 깨진 날짜로 조회부터 하지 않는다
     if (!/^\d{4}-\d{2}-\d{2}$/.test(input.payDate)) throw new Error('지급일이 올바르지 않습니다.');
+    await assertBatchExists(org, input.kind, input.payDate);
+    /*
+     * ★협력사는 자기 지급처의 배치에만, 확정 전까지만★ (한백 지시 2026-08-30).
+     * 판정은 lib/payout-board 한 곳이고 화면도 같은 것을 본다 — 화면에서 단추만 감추면
+     * 남의 지급처를 적어 보내는 길이 남는다.
+     */
+    await assertCanAttach(actor, org, input.kind, input.payDate);
 
     const db = getDb();
     const id = crypto.randomUUID();
@@ -216,7 +249,7 @@ export const batchStore: Pick<
         .select()
         .from(taxInvoices)
         .where(and(
-          eq(taxInvoices.org, input.org),
+          eq(taxInvoices.org, org),
           eq(taxInvoices.kind, input.kind),
           eq(taxInvoices.payDate, input.payDate),
         ))
@@ -225,13 +258,13 @@ export const batchStore: Pick<
       if (prev) await tx.delete(taxInvoices).where(eq(taxInvoices.id, prev.id));
 
       await tx.insert(taxInvoices).values({
-        id, org: input.org, kind: input.kind, payDate: input.payDate,
+        id, org, kind: input.kind, payDate: input.payDate,
         blobUrl: input.blobUrl, filename: input.filename,
         supplyAmount: input.supplyAmount, taxAmount: input.taxAmount, totalAmount: input.totalAmount,
         uploadedAt: today(),
       });
       await writeAudit(tx, {
-        projectId: null, actor, action: `세금계산서 ${prev ? '교체' : '저장'} — ${input.org} ${input.kind} ${input.payDate}`,
+        projectId: null, actor, action: `세금계산서 ${prev ? '교체' : '저장'} — ${org} ${input.kind} ${input.payDate}`,
         field: 'file', oldValue: prev?.filename ?? null,
         newValue: `${input.filename}${input.supplyAmount !== null ? ` · 공급가액 ${input.supplyAmount}원` : ' · 금액 미확인'}`,
       });
@@ -259,8 +292,12 @@ export const batchStore: Pick<
   },
 
   async deleteTaxInvoice(id, actor): Promise<{ blobUrl: string }> {
-    assertAdmin(actor, '세금계산서 삭제');
+    if (!canWrite(actor.role)) throw new Error('열람 전용 계정입니다.');
     const db = getDb();
+    const [target] = await db.select().from(taxInvoices).where(eq(taxInvoices.id, id)).limit(1);
+    if (!target) throw new Error('세금계산서를 찾을 수 없습니다.');
+    // 붙이는 것과 같은 판정이다 — 올릴 수 있는 사람이 뺄 수도 있다
+    await assertCanAttach(actor, target.org, target.kind as PayoutKind, target.payDate);
     return db.transaction(async (tx) => {
       const [row] = await tx.select().from(taxInvoices).where(eq(taxInvoices.id, id)).limit(1);
       if (!row) throw new Error('세금계산서를 찾을 수 없습니다.');
@@ -273,3 +310,65 @@ export const batchStore: Pick<
     });
   },
 };
+
+/**
+ * 세금계산서를 붙이거나 뺄 수 있는지 — 못 하면 왜인지 말하고 던진다.
+ *
+ * 확정 여부는 여기서 읽는다(batch_finals). 판정 자체는 lib/payout-board 의
+ * canAttachInvoice 한 곳이고, 화면도 그것을 본다.
+ */
+async function assertCanAttach(
+  actor: Actor,
+  org: string,
+  kind: PayoutKind,
+  payDate: string
+): Promise<void> {
+  if (isHanbaek(actor.role)) return;
+  /*
+   * ★소속을 먼저 본다★ (2026-08-30 검토). 확정 여부를 먼저 읽고 문구를 가르면, 남의
+   * 지급처를 적어 보낸 사람이 「확정된 배치입니다」라는 답으로 ★남의 배치가 지급까지
+   * 갔는지★를 알아낸다. 남의 것이면 확정을 묻지도 말고 같은 문구로 막는다.
+   */
+  if (!canAttachInvoice({ role: actor.role, org: actor.org, batchOrg: org, finalized: false })) {
+    throw new Error('내 지급처의 계산서만 올릴 수 있습니다.');
+  }
+  const [fin] = await getDb()
+    .select({ id: batchFinals.id })
+    .from(batchFinals)
+    .where(and(
+      eq(batchFinals.org, org),
+      eq(batchFinals.kind, kind),
+      eq(batchFinals.payDate, payDate),
+    ))
+    .limit(1);
+  if (fin) throw new Error(INVOICE_LOCKED_WHY);
+}
+
+/**
+ * 그 배치가 실제로 있나 — 그 지급일에 그 지급처로 나간 지급 줄이 있는가.
+ *
+ * ★없는 배치에 계산서를 붙이면 아무 데도 안 붙는 행이 남는다★ (2026-08-30 검토).
+ * 배치는 원장에서 접어 만드는 것이라(batchesOf) 지급 줄이 없으면 화면에 뜨지도 않는다 —
+ * 날짜만 바꿔 가며 행과 파일을 무한히 쌓을 수 있었다. 최종 확정(finalizeBatch)이 이미
+ * 같은 것을 보고 있었는데 첨부만 안 보고 있었다.
+ *
+ * ★빼기(deleteTaxInvoice)에서는 보지 않는다★ — 이미 생긴 고아 행과 배치가 사라진 뒤의
+ * 계산서를 치울 길까지 같이 막힌다.
+ */
+async function assertBatchExists(org: string, kind: PayoutKind, payDate: string): Promise<void> {
+  const rows = await getDb()
+    .select({
+      kind: payoutEntries.kind, category: payoutEntries.category,
+      salesOrg: projects.salesOrg, gcOrg: projects.gcOrg,
+    })
+    .from(payoutEntries)
+    .innerJoin(projects, eq(payoutEntries.projectId, projects.id))
+    .where(eq(payoutEntries.at, payDate));
+  const exists = rows.some(
+    (r) =>
+      entryTypeOf(r.category as PayoutCategory) === '지급' &&
+      r.kind === kind &&
+      normalizeOrg(r.kind === '영업비' ? r.salesOrg : r.gcOrg) === org
+  );
+  if (!exists) throw new Error('그 지급일에 이 배치로 나간 지급이 없습니다.');
+}

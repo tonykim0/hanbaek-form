@@ -24,13 +24,22 @@
  * 누르는 것과 배치를 잠그는 것이 나란히 있으면 안 된다(화면 규칙 8번).
  *
  * ★협력사도 본다★ — 자기 배치만(저장소가 가른다). 할 일 열의 내용이 눈에 따라 갈린다:
- * 협력사에게는 「세금계산서 발행」, 한백에게는 첨부와 확정이다. 예전에는 협력사의 유일한
+ * 협력사에게는 계산서 올리기, 한백에게는 첨부와 확정이다. 예전에는 협력사의 유일한
  * 할 일이 배지 아래 micro 잔글씨였다.
+ *
+ * ★협력사가 계산서를 직접 올린다★ (한백 지시 2026-08-30). 예전에는 「세금계산서 발행 —
+ * 공급가액대로」라는 글자뿐이었고, 발행한 파일은 메일로 보내 한백이 옮겨 붙였다. 그 걸음을
+ * 없앤다. 붙일 수 있는지는 판정 한 곳이 정한다(canAttachInvoice) — 자기 지급처의, 확정 전
+ * 배치만. 확정 뒤에는 낸 것이 보이기만 한다: 한백이 보고 잠근 것과 붙어 있는 것이 달라지면
+ * 안 된다.
  */
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import type { BatchFinal, PayoutKind, PayoutRow, TaxInvoice } from '@/types/project';
-import { batchesOf, batchStateOf, type Batch, type BatchState } from '@/lib/payout-board';
+import {
+  batchesOf, batchStateOf, canAttachInvoice, type Batch, type BatchState,
+} from '@/lib/payout-board';
+import type { Role } from '@/lib/roles';
 import { Badge, Blank, Btn, Empty, Err, FIELD, Tag } from '@/components/ui';
 import { Frame, won } from './parts';
 import { useFinalizeBatch, useTaxInvoiceUpload } from './use-batch';
@@ -49,7 +58,7 @@ const NO_ORG = '받는 곳 미지정';
 const ALL = '전체';
 
 export default function StatementsBoard({
-  history, finals, invoices, seesAll, canEdit,
+  history, finals, invoices, seesAll, canEdit, role, myOrg,
 }: {
   history: PayoutRow[];
   /** 확정된 배치 — 상태 배지의 정본. 협력사도 자기 것을 받는다. */
@@ -60,6 +69,9 @@ export default function StatementsBoard({
   seesAll: boolean;
   /** 줄에서 첨부·확정을 누를 수 있는가 — 관리자만. 열람 전용은 보기만 한다. */
   canEdit: boolean;
+  /** 보는 사람 — 어느 배치에 계산서를 붙일 수 있는지 줄마다 가린다 */
+  role: Role;
+  myOrg: string | null;
 }) {
   // 묶는 규칙·상태 판정의 정본은 lib/payout-board — 할 일(세금계산서 발행)과 같은 정의다
   const batches = useMemo(() => batchesOf(history, finals, invoices), [history, finals, invoices]);
@@ -196,7 +208,10 @@ export default function StatementsBoard({
           </thead>
           <tbody className="divide-y divide-slate-100">
             {shown.map((b) => (
-              <BatchRow key={`${b.paidAt}|${b.org ?? ''}|${b.kind}`} b={b} seesAll={seesAll} canEdit={canEdit} />
+              <BatchRow
+                key={`${b.paidAt}|${b.org ?? ''}|${b.kind}`}
+                b={b} seesAll={seesAll} canEdit={canEdit} role={role} myOrg={myOrg}
+              />
             ))}
           </tbody>
           {/*
@@ -229,7 +244,9 @@ export default function StatementsBoard({
   );
 }
 
-function BatchRow({ b, seesAll, canEdit }: { b: Batch; seesAll: boolean; canEdit: boolean }) {
+function BatchRow({
+  b, seesAll, canEdit, role, myOrg,
+}: { b: Batch; seesAll: boolean; canEdit: boolean; role: Role; myOrg: string | null }) {
   const state = batchStateOf(b);
   return (
     <tr className="transition hover:bg-brand-50/40">
@@ -249,7 +266,7 @@ function BatchRow({ b, seesAll, canEdit }: { b: Batch; seesAll: boolean; canEdit
         <Badge tone={STATE_TONE[state]}>{state}</Badge>
       </td>
       <td className="whitespace-nowrap px-3 py-2.5">
-        <TodoCell b={b} state={state} seesAll={seesAll} canEdit={canEdit} />
+        <TodoCell b={b} state={state} seesAll={seesAll} canEdit={canEdit} role={role} myOrg={myOrg} />
       </td>
       <td className="whitespace-nowrap px-3 py-2.5 text-right">
         {b.org && (
@@ -273,24 +290,17 @@ function BatchRow({ b, seesAll, canEdit }: { b: Batch; seesAll: boolean; canEdit
  * 지킨다(화면 규칙 6번).
  */
 function TodoCell({
-  b, state, seesAll, canEdit,
+  b, state, seesAll, canEdit, role, myOrg,
 }: {
   b: Batch;
   state: BatchState;
   seesAll: boolean;
   canEdit: boolean;
+  role: Role;
+  myOrg: string | null;
 }) {
-  // 협력사 — 가확정이면 이 합계로 계산서를 발행한다. 그것이 이 화면에 오는 이유다.
-  if (!seesAll) {
-    return state === '가확정' ? (
-      /* 「위 합계」가 아니다 — 합계(공급가액)는 같은 줄 왼쪽 칸에 있다 */
-      <span className="text-small font-bold text-amber-700">세금계산서 발행 — 공급가액대로</span>
-    ) : (
-      <span className="text-small text-slate-300">—</span>
-    );
-  }
-
-  const attached = b.invoice ? (
+  /* 낸 계산서는 눈에 상관없이 같은 모양이다 — 누른 곳이 파일이라는 것이 먼저다 */
+  const link = b.invoice ? (
     <a
       href={b.invoice.blobUrl}
       target="_blank"
@@ -300,6 +310,35 @@ function TodoCell({
       계산서
     </a>
   ) : null;
+  /*
+   * 협력사 — 가확정이면 이 합계로 계산서를 발행하고, ★그 자리에서 올린다★.
+   * 확정된 뒤에는 낸 것만 보인다(바꾸려면 한백에 알린다).
+   */
+  if (!seesAll) {
+    const mayAttach = b.org !== null
+      && canAttachInvoice({ role, org: myOrg, batchOrg: b.org, finalized: b.finalized });
+    if (!mayAttach) return link ?? <span className="text-small text-slate-300">—</span>;
+    return (
+      <span className="inline-flex flex-wrap items-center gap-x-2.5 gap-y-1">
+        {link}
+        <RowAttach
+          org={b.org!} kind={b.kind} date={b.paidAt}
+          pdfOnly
+          label={link ? '바꾸기' : '세금계산서 올리기'}
+        />
+        {/*
+          * 얼마로 끊나 — 합계(공급가액)는 같은 줄 왼쪽 칸에 있다.
+          * ★가확정일 때만 적는다★ — 「확정 누락」은 지급일이 지난 자리라 발행을 재촉하는
+          * 말이 아니다(올리는 것은 그때도 열려 있다).
+          */}
+        {!link && state === '가확정' && (
+          <span className="text-tiny font-bold text-amber-700">공급가액대로</span>
+        )}
+      </span>
+    );
+  }
+
+  const attached = link;
 
   // 열람 전용 — 행동 없이 사실만
   if (!canEdit || !b.org) {
@@ -337,15 +376,25 @@ function RowFinalize({ org, kind, date }: { org: string; kind: PayoutKind; date:
 }
 
 /** 줄의 계산서 첨부 — 교체·삭제는 명세서(상세)에서 한다 */
-function RowAttach({ org, kind, date }: { org: string; kind: PayoutKind; date: string }) {
-  const { busy, error, inputProps } = useTaxInvoiceUpload(org, kind, date);
+function RowAttach({
+  org, kind, date, pdfOnly = false, label = '첨부',
+}: {
+  org: string;
+  kind: PayoutKind;
+  date: string;
+  /** 협력사 자리는 PDF 만 받는다 */
+  pdfOnly?: boolean;
+  /** 무엇을 하는 자리인지 — 협력사에게는 「세금계산서 올리기」다 */
+  label?: string;
+}) {
+  const { busy, error, inputProps } = useTaxInvoiceUpload(org, kind, date, pdfOnly);
 
   return (
     <span>
       <label className={`text-small font-bold transition ${
         busy ? 'text-slate-400' : 'cursor-pointer text-slate-500 hover:text-brand-800'
       }`}>
-        {busy ? '올리는 중…' : '첨부'}
+        {busy ? '올리는 중…' : label}
         <input {...inputProps} className="hidden" />
       </label>
       <Err className="block">{error}</Err>

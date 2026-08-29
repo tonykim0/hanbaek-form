@@ -28,6 +28,8 @@ const ADMIN_INTAKE = [
   { href: '/contracts', label: '계약서 작성' },
   // 사이드바 관리에 있던 것을 올렸다(한백 확인) — 접수·계약서와 같은 「가끔 하는 서류 일」이다
   { href: '/reissue', label: '서류 재발행' },
+  // 스캔 묶음을 종류별로 가르는 자리 (한백 지시 2026-08-29) — 재발행과 같은 서류 손질이다
+  { href: '/split', label: 'PDF 분류·분할' },
 ];
 
 export default function TopBar({ role, onMenu }: {

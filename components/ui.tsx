@@ -14,7 +14,7 @@
  * 자리에서 클래스를 적지 말고 여기에 추가한다. 그래야 다음 화면이 같은 것을 고르고,
  * 값을 바꿀 때 한 곳만 고친다.
  */
-import type { ButtonHTMLAttributes, ReactNode } from 'react';
+import type { AnchorHTMLAttributes, ButtonHTMLAttributes, ReactNode } from 'react';
 
 /* ── 말투(tone) ────────────────────────────────────────────────────────────
  * 색은 뜻이다. 빨강은 막는 것·틀린 것, 노랑은 사람이 봐야 하는 것, 초록은 진행·확인,
@@ -136,6 +136,31 @@ const BADGE_SIZE = {
 
 /** 좁은 표 칸에서 상태 배지(「조건 대기」)가 두 줄로 접혔다 — 배지·꼬리표는 줄을 바꾸지 않는다 */
 const PILL = 'inline-block whitespace-nowrap';
+
+/**
+ * 링크 모양의 단추 — 누르면 화면이 바뀌는 것이 아니라 ★파일이 열리거나 내려받아진다.★
+ *
+ * Btn 과 같은 옷을 입되 <a> 다. <button> 으로 만들면 새 탭·내려받기를 스크립트로 흉내
+ * 내야 하고, 가운데 클릭·주소 복사 같은 브라우저의 기본 동작을 잃는다. 옷을 따로 적지
+ * 않는 이유는 하나다 — 두 벌이면 한쪽만 고쳐졌을 때 같은 자리의 두 단추가 달라 보인다.
+ */
+export function BtnLink({
+  kind = 'quiet',
+  size = 'sm',
+  className = '',
+  children,
+  ...rest
+}: AnchorHTMLAttributes<HTMLAnchorElement> & {
+  kind?: BtnKind;
+  size?: 'md' | 'sm';
+}) {
+  const dim = BTN_SIZE[size][kind === 'undo' ? 'text' : kind === 'quiet' ? 'chip' : 'box'];
+  return (
+    <a {...rest} className={`inline-block whitespace-nowrap ${BTN[kind]} ${dim} ${className}`}>
+      {children}
+    </a>
+  );
+}
 
 export function Badge({
   tone = 'mute',

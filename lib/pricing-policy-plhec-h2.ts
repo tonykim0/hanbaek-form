@@ -244,13 +244,29 @@ const HEC_SUPPLY = '스탠드 + 캐노피';
  * 설치조건 — 불릿마다 줄을 바꾼다 (한백 2026-08-29). 「· 」로 이어 붙이면 한 문단이 되어
  * 조건이 몇 개인지 세어지지 않는다. 「상업시설·기타 부지 포함」은 한백 확인 2026-08-23.
  */
-const HEC_INSTALL = [
+const HEC_INSTALL_COMMON = [
   '· 주차면 5% 이하',
   '· 주용도 무관 — 상업시설·기타 부지(병원·골프장 등) 포함',
-  '· 차충비 1 이상 (증빙 필요)',
-  '· 계약기간 7년 이상 (지중인입 10년 · 5년은 별도 검토)',
+  '· 계약기간 7년 이상 (한전불입 지중인입 10년만 가능)',
   '· 착공 지시 후 90일 내 준공 (패널티)',
-].join('\n');
+];
+
+/**
+ * 사업구분이 조건을 가른다 — ★연동·자체투자는 한전불입이 없다★ (한백 2026-08-29).
+ *
+ * 그 줄을 전 케이스에 붙이지 않는다: 환경부 한전불입 케이스에 「한전불입 불가」가 적히면
+ * 「이 케이스는 한전불입인데 불가라고?」가 된다. 조건은 그 케이스에 맞는 말만 적는다
+ * (플러그링크 상업시설을 가른 것과 같은 규칙).
+ *
+ * 연동은 현대엔지니어링에 케이스가 아예 없다 — 적을 자리가 없어서 여기 기록만 남긴다.
+ */
+function hecInstall(bizType: string): string {
+  const self = bizType === '자체투자' || bizType === '연동';
+  return [...HEC_INSTALL_COMMON, ...(self ? ['· 모자분리만 (한전불입 불가)'] : [])].join('\n');
+}
+
+/** 유지 케이스(환경부)가 쓰는 조건 — 사업구분이 환경부라 공통만이다 */
+const HEC_INSTALL = hecInstall('환경부');
 
 /* 「안내문·도색 비용 영업자 부담(전용 전환 시 비용 포함)」을 걷었다 (한백 2026-08-29) */
 const HEC_COEXIST = '병행주차 가능 — 2% 이하 전용주차 · 2% 초과 병행주차';
@@ -332,7 +348,7 @@ export function hecNewRules(): NewPricingRule[] {
     promo: HEC_PROMO,
     promoExtend: HEC_PROMO_EXTEND,
     chargeRate: HEC_CHARGE,
-    installTerms: HEC_INSTALL,
+    installTerms: hecInstall('자체투자'),
     coexistTerms: HEC_COEXIST,
     otherSupport: HEC_SUPPORT,
     miscTerms: HEC_MISC_INV,

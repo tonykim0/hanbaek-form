@@ -101,11 +101,19 @@ export function Grid({
        * 두 곳에 있었다(화면 규칙 5). 이름이 그 말을 하면 기타에서 지울 수 있다.
        */
       label: '프로모션 연장 (영업비 차감)',
-      of: (r) => (r.promoExtend === null ? null
-        : r.promoExtend.length === 0 ? '없음'
-          : r.promoExtend
-            .map((x) => `· ${x.months}개월 ${won(x.rate)}원 → ${won(x.deduct)}원 차감`)
-            .join('\n')),
+      of: (r) => {
+        if (r.promoExtend === null) return null;
+        if (r.promoExtend.length === 0) return '없음';
+        const lines = r.promoExtend
+          .map((x) => `· ${x.months}개월 ${won(x.rate)}원 → ${won(x.deduct)}원 차감`);
+        /*
+         * 연장 상한은 케이스의 값이라 옵션마다 같은 글자가 실려 온다 — 한 번만 적는다
+         * (cap 주석 참고). 없으면 줄을 만들지 않는다: 빈 「상한 」 줄은 오해를 부른다.
+         */
+        const caps = [...new Set(r.promoExtend.map((x) => x.cap).filter(Boolean))];
+        for (const c of caps) lines.push(`· 연장 상한 ${c}`);
+        return lines.join('\n');
+      },
     },
     { label: '지급자재', of: (r) => r.supplyItems },
     // 「병행」만으로는 무엇과 병행인지 알 수 없다 (한백 2026-08-29)

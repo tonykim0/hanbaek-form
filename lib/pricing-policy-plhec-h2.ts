@@ -118,12 +118,21 @@ const PL_MISC_INV: string | null = null;
  * 프로모션 연장 — 늘리는 요금마다 영업비 차감액이 다르다 (한백 확정 2026-08-23).
  *
  * 두 가지를 7년·10년에 똑같이 둔다. 문서가 연장을 계약기간별로 가르는 것은 최대 기간뿐이고
- * (7년 1년 · 10년 2년, 기타 칸에 있다) 차감 단가는 요금으로만 갈린다.
+ * (7년 1년 · 10년 2년) 차감 단가는 요금으로만 갈린다.
+ *
+ * ★그 상한을 옵션에 실어 나른다 (한백 2026-08-29).★ 기타 칸에 문장으로 적혀 있어서
+ * 연장 행을 보는 사람은 그 말을 못 봤다 — 이제 그 행이 자기 상한을 적는다.
+ * 케이스의 계약연수가 정하므로 케이스마다 다르다(cap).
  */
-const PL_PROMO_EXTEND: PromoExtendOption[] = [
-  { months: 6, rate: 149, deduct: 200_000 },
-  { months: 6, rate: 249, deduct: 100_000 },
-];
+const PL_EXTEND_CAP: Record<number, string> = { 7: '최대 1년', 10: '최대 2년' };
+
+function plPromoExtend(termYears: number): PromoExtendOption[] {
+  const cap = PL_EXTEND_CAP[termYears];
+  return [
+    { months: 6, rate: 149, deduct: 200_000, cap },
+    { months: 6, rate: 249, deduct: 100_000, cap },
+  ];
+}
 
 /**
  * 260629 를 반영한 조건 — 유지 케이스(update)와 신설 케이스(insert)가 같이 쓴다.
@@ -137,7 +146,7 @@ export function plPolicy(
   return {
     promo: sub && termYears !== null ? PL_PROMO[termYears] ?? null : null,
     // 연장은 프로모션이 있는 케이스만 — 자체투자는 문서에 프로모션 언급이 없어 미지정이다
-    promoExtend: sub && termYears !== null ? PL_PROMO_EXTEND : null,
+    promoExtend: sub && termYears !== null ? plPromoExtend(termYears) : null,
     chargeRate: 292, // 최종 확정 (한백 2026-08-23) — 자체투자까지 같다
     // 문서에 지급자재 조항이 없다 = 대주는 것이 없다(한백 2026-08-29) — 「미지정」이 아니다
     supplyItems: '없음' as string | null,

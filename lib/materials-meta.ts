@@ -8,6 +8,42 @@
 /** Blob 저장소에서 자료실이 쓰는 경로 접두사 — materials/<운영사>/<분류>/<파일명> */
 export const MATERIALS_PREFIX = 'materials/';
 
+/**
+ * 밀려나거나 지워지는 자료를 옮겨 두는 자리 (2026-08-29).
+ *
+ * ★자료실 목록 밖이다.★ 목록은 `materials/` 로 시작하는 것만 훑으므로(getMaterials)
+ * `materials-archive/` 는 협력사 화면에 안 뜬다 — 같은 자료가 두 줄로 보이면 어느 것이
+ * 최신인지 알 수 없다. 보이지 않게 두되 사라지지는 않게 하는 자리다.
+ *
+ * ★왜 필요한가★ Vercel Blob 에는 버전도 휴지통도 없고 삭제·덮어쓰기가 영구다. 자료실은
+ * 같은 이름으로 다시 올리면 교체되도록 열려 있어서(allowOverwrite), 사업자등록증을
+ * 갱신본으로 올리는 순간 옛 본이 영영 사라졌다.
+ */
+export const MATERIALS_ARCHIVE_PREFIX = 'materials-archive/';
+
+/**
+ * 옛 자료가 옮겨 갈 경로 — 원래 경로 아래에 시각을 붙인다.
+ *
+ *   materials/sk/sales/제안서 v1.9.pdf
+ *   → materials-archive/materials/sk/sales/제안서 v1.9.pdf/20260829-130455.pdf
+ *
+ * 원래 경로를 그대로 품는 이유: 한 자료의 옛 본들이 한자리에 모이고, 되돌릴 때 어디로
+ * 돌려놓을지가 경로에 그대로 적혀 있다.
+ */
+export function archivePathOf(pathname: string, stamp: string): string {
+  const dot = pathname.lastIndexOf('.');
+  const ext = dot > 0 ? pathname.slice(dot) : '';
+  return `${MATERIALS_ARCHIVE_PREFIX}${pathname}/${stamp}${ext}`;
+}
+
+/** 보관 이름에 쓰는 시각 — 서울 기준 YYYYMMDD-HHmmss */
+export function archiveStamp(now: Date = new Date()): string {
+  const kst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${kst.getUTCFullYear()}${p(kst.getUTCMonth() + 1)}${p(kst.getUTCDate())}`
+    + `-${p(kst.getUTCHours())}${p(kst.getUTCMinutes())}${p(kst.getUTCSeconds())}`;
+}
+
 export interface MaterialFile {
   /** 화면에 보여줄 자료명 — 파일명에서 번호 · 날짜 · 언더스코어를 정리한 것 */
   title: string;

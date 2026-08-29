@@ -280,7 +280,7 @@ export default function MaterialsAdmin({ groups }: { groups: MaterialGroup[] }) 
             className="w-full text-sm text-gray-600 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-brand-50 file:text-brand-700 hover:file:bg-brand-100"
           />
           <span className="block text-xs text-gray-400 mt-1">
-            파일명이 그대로 자료명이 됩니다. 같은 이름으로 다시 올리면 교체됩니다.
+            파일명이 그대로 자료명이 됩니다. 같은 이름으로 다시 올리면 교체되고, 옛 파일은 보관됩니다.
           </span>
         </label>
 

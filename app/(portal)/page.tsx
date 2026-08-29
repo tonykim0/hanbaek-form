@@ -1,6 +1,5 @@
 import Link from 'next/link';
 import SiteHeader from '@/components/SiteHeader';
-import { CONSOLE_URL } from '@/lib/portal-intake';
 
 /**
  * 포털 첫 화면 — 협력사가 계약서를 쓰러 오는 자리.
@@ -15,8 +14,12 @@ import { CONSOLE_URL } from '@/lib/portal-intake';
  *   · 색은 뜻이 있을 때만 — 초록은 한백, 노랑은 안내. 그 밖은 흰 카드 한 겹 (규칙 1·11)
  *   · 같은 것을 두 번 말하지 않는다 — 제목·설명·「보러 가기」가 같은 말이었다 (규칙 5)
  *
+ * ★접수로 보내는 자리는 두지 않는다★ (한백 지시 2026-08-29). 접수는 콘솔의 일이고, 콘솔에
+ * 들어가는 사람은 로그인부터 한다 — 포털 첫 화면에 띠를 세워 둬도 그 사람은 여기를 지나지
+ * 않는다. 옛 링크로 /intake 에 닿은 사람에게는 그 화면이 콘솔로 가는 길을 말한다.
+ *
  * 업데이트 안내는 걷어냈다 (한백 지시) — 손으로 적어 넣는 목록이라 늘 낡아 있었고,
- * 정작 지금 해야 할 일(계약서·접수)을 아래로 밀어냈다.
+ * 정작 지금 해야 할 일(계약서 작성)을 아래로 밀어냈다.
  */
 
 /** 계약서 작성 — 운영사별. 이 화면의 본론이다 */
@@ -106,23 +109,6 @@ export default function Home() {
             ))}
           </div>
         </section>
-
-        {/*
-          * 다음 걸음 — 계약서를 쓴 사람이 그다음에 하는 일이 접수다.
-          * 접수는 콘솔에서 받는다 (한백 지시 2026-08-26, 포털의 문은 닫았다).
-          * 큰 상자였는데 한 줄로 낮췄다 — 여기서 하는 일이 아니라 「가는 곳」이라서다.
-          */}
-        <a
-          href={`${CONSOLE_URL}/projects/new`}
-          className="group flex flex-wrap items-center gap-x-3 gap-y-1 rounded-2xl bg-brand-700 px-5 py-4 text-white transition hover:bg-brand-800"
-        >
-          <span className="text-base font-black tracking-[-0.02em]">작성 완료본 접수</span>
-          <span className="text-sm text-brand-100">콘솔에서 로그인한 소속으로 냅니다</span>
-          <span className="ml-auto inline-flex items-center gap-1 text-sm font-bold">
-            콘솔로
-            <span aria-hidden className="transition group-hover:translate-x-0.5">→</span>
-          </span>
-        </a>
 
         <section id="lookup" className="scroll-mt-20">
           <Head title="조회 · 자료" />

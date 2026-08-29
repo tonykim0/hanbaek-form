@@ -6,7 +6,7 @@
  * 폼 본체가 상태를 쥐고, 여기는 그 값과 바꾸는 길만 받아 그린다. 한 폼에 다 두었더니
  * 한 구역을 고치려고 800줄을 지나야 했다 — 구역마다 보는 값이 겹치지 않아 이렇게 갈린다.
  */
-import type { Dispatch, SetStateAction } from 'react';
+import type { Dispatch, ReactNode, SetStateAction } from 'react';
 import type { Trigger } from '@/types/project';
 import { RECEIVE_TRIGGERS } from '@/lib/settlement';
 import { won } from '@/lib/format';
@@ -35,13 +35,9 @@ export function StepsSection({
   setStepsLocked: (v: boolean) => void;
   addStep: () => void;
 }) {
+  // 설명 문구는 안 둔다(화면 규칙 2) — 잠김은 글자로 굳은 트리거가, 미정은 꼬리표가, 어긋남은 아래 빨간 줄이 말한다
   return (
-      <FormSection
-      title="기성 단계"
-      hint={stepsLocked
-        ? '단계는 운영사가 정한다 — 케이스마다 다른 것은 차수 금액뿐'
-        : '받는 단가를 어느 시점에 얼마씩 받는가 — 합이 받는 단가와 같아야 한다'}
-    >
+      <FormSection title="기성 단계">
       {steps.length === 0 ? (
         <Tag tone="warn">
           {stepsLocked
@@ -139,7 +135,8 @@ export interface PromoDraft { months: string; rate: string }
 export interface PromoExtendDraft { months: string; rate: string; deduct: string }
 
 export function PromoSection({
-  chargeRate, setChargeRate, promo, setPromo, promoExtend, setPromoExtend,
+  chargeRate, setChargeRate, promo, setPromo, promoExtend, setPromoExtend, extendCap, setExtendCap,
+  collapsed, summary, onToggle,
 }: {
   chargeRate: string;
   setChargeRate: (v: string) => void;
@@ -147,12 +144,22 @@ export function PromoSection({
   setPromo: Dispatch<SetStateAction<PromoDraft[]>>;
   promoExtend: PromoExtendDraft[];
   setPromoExtend: Dispatch<SetStateAction<PromoExtendDraft[]>>;
+  /**
+   * 연장 상한 — 「최대 1년」. 케이스의 값이라 옵션마다 같은 글자가 실린다(PromoExtendOption.cap).
+   * ★폼이 이 칸을 모르면 저장할 때 cap 을 떨어뜨린다★ — 마이그레이션으로 넣은 값이 개정 한 번에
+   * 사라진다. 그래서 여기서 받아 저장 때 다시 붙인다.
+   */
+  extendCap: string;
+  setExtendCap: (v: string) => void;
+  collapsed?: boolean;
+  summary?: ReactNode;
+  onToggle?: () => void;
 }) {
   return (
-      <FormSection title="요금·프로모션" hint="현장에 안내되는 충전요금 조건 — 비워 두면 「미지정」">
+      <FormSection title="요금·프로모션" collapsed={collapsed} summary={summary} onToggle={onToggle}>
       <div className="flex flex-col gap-4">
         <div className="w-44">
-          <Field label="충전요금" hint="원/kWh · 프로모션이 끝난 뒤의 정상 요금">
+          <Field label="충전요금" hint="원/kWh">
             <input
               value={chargeRate}
               onChange={(e) => setChargeRate(e.target.value)}
@@ -168,10 +175,7 @@ export function PromoSection({
           뒤 구간이 비고 문장으로 새어나간다. 기성 단계와 같은 모양으로 늘린다.
         */}
         <div className="flex flex-col gap-1.5">
-          <span className="flex items-baseline gap-2">
-            <span className="text-tiny font-bold tracking-[0.04em] text-slate-500">프로모션</span>
-            <span className="text-micro text-slate-400">할인 구간이 순서대로 이어진다 · 없으면 「미지정」</span>
-          </span>
+          <span className="text-tiny font-bold tracking-[0.04em] text-slate-500">프로모션</span>
           {promo.length > 0 && (
             <div className="flex flex-col gap-2">
               {promo.map((x, i) => (
@@ -220,10 +224,8 @@ export function PromoSection({
           적을 자리가 없다 — 프로모션 구간을 배열로 둔 것과 같은 이유다.
         */}
         <div className="flex flex-col gap-1.5">
-          <span className="flex items-baseline gap-2">
-            <span className="text-tiny font-bold tracking-[0.04em] text-slate-500">프로모션 연장</span>
-            <span className="text-micro text-slate-400">고를 수 있는 연장을 다 적는다 · 차감은 영업비에서</span>
-          </span>
+          {/* 매트릭스 행과 같은 이름 — 두 화면이 같은 것을 다른 말로 부르지 않는다 */}
+          <span className="text-tiny font-bold tracking-[0.04em] text-slate-500">프로모션 연장 (영업비 차감)</span>
           {promoExtend.length > 0 && (
             <div className="flex flex-col gap-2">
               {promoExtend.map((x, i) => (
@@ -264,8 +266,8 @@ export function PromoSection({
               ))}
             </div>
           )}
-          {promoExtend.length < 4 && (
-            <div className="mt-1">
+          <div className="mt-1 flex flex-wrap items-center gap-3">
+            {promoExtend.length < 4 && (
               <Btn
                 size="sm"
                 kind="side"
@@ -273,8 +275,19 @@ export function PromoSection({
               >
                 연장 추가
               </Btn>
-            </div>
-          )}
+            )}
+            {promoExtend.length > 0 && (
+              <label className="flex items-center gap-2">
+                <span className="text-tiny font-bold text-slate-500">연장 상한</span>
+                <input
+                  value={extendCap}
+                  onChange={(e) => setExtendCap(e.target.value)}
+                  placeholder="최대 1년"
+                  className={`${FIELD_CELL} w-28`}
+                />
+              </label>
+            )}
+          </div>
         </div>
       </div>
     </FormSection>
@@ -284,6 +297,7 @@ export function PromoSection({
 export function TermsSection({
   supplyItems, setSupplyItems, installTerms, setInstallTerms, otherSupport, setOtherSupport,
   coexistTerms, setCoexistTerms, miscTerms, setMiscTerms, note, setNote,
+  collapsed, summary, onToggle,
 }: {
   supplyItems: string; setSupplyItems: (v: string) => void;
   installTerms: string; setInstallTerms: (v: string) => void;
@@ -291,60 +305,68 @@ export function TermsSection({
   coexistTerms: string; setCoexistTerms: (v: string) => void;
   miscTerms: string; setMiscTerms: (v: string) => void;
   note: string; setNote: (v: string) => void;
+  collapsed?: boolean;
+  summary?: ReactNode;
+  onToggle?: () => void;
 }) {
+  /*
+   * 칸의 순서와 이름은 ★매트릭스의 조건 행과 같다★ (2026-08-29) — 설치조건이 맨 위,
+   * 「병행주차 가능여부」. 폼에서 적은 것이 표의 어느 행에 서는지 자리로 알 수 있어야 한다.
+   * 설명 문구 대신 자리표시자로 꼴을 보인다(불릿마다 줄바꿈).
+   */
+  const BULLETS = '· 총 주차면의 5%까지 지원\n· 충전기 최소 2% 전용 구역 도색 필수';
   return (
-    <FormSection title="지원·조건" hint="매트릭스의 조건 행에 이 값이 그대로 선다 — 비워 두면 「미지정」">
-      <div className="flex flex-col gap-4">
-        <Field label="지급자재" hint="운영사가 대주는 품목 · 미지급품목도 같이">
-          <input
-            value={supplyItems}
-            onChange={(e) => setSupplyItems(e.target.value)}
-            placeholder="충전기 / 열화상카메라(POE허브 포함) / 스탠드폴 / 가림막"
-            className={FIELD}
-          />
-        </Field>
-
-        <Field label="설치조건" hint="할 수 있는가를 정하는 것 — 주차면 비율 · 내구연한 · 기수 산정">
+    <FormSection title="지원·조건" collapsed={collapsed} summary={summary} onToggle={onToggle}>
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Field label="설치조건">
           <textarea
             value={installTerms}
             onChange={(e) => setInstallTerms(e.target.value)}
-            rows={2}
+            rows={4}
+            placeholder={BULLETS}
             className={FIELD}
           />
         </Field>
-
-        <Field label="병행" hint="다른 운영사와 같은 현장에 함께 설 수 있는가">
-          <input
-            value={coexistTerms}
-            onChange={(e) => setCoexistTerms(e.target.value)}
-            className={FIELD}
-          />
-        </Field>
-
-        <Field label="기타지원" hint="운영사가 대주는 것 — 한전불입금 · 안전점검 수수료 등">
+        <Field label="기타지원">
           <textarea
             value={otherSupport}
             onChange={(e) => setOtherSupport(e.target.value)}
-            rows={2}
+            rows={4}
+            placeholder="· 완속 30기 이상 설치 시 급속 1기 지원"
             className={FIELD}
           />
         </Field>
-
-        <Field label="기타" hint="위 어디에도 안 드는 조건 — 항목마다 「· 」로 줄을 가른다">
+        <Field label="지급자재">
+          <input
+            value={supplyItems}
+            onChange={(e) => setSupplyItems(e.target.value)}
+            placeholder="스탠드 + 캐노피 · 없으면 「없음」"
+            className={FIELD}
+          />
+        </Field>
+        <Field label="병행주차 가능여부">
+          <input
+            value={coexistTerms}
+            onChange={(e) => setCoexistTerms(e.target.value)}
+            placeholder="병행주차 가능 — 2% 이하 전용주차 · 2% 초과 병행주차"
+            className={FIELD}
+          />
+        </Field>
+        <Field label="기타">
           <textarea
             value={miscTerms}
             onChange={(e) => setMiscTerms(e.target.value)}
-            rows={2}
+            rows={3}
+            placeholder="· 보조금 미수령 시 비보조금 기준 수수료 지급"
             className={FIELD}
           />
         </Field>
-
-        <Field label="부기" hint="매트릭스 단가 칸 밑에 붙는 한 줄 — 그 금액과 같이 봐야 하는 조건">
+        <Field label="부기" hint="단가 칸 밑에 붙는 한 줄">
           <input
             value={note}
             onChange={(e) => setNote(e.target.value)}
             placeholder="한전불입금 지원은 10기 이내"
-            className={`${FIELD} max-w-xl`}
+            className={FIELD}
           />
         </Field>
       </div>

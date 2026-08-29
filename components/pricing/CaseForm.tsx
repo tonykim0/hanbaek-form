@@ -12,7 +12,7 @@ import {
   startKey,
 } from '@/lib/pricing-match';
 import { checkSettlementSteps, stepUnits } from '@/lib/settlement';
-import { Btn, Choice, Err, FIELD, PANEL } from '@/components/ui';
+import { Btn, Choice, Err, FIELD, PANEL, Tag } from '@/components/ui';
 import {
   POWER_TYPES, TERMS, type Prefill,
 } from './shared';
@@ -96,6 +96,7 @@ export function CaseForm({
       months: String(x.months), rate: String(x.rate), deduct: money(x.deduct),
     }))
   );
+  const [extendCap, setExtendCap] = useState(prefill.promoExtend?.find((x) => x.cap)?.cap ?? '');
   const [chargeRate, setChargeRate] = useState(money(prefill.chargeRate ?? undefined));
   const [installTerms, setInstallTerms] = useState(prefill.installTerms ?? '');
   const [otherSupport, setOtherSupport] = useState(prefill.otherSupport ?? '');
@@ -108,8 +109,22 @@ export function CaseForm({
    * (한백 지적 2026-08-23). 개정은 접어 두고 원 케이스 값을 그대로 싣는다.
    * 그 값들까지 바뀌는 개정(정책 전면 개정)만 사람이 펼쳐서 고친다.
    */
+  /*
+   * 폼이 무엇을 하는 중인가 — 여는 자리가 넷이라 제목이 이것을 말해야 한다.
+   * 수정 = 참조 없는 케이스를 자리에서 고침(PUT) · 개정 = 케이스를 눌러 열었고 새 적용
+   * 시작으로 새 케이스를 만듦(after 가 실려 온다) · 새 = 빈 폼 또는 빈 칸에서 축만 받음.
+   * 셋 다 「새 케이스」로 떠서 케이스를 눌렀는데 왜 새 케이스냐는 혼란이 실제로 있었다
+   * (2026-08-23 한백 지적).
+   */
+  const mode: '수정' | '개정' | '새 케이스' = editId ? '수정' : prefill.after ? '개정' : '새 케이스';
   const [showRates, setShowRates] = useState(!prefill.after);
   const [showTerms, setShowTerms] = useState(!prefill.after);
+  /*
+   * ★개정은 축이 바뀌는 일이 아니다★ (2026-08-29) — 같은 축의 다음 시기 단가다. 그런데 축 여섯
+   * 칸이 폼 맨 위를 차지해서, 개정에서 실제로 적는 것(시작일·금액)은 한 화면 아래에 있었다.
+   * 개정은 축을 접어 머리의 꼬리표로만 보이고, 축까지 바꿔야 하면 펼친다.
+   */
+  const [showAxis, setShowAxis] = useState(mode !== '개정');
   /*
    * ★기성 모양은 케이스별 설정이 아니다★ (한백 확인 2026-08-23) — 한 운영사의 기성은
    * 트리거 모양이 동일하고, 차수 금액만 케이스마다 다르다. 그래서 모양(트리거·방식·
@@ -234,7 +249,11 @@ export function CaseForm({
         /* 프로모션 구간과 같은 규칙 — 한 줄도 안 넣었으면 「미지정」(null)이다 */
         promoExtend: promoExtend.length === 0
           ? null
-          : promoExtend.map((x) => ({ months: num(x.months), rate: num(x.rate), deduct: num(x.deduct) })),
+          : promoExtend.map((x) => ({
+            months: num(x.months), rate: num(x.rate), deduct: num(x.deduct),
+            // 상한은 케이스의 값 — 옵션마다 같은 글자를 싣는다(PromoExtendOption.cap 주석)
+            ...(extendCap.trim() ? { cap: extendCap.trim() } : {}),
+          })),
         chargeRate: chargeRate.trim() === '' ? null : num(chargeRate),
         installTerms: installTerms.trim() || null,
         otherSupport: otherSupport.trim() || null,
@@ -261,29 +280,75 @@ export function CaseForm({
     });
   }
 
-  /*
-   * 폼이 무엇을 하는 중인가 — 여는 자리가 넷이라 제목이 이것을 말해야 한다.
-   * 수정 = 참조 없는 케이스를 자리에서 고침(PUT) · 개정 = 케이스를 눌러 열었고 새 적용
-   * 시작으로 새 케이스를 만듦(after 가 실려 온다) · 새 = 빈 폼 또는 빈 칸에서 축만 받음.
-   * 셋 다 「새 케이스」로 떠서 케이스를 눌렀는데 왜 새 케이스냐는 혼란이 실제로 있었다
-   * (2026-08-23 한백 지적).
-   */
-  const mode: '수정' | '개정' | '새 케이스' = editId ? '수정' : prefill.after ? '개정' : '새 케이스';
+  /** 개정의 기존 시작 — after 는 startKey(YYYY-MM-DD, 반기만 알면 일이 00)라 사람 말로 되돌린다 */
+  const afterLabel = (() => {
+    if (!prefill.after) return null;
+    const [y, m, d] = prefill.after.split('-').map(Number);
+    if (!m) return `${y}년`;
+    return d ? `${y}년 ${m}월 ${d}일` : `${y}년 ${m >= 7 ? '하' : '상'}반기`;
+  })();
+
+  /* 접힌 구획이 보이는 「지금 값」 — 값이 없으면 미지정이라고 적는다(빈 값도 자리를 지킨다) */
+  const ratesSummary = [
+    chargeRate.trim() ? `충전요금 ${won(num(chargeRate))}원` : '충전요금 미지정',
+    promo.length > 0
+      ? `프로모션 ${promo.map((x) => `${x.months || '?'}개월 ${x.rate || '?'}원`).join(' + ')}`
+      : '프로모션 미지정',
+    promoExtend.length > 0 ? `연장 ${promoExtend.length}가지${extendCap ? ` · ${extendCap}` : ''}` : '연장 미지정',
+  ].join(' · ');
+  const filledTerms = ([
+    ['설치조건', installTerms], ['지급자재', supplyItems], ['병행주차', coexistTerms],
+    ['기타지원', otherSupport], ['기타', miscTerms], ['부기', note],
+  ] as const).filter(([, v]) => v.trim()).map(([k]) => k);
+  const termsSummary = filledTerms.length === 0 ? '전부 미지정' : `적힌 것 — ${filledTerms.join(' · ')}`;
+
+  const axisTags = (
+    <>
+      <Tag>{cpo}</Tag>
+      <Tag>{bldgLabel || '건축물 미선택'}</Tag>
+      <Tag>{terms.length ? `${terms.join('·')}년` : '연수 미선택'} {replLabel(cpo, replType)}</Tag>
+      <Tag>{powerType}</Tag>
+      {channel !== '턴키' && <Tag tone="stage">{channel}</Tag>}
+    </>
+  );
+
+  /* 돈 식의 연산자 — 칸 사이에 서서 흐름을 읽게 한다 */
+  const Op = ({ children }: { children: string }) => (
+    <span className="pb-2 text-lead font-black text-slate-300" aria-hidden>{children}</span>
+  );
 
   return (
     <section ref={boxRef} className={`${PANEL} scroll-mt-4 p-5 sm:p-6`}>
-      <h2 className="mb-4 flex flex-wrap items-baseline gap-2 text-h3 font-black text-slate-900">
-        {mode === '수정' ? '케이스 수정' : mode === '개정' ? '케이스 개정' : '새 케이스'}
-        {editId && <code className="text-micro font-normal text-slate-400">{editId}</code>}
-        {mode === '개정' && (
-          <span className="text-tiny font-semibold text-slate-500">
-            새 적용 시작으로 저장 — 옛 케이스는 그 시기까지의 단가로 그대로 남는다
-          </span>
-        )}
-      </h2>
+      {/*
+        머리 — 무엇을 하는 폼인지(제목), 어느 축인지(꼬리표), 개정이면 어디서 어디로(시기).
+        그전에는 제목 옆에 케이스 id 와 「새 적용 시작으로 저장 — 옛 케이스는 …」 문장이
+        붙어 있었다. id 는 사람에게 뜻이 없고(title 로 남긴다), 문장은 동작이 말한다(화면 규칙 2).
+      */}
+      <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h2 className="text-h3 font-black text-slate-900" title={editId}>
+            {mode === '수정' ? '케이스 수정' : mode === '개정' ? '케이스 개정' : '새 케이스'}
+          </h2>
+          <div className="mt-2 flex flex-wrap items-center gap-1.5">
+            {axisTags}
+            {mode === '개정' && afterLabel && (
+              <span className="ml-1 text-tiny font-bold text-slate-500">
+                {afterLabel}부터 <span className="text-slate-300">→</span> {startDate}부터
+              </span>
+            )}
+          </div>
+        </div>
+        <Btn kind="quiet" size="sm" disabled={busy} onClick={onDone}>← 단가표로</Btn>
+      </div>
 
-      {/* ① 어느 계약의 단가인가 — 접수된 라인이 이 여섯 축으로 케이스를 찾는다 */}
-      <FormSection first title="계약 축" hint="접수된 라인이 이 축으로 케이스를 찾는다">
+      {/* ① 어느 계약의 단가인가 — 접수된 라인이 이 여섯 축으로 케이스를 찾는다. 개정은 접혀서 머리의 꼬리표가 대신 말한다 */}
+      <FormSection
+        first
+        title="계약 축"
+        collapsed={!showAxis}
+        summary={<span className="flex flex-wrap gap-1.5">{axisTags}</span>}
+        onToggle={mode === '개정' ? () => setShowAxis((v) => !v) : undefined}
+      >
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <Field label="운영사">
             <select
@@ -314,7 +379,7 @@ export function CaseForm({
               {replTypesOf(cpo).map((t) => <option key={t} value={t}>{replLabel(cpo, t)}</option>)}
             </select>
           </Field>
-          <Field label="수전방식" hint={powerTypesOfRepl(replType).length === 1 ? `${replType}은 모자분리 전제` : undefined}>
+          <Field label="수전방식">
             <select
               value={powerType}
               onChange={(e) => setPowerType(e.target.value as (typeof POWER_TYPES)[number])}
@@ -323,7 +388,7 @@ export function CaseForm({
               {powerTypesOfRepl(replType).map((p) => <option key={p} value={p}>{p}</option>)}
             </select>
           </Field>
-          <Field label="계약연수" hint="겸용 케이스는 여럿 고른다">
+          <Field label="계약연수">
             <Chips
               options={TERMS.map((t) => [t, `${t}년`])}
               picked={terms}
@@ -340,7 +405,7 @@ export function CaseForm({
               onToggle={(v) => setBldgs((p) => (p.includes(v) ? p.filter((x) => x !== v) : [...p, v]))}
             />
           </Field>
-          <Field label="채널" hint="한백이 맡는 범위 — 한쪽만 맡으면 그쪽 단가만 산다">
+          <Field label="채널">
             <select
               value={channel}
               onChange={(e) => setChannel(e.target.value as Channel)}
@@ -352,70 +417,95 @@ export function CaseForm({
         </div>
       </FormSection>
 
-      {/* ② 언제부터의 단가인가 — 매트릭스의 시기 탭이 이 값으로 갈린다 */}
-      <FormSection title="적용 시작" hint="이 날부터 이 단가다 — 날짜를 모르면 반기까지만">
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <Field label="시작일" hint="아는 날짜가 있으면 — 개정은 이 날짜부터다">
-            <input
-              type="date"
-              value={startDay}
-              onChange={(e) => pickStartDay(e.target.value)}
-              className={FIELD}
-            />
-          </Field>
-          <Field label="연도" hint={startDay ? '시작일이 정한다' : undefined}>
-            <input
-              value={year}
-              disabled={Boolean(startDay)}
-              onChange={(e) => setYear(Number(e.target.value.replace(/[^0-9]/g, '')) || 0)}
-              className={`${FIELD} tabular-nums disabled:bg-slate-50 disabled:text-slate-400`}
-            />
-          </Field>
-          <Field label="반기" hint={startDay ? '시작일이 정한다' : undefined}>
+      {/* ② 언제부터의 단가인가 — 매트릭스의 시기 탭이 이 값으로 갈린다. 시작일이 먼저고 연도·반기는 거기서 유도된다 */}
+      <FormSection title="적용 시작">
+        <div className="flex flex-wrap items-end gap-4">
+          <div className="w-44">
+            <Field label="시작일">
+              <input
+                type="date"
+                value={startDay}
+                onChange={(e) => pickStartDay(e.target.value)}
+                className={FIELD}
+              />
+            </Field>
+          </div>
+          <div className="w-24">
+            <Field label="연도">
+              <input
+                value={year}
+                disabled={Boolean(startDay)}
+                onChange={(e) => setYear(Number(e.target.value.replace(/[^0-9]/g, '')) || 0)}
+                className={`${FIELD} tabular-nums disabled:bg-slate-50 disabled:text-slate-400`}
+              />
+            </Field>
+          </div>
+          <Field label="반기">
             <div className={`flex flex-wrap gap-1.5 ${startDay ? 'pointer-events-none opacity-50' : ''}`}>
               {(['상', '하'] as const).map((h) => (
                 <Choice key={h} on={half === h} onClick={() => setHalf(h)}>{h}반기</Choice>
               ))}
             </div>
           </Field>
+          {/* 저장될 표기 — 매트릭스·현장 셀렉트에 이 글자가 선다 */}
+          <span className="pb-2 text-small font-bold text-slate-500">→ {startDate}</span>
         </div>
       </FormSection>
 
-      {/* ③ 돈 — 흐름 순서: 받는 단가 → 마진 → 지급 단가 → 영업·시공 나눔. 전부 대당이다 */}
-      <FormSection title="돈" hint="대당 — 받는 단가에서 마진을 떼면 지급 단가, 그것을 영업·시공으로 나눈다">
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-          <Field label="받는 단가" hint="운영사가 대당 주는 총액">
-            <Money value={receiveUnit} onChange={setReceiveUnit} />
-          </Field>
-          <Field label="마진" hint="한백 몫">
-            <Money value={margin} onChange={setMargin} />
-          </Field>
-          <Field label="지급 단가" hint="받는 단가 − 마진">
-            <p className={`py-2 font-black tabular-nums ${mg > receive ? 'text-red-600' : 'text-slate-900'}`}>
+      {/*
+        ③ 돈 — ★식으로 세운다★ (2026-08-29). 받는 단가 − 마진 = 지급 단가 = 영업비 + 시공비.
+        그전에는 다섯 칸이 같은 크기로 나란히 서서 어느 것이 적는 값이고 어느 것이 셈한 값인지,
+        무엇이 무엇에서 나오는지 자리로 읽히지 않았다. 연산자를 칸 사이에 세우고 셈한 값은
+        입력칸이 아니라 굵은 글자로 둔다(화면 규칙 4 — 평소엔 글자).
+      */}
+      <FormSection title="대당 단가">
+        <div className="flex flex-wrap items-end gap-x-2.5 gap-y-3">
+          <div className="w-36">
+            <Field label="받는 단가">
+              <Money value={receiveUnit} onChange={setReceiveUnit} />
+            </Field>
+          </div>
+          <Op>−</Op>
+          <div className="w-32">
+            <Field label="마진">
+              <Money value={margin} onChange={setMargin} />
+            </Field>
+          </div>
+          <Op>=</Op>
+          <Field label="지급 단가">
+            <p className={`py-2 text-lead font-black tabular-nums ${mg > receive ? 'text-red-600' : 'text-slate-900'}`}>
               {mg > receive ? `−${won(mg - receive)}` : won(payout)}원
             </p>
           </Field>
+          <Op>=</Op>
           {channel === '턴키' ? (
             <>
-              <Field label="영업비">
-                <Money value={salesUnit} onChange={setSalesUnit} />
-              </Field>
-              <Field label="시공비">
-                <Money value={consUnit} onChange={setConsUnit} />
-              </Field>
+              <div className="w-36">
+                <Field label="영업비">
+                  <Money value={salesUnit} onChange={setSalesUnit} />
+                </Field>
+              </div>
+              <Op>+</Op>
+              <div className="w-36">
+                <Field label="시공비">
+                  <Money value={consUnit} onChange={setConsUnit} />
+                </Field>
+              </div>
+              {/* 합이 맞는지는 그 자리에서 — 어긋난 액수를 적는다(화면 규칙 3·9) */}
+              {receive > 0 && (
+                <span className="pb-2.5">
+                  {splitOk
+                    ? <Tag tone="ok">합 맞음</Tag>
+                    : <Tag tone="stop">{won(Math.abs(payout - sales - cons))}원 차이</Tag>}
+                </span>
+              )}
             </>
           ) : (
             <Field label={channel === '영업' ? '영업비' : '시공비'} hint="지급 단가 전액">
-              <p className="py-2 font-bold tabular-nums text-slate-800">{won(Math.max(payout, 0))}원</p>
+              <p className="py-2 text-lead font-black tabular-nums text-slate-900">{won(Math.max(payout, 0))}원</p>
             </Field>
           )}
         </div>
-        {channel === '턴키' && receive > 0 && !splitOk && (
-          <p className="mt-2 text-tiny font-semibold text-red-600">
-            영업 {won(sales)} + 시공 {won(cons)} = {won(sales + cons)} — 지급 단가
-            {' '}{won(Math.max(payout, 0))}와 {won(Math.abs(payout - sales - cons))} 차이
-          </p>
-        )}
       </FormSection>
 
       {/* ④ 기성 단계 — 받는 단가를 운영사에게 받는 차수. 현장 기성 탭·운영사 기성관리에 이대로 선다 */}
@@ -431,49 +521,42 @@ export function CaseForm({
         addStep={addStep}
       />
 
-      {/* 접힌 구역의 단추가 상태를 말한다 — 값은 사라지는 게 아니라 원 케이스 그대로 실린다 */}
-      {(!showRates || !showTerms) && (
-        <div className="mt-5 flex flex-wrap gap-2 border-t border-slate-100 pt-4">
-          {!showRates && (
-            <Btn size="sm" kind="quiet" onClick={() => setShowRates(true)}>
-              요금·프로모션 고치기 — 지금은 원 케이스 값 그대로
-            </Btn>
-          )}
-          {!showTerms && (
-            <Btn size="sm" kind="quiet" onClick={() => setShowTerms(true)}>
-              지원·조건 고치기 — 지금은 원 케이스 값 그대로
-            </Btn>
-          )}
-        </div>
-      )}
+      {/*
+        ⑤·⑥ 요금·프로모션과 지원·조건은 운영사(와 계약연수)가 정하는 공통 적용사항이라 개정에서
+        거의 안 바뀐다 — 개정은 접어 두고 원 케이스 값을 그대로 싣는다(한백 지적 2026-08-23).
+        접힌 채로 지금 값의 요약이 보이고, 그 자리 칩으로 펼친다.
+      */}
+      <PromoSection
+        chargeRate={chargeRate}
+        setChargeRate={setChargeRate}
+        promo={promo}
+        setPromo={setPromo}
+        promoExtend={promoExtend}
+        setPromoExtend={setPromoExtend}
+        extendCap={extendCap}
+        setExtendCap={setExtendCap}
+        collapsed={!showRates}
+        summary={ratesSummary}
+        onToggle={() => setShowRates((v) => !v)}
+      />
+      <TermsSection
+        supplyItems={supplyItems} setSupplyItems={setSupplyItems}
+        installTerms={installTerms} setInstallTerms={setInstallTerms}
+        otherSupport={otherSupport} setOtherSupport={setOtherSupport}
+        coexistTerms={coexistTerms} setCoexistTerms={setCoexistTerms}
+        miscTerms={miscTerms} setMiscTerms={setMiscTerms}
+        note={note} setNote={setNote}
+        collapsed={!showTerms}
+        summary={termsSummary}
+        onToggle={() => setShowTerms((v) => !v)}
+      />
 
-      {/* ⑤ 요금 — 정상 요금이 먼저, 그 요금을 깎는 프로모션과 연장이 그 아래로 */}
-      {showRates && (
-        <PromoSection
-          chargeRate={chargeRate}
-          setChargeRate={setChargeRate}
-          promo={promo}
-          setPromo={setPromo}
-          promoExtend={promoExtend}
-          setPromoExtend={setPromoExtend}
-        />
-      )}
-
-      {/* ⑥ 지원·조건 — 매트릭스의 지급자재·설치조건·병행·기타지원·기타 행이 이 값 그대로다 */}
-      {showTerms && (
-        <TermsSection
-          supplyItems={supplyItems} setSupplyItems={setSupplyItems}
-          installTerms={installTerms} setInstallTerms={setInstallTerms}
-          otherSupport={otherSupport} setOtherSupport={setOtherSupport}
-          coexistTerms={coexistTerms} setCoexistTerms={setCoexistTerms}
-          miscTerms={miscTerms} setMiscTerms={setMiscTerms}
-          note={note} setNote={setNote}
-        />
-      )}
-
-      <div className="mt-5 border-t border-slate-100 pt-4">
+      {/*
+        저장 줄은 화면 아래에 붙는다 — 폼이 길어 단추가 화면 밖에 있으면 다 채우고도 어디서
+        넣는지 찾아야 한다. 막는 것을 단추 이름에 적는다 — 흐린 단추만으로는 왜 안 되는지 알 수 없다.
+      */}
+      <div className="sticky bottom-0 -mx-5 mt-6 border-t border-slate-200 bg-white/95 px-5 py-3 backdrop-blur sm:-mx-6 sm:px-6">
         <div className="flex flex-wrap items-center gap-2">
-          {/* 막는 것을 단추 이름에 적는다 — 흐린 단추만으로는 왜 안 되는지 알 수 없다 */}
           <Btn
             disabled={Boolean(blocked)}
             busy={busy}

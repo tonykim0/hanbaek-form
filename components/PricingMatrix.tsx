@@ -118,7 +118,14 @@ export default function PricingMatrix({
         {canEdit && !form && <Btn onClick={() => setForm({ prefill: {} })}>새 케이스</Btn>}
       </header>
 
-      {form && (
+      {/*
+        ★폼이 열리면 표·목록은 물러난다 (2026-08-29).★ 그전에는 폼이 페이지 맨 위에 끼어들고
+        그 아래 매트릭스·케이스 목록이 그대로 남아, 케이스 하나를 고치는 화면이 한 페이지
+        반 길이가 됐다 — 저장 단추가 어디 있는지 스크롤로 찾아야 했다. 위 useBackClose 가
+        전제한 「화면을 통째로 대체한다」를 실제로 그렇게 만든다. 돌아가는 길은 폼 머리의
+        「← 단가표로」와 취소, 그리고 뒤로 가기다.
+      */}
+      {form ? (
         <CaseForm
           key={JSON.stringify(form)}
           prefill={form.prefill}
@@ -126,16 +133,18 @@ export default function PricingMatrix({
           stepShapeOf={stepShapeOf}
           onDone={() => setForm(null)}
         />
+      ) : (
+        <>
+          <BlockedLines lines={blockedLines} onFill={(prefill) => setForm({ prefill })} />
+          <Grid rules={live} settleById={settleById} onOpen={setForm} />
+          <CaseList
+            rules={rules}
+            settleById={settleById}
+            referenced={referenced}
+            onOpen={setForm}
+          />
+        </>
       )}
-
-      <BlockedLines lines={blockedLines} onFill={(prefill) => setForm({ prefill })} />
-      <Grid rules={live} settleById={settleById} onOpen={setForm} />
-      <CaseList
-        rules={rules}
-        settleById={settleById}
-        referenced={referenced}
-        onOpen={setForm}
-      />
     </div>
     </CanEdit.Provider>
   );

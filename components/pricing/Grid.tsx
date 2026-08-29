@@ -231,20 +231,31 @@ export function Grid({
           table-fixed + colgroup 으로 열 너비를 못 박는다. auto 레이아웃에서는 브라우저가
           내용으로 너비를 정해서, 값이 든 열은 넓어지고 「—」만 있는 열은 좁아진다 —
           그러면 5·7·10년 머리글(colSpan 2)과 그 아래 공동·상업 칸이 어긋난다.
+
+          ★폭을 화면에 맞추지 않는다 (한백 2026-08-29 「표 넓이가 너무 넓다」).★ w-full 이면
+          값 열 여섯이 패널 폭을 나눠 가져서 넓은 화면에서는 「240만」 하나가 200px 칸 오른쪽
+          끝에 떨어져 섰다 — 줄 이름과 값 사이가 멀어 눈이 한 줄을 못 좇는다. 값 열은 금액
+          하나가 서는 폭(7rem)으로 못 박고, 표는 그 합만큼만 차지한다. 좁은 화면은 옆으로 흐른다.
         */}
-        {/* 표 안 글자는 text-small 한 벌이다 — 단가·조건이 크기로 갈리면 다른 표처럼 읽힌다 */}
-        <table className="w-full min-w-[860px] table-fixed text-small">
+        <table className="w-max table-fixed text-small">
           <colgroup>
-            <col className="w-56" />
+            <col className="w-52" />
             {gridTerms.flatMap((t) =>
-              BUILDING_TYPES.map((b) => <col key={`${t}-${b}`} />)
+              BUILDING_TYPES.map((b) => <col key={`${t}-${b}`} className="w-28" />)
             )}
           </colgroup>
-          <thead className="border-b border-slate-200 bg-slate-50 text-tiny font-bold tracking-[0.06em] text-slate-500">
+          {/*
+            ★대비 (같은 지적).★ 머리·줄 이름·값·조건이 전부 회색 한 톤이었다 — slate-500 머리,
+            slate-700 이름, slate-800 값, slate-100 실선. 무엇을 먼저 읽어야 하는지 색이 말하지
+            않았다. 층을 셋으로 가른다: 머리는 진한 회색 바탕에 검은 글자, 줄 이름은 연한 바탕
+            (표의 왼쪽 기둥), 값은 검정·큰 글자. 조건 행은 그대로 회색 글이다 — 값을 읽고
+            그다음 보는 것이라 값보다 한 단 낮아야 한다.
+          */}
+          <thead className="border-b-2 border-slate-300 bg-slate-100 text-tiny font-bold text-slate-700">
             <tr>
-              <th className="px-3 py-2.5 text-left" rowSpan={2}>교체유형 · 수전</th>
+              <th className="px-3 py-2 text-left tracking-[0.06em] text-slate-500" rowSpan={2}>교체유형 · 수전</th>
               {gridTerms.map((t) => (
-                <th key={t} colSpan={2} className="border-l border-slate-100 px-3 pt-2 text-center">{t}년</th>
+                <th key={t} colSpan={2} className="border-l border-slate-300 px-3 pt-2 text-center text-base font-black text-slate-900">{t}년</th>
               ))}
             </tr>
             <tr>
@@ -252,7 +263,7 @@ export function Grid({
                 BUILDING_TYPES.map((b) => (
                   <th
                     key={`${t}-${b}`}
-                    className={`break-keep px-3 pb-2 text-right font-semibold ${b === '공동주택' ? 'border-l border-slate-100' : ''}`}
+                    className={`break-keep px-3 pb-2 text-right font-semibold ${b === '공동주택' ? 'border-l border-slate-300' : ''}`}
                   >
                     {/* 줄여 적지 않는다 — 운영사마다 경계가 다르다(BLDG_LABEL) */}
                     {bldgAxisLabel(cpo, b)}
@@ -261,7 +272,7 @@ export function Grid({
               )}
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100">
+          <tbody className="divide-y divide-slate-200">
             {/*
               있을 수 없는 조합(연동 × 한전불입)은 행을 만들지 않는다 — 클릭을 막는 게 아니라 자리가 없다.
               교체유형이 단가를 안 가르는 운영사의 신규위치도 마찬가지다(replTypesOf).
@@ -269,16 +280,19 @@ export function Grid({
             {replTypesOf(cpo).flatMap((repl) =>
               powerTypesOfRepl(repl).map((power) => (
                 <tr key={`${repl}-${power}`}>
-                  {/* 열 너비가 고정이라 줄바꿈을 막지 않는다 — 막으면 「자체투자 (제자리교체)」가 칸을 넘는다 */}
-                  <td className="px-3 py-2">
-                    <span className="font-bold text-slate-700">{replLabel(cpo, repl)}</span>
-                    <span className="ml-1.5 text-tiny text-slate-400">{power}</span>
+                  {/*
+                    줄 이름은 표의 왼쪽 기둥이다 — 연한 바탕으로 세워 값 칸과 갈린다.
+                    열 너비가 고정이라 줄바꿈을 막지 않는다 — 막으면 「자체투자 (제자리교체)」가 칸을 넘는다.
+                  */}
+                  <td className="bg-slate-50 px-3 py-2">
+                    <span className="font-bold text-slate-900">{replLabel(cpo, repl)}</span>
+                    <span className="ml-1.5 text-tiny font-semibold text-slate-500">{power}</span>
                   </td>
                   {gridTerms.flatMap((term) =>
                     BUILDING_TYPES.map((bldg) => {
                       const { now, carried } = at(repl, power, term, bldg);
                       return (
-                        <td key={`${term}-${bldg}`} className={`px-1 py-1 text-right ${bldg === '공동주택' ? 'border-l border-slate-100' : ''}`}>
+                        <td key={`${term}-${bldg}`} className={`px-1 py-1 text-right ${bldg === '공동주택' ? 'border-l border-slate-200' : ''}`}>
                           <button
                             type="button"
                             disabled={!canEdit}
@@ -300,10 +314,15 @@ export function Grid({
                                   : { cpo, replType: repl, powerType: power, terms: [term], bldgs: [bldg] },
                               })
                             }
-                            className="w-full rounded-ctl px-2 py-1 text-right tabular-nums transition enabled:hover:bg-brand-50 disabled:cursor-default"
+                            className="w-full rounded-ctl px-2 py-1.5 text-right tabular-nums transition enabled:hover:bg-brand-50 disabled:cursor-default"
                           >
                             {now ? (
-                              <span className={`font-bold ${carried ? 'text-slate-400' : 'text-slate-800'}`}>
+                              /*
+                               * 값은 표에서 가장 먼저 읽는 것이라 가장 진하고 크다(text-base 검정).
+                               * 이월(carried)은 이 시기에 개정이 없어 이전 값이 이어진 것 — 한 단만
+                               * 연하게(slate-500). 예전 slate-400 은 빈 칸의 「—」(slate-300)과 붙어 보였다.
+                               */
+                              <span className={`text-base font-black ${carried ? 'text-slate-500' : 'text-slate-900'}`}>
                                 {won(receiveUnitOf(now))}
                                 {/* 부기 — 이 금액을 읽는 순간 같이 봐야 하는 조건 (한전불입 10기 이내 등) */}
                                 {now.note && (
@@ -326,18 +345,18 @@ export function Grid({
           </tbody>
 
           {/* 단가와 조건을 한 표로 잇는다 — 굵은 선 한 겹으로만 가른다(상자를 겹치지 않는다) */}
-          <tbody className="divide-y divide-slate-100 border-t-2 border-slate-200">
+          <tbody className="divide-y divide-slate-200 border-t-2 border-slate-300">
             {POLICY_ROWS.map((row) => {
               /* 숫자 행은 칸 값 그대로, 글 행은 공통 불릿을 떼어 전 폭에 한 번만 */
               if (row.num) {
                 return (
                   <tr key={row.label} className="align-top">
-                    <td className="px-3 py-2 font-bold text-slate-700">{row.label}</td>
+                    <td className="bg-slate-50 px-3 py-2 font-bold text-slate-700">{row.label}</td>
                     {spansOf(row.of).map((c, i) => (
                       <td
                         key={i}
                         colSpan={c.span}
-                        className={`whitespace-pre-line break-keep px-3 py-2 text-small text-center font-bold tabular-nums text-slate-800 ${i === 0 ? '' : 'border-l border-slate-100'}`}
+                        className={`whitespace-pre-line break-keep px-3 py-2 text-small text-center font-bold tabular-nums text-slate-800 ${i === 0 ? '' : 'border-l border-slate-200'}`}
                       >
                         {c.value === null ? <Empty kind="wait" /> : c.value}
                       </td>
@@ -358,7 +377,7 @@ export function Grid({
                 <Fragment key={row.label}>
                   <tr className="align-top">
                     {/* 행 라벨은 축 라벨(교체유형)과 같은 톤 — 표 안에 글자 크기를 셋 두지 않는다 */}
-                    <td className="px-3 py-2 font-bold text-slate-700" rowSpan={common.length > 0 && hasDiff ? 2 : 1}>
+                    <td className="bg-slate-50 px-3 py-2 font-bold text-slate-700" rowSpan={common.length > 0 && hasDiff ? 2 : 1}>
                       {row.label}
                     </td>
                     {common.length > 0 ? (
@@ -370,7 +389,7 @@ export function Grid({
                         <td
                           key={i}
                           colSpan={c.span}
-                          className={`whitespace-pre-line break-keep px-3 py-2 text-left text-small text-slate-700 ${i === 0 ? '' : 'border-l border-slate-100'}`}
+                          className={`whitespace-pre-line break-keep px-3 py-2 text-left text-small text-slate-700 ${i === 0 ? '' : 'border-l border-slate-200'}`}
                         >
                           {c.value === null ? <Empty kind="wait" /> : c.value}
                         </td>
@@ -386,7 +405,7 @@ export function Grid({
                         <td
                           key={i}
                           colSpan={c.span}
-                          className={`whitespace-pre-line break-keep px-3 pb-2 text-left text-small text-slate-700 ${i === 0 ? '' : 'border-l border-slate-100'}`}
+                          className={`whitespace-pre-line break-keep px-3 pb-2 text-left text-small text-slate-700 ${i === 0 ? '' : 'border-l border-slate-200'}`}
                         >
                           {c.value === null ? <span className="text-slate-300">—</span> : c.value}
                         </td>

@@ -488,7 +488,7 @@ export const pgRepository: ProjectRepository = {
     });
   },
 
-  async deleteProject(projectId, actor): Promise<{ blobUrls: string[] }> {
+  async deleteProject(projectId, actor): Promise<{ keptFiles: number }> {
     assertAdmin(actor, '현장 삭제');
 
     const db = getDb();
@@ -500,16 +500,23 @@ export const pgRepository: ProjectRepository = {
         .limit(1);
       if (!row) throw new Error('현장을 찾을 수 없습니다.');
 
-      // 지워질 파일 주소를 먼저 모은다 — cascade 뒤에는 물을 곳이 없다
+      /*
+       * 이 현장에 딸린 파일 주소를 먼저 모은다 — cascade 뒤에는 물을 곳이 없다.
+       * ★files 배열이 정본이다★ (migrations/0021) — blob_url 은 첫 장의 사본이라, 그것만
+       * 보면 두 번째 장부터가 목록에서 빠진다.
+       */
       const [docRows, procDocRows] = await Promise.all([
-        tx.select({ blobUrl: documents.blobUrl }).from(documents)
+        tx.select({ blobUrl: documents.blobUrl, files: documents.files }).from(documents)
           .where(eq(documents.projectId, projectId)),
-        tx.select({ blobUrl: processDocuments.blobUrl }).from(processDocuments)
-          .where(eq(processDocuments.projectId, projectId)),
+        tx.select({ blobUrl: processDocuments.blobUrl, files: processDocuments.files })
+          .from(processDocuments).where(eq(processDocuments.projectId, projectId)),
       ]);
-      const blobUrls = [...docRows, ...procDocRows]
-        .map((d) => d.blobUrl)
-        .filter((u): u is string => Boolean(u));
+      const blobUrls = [...new Set(
+        [...docRows, ...procDocRows].flatMap((d) => [
+          d.blobUrl,
+          ...((d.files ?? []) as Array<{ url?: string }>).map((f) => f?.url),
+        ])
+      )].filter((u): u is string => Boolean(u));
 
       await tx.delete(projects).where(eq(projects.id, projectId));
 
@@ -519,7 +526,24 @@ export const pgRepository: ProjectRepository = {
         field: 'name', oldValue: row.name, newValue: null,
       });
 
-      return { blobUrls };
+      /*
+       * ★파일은 지우지 않는다★ (2026-08-29). Vercel Blob 에는 버전도 휴지통도 시점 복구도
+       * 없고 삭제는 영구다 — 문서가 스스로 「no native backup system」이라고 적는다.
+       * 현장 하나를 잘못 지르는 것으로 계약서·보험증권·준공서류가 영영 사라지면 안 된다.
+       * DB 는 덤프로 되살릴 수 있으므로, 파일만 남아 있으면 그 덤프가 곧 복구가 된다.
+       *
+       * 대신 ★어느 파일이 주인을 잃었는지★ 여기 남긴다. 감사기록은 FK 가 없어 현장이
+       * 지워져도 살아남는 유일한 자리다 — 나중에 정말 지울 때 이 줄이 그 목록이 된다.
+       */
+      if (blobUrls.length > 0) {
+        await writeAudit(tx, {
+          projectId, actor, action: '삭제 현장의 파일 보관',
+          field: `${blobUrls.length}건`,
+          oldValue: null, newValue: blobUrls.join('\n'),
+        });
+      }
+
+      return { keptFiles: blobUrls.length };
     });
   },
 };

@@ -829,7 +829,7 @@ function DeleteProject({ projectId, name }: { projectId: string; name: string })
       <Confirm
         open={confirming}
         title={`「${name}」 현장을 삭제하시겠습니까?`}
-        detail="서류·공정·정산·메모가 함께 지워지고 되돌릴 수 없습니다."
+        detail="서류·공정·정산·메모가 함께 지워지고 되돌릴 수 없습니다. 올린 파일 자체는 저장소에 남습니다."
         /* 잘못 누르는 것을 막는 말 — 대신 무엇을 해야 하는지 적는다 */
         hint={<>삭제는 잘못 만든 현장(중복 접수·시험 입력)을 지우는 자리입니다. 계약이 무산된 현장은 삭제하지 말고 <b>「계약중단」</b>으로 세워 기록을 남기세요.</>}
         confirmLabel="예, 삭제합니다"

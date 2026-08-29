@@ -228,9 +228,14 @@ export interface ProjectRepository {
    * 잘못 만든 현장(중복 접수·시험 입력)을 지우는 자리다 — 계약이 무산된 현장은
    * 지우지 않고 계약중단(setHold)으로 세운다, 그건 기록이다.
    * 서류·공정·정산·메모가 함께 지워진다(FK cascade). 감사기록은 남는다(FK 없음).
-   * 파일(Blob) 삭제는 라우트가 한다 — 지운 서류의 주소 목록을 돌려준다.
+   *
+   * ★파일(Blob)은 지우지 않는다★ (2026-08-29). Blob 에는 버전도 휴지통도 시점 복구도
+   * 없고 삭제가 영구다 — 현장 하나를 잘못 지르는 것으로 계약서·준공서류가 영영 사라지면
+   * 안 된다. DB 는 덤프로 되살아나므로 파일만 남아 있으면 그 덤프가 곧 복구가 된다.
+   * 주인을 잃은 파일 목록은 감사기록에 남는다(action: 삭제 현장의 파일 보관) — 정말
+   * 지울 때 그 줄이 목록이 된다. 돌려주는 것은 그렇게 남긴 파일 수다.
    */
-  deleteProject(projectId: string, actor: Actor): Promise<{ blobUrls: string[] }>;
+  deleteProject(projectId: string, actor: Actor): Promise<{ keptFiles: number }>;
 
   /**
    * 계약 확인. [한백 전용]

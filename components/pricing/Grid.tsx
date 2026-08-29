@@ -76,6 +76,12 @@ export function Grid({
    * 병합 폭이 아니라 행의 종류가 정한다. 폭으로 정하면 같은 행이 시기마다 다르게 선다.
    */
   const POLICY_ROWS: { label: string; num?: boolean; of: (r: PricingRule) => string | null }[] = [
+    /*
+     * ★설치조건이 맨 위다 (한백 2026-08-29).★ 「이 현장에 깔 수 있는가」가 먼저고
+     * 요금·프로모션은 깔기로 한 뒤의 조건이다. 그전에는 요금이 위에 있어서, 조건을 보려면
+     * 숫자 석 줄을 지나야 했다.
+     */
+    { label: '설치조건', of: (r) => r.installTerms },
     { label: '충전요금', num: true, of: (r) => (r.chargeRate === null ? null : `${won(r.chargeRate)}원`) },
     {
       label: '프로모션',
@@ -89,17 +95,21 @@ export function Grid({
        * 연장은 고를 수 있는 것이 여럿이다 — 늘리는 요금마다 차감액이 다르다
        * (플러그링크: 6개월 149원 20만 · 6개월 249원 10만). 하나만 적으면 고를 것이
        * 하나뿐인 것처럼 보이므로 전부 적는다. 숫자 한 칸이 아니게 되어 num 을 뗀다.
+       *
+       * ★이름이 「연장 차감」이었다 (한백 2026-08-29).★ 무엇을 차감하는지가 이름에 없어서
+       * 기타 칸에 「프로모션 연장은 영업비 차감으로 가능」이라고 또 적혀 있었다 — 같은 말이
+       * 두 곳에 있었다(화면 규칙 5). 이름이 그 말을 하면 기타에서 지울 수 있다.
        */
-      label: '연장 차감',
+      label: '프로모션 연장 (영업비 차감)',
       of: (r) => (r.promoExtend === null ? null
         : r.promoExtend.length === 0 ? '없음'
           : r.promoExtend
-            .map((x) => `${x.months}개월 ${won(x.rate)}원 → ${won(x.deduct)}원`)
-            .join(' · ')),
+            .map((x) => `· ${x.months}개월 ${won(x.rate)}원 → ${won(x.deduct)}원 차감`)
+            .join('\n')),
     },
     { label: '지급자재', of: (r) => r.supplyItems },
-    { label: '설치조건', of: (r) => r.installTerms },
-    { label: '병행', of: (r) => r.coexistTerms },
+    // 「병행」만으로는 무엇과 병행인지 알 수 없다 (한백 2026-08-29)
+    { label: '병행주차 가능여부', of: (r) => r.coexistTerms },
     { label: '기타지원', of: (r) => r.otherSupport },
     { label: '기타', of: (r) => r.miscTerms },
   ];

@@ -22,7 +22,7 @@ import { PROCESS_STATUSES } from '@/types/project';
 import {
   PROCESS_DOCS, processDocsFor,
 } from '@/lib/doc-rules';
-import { bandOfColumn } from '@/lib/board';
+import { constructionLabelOf, HANDOFF_STATUS } from '@/lib/board';
 import { advanceBlockers,
   canEnter, gateContextOf, isHanbaekOnlyProcessField, statusIndex, STATUS_GATES,
   type ProcessEdit,
@@ -53,13 +53,20 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
   const { busyKey, error, run } = useAction();
 
   /*
-   * 스테퍼는 행위신고부터 그린다 — 계약완료·운영사 계약서 제출은 계약 국면(계약 페이지의
-   * 칸)이라 시공 공정에 다시 세우지 않는다(한백 확인). 현장이 아직 그 구간이면
-   * 행위신고가 전부 미래로 보이고, 첫 구간이 선택된다.
+   * ★스테퍼의 첫 칸은 「환경부 승인 대기」다★ (한백 지시 2026-08-29).
+   *
+   * 예전에는 행위신고부터 그렸다 — 계약완료·운영사 계약서 제출은 계약 국면이라 시공에
+   * 다시 세우지 않는다는 판단이었다. 그런데 계약서를 낸 현장이 시공 탭을 열면 첫 구간이
+   * 「오지 않은 구간」이고 단추가 하나도 없어서, 무엇을 기다리는지도 다음 걸음이 어디
+   * 있는지도 화면에 없었다(2026-08-29 흐름 워크스루).
+   *
+   * 계약서를 낸 뒤의 기다림은 시공의 첫 자리이기도 하다: 운영사가 환경부에 접수하고,
+   * 승인이 나면 운영사가 알려주고, 한백이 환경부 승인일을 적는다. 그래서 그 칸을 앞에
+   * 세우고 시공 쪽 이름으로 부른다(lib/board constructionLabelOf).
    */
-  const STEPS = PROCESS_STATUSES.filter((st) => statusIndex(st) >= statusIndex('행위신고'));
+  const STEPS = PROCESS_STATUSES.filter((st) => statusIndex(st) >= statusIndex(HANDOFF_STATUS));
   const anchor: ProcessStatus =
-    statusIndex(p.status) >= statusIndex('행위신고') ? p.status : '행위신고';
+    statusIndex(p.status) >= statusIndex(HANDOFF_STATUS) ? p.status : HANDOFF_STATUS;
   /** 스테퍼에서 보고 있는 구간 — 단계가 바뀌면 그 구간을 따라간다 */
   const [selected, setSelected] = useState<ProcessStatus>(anchor);
   useEffect(() => setSelected(anchor), [anchor]);
@@ -216,18 +223,18 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
   /*
    * 시공의 첫 칸에서 계약으로 되돌리는 길 (한백 지시 2026-08-25).
    *
-   * 지난 칩을 누르면 되돌아가지만, ★행위신고에 서 있으면 되돌릴 칩이 없다★ —
-   * 그 앞 칸(운영사 계약서 제출)은 계약 국면이라 이 스테퍼에 그리지 않는다.
-   * 그래서 잘못 넘긴 현장이 시공 보드의 첫 칸에 갇혔다(휴먼서희스타힐스 2026-08-25):
-   * 표의 단계 칸에서 고르는 것 말고는 길이 없었다. 넘기는 자리에 되돌리는 자리를
-   * 같이 둔다(화면 규칙 7).
+   * 지난 칩을 누르면 되돌아가지만, ★스테퍼의 첫 칸에 서 있으면 되돌릴 칩이 없다★ —
+   * 그 앞 칸(계약완료)은 계약 국면이라 이 스테퍼에 그리지 않는다. 그래서 잘못 넘긴
+   * 현장이 시공 보드의 첫 칸에 갇혔다(휴먼서희스타힐스 2026-08-25): 표의 단계 칸에서
+   * 고르는 것 말고는 길이 없었다. 넘기는 자리에 되돌리는 자리를 같이 둔다(화면 규칙 7).
    *
-   * 판정은 띠(lib/board)로 한다 — '행위신고' 를 여기 적으면 첫 칸이 바뀔 때
-   * (계약 칸이 늘거나 줄면) 이 자리가 조용히 어긋난다.
+   * ★스테퍼에 그려지는 칸이면 여기 세우지 않는다★ (2026-08-29) — 첫 칸이 「환경부 승인
+   * 대기」로 앞당겨지면서, 행위신고에 서 있을 때 그 칩과 이 단추가 같은 되돌리기를 두 번
+   * 말하게 됐다. 판정은 자리로 한다 — 칸 이름을 적으면 첫 칸이 바뀔 때 조용히 어긋난다.
    */
   const prevStatus = PROCESS_STATUSES[now - 1] ?? null;
   const backToContract =
-    prevStatus && bandOfColumn(prevStatus) === '계약' ? prevStatus : null;
+    prevStatus && statusIndex(prevStatus) < statusIndex(HANDOFF_STATUS) ? prevStatus : null;
 
   return (
     <div className="flex flex-col gap-5">
@@ -263,7 +270,7 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
           */}
         <div className="flex items-center gap-1 overflow-x-auto px-0.5 pb-2 pt-1.5" role="tablist" aria-label="공정 단계">
           {STEPS.map((st, i) => {
-            // 자리 비교는 전역 순서(statusIndex)로 — STEPS 는 행위신고부터라 i 가 어긋난다
+            // 자리 비교는 전역 순서(statusIndex)로 — STEPS 는 중간부터라 i 가 어긋난다
             const idx = statusIndex(st);
             const state = idx < now ? 'past' : idx === now ? 'current' : 'future';
             const entry = canEnter(st, p, gate);
@@ -287,7 +294,7 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
                   }`}
                 >
                   {state === 'past' && <span aria-hidden className="mr-1 opacity-70">✓</span>}
-                  {st}
+                  {constructionLabelOf(st)}
                   {state === 'future' && !entry.ok && <span aria-label="잠김" className="ml-1 opacity-70">🔒</span>}
                 </button>
                 {i < STEPS.length - 1 && (
@@ -324,18 +331,21 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
             <div className="mt-1 flex flex-col gap-4">
               {/* 구간 머리 — 무엇을 보고 있고, 그 구간으로 옮길 수 있으면 단추가 여기 선다 */}
               <div className="flex flex-wrap items-center gap-2">
-                <h3 className="text-base font-black text-slate-900">{selected}</h3>
+                <h3 className="text-base font-black text-slate-900">{constructionLabelOf(selected)}</h3>
                 <Badge tone={selState === 'current' ? 'ok' : 'mute'}>
                   {selState === 'current' ? '지금 구간' : selState === 'past' ? '지난 구간' : '오지 않은 구간'}
                 </Badge>
                 {/*
-                  * ★계약 국면에 서 있는 현장은 여기서 못 옮긴다★ (한백 지시 2026-08-26).
-                  * 이 스테퍼는 행위신고부터 그리므로, 계약완료 현장에서 「이 구간으로
-                  * 넘기기」를 누르면 「운영사 계약서 제출」을 통째로 건너뛰었다 —
-                  * 그러면 제출일이 영영 안 남고 담당도 운영사를 거치지 않는다.
-                  * 그 걸음은 계약 탭과 보드 카드에서 한다.
+                  * ★앞으로는 한 칸씩만★ — 되돌리는 것은 자유다.
+                  *
+                  * 예전에는 「계약 국면이면 여기서 못 옮긴다」로 막았다(한백 지시 2026-08-26):
+                  * 스테퍼가 행위신고부터 그려서, 계약완료 현장이 이 단추를 누르면 「운영사
+                  * 계약서 제출」을 통째로 건너뛰었기 때문이다 — 그러면 제출일이 영영 안 남고
+                  * 담당도 운영사를 거치지 않는다. 이제 그 칸이 스테퍼의 첫 자리에 있으므로
+                  * 건너뛸 일이 없다. 막을 것은 「두 칸 이상 앞으로」 하나뿐이다.
                   */}
-                {edit === 'all' && selState !== 'current' && bandOfColumn(p.status) !== '계약' && (
+                {edit === 'all' && selState !== 'current'
+                  && (selState === 'past' || selIdx === now + 1) && (
                   selEntry.ok ? (
                     <button
                       type="button"

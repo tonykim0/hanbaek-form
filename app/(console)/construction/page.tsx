@@ -2,7 +2,7 @@ import { getRepository } from '@/lib/data';
 import { getSessionUser, viewerOf } from '@/lib/auth/session';
 import { redirect } from 'next/navigation';
 import ProjectsView from '@/components/ProjectsView';
-import { phaseOfProject } from '@/lib/board';
+import { showsOnBoard } from '@/lib/board';
 
 export const metadata = { title: '시공관리 — 한백 전기차사업관리' };
 
@@ -17,7 +17,7 @@ export default async function ConstructionPage() {
   if (!session) redirect('/login?next=/construction');
   const all = await getRepository().listProjects(viewerOf(session));
   // 충전기 발주부터가 시공이다 — 계약완료·운영사 계약서 제출은 계약 페이지에 있다(한백 확인)
-  const projects = all.filter((p) => phaseOfProject(p) === '시공');
+  const projects = all.filter((p) => showsOnBoard(p, '시공'));
 
   return (
     <>

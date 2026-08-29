@@ -74,10 +74,18 @@ export default function ProjectBoard({
    * 몇 건 안 되는 멈춤이 별도 줄로 계약·시공과 같은 자리를 차지했다.
    * 보류는 있을 때만 나타나고, 계약중단은 늘 맨 끝이다 — 카드가 갈 곳이 보여야 보낼 수 있다.
    */
+  /*
+   * 맞물리는 칸(운영사 계약서 제출)은 양쪽 보드에 선다 — 계약의 끝이자 시공의 시작이라
+   * 한쪽에만 두면 다른 쪽에서 현장이 통째로 사라진다(한백 지시 2026-08-29).
+   * PROCESS_STATUSES 순서를 그대로 따르므로 시공 보드에서는 행위신고 앞에 붙는다.
+   */
   const cols = [
-    ...visible.filter((c) => c.band === band),
+    ...visible.filter((c) => c.band === band || c.alsoOn?.band === band),
     ...visible.filter((c) => c.band === '멈춤'),
   ];
+  /** 그 보드에서 부르는 이름 — 같은 칸을 계약은 「냈다」로, 시공은 「기다린다」로 본다 */
+  const labelOf = (c: (typeof cols)[number]) =>
+    (c.alsoOn?.band === band ? c.alsoOn.label : c.label);
 
   /*
    * 계약과 시공이 남은 높이를 반씩 쓴다.
@@ -130,7 +138,7 @@ export default function ProjectBoard({
                   return (
                     <section
                       key={col.key}
-                      aria-label={col.label}
+                      aria-label={labelOf(col)}
                       /* 멈춤 칸은 같은 줄 끝에 서므로 색으로만 가른다 — 흐름 칸과 다른 것임이 보여야 한다 */
                       className={`flex min-h-0 min-w-0 flex-col rounded-panel border p-2.5 ${
                         col.band === '멈춤'
@@ -140,7 +148,7 @@ export default function ProjectBoard({
                     >
                       <header className="flex items-baseline justify-between gap-2 px-1.5 pb-2">
                         <h3 className="text-base font-black tracking-[-0.01em] text-slate-800">
-                          {col.label}
+                          {labelOf(col)}
                         </h3>
                         <span
                           className={`text-lead font-black tabular-nums ${

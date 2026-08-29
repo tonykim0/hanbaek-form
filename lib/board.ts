@@ -45,7 +45,15 @@ export interface BoardColumnDef {
   droppable: boolean;
   /** 놓을 수 없는 칸에 왜 그런지 */
   why?: string;
-  /** 칸이 하는 일 — 머리글에 그대로 나간다 */
+  /**
+   * 다른 보드에도 서는 칸 — 그쪽에서 부르는 이름과 함께.
+   *
+   * ★계약의 끝이 곧 시공의 시작인 칸이 하나 있다★ (한백 지시 2026-08-29):
+   * 「운영사 계약서 제출」. 계약 쪽에서는 「우리가 냈다」는 뜻이고, 시공 쪽에서는
+   * 「환경부 승인을 기다리는 중」이다 — 같은 자리를 양쪽에서 다르게 본다.
+   * 한 칸만 세워 두면 한쪽 보드에서는 현장이 통째로 사라진다.
+   */
+  alsoOn?: { band: BoardBand; label: string };
 }
 
 /**
@@ -77,6 +85,37 @@ export function phaseOfProject(p: { stage: Stage; status: ProcessStatus }): '계
   return BAND_OF_STATUS[p.status] === '계약' ? '계약' : '시공';
 }
 
+/**
+ * 계약과 시공이 맞물리는 칸 — 양쪽 보드에 선다.
+ *
+ * 우리가 운영사에 계약서를 낸 뒤의 일은 우리 손 밖이다: 운영사가 환경부에 접수하고,
+ * 환경부가 승인해 운영사에 알리고, 운영사가 승인일과 함께 우리에게 알려준다(한백 설명).
+ * 그 기다림이 계약 보드의 마지막 칸이자 시공 보드의 첫 칸이다.
+ */
+export const HANDOFF_STATUS = '운영사 계약서 제출' as const;
+
+/** 시공 쪽에서 부르는 이름 — 냈다(계약)와 기다린다(시공)는 같은 자리의 두 얼굴이다 */
+const CONSTRUCTION_LABEL: Record<typeof HANDOFF_STATUS, string> = {
+  '운영사 계약서 제출': '환경부 승인 대기',
+};
+
+/** 시공 화면에서 부르는 칸 이름 — 스테퍼도 보드도 같은 말을 쓴다 */
+export function constructionLabelOf(status: ProcessStatus): string {
+  return status === HANDOFF_STATUS ? CONSTRUCTION_LABEL[status] : status;
+}
+
+/**
+ * 이 현장이 그 보드에 서는가 — 사는 국면 하나에, 맞물리는 칸이면 양쪽에.
+ *
+ * 예전에는 국면 하나로만 갈랐다. 그래서 계약서를 낸 현장이 시공 보드에서 통째로 사라지고,
+ * 시공 탭을 열면 첫 구간이 「오지 않은 구간」이라 무엇을 기다리는지 화면에 없었다
+ * (2026-08-29 흐름 워크스루).
+ */
+export function showsOnBoard(p: { stage: Stage; status: ProcessStatus }, band: '계약' | '시공'): boolean {
+  if (phaseOfProject(p) === band) return true;
+  return p.status === HANDOFF_STATUS && band === '시공' && p.stage !== 'intake';
+}
+
 export const BOARD_COLUMNS: BoardColumnDef[] = [
   {
     key: '계약접수',
@@ -105,6 +144,9 @@ export const BOARD_COLUMNS: BoardColumnDef[] = [
     label: s,
     band: BAND_OF_STATUS[s],
     droppable: true,
+    ...(s === HANDOFF_STATUS
+      ? { alsoOn: { band: '시공' as const, label: CONSTRUCTION_LABEL[s] } }
+      : {}),
   })),
   {
     key: '보류',

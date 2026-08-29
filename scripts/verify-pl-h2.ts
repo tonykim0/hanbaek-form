@@ -57,7 +57,7 @@ async function main() {
   const rows = await sql`
     select id, case_name, biz_type, power_type, term_years, bldg_types, repl_type, channel,
            start_date, sales_unit, cons_unit, margin, charge_rate, promo, promo_extend, active
-    from pricing_rules where cpo = '플러그링크' and start_date = '2026년 하반기'
+    from pricing_rules where cpo = '플러그링크' and start_date = '2026년 7월 1일'
     order by id`;
   const live = new Map(rows.map((r) => [r.id as string, r]));
 
@@ -93,17 +93,19 @@ async function main() {
 
   /*
    * 하반기 프레임 검사 — 문서와 무관하게 이 저장소가 정한 규칙이다:
-   * 마진 20만 고정 · 시공 100만 고정(턴키), 나머지가 영업비.
+   * 마진 20만 고정 · ★기본공사비 95만★ 고정(턴키), 나머지가 영업비.
    * 정의 파일 자체가 그 프레임을 벗어나 있을 수 있어 DB 를 직접 본다.
+   * 100만이 아니다 — 그것은 근거 없이 쓰던 자릿수였고, 실제 기준은 상반기 90 → 하반기 95다
+   * (한백 2026-08-29, migrations/0042).
    */
-  console.log('하반기 프레임(마진 20만 · 턴키 시공 100만)에서 벗어난 케이스:');
+  console.log('하반기 프레임(마진 20만 · 턴키 기본공사비 95만)에서 벗어난 케이스:');
   let off = 0;
   for (const r of rows) {
     if (r.channel !== '턴키') continue;
     const bads: string[] = [];
     if (r.margin !== 200_000) bads.push(`마진 ${won(r.margin)}`);
     // 연동은 시공이 없다(연결만 한다) — 시공 0 이 맞다
-    if (r.biz_type !== '연동' && r.cons_unit !== 1_000_000) bads.push(`시공 ${won(r.cons_unit)}`);
+    if (r.biz_type !== '연동' && r.cons_unit !== 950_000) bads.push(`시공 ${won(r.cons_unit)}`);
     if (bads.length > 0) {
       off += 1;
       console.log(`  ✗ ${r.case_name}\n      ${bads.join(' · ')}  (받는단가 ${won(r.sales_unit + r.cons_unit + r.margin)})`);

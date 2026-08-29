@@ -40,7 +40,14 @@ import type { NewPricingRule, PromoExtendOption, PromoStep, SettlementStepRule }
 import { replLabel } from '@/types/project';
 
 const MARGIN = 200_000;
-const PAYOUT_CONS = 1_000_000;
+/*
+ * ★기본공사비 — 운영사마다 다르고 반기마다 오른다 (한백 2026-08-29).★
+ * 정책이 정하는 값이 아니라 우리가 정하는 값이다: 받는 단가에서 마진과 이것을 빼면
+ * 나머지가 영업비다. 한동안 「하반기는 100만」을 프레임처럼 썼는데 그것은 근거 없는
+ * 자릿수였다 — 플러그링크는 ★상반기 90만 → 하반기 95만★ 이고, 현대엔지니어링은
+ * 110만이다(HEC_PAYOUT_CONS). 상반기 케이스(2026년 1월 20일)는 90만 그대로 둔다.
+ */
+const PL_PAYOUT_CONS = 950_000;
 
 /* ── 플러그링크 (배포본 260629) ────────────────────────────────────────── */
 
@@ -180,7 +187,8 @@ export const PL_RESTORE: (NewPricingRule & { id: string })[] = [
     cpo: '플러그링크', bizType: '환경부', powerType: '한전불입',
     termYears: [7], bldgTypes: ['공동주택'], replType: '환경부 신규', channel: '턴키',
     bizYear: 2026, startDate: PL_START,
-    salesUnit: 900_000, consUnit: 900_000, margin: 200_000,
+    // 총액 200만 = 영업 85 + 시공 95 + 마진 20
+    salesUnit: 2_000_000 - PL_PAYOUT_CONS - MARGIN, consUnit: PL_PAYOUT_CONS, margin: MARGIN,
     supervisionBearer: '영업비 차감', safetyFeeBearer: '한백 부담',
     note: null,
     ...plPolicy(true, 7),
@@ -192,7 +200,8 @@ export const PL_RESTORE: (NewPricingRule & { id: string })[] = [
     cpo: '플러그링크', bizType: '환경부', powerType: '한전불입',
     termYears: [10], bldgTypes: ['공동주택'], replType: '환경부 신규', channel: '턴키',
     bizYear: 2026, startDate: PL_START,
-    salesUnit: 1_000_000, consUnit: 1_000_000, margin: 200_000,
+    // 총액 220만 = 영업 105 + 시공 95 + 마진 20
+    salesUnit: 2_200_000 - PL_PAYOUT_CONS - MARGIN, consUnit: PL_PAYOUT_CONS, margin: MARGIN,
     supervisionBearer: '영업비 차감', safetyFeeBearer: '한백 부담',
     note: null,
     ...plPolicy(true, 10),
@@ -220,8 +229,8 @@ export function plNewRules(): NewPricingRule[] {
     channel: '턴키',
     bizYear: 2026,
     startDate: PL_START,
-    salesUnit: row.total - PAYOUT_CONS - MARGIN,
-    consUnit: PAYOUT_CONS,
+    salesUnit: row.total - PL_PAYOUT_CONS - MARGIN,
+    consUnit: PL_PAYOUT_CONS,
     margin: MARGIN,
     supervisionBearer: null,
     safetyFeeBearer: null,

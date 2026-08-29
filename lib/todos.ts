@@ -19,7 +19,6 @@ import { isHanbaek, type Role } from '@/lib/roles';
 import { won } from '@/lib/format';
 import { today } from '@/lib/date';
 import type { SessionPayload } from '@/lib/auth/types';
-import { subsidized } from '@/types/project';
 import type { Court } from '@/types/project';
 import { TODO_GROUPS, type TodoItem } from '@/lib/todo-types';
 import { receivableTodos } from '@/lib/todo-receivables';
@@ -138,35 +137,14 @@ export async function todosOf(session: SessionPayload): Promise<TodoItem[]> {
     }));
 
   /*
-   * ★운영사 회신 대기 — 담당은 운영사인데 좇는 것은 한백이다★ (한백 설명 2026-08-29).
+   * ★「운영사 계약서 제출」은 할 일에 세우지 않는다★ (한백 지시 2026-08-29).
    *
-   * 계약서를 낸 뒤의 걸음은 우리 손 밖에 있다: 운영사가 환경부에 접수하고, 환경부가
-   * 승인해서 운영사에 알리고, 운영사가 승인일과 함께 우리에게 알려준다. 그것을 받아
-   * 한백이 환경부 승인일을 적으면 시공이 열린다.
-   *
-   * 그래서 이 칸은 「할 일이 없는 자리」가 아니라 회신을 좇고 승인일을 적는 자리다.
-   * 담당이 운영사라 할 일 목록에서 통째로 빠져 있었고(2026-08-29 흐름 워크스루),
-   * 그 사이 며칠이 지났는지 아무도 안 봤다. 담당은 그대로 두고 여기서 세운다 —
-   * court 를 한백으로 바꾸면 보드가 「한백 차례」라고 말하게 되는데 그건 사실이 아니다.
-   *
-   * 환경부 사업이 아니면 기다릴 승인이 없다(자체투자·연동) — 바로 다음 칸으로 넘긴다.
+   * 잠시 세워 봤다가 걷어냈다. 그 자리에서 한백이 하는 일은 운영사 회신을 기다리는 것뿐이고,
+   * 기다리는 것은 할 일이 아니다 — 목록에 있으면 매일 보면서 아무것도 못 하는 줄이 된다.
+   * 대신 그 기다림은 ★보드에서 보인다★: 시공 보드 첫 칸 「환경부 승인 대기」(계약 보드에서는
+   * 「운영사 계약서 제출」)에 카드가 서고 정체일이 붙는다(lib/board HANDOFF_STATUS).
+   * 회신이 오면 환경부 승인일을 적고 다음 칸으로 넘긴다 — 그때부터가 할 일이다.
    */
-  const cpoWaits: TodoItem[] = session.role !== 'admin' ? [] : projects
-    .filter((p) => !p.holdState && p.status === '운영사 계약서 제출')
-    .map((p) => ({
-      id: `cpowait|${p.id}`,
-      href: `/projects/${p.id}`,
-      name: p.name,
-      what: subsidized(p.bizType)
-        ? '운영사 회신 확인 → 환경부 승인일 입력'
-        : '행위신고로 넘기기 (환경부 승인 없는 사업)',
-      group: '계약' as const,
-      kind: '운영사 계약서 제출',
-      stalledDays: p.stalledDays,
-      /* 기다린 날수가 곧 급함이다 — 현장 카드의 정체일과 같은 자에 올린다 */
-      urgency: p.stalledDays,
-      urgencyLabel: p.stalledDays > 0 ? `회신 기다린 지 ${p.stalledDays}일` : null,
-    }));
 
   /*
    * 기성 — 멈춘 현장은 뺀다. 위 현장 카드와 같은 판정이다(보류·계약중단은 누구 차례도
@@ -178,7 +156,7 @@ export async function todosOf(session: SessionPayload): Promise<TodoItem[]> {
     : receivableTodos(settlements.filter((s) => !held.has(s.id)));
 
   /* 급한 순 — 업무를 넘어 한 자로 잰다. 같으면 업무 순서(계약 → 시공 → 정산) */
-  return [...missed, ...invoices, ...receivables, ...cpoWaits, ...items].sort(
+  return [...missed, ...invoices, ...receivables, ...items].sort(
     (a, b) => b.urgency - a.urgency
       || TODO_GROUPS.indexOf(a.group) - TODO_GROUPS.indexOf(b.group)
   );

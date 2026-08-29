@@ -237,26 +237,48 @@ export const HEC_START = '2026년 7월 21일';
 
 const HEC_CHARGE = 292;
 const HEC_PROMO: PromoStep[] = [{ months: 6, rate: 150 }];
-const HEC_SUPPLY =
-  '충전기 / 캐노피 / 폴대 · 미지급(책임 을): 소화기 · 질식소화포 · 주수관창 · CCTV/열화상카메라 · 연기감지기 등';
-const HEC_INSTALL =
-  '주차면 5% 이하 · 주용도 무관 — 상업시설·기타 부지(병원·골프장 등) 포함(한백 확인 2026-08-23)'
-  + ' · 차충비 1 이상(증빙 필요) · 계약기간 7년 이상(지중인입 10년 · 5년은 별도 검토)'
-  + ' · 착공 지시 후 90일 내 준공(패널티)';
-const HEC_COEXIST =
-  '병행주차 가능 — 2% 이하 전용주차 · 2% 초과 병행주차 · 안내문·도색 비용 영업자 부담(전용 전환 시 비용 포함)';
-const HEC_SUPPORT =
-  '한전불입금(한전 세금계산서 수령 후 30일 내 정산) · 안전공사 검사·점검비(준공 시 정산) · 전기안전관리자 선임'
-  + ' · 완속 30기 이상 설치 시 급속 1기 지원(현장당 · 재고 소진 시 중단)';
-const HEC_MISC_COMMON = [
-  '· 감리배치비 미제공',
-  '· 프로모션 연장 차감 단가 미정 · 4분기 기본단가 290원 예정 · 장기 프로모션(27년 신차 5%·재구매 7.5%) 4분기 예정',
-  '· 의무영업 1,000기 이상(갑 승인 기준 · 미달 시 차년도 계약 페널티)',
+/* 지급자재 — 대주는 것만 적는다 (한백 2026-08-29). 안 대주는 것 목록은 걷었다 */
+const HEC_SUPPLY = '스탠드 + 캐노피';
+
+/*
+ * 설치조건 — 불릿마다 줄을 바꾼다 (한백 2026-08-29). 「· 」로 이어 붙이면 한 문단이 되어
+ * 조건이 몇 개인지 세어지지 않는다. 「상업시설·기타 부지 포함」은 한백 확인 2026-08-23.
+ */
+const HEC_INSTALL = [
+  '· 주차면 5% 이하',
+  '· 주용도 무관 — 상업시설·기타 부지(병원·골프장 등) 포함',
+  '· 차충비 1 이상 (증빙 필요)',
+  '· 계약기간 7년 이상 (지중인입 10년 · 5년은 별도 검토)',
+  '· 착공 지시 후 90일 내 준공 (패널티)',
 ].join('\n');
-const HEC_MISC_INV = [
-  HEC_MISC_COMMON,
-  '· 선급 70만의 실제 트리거는 계약서류 접수 시, 준공금 110만은 시운전 완료 시(시스템은 착공·준공마감으로 둠)',
-].join('\n');
+
+/* 「안내문·도색 비용 영업자 부담(전용 전환 시 비용 포함)」을 걷었다 (한백 2026-08-29) */
+const HEC_COEXIST = '병행주차 가능 — 2% 이하 전용주차 · 2% 초과 병행주차';
+
+/*
+ * 기타지원 — 이 한 줄로 줄였다 (한백 2026-08-29).
+ * 걷어낸 것: 한전불입금(한전 세금계산서 수령 후 30일 내 정산) · 안전공사 검사·점검비
+ * (준공 시 정산) · 전기안전관리자 선임.
+ */
+const HEC_SUPPORT = '완속 30기 이상 설치 시 급속 1기 지원(현장당 · 재고 소진 시 중단)';
+
+/*
+ * ★기타를 비웠다 (한백 2026-08-29).★ 걷어낸 것:
+ *   · 감리배치비 미제공 — 감리 칸(supervisionBearer)이 이미 「영업자 부담(감리배치비 미제공)」이다
+ *   · 프로모션 연장 차감 단가 미정 · 4분기 기본단가 290원 예정 · 장기 프로모션 4분기 예정
+ *     — 연장은 「해당사항 없음」으로 못 박았다(HEC_PROMO_EXTEND)
+ *   · 의무영업 1,000기 이상(갑 승인 기준 · 미달 시 차년도 계약 페널티)
+ *   · (자투) 선급 70만의 실제 트리거는 계약서류 접수 시, 준공금 110만은 시운전 완료 시
+ *     — 시스템이 착공·준공마감으로 두는 이유는 이 파일 머리말에 있다
+ */
+const HEC_MISC_COMMON: string | null = null;
+const HEC_MISC_INV: string | null = null;
+
+/*
+ * 프로모션 연장 — ★해당사항 없음★ (한백 2026-08-29). 빈 배열은 「없음」이고 null 은
+ * 「아직 안 적음」이다(화면 규칙 10) — 문서에 연장이 없다는 것은 앞엣말이다.
+ */
+const HEC_PROMO_EXTEND: PromoExtendOption[] = [];
 
 export const HEC_STEPS_INV: SettlementStepRule[] = [
   { trigger: '착공', basis: { kind: '고정', unit: 700_000 } },
@@ -269,6 +291,7 @@ export const HEC_KEEP_IDS = [
 ] as const;
 export const HEC_KEEP_POLICY = {
   promo: HEC_PROMO,
+  promoExtend: HEC_PROMO_EXTEND,
   chargeRate: HEC_CHARGE,
   supplyItems: HEC_SUPPLY,
   installTerms: HEC_INSTALL,
@@ -307,7 +330,7 @@ export function hecNewRules(): NewPricingRule[] {
     safetyFeeBearer: null,
     supplyItems: HEC_SUPPLY,
     promo: HEC_PROMO,
-    promoExtend: null,
+    promoExtend: HEC_PROMO_EXTEND,
     chargeRate: HEC_CHARGE,
     installTerms: HEC_INSTALL,
     coexistTerms: HEC_COEXIST,

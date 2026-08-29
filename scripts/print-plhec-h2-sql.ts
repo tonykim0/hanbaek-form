@@ -96,7 +96,8 @@ for (const r of news) {
 for (const id of HEC_KEEP_IDS) {
   console.log(`-- HEC rev4 조건 (0005 와 동일 — 멱등): ${id}`);
   console.log(`update pricing_rules set
-  promo = ${j(HEC_KEEP_POLICY.promo)}, charge_rate = ${HEC_KEEP_POLICY.chargeRate},
+  promo = ${j(HEC_KEEP_POLICY.promo)}, promo_extend = ${j(HEC_KEEP_POLICY.promoExtend)},
+  charge_rate = ${HEC_KEEP_POLICY.chargeRate},
   supply_items = ${q(HEC_KEEP_POLICY.supplyItems)},
   install_terms = ${q(HEC_KEEP_POLICY.installTerms)}, coexist_terms = ${q(HEC_KEEP_POLICY.coexistTerms)},
   other_support = ${q(HEC_KEEP_POLICY.otherSupport)}, misc_terms = ${q(HEC_KEEP_POLICY.miscTerms)}

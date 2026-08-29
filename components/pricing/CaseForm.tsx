@@ -1,7 +1,7 @@
 'use client';
 
 import {
-  useEffect, useRef, useState,
+  useEffect, useRef, useState, type ReactNode,
 } from 'react';
 import { BUILDING_TYPES, bizTypeOfRepl, CHANNELS, CPO_NAMES, powerTypesOfRepl, replTypesOf, type BuildingType, type Channel, type CpoName, type ReplType, type BizType, type PromoStep, type SettlementRule, type SettlementStepRule } from '@/types/project';
 import { replLabel } from '@/types/project';
@@ -312,10 +312,13 @@ export function CaseForm({
     </>
   );
 
-  /* 돈 식의 연산자 — 칸 사이에 서서 흐름을 읽게 한다 */
-  const Op = ({ children }: { children: string }) => (
-    <span className="pb-2 text-lead font-black text-slate-300" aria-hidden>{children}</span>
-  );
+  /* 개정의 기존 값 — 표의 「기존」 열. 축만 온 폼(새 케이스)에는 없다 */
+  const prevReceive = prefill.salesUnit === undefined
+    ? undefined
+    : (prefill.salesUnit ?? 0) + (prefill.consUnit ?? 0) + (prefill.margin ?? 0);
+  const prevPayout = prefill.salesUnit === undefined
+    ? undefined
+    : (prefill.salesUnit ?? 0) + (prefill.consUnit ?? 0);
 
   return (
     <section ref={boxRef} className={`${PANEL} scroll-mt-4 p-5 sm:p-6`}>
@@ -453,59 +456,43 @@ export function CaseForm({
       </FormSection>
 
       {/*
-        ③ 돈 — ★식으로 세운다★ (2026-08-29). 받는 단가 − 마진 = 지급 단가 = 영업비 + 시공비.
-        그전에는 다섯 칸이 같은 크기로 나란히 서서 어느 것이 적는 값이고 어느 것이 셈한 값인지,
-        무엇이 무엇에서 나오는지 자리로 읽히지 않았다. 연산자를 칸 사이에 세우고 셈한 값은
-        입력칸이 아니라 굵은 글자로 둔다(화면 규칙 4 — 평소엔 글자).
+        ③ 대당 단가 — ★위에서 아래로 내려가는 표★ (한백 2026-08-29). 그전에는 받는 단가 − 마진 =
+        지급 단가 = 영업비 + 시공비를 한 줄 식으로 옆으로 세웠는데, 폼은 위에서 아래로 채우는
+        것이라 옆으로 흐르는 식은 눈이 되돌아와야 했다. 표는 줄마다 이름·값 한 쌍이고,
+        셈한 값(지급 단가·합)은 입력칸이 아니라 굵은 글자다(화면 규칙 4).
+        개정이면 왼쪽에 ★기존 값★을 연하게 세운다 — 무엇에서 무엇으로 바꾸는지 그 줄에서 보인다.
       */}
       <FormSection title="대당 단가">
-        <div className="flex flex-wrap items-end gap-x-2.5 gap-y-3">
-          <div className="w-36">
-            <Field label="받는 단가">
-              <Money value={receiveUnit} onChange={setReceiveUnit} />
-            </Field>
-          </div>
-          <Op>−</Op>
-          <div className="w-32">
-            <Field label="마진">
-              <Money value={margin} onChange={setMargin} />
-            </Field>
-          </div>
-          <Op>=</Op>
-          <Field label="지급 단가">
-            <p className={`py-2 text-lead font-black tabular-nums ${mg > receive ? 'text-red-600' : 'text-slate-900'}`}>
-              {mg > receive ? `−${won(mg - receive)}` : won(payout)}원
-            </p>
-          </Field>
-          <Op>=</Op>
-          {channel === '턴키' ? (
-            <>
-              <div className="w-36">
-                <Field label="영업비">
-                  <Money value={salesUnit} onChange={setSalesUnit} />
-                </Field>
-              </div>
-              <Op>+</Op>
-              <div className="w-36">
-                <Field label="시공비">
-                  <Money value={consUnit} onChange={setConsUnit} />
-                </Field>
-              </div>
-              {/* 합이 맞는지는 그 자리에서 — 어긋난 액수를 적는다(화면 규칙 3·9) */}
-              {receive > 0 && (
-                <span className="pb-2.5">
-                  {splitOk
-                    ? <Tag tone="ok">합 맞음</Tag>
-                    : <Tag tone="stop">{won(Math.abs(payout - sales - cons))}원 차이</Tag>}
-                </span>
-              )}
-            </>
-          ) : (
-            <Field label={channel === '영업' ? '영업비' : '시공비'} hint="지급 단가 전액">
-              <p className="py-2 text-lead font-black tabular-nums text-slate-900">{won(Math.max(payout, 0))}원</p>
-            </Field>
-          )}
-        </div>
+        <MoneyTable
+          revising={mode === '개정' && prefill.salesUnit !== undefined}
+          rows={([
+            { label: '받는 단가', prev: prevReceive, input: <Money value={receiveUnit} onChange={setReceiveUnit} /> },
+            { label: '마진', op: '−', prev: prefill.margin, input: <Money value={margin} onChange={setMargin} /> },
+            {
+              label: '지급 단가', op: '=', prev: prevPayout, derived: true,
+              value: mg > receive ? `−${won(mg - receive)}원` : `${won(payout)}원`,
+              bad: mg > receive,
+            },
+            ...(channel === '턴키'
+              ? [
+                { label: '영업비', prev: prefill.salesUnit, input: <Money value={salesUnit} onChange={setSalesUnit} /> },
+                { label: '시공비', op: '+', prev: prefill.consUnit, input: <Money value={consUnit} onChange={setConsUnit} /> },
+                {
+                  label: '합', op: '=', derived: true, value: `${won(sales + cons)}원`, bad: receive > 0 && !splitOk,
+                  /* 합이 맞는지는 그 자리에서 — 어긋난 액수를 적는다(화면 규칙 3·9) */
+                  side: receive > 0
+                    ? (splitOk ? <Tag tone="ok">지급 단가와 같음</Tag> : <Tag tone="stop">{won(Math.abs(payout - sales - cons))}원 차이</Tag>)
+                    : null,
+                },
+              ]
+              : [
+                {
+                  label: channel === '영업' ? '영업비' : '시공비', op: '=', derived: true,
+                  value: `${won(Math.max(payout, 0))}원`, side: <Tag>지급 단가 전액</Tag>,
+                },
+              ]),
+          ] as MoneyRow[])}
+        />
       </FormSection>
 
       {/* ④ 기성 단계 — 받는 단가를 운영사에게 받는 차수. 현장 기성 탭·운영사 기성관리에 이대로 선다 */}
@@ -575,3 +562,57 @@ export function CaseForm({
   );
 }
 
+/* ── 대당 단가 표 ────────────────────────────────────────────────────────
+ * 줄 = 이름 · (기존) · 값. 연산자는 이름 앞에 작게 서서 위 줄과의 관계를 말한다(− = +).
+ * 셈한 줄(derived)은 입력칸 없이 굵은 글자다. 기존 열은 개정에만 선다.
+ */
+interface MoneyRow {
+  label: string;
+  op?: '−' | '=' | '+';
+  /** 개정의 기존 값 — 없으면 빈 칸 */
+  prev?: number;
+  input?: ReactNode;
+  derived?: boolean;
+  value?: string;
+  bad?: boolean;
+  /** 값 옆에 붙는 상태 — 합이 맞는지 등 */
+  side?: ReactNode;
+}
+
+function MoneyTable({ rows, revising }: { rows: MoneyRow[]; revising: boolean }) {
+  return (
+    <table className="w-max text-base">
+      {revising && (
+        <thead>
+          <tr className="text-tiny font-bold tracking-[0.04em] text-slate-400">
+            <th />
+            <th className="pb-1.5 text-right font-bold">기존</th>
+            <th className="pb-1.5 pl-4 text-left font-bold">새 값</th>
+            <th />
+          </tr>
+        </thead>
+      )}
+      <tbody className="divide-y divide-slate-100">
+        {rows.map((r) => (
+          <tr key={r.label} className={r.derived ? 'bg-slate-50/70' : ''}>
+            <th scope="row" className="py-2 pr-4 text-left font-bold text-slate-700">
+              <span className="mr-1.5 inline-block w-3 text-center font-black text-slate-300" aria-hidden>{r.op ?? ''}</span>
+              {r.label}
+            </th>
+            {revising && (
+              <td className="w-28 py-2 text-right text-small tabular-nums text-slate-400">
+                {r.prev === undefined ? '' : `${won(r.prev)}원`}
+              </td>
+            )}
+            <td className="w-44 py-2 pl-4">
+              {r.derived ? (
+                <span className={`text-lead font-black tabular-nums ${r.bad ? 'text-red-600' : 'text-slate-900'}`}>{r.value}</span>
+              ) : r.input}
+            </td>
+            <td className="py-2 pl-3">{r.side ?? null}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}

@@ -66,8 +66,16 @@ export async function todosOf(session: SessionPayload): Promise<TodoItem[]> {
   const items: TodoItem[] = projects
     // 멈춘 현장은 누구 차례도 아니다 — 보류 칸과 같은 판정
     .filter((p) => !p.holdState && mine.includes(p.court))
-    .map((p) => {
-      const column = boardColumnOf(p);
+    .map((p) => ({ p, column: boardColumnOf(p) }))
+    /*
+     * ★준공한 현장은 여기서 뺀다★ (2026-08-29 흐름 워크스루).
+     *
+     * 준공은 마지막 칸이고 담당은 한백이라, 다 끝난 현장이 「준공」이라는 줄로 영영
+     * 목록에 남았다. 그 자리에 실제로 남은 일(준공마감 지정 · 기성 수금)은 기성 할 일이
+     * 금액까지 적어 따로 세우고, 그것들은 끝나면 사라진다. 두 벌로 세울 이유가 없다.
+     */
+    .filter(({ column }) => column !== '준공')
+    .map(({ p, column }) => {
       return {
         id: p.id,
         href: `/projects/${p.id}`,

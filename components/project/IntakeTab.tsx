@@ -574,8 +574,12 @@ function SubmitContract({
       fail: '처리에 실패했습니다.',
     });
 
-  /* 막는 것을 단추 이름에 적는다 — 반려는 다시 올리면 풀리므로 여기서 막지 않는다 */
-  const missing = contract.requiredTotal - contract.satisfied;
+  /*
+   * 막는 것을 단추 이름에 적는다 — 반려는 다시 올리면 풀리므로 여기서 막지 않는다.
+   * ★세는 것과 막는 것이 같아야 한다★ — 예전에는 satisfied 로 세고 docsFilled 로 막아서
+   * 「0건 남음 — 접수 불가」가 나왔다(2026-08-29 흐름 워크스루).
+   */
+  const missing = contract.filesMissing;
   /*
    * 보완요청을 받은 뒤부터는 「접수」가 아니라 「재검토 요청」이다 (한백 지시 2026-08-25).
    * 접수는 처음 서류를 모아 내는 일이고, 이것은 고친 것을 다시 봐 달라고 하는 일이다 —
@@ -722,8 +726,9 @@ function ConfirmContract({
      */
     : !contract.docsExempt && contract.satisfied < contract.requiredTotal
       ? '필수 서류 미충족'
+      /* 단가를 붙이는 자리는 이 탭이 아니다 — 막는 것만 적으면 어디로 갈지 모른다 */
       : !contract.allPriced
-        ? '단가 미지정'
+        ? '단가 미지정 (협력사 정산관리 탭)'
         : null;
 
   const send = () =>

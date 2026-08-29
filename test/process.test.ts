@@ -18,20 +18,20 @@ const P = (o: Record<string, unknown> = {}): ProcessInfo =>
   ({ docs: [], status: '행위신고', ...o }) as unknown as ProcessInfo;
 
 /** 환경부 사업 — 승인일을 기다린다 */
-const ENV: GateContext = { subsidized: true };
+const ENV: GateContext = { subsidized: true, powerType: '모자분리', bizType: '환경부' };
 /** 자체투자·연동 — 환경부 승인도 대기번호도 없다 (한백 2026-08-28) */
-const SELF: GateContext = { subsidized: false };
+const SELF: GateContext = { subsidized: false, powerType: '모자분리', bizType: '자체투자' };
 const doc = (kind: string) => ({ kind, status: 'uploaded' });
 
 describe('advanceBlockers — 진행 단추를 막는 것들', () => {
   it('행위신고: 아무것도 없으면 대상 여부부터 고르라고 한다', () => {
     expect(advanceBlockers('충전기 발주', 'notifyDoneAt', P(), ENV))
-      .toEqual(['대상 여부를 먼저 고르세요', '환경부 승인일']);
+      .toEqual(['행위신고 대상 여부 선택', '환경부 승인일 (한백 입력)']);
   });
 
   it('행위신고: 대상을 고르면 신고일·파일을 묻는다', () => {
     expect(advanceBlockers('충전기 발주', 'notifyDoneAt', P({ notifyRequiredAt: '2026-08-27' }), ENV))
-      .toEqual(['행위신고일', '신고 파일', '환경부 승인일']);
+      .toEqual(['행위신고일', '신고 파일', '환경부 승인일 (한백 입력)']);
   });
 
   it('행위신고: 대상 아님 + 환경부 승인일이면 열린다', () => {
@@ -92,7 +92,7 @@ describe('자체투자 — 환경부 승인이 없는 현장 (한백 2026-08-28)
   it('환경부 사업은 그대로 승인일을 묻는다 — 같은 현장 값, 사업구분만 다르다', () => {
     const p = P({ notifySkippedAt: '2026-08-28' });
     expect(advanceBlockers('충전기 발주', 'notifySkippedAt', p, SELF)).toEqual([]);
-    expect(advanceBlockers('충전기 발주', 'notifySkippedAt', p, ENV)).toEqual(['환경부 승인일']);
+    expect(advanceBlockers('충전기 발주', 'notifySkippedAt', p, ENV)).toEqual(['환경부 승인일 (한백 입력)']);
   });
 
   it('서버도 같이 연다 — 화면만 열리면 눌렀을 때 거절된다', () => {
@@ -122,7 +122,7 @@ describe('canEnter — 서버가 막는 자리', () => {
   it('막힌 이유는 사람이 읽는 말이다', () => {
     const r = canEnter('충전기 발주', P({ status: '행위신고' }), ENV);
     expect(r.ok).toBe(false);
-    if (!r.ok) expect(r.blockedBy).toBe('환경부 승인일 · 행위신고 대상 여부');
+    if (!r.ok) expect(r.blockedBy).toBe('환경부 승인일 (한백 입력) · 행위신고 대상 여부');
   });
 });
 
@@ -132,6 +132,35 @@ describe('완료 선언이 여는 칸 (CHECK_ADVANCES)', () => {
     expect(CHECK_ADVANCES.chargerDoneAt).toBe('착공');
     expect(CHECK_ADVANCES.installConfirmedAt).toBe('설치완료');
     expect(CHECK_ADVANCES.openDoneAt).toBe('개통완료');
+  });
+});
+
+describe('준공서류 제출 완료 — 세부 칸으로 본다 (2026-08-29 흐름 워크스루)', () => {
+  const ALL = ['completeConfirm', 'costSurvey', 'safety', 'useInspect', 'asBuilt'];
+
+  it('세부 칸이 다 차면 열린다 — 옛 「준공서류」 칸이 없어도', () => {
+    const p = P({ status: '준공서류 접수/검토', docs: ALL.map(doc) });
+    expect(advanceBlockers('준공', 'completionSubmitAt', p, ENV)).toEqual([]);
+  });
+
+  it('안 온 서류를 이름으로 말한다', () => {
+    const p = P({ status: '준공서류 접수/검토', docs: [doc('completeConfirm'), doc('costSurvey')] });
+    expect(advanceBlockers('준공', 'completionSubmitAt', p, ENV))
+      .toEqual(['안전점검필증 (사용전점검필증)', '사용검사 필증', '준공도']);
+  });
+
+  /* 한전불입은 전기안전관리자 선임신고증명서를 더 받는다 — 모자분리는 선임 대상이 아니다 */
+  it('한전불입 현장은 선임신고증명서까지 본다', () => {
+    const p = P({ status: '준공서류 접수/검토', docs: ALL.map(doc) });
+    const kepco: GateContext = { subsidized: true, powerType: '한전불입', bizType: '환경부' };
+    expect(advanceBlockers('준공', 'completionSubmitAt', p, kepco))
+      .toEqual(['전기안전관리자 선임신고증명서']);
+  });
+
+  /* 이관 현장은 준공서류를 한 칸에 냈다 — 그 파일이 있으면 세부 칸을 다시 받지 않는다 */
+  it('옛 한 칸으로 낸 현장은 그것으로 갈음한다', () => {
+    const p = P({ status: '준공서류 접수/검토', docs: [doc('completion')] });
+    expect(advanceBlockers('준공', 'completionSubmitAt', p, ENV)).toEqual([]);
   });
 });
 

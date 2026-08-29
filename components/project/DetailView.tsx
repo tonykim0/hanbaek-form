@@ -133,8 +133,14 @@ export default function ProjectDetailView({
    */
   const contract = detail.contract;
 
+  /*
+   * ★공정 서류는 검수가 없다 — 제출이 곧 통과다.★ (2026-08-29 흐름 워크스루)
+   * 'approved' 만 세고 있어서, 콘솔에서 올린 서류는 배지에 영영 안 잡혔다(0/14).
+   * 같은 화면의 「전체 다운로드 (6)」과 두 말을 했다. 게이트도 uploaded 를 통과로 본다
+   * (lib/process docApproved) — 세는 자리만 갈려 있었다.
+   */
   const processDone = PROCESS_DOCS.filter((d) =>
-    process.docs.find((x) => x.kind === d.key && x.status === 'approved')
+    process.docs.find((x) => x.kind === d.key && (x.status === 'uploaded' || x.status === 'approved'))
   ).length;
   // 기성 차수는 한백 전용 묶음에 있다 — 협력사 응답에는 admin 키가 아예 없다
   const steps = detail.admin?.steps ?? [];

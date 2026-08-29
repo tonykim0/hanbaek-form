@@ -10,7 +10,8 @@
  * 착공·준공마감은 상태가 아니라 날짜다. 기성 트리거가 실착공일·준공마감일에서 직접
  * 판정하므로(lib/settlement.ts) 같은 사실을 상태로 한 번 더 두지 않는다.
  */
-import type { BizType, Court, ProcessInfo, ProjectDocument, ProcessStatus } from '@/types/project';
+import type { BizType, Court, PowerType, ProcessInfo, ProjectDocument, ProcessStatus } from '@/types/project';
+import { processDocsFor, type ProcessDocKey } from '@/lib/doc-rules';
 import { PROCESS_STATUSES, subsidized } from '@/types/project';
 import { normalizeOrg } from '@/lib/roles';
 
@@ -50,14 +51,27 @@ export interface GateContext {
    * (전남 무안 전남개발공사에서 나왔다). 없는 서류를 기다리게 두면 안 넘어간다.
    */
   subsidized: boolean;
+  /**
+   * 준공에 받는 서류가 현장마다 갈린다 — 전기안전관리자 선임신고증명서는 한전불입만이다.
+   * 어느 서류를 받는지는 doc-rules 의 정의가 정하고(processDocsFor), 여기는 그 판정에
+   * 필요한 현장 사정을 실어 나른다.
+   */
+  powerType: PowerType | null;
+  bizType: BizType | null;
 }
 
 /**
  * 현장에서 게이트 사정을 뽑는다 — 부르는 자리마다 손으로 세면 판정이 갈린다.
  * 게이트를 부르는 모든 자리가 이것을 거친다(저장소 · 요약 · 시공 탭).
  */
-export function gateContextOf(project: { bizType: BizType | null }): GateContext {
-  return { subsidized: subsidized(project.bizType) };
+export function gateContextOf(
+  project: { bizType: BizType | null; powerType?: PowerType | null }
+): GateContext {
+  return {
+    subsidized: subsidized(project.bizType),
+    powerType: project.powerType ?? null,
+    bizType: project.bizType,
+  };
 }
 
 /** 없는 것만 남긴다 — 조건마다 `조건 && {key,label}` 로 적고 여기서 거른다 */
@@ -114,7 +128,7 @@ export const STATUS_GATES: Record<ProcessStatus, StatusGate | null> = {
      */
     (p, ctx) => missing([
       // 자체투자·연동에는 환경부 승인이 없다 — 없는 것을 기다리게 두지 않는다
-      ctx.subsidized && !p.envApprovalDate && { key: 'envApprovalDate', label: '환경부 승인일' },
+      ctx.subsidized && !p.envApprovalDate && { key: 'envApprovalDate', label: '환경부 승인일 (한백 입력)' },
       !p.notifyDoneAt && !p.notifySkippedAt
         && { key: 'notifyDoneAt', label: '행위신고 대상 여부' },
     ]),
@@ -294,9 +308,9 @@ export const CHECK_ADVANCES = {
  * 화면의 진행 단추가 누르는 순간 선언을 찍으므로, 단추를 막는 것은 이 목록이다.
  * 두 곳에 나눠 적으면 또 어긋나므로 게이트 옆에 둔다.
  */
-const CHECK_REQUIRES: Partial<Record<string, (p: ProcessInfo) => string[]>> = {
+const CHECK_REQUIRES: Partial<Record<string, (p: ProcessInfo, ctx: GateContext) => string[]>> = {
   notifyDoneAt: (p) => missingLabels([
-    !p.notifyRequiredAt && !p.notifySkippedAt && '대상 여부를 먼저 고르세요',
+    !p.notifyRequiredAt && !p.notifySkippedAt && '행위신고 대상 여부 선택',
     Boolean(p.notifyRequiredAt) && !p.notifyDate && '행위신고일',
     Boolean(p.notifyRequiredAt) && !docApproved(p, 'notify') && '신고 파일',
   ]),
@@ -313,13 +327,32 @@ const CHECK_REQUIRES: Partial<Record<string, (p: ProcessInfo) => string[]>> = {
     !p.commDoneDate && '통신완료일',
     !p.openDate && '개통완료일',
   ]),
-  completionSubmitAt: (p) => missingLabels([
-    !docApproved(p, 'completion') && '준공서류',
-  ]),
+  completionSubmitAt: (p, ctx) => missingCompletionDocs(p, ctx),
 };
 
 const missingLabels = (list: Array<string | false | null | undefined>): string[] =>
   list.filter((x): x is string => Boolean(x));
+
+/**
+ * 준공에 받는 서류 — 시공 탭의 준공 상자가 그리는 것과 같은 목록이다.
+ *
+ * ★옛 「준공서류」 한 칸에 걸려 있었다 (2026-08-29 흐름 워크스루에서 잡았다).★
+ * 준공서류를 세부 칸 여섯으로 가르면서(2026-08-27) 그 칸은 「이미 올린 현장에만」
+ * 그리기로 했는데, 완료 선언의 조건은 그대로 옛 칸을 보고 있었다. 그래서 새 현장은
+ * 세부 칸을 다 채워도 「준공서류 미제출 — 완료 불가」에서 멈췄다 — 콘솔로는 준공을
+ * 끝낼 수 없었다. 조건이 화면에 없는 칸을 가리키면 그건 막다른 길이다.
+ */
+const COMPLETION_DOCS: readonly ProcessDocKey[] = [
+  'completeConfirm', 'costSurvey', 'safety', 'safetyMgr', 'useInspect', 'asBuilt',
+];
+
+/** 준공서류 중 아직 안 온 것 — 옛 한 칸으로 낸 현장(이관분)은 그것으로 갈음한다 */
+export function missingCompletionDocs(p: ProcessInfo, ctx: GateContext): string[] {
+  if (docApproved(p, 'completion')) return [];
+  return processDocsFor(COMPLETION_DOCS, { powerType: ctx.powerType, bizType: ctx.bizType })
+    .filter((d) => !docApproved(p, d.key))
+    .map((d) => d.name);
+}
 
 /**
  * 화면의 「다음 단계로 진행」 단추를 막는 것들 — 없으면 빈 배열이고, 그때 단추가 열린다.
@@ -336,7 +369,7 @@ export function advanceBlockers(
   process: ProcessInfo,
   ctx: GateContext
 ): string[] {
-  const fromDeclaration = declares ? CHECK_REQUIRES[declares]?.(process) ?? [] : [];
+  const fromDeclaration = declares ? CHECK_REQUIRES[declares]?.(process, ctx) ?? [] : [];
   const fromGate = (STATUS_GATES[target]?.(process, ctx) ?? [])
     .filter((b) => b.key !== declares)
     .map((b) => b.label);

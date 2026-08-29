@@ -76,7 +76,8 @@ export function contractStateOf(input: {
    * 기다리는 칸이다. 상태로 세면 그 칸이 「찼다」로 잡혀서, 아무것도 올리지 않은
    * 협력사가 「계약서 접수하기」를 누를 수 있게 된다.
    */
-  const docsFilled = required.every((d) => Boolean(byKind.get(d.key)?.blobUrl));
+  const filesMissing = required.filter((d) => !byKind.get(d.key)?.blobUrl).length;
+  const docsFilled = filesMissing === 0;
   const allPriced = input.lines.length > 0 && input.lines.every((l) => l.pricingRuleId);
 
   const docsExempt = input.docsExempt === true;
@@ -97,6 +98,7 @@ export function contractStateOf(input: {
     preRejected,
     requiredTotal: required.length,
     satisfied,
+    filesMissing,
     docsFilled,
     rejected,
     allPriced,

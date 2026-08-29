@@ -17,7 +17,7 @@ import {
 } from '@/lib/doc-rules';
 
 import {
-  advanceBlockers,
+  advanceBlockers, missingCompletionDocs, type GateContext,
 } from '@/lib/process';
 
 /** 고칠 수 있는 날짜 칸 — 이름은 서버(ProcessPatch)와 같아야 한다 */
@@ -105,12 +105,19 @@ export interface Group {
 }
 
 /** 구간마다의 묶음 — 화면이 이 정의를 받아 그린다 */
-export function groupsByStatus(p: ProjectDetail['process']): Partial<Record<ProcessStatus, Group[]>> {
+export function groupsByStatus(
+  p: ProjectDetail['process'],
+  /** 게이트가 보는 현장 사정 — 준공서류가 현장마다 갈린다(한전불입만 받는 것이 있다) */
+  ctx: GateContext
+): Partial<Record<ProcessStatus, Group[]>> {
   /** 그 칸에 파일이 올라와 있는가 — 옛 칸을 남길지, 완료를 열지 정한다 */
   const uploaded = (kind: string): boolean => {
     const d = p.docs.find((x) => x.kind === kind);
     return d?.status === 'uploaded' || d?.status === 'approved';
   };
+
+  /* 준공서류 중 아직 안 온 것 — 완료 선언을 막는 것과 같은 판정을 쓴다 */
+  const missingDocs = missingCompletionDocs(p, ctx);
 
   return {
     '행위신고': [
@@ -245,9 +252,15 @@ export function groupsByStatus(p: ProjectDetail['process']): Partial<Record<Proc
           'useInspect',
           'asBuilt',
         ],
+        /*
+         * ★조건은 세부 칸이다★ (2026-08-29 흐름 워크스루) — 옛 「준공서류」 한 칸을
+         * 보고 있어서, 세부 칸을 다 채운 새 현장이 「준공서류 미제출」에서 멈췄다.
+         * 판정은 lib/process 한 곳이고(missingCompletionDocs) 여기는 그 답을 적는다.
+         */
         check: {
           field: 'completionSubmitAt', label: '준공서류 제출 완료',
-          ready: uploaded('completion'), blocked: '준공서류 미제출 — 완료 불가',
+          ready: missingDocs.length === 0,
+          blocked: `${missingDocs[0] ?? '준공서류'} 미제출 — 완료 불가`,
         },
       },
     ],

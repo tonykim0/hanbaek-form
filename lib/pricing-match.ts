@@ -55,7 +55,20 @@ export function matchingRules(
   if (project.bldgType) usedAxes.push('건축물유형');
 
   const exactIds = new Set(exact.map((r) => r.id));
-  return { exact, others: sameCpo.filter((r) => !exactIds.has(r.id)), usedAxes };
+  /*
+   * ★늦게 시작한 것이 위다★ (2026-08-29 흐름 워크스루).
+   *
+   * 축이 같으면 상반기·하반기 케이스가 나란히 뜨는데 순서에 규칙이 없었다. 지난 반기의
+   * 것을 무심코 고르면 대당 20만원이 조용히 낮아지고, 그 값으로 지급·기성이 다 굳는다.
+   * 지금 쓰는 케이스는 대개 마지막에 시작한 것이므로 그것을 맨 위에 세운다 — 고르는
+   * 사람이 목록을 훑지 않아도 첫 줄이 답이 되게.
+   */
+  const byStart = (a: PricingRule, b: PricingRule) => startKey(b).localeCompare(startKey(a));
+  return {
+    exact: [...exact].sort(byStart),
+    others: sameCpo.filter((r) => !exactIds.has(r.id)).sort(byStart),
+    usedAxes,
+  };
 }
 
 /** 라인 id → 그 라인에 붙일 수 있는 단가 케이스 */

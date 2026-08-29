@@ -595,7 +595,7 @@ function PayConditions({
                   {opts && `${opts.usedAxes.join(' · ')} 후보 ${opts.exact.length}건`}
                   {turnkey !== null && (
                     <span className="ml-2 text-slate-500">
-                      턴키 {won(turnkey)}/대 · 이 라인 {won(turnkey * l.qty)}
+                      받는 단가 {won(turnkey)}/대 · 이 라인 {won(turnkey * l.qty)}
                     </span>
                   )}
                 </p>

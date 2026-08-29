@@ -209,7 +209,7 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
    * 머리말에 있다 — 같은 값을 두 곳에 두지 않는다(화면 규칙 5).
    * 행위신고는 계약완료 직후 — 승인을 기다리는 동안 미리 해놓는다(1~2주, 한백 확인).
    */
-  const GROUPS_BY_STATUS = groupsByStatus(p);
+  const GROUPS_BY_STATUS = groupsByStatus(p, gate);
 
   const now = statusIndex(p.status);
 

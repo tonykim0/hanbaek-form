@@ -18,14 +18,15 @@ export default function ChargerHistoryPage() {
       <SiteHeader active="charger-history" />
       <main className="mx-auto max-w-3xl px-5 py-8 sm:px-6 sm:py-10">
         <header className="mb-7">
-          <p className="text-xs font-bold tracking-[0.14em] text-sky-700">LOOKUP</p>
-          <h1 className="mt-1 text-3xl font-black tracking-[-0.04em] text-slate-900">
+          <h1 className="text-2xl font-black tracking-[-0.03em] text-slate-900">
             충전기 · 보조금 이력 조회
           </h1>
-          <p className="mt-2 text-sm leading-6 text-slate-500">
-            두 개의 DB 를 조회합니다. 별개의 자료이니 일치하지 않는 부분은 실제 현장 확인
-            바랍니다. 보조금 이력이 있으면 신규 신청 대수 · 기설치 이력 작성에 그대로 반영해야
-            합니다.
+          {/*
+            * 한 줄만 남긴다 — 「어떻게 쓰는가」가 아니라 ★틀리면 손해 보는 사실★ 둘이다:
+            * 두 자료가 서로 다를 수 있다는 것, 보조금 이력은 신청 대수에 반영해야 한다는 것.
+            */}
+          <p className="mt-1 text-sm text-slate-400">
+            충전기 · 보조금 두 자료는 별개라 다를 수 있습니다 · 보조금 이력은 신규 신청 대수에 반영
           </p>
         </header>
 

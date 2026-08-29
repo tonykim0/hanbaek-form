@@ -25,14 +25,11 @@ export default function IntakeClosedPage() {
       <SiteHeader active="intake" />
       <main className="mx-auto max-w-3xl px-5 py-8 sm:px-6 sm:py-10">
         <header className="mb-7">
-          <p className="text-xs font-bold tracking-[0.14em] text-amber-700">INTAKE</p>
-          <h1 className="mt-1 text-3xl font-black tracking-[-0.04em] text-slate-900">
+          <h1 className="text-2xl font-black tracking-[-0.03em] text-slate-900">
             접수는 콘솔에서 받습니다
           </h1>
-          <p className="mt-2 text-sm leading-6 text-slate-500">
-            포털 접수(ZIP 업로드)는 닫혔습니다. 계약 서류는 콘솔에 로그인해서 접수해주세요 —
-            낸 서류가 그 자리에서 검수·계약 진행으로 이어지고, 진행 상황도 같은 화면에서
-            보입니다.
+          <p className="mt-1 text-sm text-slate-400">
+            포털 접수는 닫혔습니다 · 낸 서류가 그 자리에서 검수·진행으로 이어집니다
           </p>
         </header>
 

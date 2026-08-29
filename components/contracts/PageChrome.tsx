@@ -18,7 +18,12 @@ export function ContractPageShell({
   title,
   children,
   footerText = '한백 EV Infra Solutions · Internal Tool',
-  subtitle = '필수 정보를 입력하면 운영사 양식에 맞는 계약서가 자동으로 생성됩니다.',
+  /*
+   * 기본은 곁말 없음이다 (한백 지시 2026-08-29 · 화면 규칙 2).
+   * 「필수 정보를 입력하면 …계약서가 자동으로 생성됩니다」가 기본값이었는데, 그것은
+   * 아래 폼이 이미 하는 말이다 — 매일 쓰는 사람에게는 매번 지나치는 한 줄이었다.
+   */
+  subtitle = null,
   /**
    * 가운데 기둥으로 세울지, 왼쪽에 붙일지.
    *
@@ -46,11 +51,8 @@ export function ContractPageShell({
           >
             ← 운영사 다시 선택
           </Link>
-          <p className="text-xs font-bold tracking-[0.14em] text-brand-700">CONTRACT BUILDER</p>
-          <h1 className="mt-1 text-2xl font-black tracking-[-0.035em] text-slate-900 sm:text-3xl">
-            {title}
-          </h1>
-          {subtitle && <p className="mt-2 text-sm text-slate-500">{subtitle}</p>}
+          <h1 className="text-2xl font-black tracking-[-0.03em] text-slate-900">{title}</h1>
+          {subtitle && <p className="mt-1 text-sm text-slate-400">{subtitle}</p>}
         </header>
 
         {children}

@@ -74,18 +74,12 @@ export default function KaptApartmentExplorer({
   return (
     <main className="mx-auto w-full max-w-6xl px-4 pb-16 pt-8 sm:px-6 sm:pt-10">
       <header className="mb-6">
-        <p className="text-xs font-black tracking-[0.14em] text-brand-700">K-APT LOOKUP</p>
-        <h1 className="mt-1 text-2xl font-black tracking-[-0.03em] text-slate-900 sm:text-3xl">
-          아파트 정보 조회
-        </h1>
-        <p className="mt-2 text-sm text-slate-500">
-          K-apt 우리단지 기본정보와 전기차 시설정보를 한 화면에서 확인합니다.
-        </p>
+        <h1 className="text-2xl font-black tracking-[-0.03em] text-slate-900">아파트 정보 조회</h1>
+        <p className="mt-1 text-sm text-slate-400">K-apt 기본정보 · 전기차 시설정보</p>
       </header>
 
       <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_12px_32px_-28px_rgba(15,23,42,0.55)] sm:p-6">
         <h2 className="text-base font-black tracking-[-0.02em] text-slate-900">단지 찾기</h2>
-        <p className="mt-1 text-xs text-slate-500">아파트명 또는 주소를 입력해주세요.</p>
 
         <form onSubmit={search} className="mt-4 grid gap-2 sm:grid-cols-[minmax(0,1fr)_7rem]">
           <label className="sr-only" htmlFor="kapt-apartment-query">

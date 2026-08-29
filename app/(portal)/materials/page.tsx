@@ -23,16 +23,15 @@ export default async function MaterialsPage() {
       <SiteHeader active="materials" />
       <main className="mx-auto max-w-3xl px-5 py-8 sm:px-6 sm:py-10">
         <header className="mb-7">
-          <p className="text-xs font-bold tracking-[0.14em] text-amber-700">RESOURCE LIBRARY</p>
           {/*
             * 제목은 「누구의 것인가」만 말한다 (한백 2026-08-28) — 분류를 열거하면
             * 분류를 고칠 때마다 제목이 어긋난다. 실제로 「영업자료 · 시방서」가 여섯으로
             * 갈리면서 그렇게 됐다. 분류는 아래 칩이 보여준다.
             */}
-          <h1 className="mt-1 text-3xl font-black tracking-[-0.04em] text-slate-900">
+          <h1 className="text-2xl font-black tracking-[-0.03em] text-slate-900">
             운영사 자료실
           </h1>
-          <p className="mt-2 text-sm text-slate-500">
+          <p className="mt-1 text-sm text-slate-400">
             {fileCount > 0
               ? `자료 ${fileCount}개${lastUpdated ? ` · 최근 업데이트 ${lastUpdated}` : ''}`
               : '운영사별 영업 · 시공 자료를 내려받는 곳'}

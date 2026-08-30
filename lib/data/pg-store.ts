@@ -283,6 +283,33 @@ export const pgRepository: ProjectRepository = {
     });
   },
 
+  async deleteNote(input, actor): Promise<void> {
+    const db = getDb();
+    await db.transaction(async (tx) => {
+      const [note] = await tx
+        .select()
+        .from(projectNotes)
+        .where(and(eq(projectNotes.id, input.noteId), eq(projectNotes.projectId, input.projectId)))
+        .limit(1);
+      if (!note) throw new Error('없는 기록입니다.');
+
+      /* 고치기와 같은 잣대다 — 자기가 쓴 것만. 판정 기준은 글에 적힌 소속이다 */
+      const mine = actor.role === 'admin' ? '한백' : actor.org ?? '협력사';
+      if (note.author !== mine) throw new Error('남이 남긴 기록은 지울 수 없습니다.');
+
+      await tx.delete(projectNotes).where(eq(projectNotes.id, input.noteId));
+      /*
+       * ★지운 글을 통째로 남긴다★ — 화면에서 사라지는 것과 없던 일이 되는 것은 다르다.
+       * 진행현황은 「무슨 일이 있었나」의 기록이라, 지운 사실 자체가 기록일 때가 있다.
+       */
+      await writeAudit(tx, {
+        projectId: input.projectId, actor, action: '진행현황 삭제',
+        /* 언제 남긴 글이었나 — 지운 뒤에는 이 줄이 그 사실의 유일한 자리다 */
+        field: stampOf(note.at), oldValue: note.body, newValue: null,
+      });
+    });
+  },
+
 
 
 

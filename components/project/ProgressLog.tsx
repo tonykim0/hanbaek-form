@@ -21,7 +21,10 @@ import { Btn, Err, FIELD } from '@/components/ui';
  * 감사로그와 다르다. 감사로그는 「무슨 값이 무엇으로 바뀌었나」를 기계가 남기고,
  * 여기는 「무슨 일이 있었나」를 사람이 남긴다.
  *
- * 자기가 쓴 것은 고칠 수 있다(고친 흔적이 남는다). 남의 글은 못 고치고, 지우는 길은 없다.
+ * 자기가 쓴 것은 고치고(고친 흔적이 남는다) 지운다(한백 지시 2026-08-30) — 남의 글은 둘 다
+ * 못 한다. 잘못 눌러 남긴 줄과 딴 현장에 적은 글은 고치기로는 지울 수 없었다(빈 내용은
+ * 저장이 막힌다). 지운 글은 감사기록에 통째로 남는다 — 화면에서 사라지는 것과 없던 일이
+ * 되는 것은 다르다.
  * 사람 이름은 안 적는다 — 회사마다 계정이 하나라 이름이 늘 같다. 대신 어느 쪽이 썼는지 남긴다.
  */
 export function ProgressLog({
@@ -124,8 +127,10 @@ function NoteItem({
   /** 보고 있는 쪽의 이름 — 이것과 같으면 자기 글이다 */
   author: string;
 }) {
-  const { busy, error, setError, run } = useAction();
+  const { busy, busyKey, error, setError, run } = useAction();
   const [editing, setEditing] = useState(false);
+  /** 지우기는 한 번 더 묻는다 — 되돌릴 수 없다 */
+  const [asking, setAsking] = useState(false);
   const [body, setBody] = useState(note.body);
 
   const byHanbaek = note.author === '한백';
@@ -140,6 +145,17 @@ function NoteItem({
       fail: '고치지 못했습니다.',
     });
     if (ok) setEditing(false);
+  }
+
+  async function remove() {
+    const ok = await run({
+      key: 'del',
+      url: `/api/projects/${projectId}/notes`,
+      method: 'DELETE',
+      body: { noteId: note.id },
+      fail: '지우지 못했습니다.',
+    });
+    if (ok) setAsking(false);
   }
 
   return (
@@ -163,17 +179,34 @@ function NoteItem({
           </span>
         )}
         <span className="flex-1" />
-        {mine && !editing && (
-          <Btn
-            size="sm"
-            kind="quiet"
-            className="shrink-0"
-            onClick={() => { setBody(note.body); setEditing(true); }}
-          >
-            수정
-          </Btn>
+        {mine && !editing && !asking && (
+          <>
+            <Btn
+              size="sm"
+              kind="quiet"
+              className="shrink-0"
+              onClick={() => { setBody(note.body); setEditing(true); }}
+            >
+              수정
+            </Btn>
+            {/* 되돌릴 수 없는 쪽은 글자 단추로 끝에 — 자주 누르는 것과 붙여 두지 않는다(화면 규칙 8) */}
+            <Btn size="sm" kind="undo" className="shrink-0" onClick={() => setAsking(true)}>
+              지우기
+            </Btn>
+          </>
+        )}
+        {asking && (
+          <span className="flex shrink-0 items-center gap-1.5">
+            <Btn size="sm" kind="undo" busy={busyKey === 'del'} busyLabel="지우는 중…" onClick={remove}>
+              지웁니다
+            </Btn>
+            <Btn size="sm" kind="quiet" disabled={busy} onClick={() => { setAsking(false); setError(null); }}>
+              그만
+            </Btn>
+          </span>
         )}
       </div>
+      {asking && <Err className="mt-1 block">{error}</Err>}
 
       {editing ? (
         <div className="mt-1.5 flex flex-col gap-1.5">

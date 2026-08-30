@@ -20,8 +20,12 @@
  *
  * ★한 해를 1월부터 12월까지 통째로 세운다.★ 그전에는 첫 지급이 있던 달부터 이번 달까지만
  * 그렸다 — 달이 갈 때마다 막대 수가 늘어 같은 그래프가 매달 다른 모양이 되고, 「올해 아직
- * 안 나간 달」은 자리조차 없었다. 열두 칸은 늘 같은 자리에 있고 지급이 없는 달은 0원으로
- * 선다(빈 값도 자리를 지킨다, 화면 규칙 6).
+ * 안 나간 달」은 자리조차 없었다. 열두 칸은 늘 같은 자리에 있다(빈 값도 자리를 지킨다,
+ * 화면 규칙 6).
+ *
+ * ★다만 「없는 것」을 그리지는 않는다★ (2026-08-30). 아직 오지 않은 달과 그 달에 안 나간
+ * 돈은 막대를 세우지 않는다 — 자리만 지킨다. 회색 막대로 채웠더니 올해 남은 다섯 달과
+ * 시공비가 없는 열한 달이 모두 얼룩이 되어, 정작 나간 돈이 묻혔다.
  *
  * 해는 왼쪽 위에서 고른다. 필터는 보는 것 바로 위에 있어야 무엇을 거르는지 안다 —
  * 화면 맨 위에 두면 아래 배치 표까지 거르는 것으로 읽힌다(그것은 표가 따로 거른다).
@@ -158,9 +162,14 @@ export default function PayChart({
           aria-label={`${year}년 월별 지급: ${slots
             .map((m) => (m.has
               ? `${Number(m.month.slice(5))}월 ${kinds.map((k) => `${k.label} ${won(k.of(m))}원`).join(' ')}`
-              : `${Number(m.month.slice(5))}월 0건`))
+              : `${Number(m.month.slice(5))}월 ${m.month > thisMonth ? '아직 없음' : '0건'}`))
             .join(', ')}`}
-          className="min-w-[520px]"
+          /*
+           * 최소 폭을 넓혔다(520 → 680px) — 막대 위 금액이 「9,590만」처럼 여섯 자면 칸을
+           * 넘어 두 줄로 접혔다(2026-08-30 실측: 11px 여섯 자 ≈ 33px, 칸 ≈ 34px).
+           * 좁은 화면에서는 옆으로 밀린다 — 접히는 것보다 미는 편이 읽힌다.
+           */
+          className="min-w-[680px]"
         >
           <div className="relative" style={{ height: H }}>
             {/* 눈금 넷 — 수주 현황과 같은 간격(최대·66%·33%·0). 금액이라 압축 표기다 */}
@@ -179,13 +188,21 @@ export default function PayChart({
               {slots.map((m) => {
                 const total = kinds.reduce((n, k) => n + k.of(m), 0);
                 const on = m.month === thisMonth;
+                /*
+                 * ★아직 오지 않은 달은 0 이 아니다★ (한백 지적 2026-08-30 「UI 가 별로네」).
+                 * 올해가 반밖에 안 지났는데 남은 달마다 회색 막대가 서 있어서, 「앞으로 안
+                 * 나간다」로 읽혔다. 수주 현황 그래프는 이미 future 를 따로 다루고 있었는데
+                 * 이 그래프만 안 하고 있었다(app/(console)/dashboard). 자리는 지키고
+                 * 막대는 안 그린다 — 축의 달 이름이 그 자리를 말한다.
+                 */
+                const future = m.month > thisMonth;
                 /* 막대 몸통이 쓸 높이 — 위 숫자 자리를 뺀다(수주 현황과 같은 30px) */
                 const body = H - 30;
                 return (
                   <div key={m.month} className="flex h-full min-w-0 flex-1 flex-col justify-end">
-                    {total !== 0 && (
+                    {total !== 0 && !future && (
                       <span
-                        className={`mb-1.5 text-center text-tiny font-black tabular-nums ${
+                        className={`mb-1.5 whitespace-nowrap text-center text-tiny font-black tabular-nums ${
                           total < 0 ? 'text-amber-700' : on ? 'text-brand-800' : 'text-slate-600'
                         }`}
                       >
@@ -194,9 +211,11 @@ export default function PayChart({
                     )}
                     {/*
                       왼쪽이 영업비, 오른쪽이 시공비 — 둘 다 바닥에서 시작한다.
-                      0 원인 조각도 얇게 남긴다: 자리가 비면 그 달에 그 돈이 아예 없는 것처럼
-                      보이는데, 실제로는 0 원인 것과 지급이 0 건인 것이 다르다(축의 건수가 그것을
-                      말한다, 화면 규칙 10번).
+                      ★0 인 조각은 그리지 않는다★ (2026-08-30). 얇게라도 남겼더니 회색 조각이
+                      열 몇 개 늘어섰다 — 시공비가 한 달에만 있는 지금 데이터에서는 그것이
+                      정보가 아니라 얼룩이었다. ★자리는 지킨다★: 조각 수만큼 칸을 나눠 두어
+                      영업비 막대의 폭이 달마다 흔들리지 않게 한다. 「그 달에 시공비가 0 이었다」는
+                      hover 문구와 범례가 말한다.
                     */}
                     <div
                       className="flex items-end justify-center gap-[3px]"
@@ -207,11 +226,14 @@ export default function PayChart({
                         const value = Math.max(0, k.of(m));
                         return (
                           <div key={k.label} className="flex h-full flex-1 items-end justify-center">
-                            <div
-                              aria-hidden
-                              className={`w-full max-w-[18px] rounded-t-[4px] transition ${value === 0 ? 'bg-slate-200' : k.fill}`}
-                              style={{ height: `${Math.max(value === 0 ? 2 : 3, (value / max) * body)}px` }}
-                            />
+                            {value > 0 && !future && (
+                              <div
+                                aria-hidden
+                                className={`w-full max-w-[20px] rounded-t-[4px] transition ${k.fill}`}
+                                /* 가장 작은 달도 보이게 — 큰 달과 서른 배 넘게 벌어진다 */
+                                style={{ height: `${Math.max(4, (value / max) * body)}px` }}
+                              />
+                            )}
                           </div>
                         );
                       })}
@@ -226,13 +248,15 @@ export default function PayChart({
           <div className="ml-[3.75rem] mt-2 flex gap-1 border-t border-slate-200 pt-2">
             {slots.map((m) => {
               const on = m.month === thisMonth;
+              const future = m.month > thisMonth;
               return (
                 <div key={m.month} className="min-w-0 flex-1 text-center">
                   <p className={`text-tiny font-bold ${on ? 'text-brand-800' : m.has ? 'text-slate-500' : 'text-slate-300'}`}>
                     {Number(m.month.slice(5))}월
                   </p>
+                  {/* 아직 안 온 달은 「0건」이 아니다 — 0 건과 아직 없음을 가른다(화면 규칙 10번) */}
                   <p className={`mt-0.5 text-micro tabular-nums ${m.has ? 'text-slate-400' : 'text-slate-300'}`}>
-                    {m.count}건
+                    {future ? '—' : `${m.count}건`}
                   </p>
                 </div>
               );

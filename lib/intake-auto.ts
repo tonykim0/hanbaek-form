@@ -24,6 +24,7 @@ import type { BizType, BuildingType, ContractParty, CpoName, PowerType } from '@
 import { extractAndHashFromZipBuffer, isZipBuffer } from './files';
 import { classifyAndExtract } from './claude';
 import { uprightPdfFiles } from './pdf-orient';
+import { checkImagePhoto, checkPdfPhoto } from './photo-check';
 import { buildUploadItems } from './notion';
 import { kindOfCategory, partyFromCategories, preInstallFromCategories } from './doc-category-map';
 import { withRegionPrefix } from './region';
@@ -51,6 +52,9 @@ function toTerm(v: string | null): number | null {
 /** 어디까지 왔는지 알리는 자리. 30초 넘게 도는 일이라 화면이 멈춘 것처럼 보이면 안 된다. */
 export type IntakeProgress = (step: { phase: string; message: string; done?: number; total?: number }) => void;
 
+/* 이미지로 낸 서류 — EXIF 만 본다(페이지 규격이라는 것이 없다) */
+const IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/heic', 'image/heif']);
+
 export async function autoIntakeFromZip(
   zip: Buffer,
   /** 임시 파일을 올릴 자리 — 접수자별로 갈라 남의 것과 섞이지 않게 한다 */
@@ -74,6 +78,26 @@ export async function autoIntakeFromZip(
    *
    * 세운 버퍼로 판독도 하고 저장도 한다 — 사람이 현장 상세에서 여는 서류도 바로 서 있다.
    */
+  /*
+   * ── 스캔본인가 사진인가 ─────────────────────────────────
+   * ★방향 보정 앞에서 본다★ — 보정은 PDF 를 다시 써서 내보내므로, 원본이 들고 있던
+   * 것을 보려면 여기가 마지막 자리다. 판정 자체는 결정적이고 값싸다(lib/photo-check).
+   *
+   * 막지 않는다. 짚어서 서류 칸에 붙이고, 반려는 사람이 누른다.
+   */
+  const photoBy = new Map<string, string[]>();
+  for (const f of files) {
+    const check = f.mimeType === 'application/pdf'
+      ? await checkPdfPhoto(f.buffer)
+      : IMAGE_TYPES.has(f.mimeType) ? checkImagePhoto(f.buffer) : null;
+    if (check?.suspect) photoBy.set(f.name.normalize('NFC'), check.reasons);
+  }
+  if (photoBy.size > 0) {
+    warnings.push(
+      `휴대폰으로 찍은 사진으로 보이는 파일이 ${photoBy.size}건입니다 — 스캔본인지 확인해주세요.`
+    );
+  }
+
   onProgress({ phase: 'orient', message: '스캔 방향을 보는 중' });
   files = await uprightPdfFiles(files, 'intake');
 
@@ -153,6 +177,7 @@ export async function autoIntakeFromZip(
     docs.push({
       kind, category: item.category, filename: item.standardName, blobUrl: blob.url,
       title: item.title ?? null,
+      photo: photoBy.get(item.originalName.normalize('NFC')) ?? null,
     });
   }
 

@@ -592,6 +592,8 @@ export interface ProjectRepository {
       projectId: string; kind: string; filename: string; blobUrl: string;
       /** 판독기가 읽은 문서 제목 — 접수 ZIP 에서 온 파일에만 있다 (DocFile.title) */
       title?: string | null;
+      /** 휴대폰 사진으로 보이는 근거 — 없으면 스캔본으로 본다 (DocFile.photo) */
+      photo?: string[] | null;
     },
     actor: Actor
   ): Promise<void>;

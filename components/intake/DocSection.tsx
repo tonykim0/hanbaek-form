@@ -30,7 +30,12 @@ export function DocSection({
   issueCount: number;
   review: DocReview | null;
   /** title — 판독기가 읽은 문서 제목. ZIP 에서 온 칸에만 있다 */
-  staged: Record<string, { filename: string; blobUrl: string; title?: string | null }>;
+  staged: Record<string, {
+    filename: string; blobUrl: string;
+    title?: string | null;
+    /** 휴대폰 사진으로 보이는 근거 — 있으면 칸에 표가 붙는다 */
+    photo?: string[] | null;
+  }>;
   picking: Record<string, number>;
   onPick: (kind: string, file: File) => void;
   onRemove: (kind: string) => void;
@@ -150,6 +155,21 @@ export function DocSection({
                                 읽은 제목 <span className="text-slate-600">{filled.title}</span>
                               </p>
                             )}
+                            {/*
+                              ★스캔본이 아니라 사진으로 보인다 (한백 2026-08-31).★ 근거를
+                              같이 적는다 — 「사진 같습니다」만 쓰면 왜 그런지 물어볼 데가
+                              없어서 사람이 결국 파일을 연다. 근거는 파일이 스스로 적어 둔
+                              사실이라 그 자리에서 검산된다(lib/photo-check).
+                              막지 않는다 — 반려는 한백이 누른다.
+                            */}
+                            {filled.photo?.length ? (
+                              <p className="mt-1 text-tiny font-bold text-amber-700">
+                                휴대폰 사진으로 보임
+                                <span className="ml-1 font-normal text-amber-800/70">
+                                  {filled.photo.join(' · ')}
+                                </span>
+                              </p>
+                            ) : null}
                           </>
                         ) : (
                           <p

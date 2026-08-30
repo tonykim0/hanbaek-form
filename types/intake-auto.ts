@@ -48,6 +48,11 @@ export interface AutoDoc {
    * 판정이 아니라 ★읽은 것 그대로★다(DocFile.title 의 머리말 참고).
    */
   title?: string | null;
+  /**
+   * 휴대폰 사진으로 보이는 근거 — 없으면 null(스캔본으로 본다).
+   * 판정이 아니라 파일이 들고 있던 사실이다(lib/photo-check).
+   */
+  photo?: string[] | null;
 }
 
 /** 서류 한 장의 검수 결과 */

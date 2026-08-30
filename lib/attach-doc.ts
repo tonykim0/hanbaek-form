@@ -34,6 +34,8 @@ export async function attachDocument(input: {
    * 접수 ZIP 에서 온 파일에만 있다(사람이 칸에서 직접 올릴 때는 칸을 이미 골랐다).
    */
   title?: string | null;
+  /** 휴대폰 사진으로 보이는 근거 — 접수 때 결정적으로 가린 값(lib/photo-check) */
+  photo?: string[] | null;
   /**
    * 그 칸에 이미 우리 파일이 있는가.
    *
@@ -122,7 +124,7 @@ export async function attachDocument(input: {
 
   try {
     await getRepository().uploadDocument(
-      { projectId, kind, filename, blobUrl, title: input.title },
+      { projectId, kind, filename, blobUrl, title: input.title, photo: input.photo },
       actorOf(session)
     );
   } catch (err) {

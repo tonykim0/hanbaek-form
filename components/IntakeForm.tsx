@@ -130,7 +130,7 @@ export default function IntakeForm({ org, isAdmin = false, knownOrgs = [] }: {
   /** ZIP 에서 나온 파일 — 이미 Blob 에 있어서 다시 올리지 않는다 */
   const [staged, setStaged] = useState<
     /* title — 판독기가 읽은 제목. ZIP 에서 온 것에만 있다(사람이 고른 파일은 칸을 이미 골랐다) */
-    Record<string, { filename: string; blobUrl: string; title?: string | null }>
+    Record<string, { filename: string; blobUrl: string; title?: string | null; photo?: string[] | null }>
   >({});
   /** 자동으로 채운 칸. 사람이 고치면 여기서 빠진다. */
   const [auto, setAuto] = useState<Set<string>>(new Set());
@@ -222,7 +222,9 @@ export default function IntakeForm({ org, isAdmin = false, knownOrgs = [] }: {
       }
 
       setStaged(Object.fromEntries(
-        data.docs.map((d) => [d.kind, { filename: d.filename, blobUrl: d.blobUrl, title: d.title }])
+        data.docs.map((d) => [d.kind, {
+          filename: d.filename, blobUrl: d.blobUrl, title: d.title, photo: d.photo,
+        }])
       ));
       setAuto(filled);
       setReview(data.review);
@@ -377,6 +379,7 @@ export default function IntakeForm({ org, isAdmin = false, knownOrgs = [] }: {
        */
       const docs = Object.entries(staged).map(([kind, d]) => ({
         kind, filename: d.filename, blobUrl: d.blobUrl, title: d.title ?? null,
+        photo: d.photo ?? undefined,
       }));
       if (docs.length > 0) {
         setBusy(`서류 ${docs.length}건을 붙이는 중…`);

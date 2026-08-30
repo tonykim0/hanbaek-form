@@ -258,6 +258,18 @@ function FileRow({
               읽은 제목 <span className="font-bold text-slate-600">{file.title}</span>
             </span>
           )}
+          {/*
+            ★스캔본이 아니라 사진으로 보인다 (한백 2026-08-31).★ 근거를 같이 적는다 —
+            「사진 같습니다」만 쓰면 왜 그런지 물어볼 데가 없어 결국 파일을 열게 된다.
+            근거는 파일이 스스로 적어 둔 사실이라 그 자리에서 검산된다(lib/photo-check).
+            막지 않는다 — 이 줄을 보고 한백이 그 칸을 반려한다.
+          */}
+          {file.photo?.length ? (
+            <span className="truncate text-micro font-bold text-amber-700" title={file.photo.join(' · ')}>
+              휴대폰 사진으로 보임
+              <span className="ml-1 font-normal text-amber-800/70">{file.photo.join(' · ')}</span>
+            </span>
+          ) : null}
         </span>
         {/*
           * 「받기」가 따로 있는 이유 — 이름 링크는 브라우저에 맡기는 것이고(그릴 수 있으면

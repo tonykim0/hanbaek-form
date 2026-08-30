@@ -45,7 +45,10 @@ export async function POST(
   }
 
   const body = (await request.json().catch(() => null)) as
-    | { docs?: Array<{ kind?: string; filename?: string; blobUrl?: string; title?: string }> }
+    | { docs?: Array<{
+        kind?: string; filename?: string; blobUrl?: string;
+        title?: string; photo?: string[];
+      }> }
     | null;
   const docs = body?.docs;
   if (!Array.isArray(docs) || docs.length === 0) {
@@ -77,6 +80,7 @@ export async function POST(
           filename: d.filename ?? '',
           blobUrl: d.blobUrl ?? '',
           title: d.title ?? null,
+          photo: Array.isArray(d.photo) ? d.photo.filter((x) => typeof x === 'string') : null,
           has: hasOf(d.kind ?? ''),
           session,
         }),

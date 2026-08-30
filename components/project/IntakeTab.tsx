@@ -441,13 +441,18 @@ export function IntakeTab({
                         )}
 
                         {/*
-                          * 조작 줄은 담을 것이 있을 때만 그린다 — 「해당없음」 칸(선택 서류)은
-                          * 올릴 것도 검수할 것도 없다. 빈 줄에 선만 그으면 카드마다 쓸모없는
-                          * 층이 하나 늘어난다(화면 규칙 1).
+                          * 조작 줄은 담을 것이 있을 때만 그린다 — 빈 줄에 선만 그으면 카드마다
+                          * 쓸모없는 층이 하나 늘어난다(화면 규칙 1).
+                          *
+                          * ★선택 서류에도 올린다★ (한백 지시 2026-08-30). 그 묶음의 이름이
+                          * 「선택 · 있으면 함께」인데 정작 올릴 자리를 안 줬다 — 「기타」 칸이
+                          * 그래서 못 쓰는 칸이었다(규칙에 없는 서류가 오는 자리인데 받을 길이
+                          * 없었다). 필수 판정은 req 가 하므로 여기에 올려도 접수 게이트는
+                          * 그대로다 — 올릴 수 있는 것과 내야 하는 것은 다른 말이다.
                           */}
-                        {((d.req !== 'o' && canEditDocs) || (canReview && doc && doc.status !== 'none')) && (
+                        {(canEditDocs || (canReview && doc && doc.status !== 'none')) && (
                         <div className="mt-auto flex flex-wrap items-center gap-x-2 gap-y-1 border-t border-slate-900/[0.07] pt-2">
-                          {d.req !== 'o' && canEditDocs && (
+                          {canEditDocs && (
                             <DocUpload
                               projectId={projectId}
                               kind={d.key}

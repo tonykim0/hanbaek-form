@@ -588,7 +588,11 @@ export interface ProjectRepository {
    * 반려만 표시하고 고칠 길을 안 주면 협력사는 화면을 보고도 아무것도 할 수 없다.
    */
   uploadDocument(
-    input: { projectId: string; kind: string; filename: string; blobUrl: string },
+    input: {
+      projectId: string; kind: string; filename: string; blobUrl: string;
+      /** 판독기가 읽은 문서 제목 — 접수 ZIP 에서 온 파일에만 있다 (DocFile.title) */
+      title?: string | null;
+    },
     actor: Actor
   ): Promise<void>;
 }

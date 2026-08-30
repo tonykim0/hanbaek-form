@@ -511,6 +511,18 @@ export interface DocFile {
   url: string;
   uploadedBy: string | null;
   uploadedAt: string | null;
+  /**
+   * ★판독기가 그 문서에서 읽은 제목★ — 열지 않고도 칸이 맞는지 보라고 있는 값이다
+   * (한백 2026-08-31 「파일을 하나하나 열어보는 걸 최소화하는 것」).
+   *
+   * 「합의서」 칸에 「전기차 등록대수 확인 공문」이 앉아 있으면 그 자리에서 어긋남이 보인다.
+   * AI 가 「맞다/틀리다」를 판정하지 않는다 — 읽은 것을 그대로 적고 판단은 사람이 한다.
+   * 그래서 오탐이 생길 자리가 없다(접수 검수를 껐던 이유가 오탐이었다).
+   *
+   * 접수 ZIP 에서 온 파일에만 있다. 사람이 칸에서 직접 올린 파일에는 없다 — 그때는
+   * 어느 칸에 넣는지 사람이 이미 골랐다.
+   */
+  title?: string | null;
 }
 
 export interface ProjectDocument {

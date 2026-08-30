@@ -30,6 +30,11 @@ export async function attachDocument(input: {
   filename: string;
   blobUrl: string;
   /**
+   * 판독기가 그 문서에서 읽은 제목 — 칸이 맞는지 열지 않고 보라고 같이 싣는다.
+   * 접수 ZIP 에서 온 파일에만 있다(사람이 칸에서 직접 올릴 때는 칸을 이미 골랐다).
+   */
+  title?: string | null;
+  /**
    * 그 칸에 이미 우리 파일이 있는가.
    *
    * 갈아치우기를 걷어내면서(한 칸에 여러 장, migrations/0021) 이전 파일 주소는 필요 없어졌다 —
@@ -117,7 +122,7 @@ export async function attachDocument(input: {
 
   try {
     await getRepository().uploadDocument(
-      { projectId, kind, filename, blobUrl },
+      { projectId, kind, filename, blobUrl, title: input.title },
       actorOf(session)
     );
   } catch (err) {

@@ -224,21 +224,41 @@ function FileRow({
           * 이름이 곧 미리보기 링크다 — 그릴 수 있는 형식만. 엑셀·워드는 링크를 열면
           * 내려받기가 시작돼서 「받기」와 구분이 없어진다(그때는 글자로만 둔다).
           */}
-        {canPreview(file) ? (
-          <a
-            href={file.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            title={file.name}
-            className="min-w-0 flex-1 truncate text-tiny font-bold text-brand-800 underline decoration-brand-200 transition hover:decoration-brand-500"
-          >
-            {file.name}
-          </a>
-        ) : (
-          <span title={file.name} className="min-w-0 flex-1 truncate text-tiny font-bold text-slate-700">
-            {file.name}
-          </span>
-        )}
+        <span className="flex min-w-0 flex-1 flex-col">
+          {canPreview(file) ? (
+            <a
+              href={file.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              title={file.name}
+              className="truncate text-tiny font-bold text-brand-800 underline decoration-brand-200 transition hover:decoration-brand-500"
+            >
+              {file.name}
+            </a>
+          ) : (
+            <span title={file.name} className="truncate text-tiny font-bold text-slate-700">
+              {file.name}
+            </span>
+          )}
+          {/*
+            ★판독기가 읽은 제목 (한백 2026-08-31).★ 목표는 「파일을 하나하나 열어보는 것을
+            최소화하는 것」이다. 칸 이름 아래에 읽은 제목이 서면, 「합의서」 칸에 「전기차
+            등록대수 확인 공문」이 앉은 것이 열지 않고도 보인다.
+
+            ★맞다/틀리다를 적지 않는다★ — 읽은 것 그대로다. 판정을 하면 틀린 판정이 생기고,
+            틀린 지적은 없는 것보다 나쁘다(접수 검수를 껐던 이유가 그것이다). 두 줄을
+            견주는 데 사람은 1초를 쓴다.
+
+            파일명이 이미 그 말을 하고 있으면(「기타」는 제목이 이름에 들어간다) 적지 않는다 —
+            같은 값을 두 번 두지 않는다(화면 규칙 5). 사람이 칸에서 직접 올린 파일에는
+            아예 없다 — 그때는 어느 칸인지 사람이 이미 골랐다.
+          */}
+          {file.title && !file.name.includes(file.title) && (
+            <span className="truncate text-micro text-slate-400" title={file.title}>
+              읽은 제목 <span className="font-bold text-slate-600">{file.title}</span>
+            </span>
+          )}
+        </span>
         {/*
           * 「받기」가 따로 있는 이유 — 이름 링크는 브라우저에 맡기는 것이고(그릴 수 있으면
           * 새 탭), 이쪽은 받아서 「현장명_서류명」으로 이름을 바꿔 저장한다. Blob 에 저장된

@@ -43,6 +43,11 @@ export interface AutoDoc {
   category: string;
   filename: string;
   blobUrl: string;
+  /**
+   * 판독기가 그 문서에서 읽은 제목 — 칸 이름과 나란히 놓여 어긋남을 드러낸다.
+   * 판정이 아니라 ★읽은 것 그대로★다(DocFile.title 의 머리말 참고).
+   */
+  title?: string | null;
 }
 
 /** 서류 한 장의 검수 결과 */

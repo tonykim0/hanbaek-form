@@ -174,6 +174,11 @@ export interface UploadItem {
   originalName: string;
   category: FileCategory;
   standardName: string;
+  /**
+   * 판독기가 읽은 문서 제목 — 서류 칸에 같이 실어 「열지 않고도 칸이 맞는지」 보게 한다
+   * (DocFile.title). 「기타」는 파일명에도 들어가지만, 나머지 칸에서는 이 값만이 그 자리를 말한다.
+   */
+  title?: string | null;
   buffer: Buffer;
   /** 첨부 시 content-type (미지정 시 application/pdf) */
   contentType?: string;
@@ -225,6 +230,7 @@ export async function buildUploadItems(
           /* 기타로 떨어지면 원본 이름이 곧 제목이다 — 통과 파일은 잘린 조각이 아니다 */
           ? buildStandardName(metadata.현장명, category, ext, stemOf(normalName))
           : file.name,
+        title: stemOf(normalName),
         buffer: file.buffer,
         contentType: file.mimeType,
       });
@@ -253,6 +259,7 @@ export async function buildUploadItems(
           ? buildStandardName(metadata.현장명, category, 'pdf',
               matchedInfos[0]?.title ?? stemOf(normalName))
           : file.name,
+        title: matchedInfos[0]?.title ?? stemOf(normalName),
         buffer: file.buffer,
       });
     } else {
@@ -278,6 +285,7 @@ export async function buildUploadItems(
              */
             ? buildStandardName(metadata.현장명, info.category, 'pdf', info.title)
             : file.name,
+          title: info.title ?? null,
           buffer,
         });
       }

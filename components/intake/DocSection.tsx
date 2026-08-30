@@ -29,7 +29,8 @@ export function DocSection({
   check: { satisfiedCount: number; requiredCount: number };
   issueCount: number;
   review: DocReview | null;
-  staged: Record<string, { filename: string; blobUrl: string }>;
+  /** title — 판독기가 읽은 문서 제목. ZIP 에서 온 칸에만 있다 */
+  staged: Record<string, { filename: string; blobUrl: string; title?: string | null }>;
   picking: Record<string, number>;
   onPick: (kind: string, file: File) => void;
   onRemove: (kind: string) => void;
@@ -125,12 +126,31 @@ export function DocSection({
                             </p>
                           </div>
                         ) : filled ? (
-                          <p
-                            className="mt-1 truncate text-tiny text-slate-500"
-                            title={filled.filename}
-                          >
-                            {filled.filename}
-                          </p>
+                          <>
+                            <p
+                              className="mt-1 truncate text-tiny text-slate-500"
+                              title={filled.filename}
+                            >
+                              {filled.filename}
+                            </p>
+                            {/*
+                              ★판독기가 읽은 제목 (한백 2026-08-31).★ 목표는 「파일을 하나하나
+                              열어보는 걸 최소화하는 것」이다. 칸 이름 바로 아래에 읽은 제목이
+                              서면, 「합의서」 칸에 「전기차 등록대수 확인 공문」이 앉은 것이
+                              그 자리에서 보인다 — 열지 않고도.
+
+                              ★맞다/틀리다를 적지 않는다.★ 읽은 것 그대로다. 판정을 하면
+                              틀린 판정이 생기고, 틀린 지적은 없는 것보다 나쁘다(접수 검수를
+                              껐던 이유가 그것이다). 사람이 두 줄을 견주면 1초다.
+
+                              파일명과 같으면 적지 않는다 — 같은 말을 두 번 두지 않는다(규칙 5).
+                            */}
+                            {filled.title && !filled.filename.includes(filled.title) && (
+                              <p className="mt-0.5 truncate text-tiny text-slate-400" title={filled.title}>
+                                읽은 제목 <span className="text-slate-600">{filled.title}</span>
+                              </p>
+                            )}
+                          </>
                         ) : (
                           <p
                             className={`mt-1 text-tiny font-bold ${

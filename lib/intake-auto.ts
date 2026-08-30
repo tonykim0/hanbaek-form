@@ -150,7 +150,10 @@ export async function autoIntakeFromZip(
       contentType: item.contentType ?? 'application/pdf',
       token: process.env.BLOB_READ_WRITE_TOKEN,
     });
-    docs.push({ kind, category: item.category, filename: item.standardName, blobUrl: blob.url });
+    docs.push({
+      kind, category: item.category, filename: item.standardName, blobUrl: blob.url,
+      title: item.title ?? null,
+    });
   }
 
   /*

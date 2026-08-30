@@ -280,19 +280,26 @@ async function assertContractDocsOpen(
  */
 function appendedFiles(
   before: unknown,
-  input: { filename: string; blobUrl: string },
+  input: { filename: string; blobUrl: string; title?: string | null },
   actorName: string,
   day: string
 ): DocFile[] {
   const files = ((before ?? []) as DocFile[]).filter((f) => f?.url);
   if (files.some((f) => f.url === input.blobUrl)) return files;
-  return [...files, { name: input.filename, url: input.blobUrl, uploadedBy: actorName, uploadedAt: day }];
+  return [...files, {
+    name: input.filename,
+    url: input.blobUrl,
+    uploadedBy: actorName,
+    uploadedAt: day,
+    /* 없으면 키를 만들지 않는다 — 사람이 직접 올린 파일에 null 이 적히면 「못 읽었다」로 읽힌다 */
+    ...(input.title?.trim() ? { title: input.title.trim() } : {}),
+  }];
 }
 
 /** 공정 서류 갈래 — process_documents 표. 행위신고는 신고일도 같이 채운다. */
 async function putProcessDoc(
   tx: TxLike,
-  input: { projectId: string; kind: string; filename: string; blobUrl: string },
+  input: { projectId: string; kind: string; filename: string; blobUrl: string; title?: string | null },
   actor: Actor,
   day: string
 ): Promise<void> {
@@ -362,7 +369,7 @@ async function putProcessDoc(
  */
 async function putContractDoc(
   tx: TxLike,
-  input: { projectId: string; kind: string; filename: string; blobUrl: string },
+  input: { projectId: string; kind: string; filename: string; blobUrl: string; title?: string | null },
   actor: Actor,
   day: string
 ): Promise<void> {

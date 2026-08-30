@@ -38,7 +38,7 @@ import {
 import { DatePicker } from '@/components/DatePicker';
 import { today } from '@/lib/date';
 import { useAction } from '@/lib/use-action';
-import { Badge, Blank, Btn, Choice, Empty, Err, FIELD_CELL } from '@/components/ui';
+import { Badge, Blank, Btn, Choice, Empty, Err, FIELD_CELL, Td, Th } from '@/components/ui';
 import { Frame, SiteLink, won } from './parts';
 import { useFinalizeBatch } from './use-batch';
 
@@ -54,20 +54,24 @@ const dayLabel = (d: string) => `${Number(d.slice(5, 7))}월 ${Number(d.slice(8)
  * 기본은 ★낼 것 먼저★다 — 지급 가능한 줄이 위로 올라오고, 그 안에서 지급처로 뭉친다.
  */
 /**
- * 무엇부터 보나 — ★기본은 「지금 낼 것」이다★ (한백 지적 2026-08-31).
+ * 무엇부터 보나 — ★기본은 「지급 가능」이다★ (한백 지적 2026-08-31).
+ *
+ * ★이름은 상태 이름 그대로 쓴다★ (한백 지적 2026-08-31 「지금 낼 것 이라는 단어부터
+ * 고쳐」). 「지금 낼 것」·「채울 것 있음」은 말투지 낱말이 아니고, 보는 쪽에 따라
+ * 「지금 받을 것」으로 갈아 끼우고 있었다 — 같은 칸이 사람마다 다른 이름이면 서로 말이
+ * 안 통한다. 상태 열의 배지가 이미 「지급 가능」이라 적는다. 타일과 배지가 한 낱말이다.
  *
  * 프로덕션 298줄 중 지금 낼 수 있는 것은 ★10줄★이다(2026-08-31 실측). 나머지 96%를
  * 지나며 그 열 줄을 찾고 있었다 — 정렬로 위에 올려 봐야 아래 288줄이 그대로 깔려 있다.
  * 이 화면에서 하는 일이 「낼 것을 추려 한 날짜로 묶는」 것이니, 열 때 그것만 서 있는 것이 맞다.
  * 나머지는 위 타일을 눌러 본다 — 몇 건인지는 늘 보인다.
  */
-const GROUPS: Array<{ key: WorkGroup | '전체'; label: string; hint: string }> = [
-  /* 이름은 보는 쪽에 따라 갈린다 — 한백은 내고 협력사는 받는다(아래에서 바꿔 끼운다) */
-  { key: '지급 가능', label: '지금 낼 것', hint: '조건이 다 찼다' },
-  { key: '채울 것 있음', label: '채울 것 있음', hint: '서류·단가가 빈다' },
-  { key: '공정 대기', label: '공정 대기', hint: '설치·개통을 기다린다' },
-  { key: '확정 완료', label: '확정 완료', hint: '더 낼 것이 없다' },
-  { key: '전체', label: '전체', hint: '' },
+const GROUPS: Array<{ key: WorkGroup | '전체'; hint: string }> = [
+  { key: '지급 가능', hint: '조건이 다 찼다' },
+  { key: '보완 필요', hint: '서류·단가가 빈다' },
+  { key: '공정 대기', hint: '설치·개통을 기다린다' },
+  { key: '확정 완료', hint: '더 낼 것이 없다' },
+  { key: '전체', hint: '' },
 ];
 
 type SortKey = 'ready' | 'org' | 'amount' | 'name';
@@ -190,7 +194,7 @@ export default function PayoutWorkBoard({
               }`}
             >
               <span className={`block text-tiny font-bold ${on ? 'text-brand-800' : 'text-slate-500'}`}>
-                {g.key === '지급 가능' && !canConfirm ? '지금 받을 것' : g.label}
+                {g.key}
               </span>
               <span className="mt-0.5 flex items-baseline gap-1.5">
                 <span className={`text-lead font-black tabular-nums ${c.n === 0 ? 'text-slate-300' : 'text-slate-900'}`}>
@@ -267,9 +271,7 @@ export default function PayoutWorkBoard({
       {shown.length === 0 ? (
         <div className="flex flex-col gap-3">
           <Blank>
-            {group === '지급 가능'
-              ? `${canConfirm ? '지금 낼 것' : '지금 받을 것'} 0건`
-              : '조건에 맞는 지급이 0건'}
+            {group === '전체' ? '조건에 맞는 지급이 0건' : `${group} 0건`}
           </Blank>
           {/* 거른 사람만 막다른 곳에 선다 — 되돌릴 길을 그 자리에 둔다 */}
           {group !== '전체' && (
@@ -288,33 +290,33 @@ export default function PayoutWorkBoard({
           */}
           <thead className="border-b border-slate-100 bg-slate-50 text-tiny font-bold tracking-[0.06em] text-slate-500">
             <tr>
-              {canConfirm && <th rowSpan={2} className="w-10 px-3 py-2.5"></th>}
-              <th rowSpan={2} className="px-3 py-2.5 text-left">현장</th>
+              {canConfirm && <Th rowSpan={2} className="w-10" />}
+              <Th rowSpan={2}>현장</Th>
               {/*
                 지급처가 하나뿐이면 열을 안 세운다 — 협력사에게는 모든 줄에 제 회사 이름이
                 되풀이된다(2026-08-30). 위 필터가 같은 조건으로 이미 감춰져 있었다.
               */}
-              {orgs.length > 1 && <th rowSpan={2} className="px-3 py-2.5 text-left">지급처</th>}
-              <th rowSpan={2} className="px-3 py-2.5 text-left">구분</th>
-              <th rowSpan={2} className="px-3 py-2.5 text-right">총 지급액</th>
+              {orgs.length > 1 && <Th rowSpan={2}>지급처</Th>}
+              <Th rowSpan={2}>구분</Th>
+              <Th rowSpan={2} num>총 지급액</Th>
               {/*
                 머리 두 줄에 무게를 준다 (2026-08-31) — 둘 다 같은 회색 tiny 라 「네 칸이
                 한 회차」라는 것이 안 읽혔다. 묶음 이름은 진하게, 칸 이름은 옅게.
               */}
-              <th colSpan={canConfirm ? 4 : 3} className="border-l border-slate-200 px-3 pt-2 text-center text-small font-black text-slate-700">
+              <Th tight colSpan={canConfirm ? 4 : 3} className="border-l border-slate-200 pt-2 text-small font-black text-slate-700">
                 1차 · 70%
-              </th>
-              <th colSpan={canConfirm ? 4 : 3} className="border-l border-slate-200 px-3 pt-2 text-center text-small font-black text-slate-700">
+              </Th>
+              <Th tight colSpan={canConfirm ? 4 : 3} className="border-l border-slate-200 pt-2 text-small font-black text-slate-700">
                 2차 · 잔액
-              </th>
+              </Th>
             </tr>
             <tr className="text-slate-400">
               {[1, 2].map((no) => (
                 <Fragment key={no}>
-                  <th className="border-l border-slate-200 px-3 pb-2 text-right font-semibold">금액</th>
-                  <th className="px-3 pb-2 text-right font-semibold">지급일</th>
-                  <th className="px-3 pb-2 text-left font-semibold">상태</th>
-                  {canConfirm && <th className="px-3 pb-2 text-left font-semibold"></th>}
+                  <Th tight num className="border-l border-slate-200 pb-2 font-semibold">금액</Th>
+                  <Th tight className="pb-2 font-semibold">지급일</Th>
+                  <Th tight className="pb-2 font-semibold">상태</Th>
+                  {canConfirm && <Th tight className="w-px pb-2" />}
                 </Fragment>
               ))}
             </tr>
@@ -343,7 +345,7 @@ export default function PayoutWorkBoard({
                 className={`transition ${rule} ${picked.has(p.key) && ready ? 'bg-brand-50/60' : 'hover:bg-brand-50/40'}`}
               >
                 {canConfirm && (
-                  <td className={`px-3 py-2.5 align-top ${lead}`}>
+                  <Td className={lead}>
                     {/* 조건이 안 찬 줄에는 칸 자체가 비어 있다 — 눌리지 않는 체크박스보다 분명하다 */}
                     {p.state === '지급 가능' && (
                       <input
@@ -354,22 +356,22 @@ export default function PayoutWorkBoard({
                         className="h-4 w-4 accent-brand-600"
                       />
                     )}
-                  </td>
+                  </Td>
                 )}
                 {/* 줄을 찾는 열쇠는 현장명이다 — 한 줄에서 가장 먼저 읽혀야 한다 */}
-                <td className={`min-w-[13rem] px-3 py-2.5 align-top ${canConfirm ? '' : lead}`}>
+                <Td className={`min-w-[13rem] ${canConfirm ? '' : lead}`}>
                   <SiteLink id={p.projectId} name={p.projectName} tab="settlement" />
                   <p className="text-tiny text-slate-400">{p.cpo}</p>
-                </td>
+                </Td>
                 {orgs.length > 1 && (
-                  <td className="px-3 py-2.5 align-top text-slate-600">{p.org ?? <Empty kind="miss" />}</td>
+                  <Td className="text-slate-600">{p.org ?? <Empty kind="miss" />}</Td>
                 )}
                 {/*
                   * ★구분은 분류지 상태가 아니다★ (2026-08-31). 각진 칩(Tag)이라 누르는 것으로
                   * 읽혔고, 같은 줄의 둥근 배지(상태)와 섞여 한 줄에 부품이 셋이었다
                   * (화면 규칙 11: 동글면 상태, 각지면 누르는 것). 값이 둘뿐이라 색 글자면 된다.
                   */}
-                <td className="whitespace-nowrap px-3 py-2.5 align-top">
+                <Td className="whitespace-nowrap">
                   <p className={`font-bold ${p.kind === '영업비' ? 'text-sky-800' : 'text-brand-800'}`}>
                     {p.kind}
                   </p>
@@ -378,14 +380,16 @@ export default function PayoutWorkBoard({
                       조정 {p.adjust > 0 ? '+' : ''}{won(p.adjust)}
                     </p>
                   )}
-                </td>
-                <td className="whitespace-nowrap px-3 py-2.5 text-right align-top">
-                  <p className="font-black tabular-nums text-slate-900">
+                </Td>
+                <Td num>
+                  <p className="font-black text-slate-900">
                     {p.due > 0 ? won(p.due) : <span className="text-slate-300">—</span>}
                   </p>
                   {/* 금액 자체가 안 서는 사정(단가 미지정 등)은 회차가 아니라 총액의 일이다 */}
                   {p.due <= 0 && p.blockers.map((reason) => (
-                    <p key={reason} className="text-tiny font-bold text-amber-700">{reason}</p>
+                    <p key={reason} className="ml-auto max-w-[11rem] whitespace-normal text-tiny font-bold text-amber-700">
+                      {reason}
+                    </p>
                   ))}
                   {/*
                     * ★계획보다 더 나간 돈은 여기서 말한다★ (2026-08-28) — 단가를 잘못 알고
@@ -393,11 +397,11 @@ export default function PayoutWorkBoard({
                     * 돌려받든 잔금에서 빼든 사람이 처리해야 하는 자리라 눈에 띄어야 한다.
                     */}
                   {p.confirmed > p.plan + p.adjust && (
-                    <p className="text-tiny font-black text-red-700">
+                    <p className="whitespace-nowrap text-tiny font-black text-red-700">
                       초과 {won(p.confirmed - p.plan - p.adjust)}
                     </p>
                   )}
-                </td>
+                </Td>
                 {([1, 2] as const).map((no) => (
                   <StepCells key={no} p={p} no={no} finalizedBatches={finalizedBatches} canConfirm={canConfirm} />
                 ))}
@@ -432,9 +436,9 @@ function StepCells({
 }) {
   if (p.due <= 0) {
     return (
-      <td colSpan={canConfirm ? 4 : 3} className="border-l border-slate-100 px-3 py-2.5 text-center align-top text-slate-300">
+      <Td colSpan={canConfirm ? 4 : 3} className="border-l border-slate-100 text-slate-300">
         —
-      </td>
+      </Td>
     );
   }
 
@@ -466,26 +470,26 @@ function StepCells({
         딴 데서 찾아야 했다. 됐으면 날짜(그날이 곧 증거다), 아직이면 「전」 —
         상태 열의 「대기」는 회차의 자리고, 이것은 트리거의 사실이라 겹치지 않는다.
       */}
-      <td className="whitespace-nowrap border-l border-slate-100 px-3 py-2.5 text-right align-top">
-        <p className={`font-black tabular-nums ${done ? 'text-slate-400' : 'text-slate-900'}`}>
+      <Td num className="whitespace-nowrap border-l border-slate-100">
+        <p className={`font-black ${done ? 'text-slate-400' : 'text-slate-900'}`}>
           {won(amount)}
         </p>
         {release.metAt ? (
-          <p className="text-tiny tabular-nums text-slate-400">
+          <p className="text-tiny text-slate-400">
             {release.trigger} {release.metAt.slice(5)}
           </p>
         ) : (
           <p className="text-tiny font-bold text-amber-700">{release.trigger} 전</p>
         )}
-      </td>
+      </Td>
 
       {/* 지급일 — 배치에 실렸으면 그 날짜, 지급 가능이면 규칙(익월 10·25일)을 예정으로 */}
-      <td className="whitespace-nowrap px-3 py-2.5 text-right align-top">
+      <Td className="whitespace-nowrap tabular-nums">
         {covered ? (
           <span className="text-slate-300">—</span>
         ) : done ? (
-          /* 지난 일은 조용하다 — 브랜드색이면 끝난 회차가 지금 낼 것보다 세게 읽힌다 */
-          <p className="text-small font-bold tabular-nums text-slate-500">{at ?? '지급됨'}</p>
+          /* 지난 일은 조용하다 — 브랜드색이면 끝난 회차가 지금 내는 것보다 세게 읽힌다 */
+          <p className="text-small font-bold text-slate-500">{at ?? '지급됨'}</p>
         ) : openHere && p.state === '지급 가능' && release.metAt ? (
           <p className="text-tiny font-bold text-slate-400">
             {Number(payDateChoices(release.metAt)[0].slice(5, 7))}월 10·25일
@@ -493,7 +497,7 @@ function StepCells({
         ) : (
           <span className="text-slate-300">—</span>
         )}
-      </td>
+      </Td>
 
       {/*
         상태 — 배치의 자리(가확정→확정→지급완료 · 확정 누락) 또는 그 앞의 사정.
@@ -508,7 +512,7 @@ function StepCells({
         바로 왼쪽 1차 열이. 그래서 대기는 조용한 회색이다: 주황 신호는 이유 쪽에 있다.
         그 밖의 사정(수수료 미정 등)은 상태가 아니라 이유라 배지 밑에 글로 남는다.
       */}
-      <td className="whitespace-nowrap px-3 py-2.5 align-top">
+      <Td className="max-w-[13rem]">
         {covered ? (
           <Badge tone="mute">{overflow ? '초과 충당' : '다른 명목으로 지급'}</Badge>
         ) : done && state ? (
@@ -530,7 +534,7 @@ function StepCells({
               {p.blockers
                 .filter((reason) => reason !== `${release.trigger} 대기`)
                 .map((reason) => (
-                  <p key={reason} className="mt-0.5 text-tiny font-bold text-amber-700">
+                  <p key={reason} className="mt-0.5 text-tiny font-bold leading-snug text-amber-700">
                     {reason}
                   </p>
                 ))}
@@ -539,7 +543,7 @@ function StepCells({
         ) : (
           <Badge tone="mute">대기</Badge>
         )}
-      </td>
+      </Td>
 
       {/*
         동작 — 이 배치에서 지금 누를 수 있는 것.
@@ -549,7 +553,7 @@ function StepCells({
         확정·해제는 배치(지급처×구분×지급일) 단위다 — 같은 배치의 다른 줄도 함께 움직인다.
       */}
       {canConfirm && (
-        <td className="whitespace-nowrap px-3 py-2.5 align-top">
+        <Td className="w-px whitespace-nowrap">
           {done && state && p.org && at ? (
             <span className="inline-flex items-center gap-1.5">
               {(state === '가확정' || state === '확정 누락') && (
@@ -559,7 +563,7 @@ function StepCells({
               {state === '확정' && <StepFinalize org={p.org} kind={p.kind} at={at} undo />}
             </span>
           ) : null}
-        </td>
+        </Td>
       )}
     </>
   );

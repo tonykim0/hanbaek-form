@@ -442,3 +442,61 @@ export const PANEL = 'rounded-panel border border-slate-200 bg-white';
 export function HR({ className = '' }: { className?: string }) {
   return <div className={`border-t border-slate-100 ${className}`} />;
 }
+
+/* ── 표의 칸 ───────────────────────────────────────────────────────────────
+ * ★정렬은 부품이 정한다★ (한백 지적 2026-08-31 「숫자랑 글자 정렬도 해야지. 왼쪽정렬,
+ * 오른쪽 정렬 제각각이야」 / 「이런걸 왜 안따지는거야?」).
+ *
+ * 부품·색·활자에는 정본이 있는데 표에는 없었다. 세어 보니 표 열넷이 정렬 클래스를
+ * 168 자리에 손으로 적고 있었다(right 96 · left 57 · center 15). 그래서 같은 표 안에서도
+ * 금액은 오른쪽, 지급일은 오른쪽, 상태는 왼쪽으로 갈렸고, 머리와 몸이 서로 딴 쪽을 봤다.
+ *
+ * 규칙은 하나다 — **세는 것은 오른쪽, 그 밖은 왼쪽, 머리는 제 몸을 따른다.**
+ * 오른쪽은 자릿수를 맞춰 위아래로 견주라는 뜻이다. 날짜·상태·이름은 세는 값이 아니라
+ * 읽는 값이라 왼쪽에 선다 — 날짜를 오른쪽으로 밀면 왼쪽에 빈 띠가 생기고, 그 띠가
+ * 옆 열과의 사이를 벌려 표가 성겨 보인다.
+ *
+ * ★머리는 줄바꿈하지 않는다★ — 「총 지급액」이 두 줄로 접히던 자리다. 표가 좁아지면
+ * 브라우저는 가장 먼저 접히는 것을 접는데, 몸의 칸이 nowrap 이면 머리만 혼자 접힌다.
+ * 접히는 대신 표가 넓어지고 가로로 밀린다(Frame 이 그 자리다).
+ */
+const CELL_X = 'px-3';
+const CELL_Y = 'py-2.5';
+
+type CellProps = {
+  /** 세는 값(금액·건수)이면 참 — 오른쪽 정렬 + 자릿수 고정 글꼴 */
+  num?: boolean;
+  /**
+   * 머리가 두 줄일 때 참 — 세로 여백을 부르는 자리에서 준다(위 줄은 pt, 아래 줄은 pb).
+   * `!py-0` 같은 important 로 덮지 않는다: 덮으면 그 뒤의 `pt-2` 가 조용히 안 먹는다.
+   */
+  tight?: boolean;
+  className?: string;
+  children?: ReactNode;
+  colSpan?: number;
+  rowSpan?: number;
+};
+
+/** 표의 머리 칸. 정렬은 제 몸(num)을 따르고, 절대 줄바꿈하지 않는다. */
+export function Th({ num = false, tight = false, className = '', children, ...rest }: CellProps) {
+  return (
+    <th
+      {...rest}
+      className={`${CELL_X} ${tight ? '' : CELL_Y} whitespace-nowrap ${num ? 'text-right' : 'text-left'} ${className}`}
+    >
+      {children}
+    </th>
+  );
+}
+
+/** 표의 몸 칸. 여러 줄이 쌓이는 칸이 있어 위 맞춤이 기본이다. */
+export function Td({ num = false, tight = false, className = '', children, ...rest }: CellProps) {
+  return (
+    <td
+      {...rest}
+      className={`${CELL_X} ${tight ? '' : CELL_Y} align-top ${num ? 'text-right tabular-nums' : 'text-left'} ${className}`}
+    >
+      {children}
+    </td>
+  );
+}

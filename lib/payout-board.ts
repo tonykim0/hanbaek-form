@@ -101,14 +101,14 @@ export interface PayoutWork extends PayoutRowInput {
  * 판정은 막는 사유의 글에 기대지 않는다 — 서류·단가는 그 자리에서 채울 수 있는 것이고,
  * 공정 마일스톤은 시간이 와야 하는 것이다. 그 성질로 가른다.
  */
-export type WorkGroup = '지급 가능' | '채울 것 있음' | '공정 대기' | '확정 완료';
+export type WorkGroup = '지급 가능' | '보완 필요' | '공정 대기' | '확정 완료';
 
 /** 사람이 지금 채울 수 있는 사유인가 — 서류와 단가가 그것이다 */
 const FILLABLE = /지급조건 서류 미달|단가 미지정/;
 
 export function workGroupOf(w: { state: WorkState; blockers: string[] }): WorkGroup {
   if (w.state !== '조건 대기') return w.state;
-  return w.blockers.some((b) => FILLABLE.test(b)) ? '채울 것 있음' : '공정 대기';
+  return w.blockers.some((b) => FILLABLE.test(b)) ? '보완 필요' : '공정 대기';
 }
 
 export function workOf(p: PayoutRowInput): PayoutWork {

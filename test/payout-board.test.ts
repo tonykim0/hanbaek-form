@@ -107,9 +107,9 @@ describe('canAttachInvoice — 계산서를 누가 어느 배치에 붙이나', 
 describe('workGroupOf — 「조건 대기」를 둘로 가른다', () => {
   it('★사람이 채울 수 있는 것은 따로 센다★ — 서류·단가는 지금 할 일이다', () => {
     expect(workGroupOf({ state: '조건 대기', blockers: ['지급조건 서류 미달: 실사보고서 (사진대지)'] }))
-      .toBe('채울 것 있음');
+      .toBe('보완 필요');
     expect(workGroupOf({ state: '조건 대기', blockers: ['단가 미지정 1건 — 지급 금액 확정 불가'] }))
-      .toBe('채울 것 있음');
+      .toBe('보완 필요');
   });
 
   it('공정 마일스톤은 기다리는 것이다 — 사람이 당길 수 없다', () => {
@@ -122,7 +122,7 @@ describe('workGroupOf — 「조건 대기」를 둘로 가른다', () => {
     expect(workGroupOf({
       state: '조건 대기',
       blockers: ['설치완료 대기', '지급조건 서류 미달: 사전현장컨설팅 결과서'],
-    })).toBe('채울 것 있음');
+    })).toBe('보완 필요');
   });
 
   it('사유가 없는 조건 대기는 공정 대기다', () => {

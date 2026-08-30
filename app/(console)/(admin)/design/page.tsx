@@ -14,7 +14,7 @@
  * components/ui.tsx(모양) 와 tailwind.config.js(토큰) 에 먼저 추가한다.
  */
 import {
-  Badge, Blank, Btn, Choice, Empty, Err, FIELD, FIELD_CELL, HR, Note, Saved, Tag, Val,
+  Badge, Blank, Btn, Choice, Empty, Err, FIELD, FIELD_CELL, HR, Note, Saved, Tag, Td, Th, Val,
 } from '@/components/ui';
 
 export const metadata = { title: '디자인 기준 — 한백 전기차사업관리' };
@@ -236,6 +236,38 @@ export default function DesignPage() {
             </div>
           </Part>
         </div>
+      </Section>
+
+      <Section title="표의 칸" note="세는 것은 오른쪽, 그 밖은 왼쪽. 머리는 제 몸을 따른다 (화면 규칙 13)">
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[520px] border-collapse text-base">
+            <thead className="border-b border-slate-100 bg-slate-50 text-tiny font-bold tracking-[0.06em] text-slate-500">
+              <tr>
+                <Th>현장</Th>
+                <Th num>총 지급액</Th>
+                <Th>지급일</Th>
+                <Th>상태</Th>
+              </tr>
+            </thead>
+            <tbody>
+              {[
+                ['경기 수원 포레나 영흥숲', '14,700,000', '2026-08-25', <Badge key="a" tone="ok">확정</Badge>],
+                ['충북 청주 율량동 현대아파트', '2,940,000', '—', <Badge key="b" tone="mute">대기</Badge>],
+              ].map(([name, won, day, tag], i) => (
+                <tr key={String(name)} className={i === 0 ? '' : 'border-t border-slate-100'}>
+                  <Td className="font-semibold text-slate-900">{name}</Td>
+                  <Td num className="font-black text-slate-900">{won}</Td>
+                  <Td className="text-slate-500">{day}</Td>
+                  <Td>{tag}</Td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <p className="pt-2 text-tiny text-slate-400">
+          날짜를 오른쪽으로 밀면 칸 왼쪽에 빈 띠가 생기고, 그 띠가 옆 열과의 사이를 벌린다.
+          머리는 접히지 않는다 — 좁으면 표가 가로로 밀린다.
+        </p>
       </Section>
 
       <Section title="빈 값" note="네 가지고 서로 다른 말이다. 하나로 뭉치면 빠뜨린 것과 원래 없는 것이 같아 보인다">

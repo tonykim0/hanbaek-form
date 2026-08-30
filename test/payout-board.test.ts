@@ -5,7 +5,7 @@
  * 「가확정」은 지급일 전에만 뜻이 있는 신호다.
  */
 import { describe, expect, it } from 'vitest';
-import { batchKey, batchStateOf, canAttachInvoice, payDateChoices } from '@/lib/payout-board';
+import { batchKey, batchStateOf, canAttachInvoice, payDateChoices, workGroupOf } from '@/lib/payout-board';
 
 describe('batchKey — 지급처 × 구분 × 지급일', () => {
   it('세 축이 같으면 같은 배치다', () => {
@@ -101,5 +101,36 @@ describe('canAttachInvoice — 계산서를 누가 어느 배치에 붙이나', 
     expect(canAttachInvoice({
       role: 'sales', org: '주식회사 에코일렉', batchOrg: '에코일렉', finalized: false,
     })).toBe(false);
+  });
+});
+
+describe('workGroupOf — 「조건 대기」를 둘로 가른다', () => {
+  it('★사람이 채울 수 있는 것은 따로 센다★ — 서류·단가는 지금 할 일이다', () => {
+    expect(workGroupOf({ state: '조건 대기', blockers: ['지급조건 서류 미달: 실사보고서 (사진대지)'] }))
+      .toBe('채울 것 있음');
+    expect(workGroupOf({ state: '조건 대기', blockers: ['단가 미지정 1건 — 지급 금액 확정 불가'] }))
+      .toBe('채울 것 있음');
+  });
+
+  it('공정 마일스톤은 기다리는 것이다 — 사람이 당길 수 없다', () => {
+    for (const b of ['설치완료 대기', '개통완료 대기', '계약완료 대기']) {
+      expect(workGroupOf({ state: '조건 대기', blockers: [b] })).toBe('공정 대기');
+    }
+  });
+
+  it('둘이 섞이면 ★채울 것★이 이긴다 — 할 일이 있는 줄을 놓치지 않는다', () => {
+    expect(workGroupOf({
+      state: '조건 대기',
+      blockers: ['설치완료 대기', '지급조건 서류 미달: 사전현장컨설팅 결과서'],
+    })).toBe('채울 것 있음');
+  });
+
+  it('사유가 없는 조건 대기는 공정 대기다', () => {
+    expect(workGroupOf({ state: '조건 대기', blockers: [] })).toBe('공정 대기');
+  });
+
+  it('나머지 상태는 그대로 간다', () => {
+    expect(workGroupOf({ state: '지급 가능', blockers: [] })).toBe('지급 가능');
+    expect(workGroupOf({ state: '확정 완료', blockers: [] })).toBe('확정 완료');
   });
 });

@@ -89,6 +89,28 @@ export interface PayoutWork extends PayoutRowInput {
   step2Done: boolean;
 }
 
+/**
+ * 「조건 대기」를 둘로 가른다 — ★기다리는 것과 우리가 할 일은 다르다★
+ * (한백 지적 2026-08-31 「눈에 잘 안 들어와」).
+ *
+ * 프로덕션 298줄 중 286줄이 조건 대기인데, 그 안에 두 가지가 섞여 있었다(2026-08-31 실측):
+ *   263줄  설치완료·개통완료·계약완료 대기   — 공정이 아직 안 왔다. 기다리는 것이 맞다.
+ *   120줄  실사보고서·컨설팅결과서 미달 · 단가 미지정 — ★사람이 지금 할 수 있는 일★
+ * 둘이 한 이름으로 묶여 있으니 「할 일이 있는 줄」이 안 보였다.
+ *
+ * 판정은 막는 사유의 글에 기대지 않는다 — 서류·단가는 그 자리에서 채울 수 있는 것이고,
+ * 공정 마일스톤은 시간이 와야 하는 것이다. 그 성질로 가른다.
+ */
+export type WorkGroup = '지급 가능' | '채울 것 있음' | '공정 대기' | '확정 완료';
+
+/** 사람이 지금 채울 수 있는 사유인가 — 서류와 단가가 그것이다 */
+const FILLABLE = /지급조건 서류 미달|단가 미지정/;
+
+export function workGroupOf(w: { state: WorkState; blockers: string[] }): WorkGroup {
+  if (w.state !== '조건 대기') return w.state;
+  return w.blockers.some((b) => FILLABLE.test(b)) ? '채울 것 있음' : '공정 대기';
+}
+
 export function workOf(p: PayoutRowInput): PayoutWork {
   const steps = payoutStepsOf(p.plan, p.adjust, p.confirmed);
   const prerequisites = payoutPrerequisiteBlockersOf({

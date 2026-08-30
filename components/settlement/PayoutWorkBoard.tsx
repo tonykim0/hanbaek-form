@@ -31,7 +31,10 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { BatchFinal } from '@/types/project';
 import { payoutReleaseOf } from '@/lib/settlement';
-import { batchKey, batchStateOf, payDateChoices, workOf, type PayoutRowInput, type PayoutWork } from '@/lib/payout-board';
+import {
+  batchKey, batchStateOf, payDateChoices, workGroupOf, workOf,
+  type PayoutRowInput, type PayoutWork, type WorkGroup,
+} from '@/lib/payout-board';
 import { DatePicker } from '@/components/DatePicker';
 import { today } from '@/lib/date';
 import { useAction } from '@/lib/use-action';
@@ -50,6 +53,23 @@ const dayLabel = (d: string) => `${Number(d.slice(5, 7))}월 ${Number(d.slice(8)
  *
  * 기본은 ★낼 것 먼저★다 — 지급 가능한 줄이 위로 올라오고, 그 안에서 지급처로 뭉친다.
  */
+/**
+ * 무엇부터 보나 — ★기본은 「지금 낼 것」이다★ (한백 지적 2026-08-31).
+ *
+ * 프로덕션 298줄 중 지금 낼 수 있는 것은 ★10줄★이다(2026-08-31 실측). 나머지 96%를
+ * 지나며 그 열 줄을 찾고 있었다 — 정렬로 위에 올려 봐야 아래 288줄이 그대로 깔려 있다.
+ * 이 화면에서 하는 일이 「낼 것을 추려 한 날짜로 묶는」 것이니, 열 때 그것만 서 있는 것이 맞다.
+ * 나머지는 위 타일을 눌러 본다 — 몇 건인지는 늘 보인다.
+ */
+const GROUPS: Array<{ key: WorkGroup | '전체'; label: string; hint: string }> = [
+  /* 이름은 보는 쪽에 따라 갈린다 — 한백은 내고 협력사는 받는다(아래에서 바꿔 끼운다) */
+  { key: '지급 가능', label: '지금 낼 것', hint: '조건이 다 찼다' },
+  { key: '채울 것 있음', label: '채울 것 있음', hint: '서류·단가가 빈다' },
+  { key: '공정 대기', label: '공정 대기', hint: '설치·개통을 기다린다' },
+  { key: '확정 완료', label: '확정 완료', hint: '더 낼 것이 없다' },
+  { key: '전체', label: '전체', hint: '' },
+];
+
 type SortKey = 'ready' | 'org' | 'amount' | 'name';
 const SORTS: Array<{ key: SortKey; label: string }> = [
   { key: 'ready', label: '낼 것 먼저' },
@@ -96,6 +116,7 @@ export default function PayoutWorkBoard({
   const [stepFilter, setStepFilter] = useState<StepFilter>('전체');
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [sort, setSort] = useState<SortKey>('ready');
+  const [group, setGroup] = useState<WorkGroup | '전체'>('지급 가능');
 
   const work = useMemo(() => rows.map(workOf), [rows]);
   // 배치 확정 여부 — 지급 칸이 「가확정」과 「확정」을 가르는 데 쓴다
@@ -109,10 +130,29 @@ export default function PayoutWorkBoard({
     [work]
   );
 
-  const shown = work
-    .filter((p) => org === null || p.org === org)
-    .filter((p) => kindFilter === '전체' || p.kind === kindFilter)
-    .filter((p) => stepFilter === '전체' || p.open?.no === (stepFilter === '1차' ? 1 : 2))
+  /* 상태별 건수·금액 — 타일이 적는다. 다른 필터(구분·지급처·지급시기)는 먹인 뒤에 센다 */
+  const inOtherFilters = useMemo(
+    () => work
+      .filter((p) => org === null || p.org === org)
+      .filter((p) => kindFilter === '전체' || p.kind === kindFilter)
+      .filter((p) => stepFilter === '전체' || p.open?.no === (stepFilter === '1차' ? 1 : 2)),
+    [work, org, kindFilter, stepFilter]
+  );
+  const countByGroup = useMemo(() => {
+    const m = new Map<WorkGroup | '전체', { n: number; won: number }>();
+    for (const p of inOtherFilters) {
+      const g = workGroupOf(p);
+      const amount = p.open?.amount ?? p.due;
+      for (const key of [g, '전체' as const]) {
+        const cur = m.get(key) ?? { n: 0, won: 0 };
+        m.set(key, { n: cur.n + 1, won: cur.won + amount });
+      }
+    }
+    return m;
+  }, [inOtherFilters]);
+
+  const shown = inOtherFilters
+    .filter((p) => group === '전체' || workGroupOf(p) === group)
     .sort(SORTERS[sort]);
 
   const toggle = (key: string) =>
@@ -128,6 +168,44 @@ export default function PayoutWorkBoard({
 
   return (
     <div>
+      {/*
+        * ★무엇부터 볼지를 맨 위에서 고른다★ (한백 지적 2026-08-31 「눈에 잘 안 들어와」).
+        * 건수와 금액이 적혀 있어 누르기 전에 안다 — 「지금 낼 것 10건 5,067만」이 이 화면의
+        * 첫 문장이어야 한다. 0건인 자리도 지운다: 사라지면 자리를 외울 수 없다.
+        */}
+      <div className="mb-3 grid gap-2 sm:grid-cols-3 lg:grid-cols-5">
+        {GROUPS.map((g) => {
+          const c = countByGroup.get(g.key) ?? { n: 0, won: 0 };
+          const on = group === g.key;
+          return (
+            <button
+              key={g.key}
+              type="button"
+              onClick={() => setGroup(g.key)}
+              aria-pressed={on}
+              className={`rounded-box border px-3 py-2 text-left transition ${
+                on
+                  ? 'border-brand-500 bg-brand-50'
+                  : 'border-slate-200 bg-white hover:border-brand-300'
+              }`}
+            >
+              <span className={`block text-tiny font-bold ${on ? 'text-brand-800' : 'text-slate-500'}`}>
+                {g.key === '지급 가능' && !canConfirm ? '지금 받을 것' : g.label}
+              </span>
+              <span className="mt-0.5 flex items-baseline gap-1.5">
+                <span className={`text-lead font-black tabular-nums ${c.n === 0 ? 'text-slate-300' : 'text-slate-900'}`}>
+                  {c.n}
+                </span>
+                <span className="text-tiny text-slate-400">건</span>
+                {c.n > 0 && (
+                  <span className="ml-auto text-tiny font-bold tabular-nums text-slate-500">{won(c.won)}</span>
+                )}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
       <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-2">
         {/* 필터는 펼쳐 두지 않는다(한백 확인) — 칩 일곱 개가 표보다 먼저 눈을 먹었다 */}
         <label className="flex items-center gap-1.5 whitespace-nowrap text-small font-bold text-slate-500">
@@ -187,7 +265,19 @@ export default function PayoutWorkBoard({
       </div>
 
       {shown.length === 0 ? (
-        <Blank>조건에 맞는 지급이 0건</Blank>
+        <div className="flex flex-col gap-3">
+          <Blank>
+            {group === '지급 가능'
+              ? `${canConfirm ? '지금 낼 것' : '지금 받을 것'} 0건`
+              : '조건에 맞는 지급이 0건'}
+          </Blank>
+          {/* 거른 사람만 막다른 곳에 선다 — 되돌릴 길을 그 자리에 둔다 */}
+          {group !== '전체' && (
+            <span className="text-center">
+              <Btn size="sm" kind="quiet" onClick={() => setGroup('전체')}>전체 보기</Btn>
+            </span>
+          )}
+        </div>
       ) : (
         <Frame min={orgs.length > 1 ? (canConfirm ? '1520px' : '1300px') : (canConfirm ? '1380px' : '1160px')}>
           {/*

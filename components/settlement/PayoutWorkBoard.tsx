@@ -42,6 +42,37 @@ import { useFinalizeBatch } from './use-batch';
 const dayLabel = (d: string) => `${Number(d.slice(5, 7))}월 ${Number(d.slice(8))}일`;
 
 /**
+ * 줄 순서 (한백 지적 2026-08-30 「정렬도 안 되어 있고」).
+ *
+ * ★전에는 순서가 없었다★ — 저장소가 읽어 온 차례 그대로라 같은 지급처의 줄이 표 여기저기에
+ * 흩어졌다. 이 표에서 하는 일이 「지금 낼 수 있는 줄을 지급처별로 추려 한 날짜로 묶는」
+ * 것이라, 그 일의 순서가 곧 줄의 순서여야 한다.
+ *
+ * 기본은 ★낼 것 먼저★다 — 지급 가능한 줄이 위로 올라오고, 그 안에서 지급처로 뭉친다.
+ */
+type SortKey = 'ready' | 'org' | 'amount' | 'name';
+const SORTS: Array<{ key: SortKey; label: string }> = [
+  { key: 'ready', label: '낼 것 먼저' },
+  { key: 'org', label: '지급처별' },
+  { key: 'amount', label: '금액 큰 순' },
+  { key: 'name', label: '현장명' },
+];
+
+const byOrgThenSite = (a: PayoutWork, b: PayoutWork) =>
+  (a.org ?? '힣').localeCompare(b.org ?? '힣', 'ko')
+  || a.kind.localeCompare(b.kind)
+  || a.projectName.localeCompare(b.projectName, 'ko');
+
+const SORTERS: Record<SortKey, (a: PayoutWork, b: PayoutWork) => number> = {
+  /* 지급 가능이 위로 — 체크할 것을 찾아 훑지 않게 한다 */
+  ready: (a, b) =>
+    Number(b.state === '지급 가능') - Number(a.state === '지급 가능') || byOrgThenSite(a, b),
+  org: byOrgThenSite,
+  amount: (a, b) => b.due - a.due || byOrgThenSite(a, b),
+  name: (a, b) => a.projectName.localeCompare(b.projectName, 'ko') || a.kind.localeCompare(b.kind),
+};
+
+/**
  * 필터 두 축 — 구분(영업비/시공비)과 지급시기(회차)를 따로 고른다(한백 확인).
  * 한 드롭다운에 「영업비 1차」로 묶으면 「영업비 전체」를 볼 방법이 없다.
  * 지급시기 1차·2차는 「지금 그 회차가 차례인 줄」이다 — 다 나간 줄은 전체에서만 보인다.
@@ -64,6 +95,7 @@ export default function PayoutWorkBoard({
   const [kindFilter, setKindFilter] = useState<KindFilter>('전체');
   const [stepFilter, setStepFilter] = useState<StepFilter>('전체');
   const [picked, setPicked] = useState<Set<string>>(new Set());
+  const [sort, setSort] = useState<SortKey>('ready');
 
   const work = useMemo(() => rows.map(workOf), [rows]);
   // 배치 확정 여부 — 지급 칸이 「가확정」과 「확정」을 가르는 데 쓴다
@@ -80,7 +112,8 @@ export default function PayoutWorkBoard({
   const shown = work
     .filter((p) => org === null || p.org === org)
     .filter((p) => kindFilter === '전체' || p.kind === kindFilter)
-    .filter((p) => stepFilter === '전체' || p.open?.no === (stepFilter === '1차' ? 1 : 2));
+    .filter((p) => stepFilter === '전체' || p.open?.no === (stepFilter === '1차' ? 1 : 2))
+    .sort(SORTERS[sort]);
 
   const toggle = (key: string) =>
     setPicked((prev) => {
@@ -118,6 +151,17 @@ export default function PayoutWorkBoard({
           </select>
         </label>
 
+        <label className="flex items-center gap-1.5 whitespace-nowrap text-small font-bold text-slate-500">
+          정렬
+          <select
+            value={sort}
+            onChange={(e) => setSort(e.target.value as SortKey)}
+            className={`${FIELD_CELL} w-auto min-w-[120px]`}
+          >
+            {SORTS.map((o) => <option key={o.key} value={o.key}>{o.label}</option>)}
+          </select>
+        </label>
+
         {orgs.length > 1 && (
           <label className="flex items-center gap-1.5 whitespace-nowrap text-small font-bold text-slate-500">
             지급처
@@ -145,7 +189,7 @@ export default function PayoutWorkBoard({
       {shown.length === 0 ? (
         <Blank>조건에 맞는 지급이 0건</Blank>
       ) : (
-        <Frame min={canConfirm ? '1520px' : '1300px'}>
+        <Frame min={orgs.length > 1 ? (canConfirm ? '1520px' : '1300px') : (canConfirm ? '1380px' : '1160px')}>
           {/*
             머리가 두 줄이다 — 「N차 지급」 한 칸에 배지·날짜·단추가 세로로 쌓여 있던 것을
             지급일·상태·동작 열로 폈다(한백 요청 2026-08-25). 쌓인 칸은 줄마다 높이가
@@ -156,7 +200,11 @@ export default function PayoutWorkBoard({
             <tr>
               {canConfirm && <th rowSpan={2} className="w-10 px-3 py-2.5"></th>}
               <th rowSpan={2} className="px-3 py-2.5 text-left">현장</th>
-              <th rowSpan={2} className="px-3 py-2.5 text-left">지급처</th>
+              {/*
+                지급처가 하나뿐이면 열을 안 세운다 — 협력사에게는 모든 줄에 제 회사 이름이
+                되풀이된다(2026-08-30). 위 필터가 같은 조건으로 이미 감춰져 있었다.
+              */}
+              {orgs.length > 1 && <th rowSpan={2} className="px-3 py-2.5 text-left">지급처</th>}
               <th rowSpan={2} className="px-3 py-2.5 text-left">구분</th>
               <th rowSpan={2} className="px-3 py-2.5 text-right">총 지급액</th>
               <th colSpan={canConfirm ? 4 : 3} className="border-l border-slate-200 px-3 pt-2 text-center">1차 · 70%</th>
@@ -173,14 +221,31 @@ export default function PayoutWorkBoard({
               ))}
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100">
-            {shown.map((p) => (
+          {/*
+            줄 사이 선을 divide-y 로 긋지 않는다 — 지급처가 바뀌는 자리에만 굵은 선을
+            넣으려면 같은 속성을 두 곳에서 쓰게 되고, 어느 쪽이 이길지가 유틸리티가 찍히는
+            차례에 달린다(2026-08-28 실측한 함정). 줄마다 직접 긋는다.
+          */}
+          <tbody>
+            {shown.map((p, i) => {
+              /*
+               * ★지금 낼 수 있는 줄이 스스로 드러나야 한다★ (한백 지적 2026-08-30
+               * 「표가 눈에 잘 안 들어와」). 스무 줄 가운데 체크할 수 있는 서너 줄을 눈으로
+               * 찾아야 했다 — 체크칸이 비어 있다는 것만이 신호였다. 왼쪽에 색 막대를 세운다.
+               * 배경색을 쓰지 않는 이유: 고른 줄(brand)과 겹쳐 둘이 섞인다.
+               */
+              const ready = p.state === '지급 가능';
+              const lead = `border-l-[3px] ${ready ? 'border-l-amber-400' : 'border-l-transparent'}`;
+              /* 지급처가 바뀌는 자리에 굵은 선 — 어느 정렬에서도 「여기부터 다른 회사」가 맞다 */
+              const newOrg = i > 0 && shown[i - 1].org !== p.org;
+              const rule = i === 0 ? '' : newOrg ? 'border-t-2 border-t-slate-200' : 'border-t border-t-slate-100';
+              return (
               <tr
                 key={p.key}
-                className={`transition ${picked.has(p.key) && p.state === '지급 가능' ? 'bg-brand-50/60' : 'hover:bg-brand-50/40'}`}
+                className={`transition ${rule} ${picked.has(p.key) && ready ? 'bg-brand-50/60' : 'hover:bg-brand-50/40'}`}
               >
                 {canConfirm && (
-                  <td className="px-3 py-2.5 align-top">
+                  <td className={`px-3 py-2.5 align-top ${lead}`}>
                     {/* 조건이 안 찬 줄에는 칸 자체가 비어 있다 — 눌리지 않는 체크박스보다 분명하다 */}
                     {p.state === '지급 가능' && (
                       <input
@@ -193,11 +258,13 @@ export default function PayoutWorkBoard({
                     )}
                   </td>
                 )}
-                <td className="px-3 py-2.5 align-top">
+                <td className={`px-3 py-2.5 align-top ${canConfirm ? '' : lead}`}>
                   <SiteLink id={p.projectId} name={p.projectName} tab="settlement" />
                   <p className="mt-0.5 text-tiny text-slate-400">{p.cpo}</p>
                 </td>
-                <td className="px-3 py-2.5 align-top text-slate-600">{p.org ?? <Empty kind="miss" />}</td>
+                {orgs.length > 1 && (
+                  <td className="px-3 py-2.5 align-top text-slate-600">{p.org ?? <Empty kind="miss" />}</td>
+                )}
                 <td className="px-3 py-2.5 align-top">
                   <Tag tone={p.kind === '영업비' ? 'stage' : 'ok'}>{p.kind}</Tag>
                   {p.adjust !== 0 && <p className="mt-0.5 text-micro font-semibold text-slate-400">조정 {p.adjust > 0 ? '+' : ''}{won(p.adjust)}</p>}
@@ -225,7 +292,8 @@ export default function PayoutWorkBoard({
                   <StepCells key={no} p={p} no={no} finalizedBatches={finalizedBatches} canConfirm={canConfirm} />
                 ))}
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </Frame>
       )}

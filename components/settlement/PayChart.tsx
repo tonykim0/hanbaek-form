@@ -190,8 +190,11 @@ export default function PayChart({
         */}
       <div className="-mx-1 overflow-x-auto px-1">
         <div className="min-w-[32rem]">
-          {/* 열 이름 — 색 점이 곧 아래 막대의 순서다 */}
-          <div className={`${ROW} pb-1.5 text-tiny font-bold text-slate-400`}>
+          {/*
+            열 이름 — 색 점이 곧 아래 막대의 순서다. ★줄바꿈하지 않는다★(화면 규칙 13):
+            칸이 좁아지면 머리만 혼자 접혀 이름과 숫자가 어긋난다. 좁으면 표째로 밀린다.
+          */}
+          <div className={`${ROW} whitespace-nowrap pb-1.5 text-tiny font-bold text-slate-400`}>
             <span />
             <span />
             {kinds.map((k) => (

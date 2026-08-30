@@ -8,7 +8,6 @@ import { PAYOUT_KINDS } from '@/types/project';
 import { getPartnerDetails } from '@/lib/auth/partner-details';
 import { userStore } from '@/lib/auth/users';
 import { today } from '@/lib/date';
-import PrintButton from '@/components/settlement/PrintButton';
 import StatementView from '@/components/settlement/StatementView';
 
 export const metadata = { title: '거래명세서 — 한백 전기차사업관리' };
@@ -104,8 +103,6 @@ export default async function StatementPage({
         >
           ← {seesAll ? '협력사 거래명세서' : '협력사 거래명세서 목록'}
         </Link>
-        <span className="ml-auto" />
-        <PrintButton />
       </div>
 
       <StatementView

@@ -34,7 +34,8 @@ import { HANBAEK } from '@/lib/hanbaek';
 import { formatKoreanBizIdInput } from '@/lib/bizid';
 import { batchStateOf, INVOICE_LOCKED_WHY } from '@/lib/payout-board';
 import { useAction } from '@/lib/use-action';
-import { Badge, Btn, Empty, Err, FIELD_CELL, Saved } from '@/components/ui';
+import PrintButton from './PrintButton';
+import { Badge, Btn, BtnLink, Empty, Err, FIELD_CELL, Saved } from '@/components/ui';
 import { SiteLink, won } from './parts';
 import { useFinalizeBatch, useTaxInvoiceUpload } from './use-batch';
 
@@ -106,6 +107,14 @@ export default function StatementView({
      */
     <div className="grid items-start gap-5 print:block xl:grid-cols-[minmax(0,56rem)_minmax(320px,1fr)]">
       <div className="flex min-w-0 flex-col gap-5">
+      {/*
+        * ★인쇄는 이 문서의 일이라 이 문서 위에 선다★ (한백 지적 2026-08-30).
+        * 화면이 두 칸이 되면서, 페이지 맨 위 오른쪽에 있던 인쇄 단추가 거래명세서가 아니라
+        * ★세금계산서 칸 위★에 떠 있었다 — 무엇을 인쇄하는 단추인지가 자리로 거짓말을 했다.
+        */}
+      <div className="flex justify-end print:hidden">
+        <PrintButton />
+      </div>
       <section className="rounded-panel border border-slate-200 bg-white p-8 print:border-0 print:p-0">
         <header className="flex flex-wrap items-end justify-between gap-3 border-b-2 border-slate-900 pb-4">
           <h1 className="flex items-center gap-2.5 text-h1 font-black tracking-tight text-slate-900">
@@ -449,7 +458,20 @@ function InvoiceCard({
 
   return (
     <section className="rounded-panel border border-slate-200 bg-white p-5">
-      <h2 className="mb-3 text-base font-black tracking-[-0.02em] text-slate-900">세금계산서</h2>
+      {/*
+        * 내려받기는 인쇄와 짝이다 (한백 지시 2026-08-30) — 왼쪽 문서 위에 인쇄가 있으면
+        * 오른쪽 문서 위에는 내려받기가 있어야 한다. 주소 뒤의 download=1 은 Blob 이
+        * content-disposition: attachment 로 돌려주는 자리다(2026-08-30 확인) — 새 창으로
+        * 열리는 것과 파일로 받는 것을 가른다.
+        */}
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <h2 className="text-base font-black tracking-[-0.02em] text-slate-900">세금계산서</h2>
+        {invoice && (
+          <BtnLink kind="side" size="md" href={`${invoice.blobUrl}?download=1`}>
+            내려받기
+          </BtnLink>
+        )}
+      </div>
 
       {/*
         * ★붙은 계산서는 크게 보인다★ (한백 지시 2026-08-30). 파일 이름만 적어 두면 눌러서

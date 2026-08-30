@@ -20,7 +20,7 @@
  *
  * ★계산서 자리를 한 열에 모은다 (한백 요청 2026-08-24).★ 예전에는 상태 배지·첨부 여부·확정
  * 단추가 세 열에 흩어져 있어서 줄을 좌우로 훑어야 다음 행동을 알았다. 그 열의 이름은
- * 「할 일」이었는데, 담기는 것이 계산서라 이름을 그것으로 바꿨다(한백 지적 2026-08-30). 그리고 확정 단추가 「명세서 →」와 붙어 있었다 — 가장 자주
+ * 「할 일」이었는데, 담기는 것이 계산서라 이름을 그것으로 바꿨다(한백 지적 2026-08-30). 그리고 확정 단추가 「거래명세서 →」와 붙어 있었다 — 가장 자주
  * 누르는 것과 배치를 잠그는 것이 나란히 있으면 안 된다(화면 규칙 8번).
  *
  * ★협력사도 본다★ — 자기 배치만(저장소가 가른다). 그 열의 내용이 눈에 따라 갈린다:
@@ -191,11 +191,17 @@ export default function StatementsBoard({
           <thead className="border-b border-slate-100 bg-slate-50 text-tiny font-bold tracking-[0.06em] text-slate-500">
             <tr>
               <th className="px-3 py-2.5 text-left">지급일</th>
-              <th className="px-3 py-2.5 text-left">지급처</th>
+              {/*
+                지급처는 한백에게만 — 협력사는 자기 것 하나뿐이라 모든 줄에 제 회사 이름이
+                되풀이된다(2026-08-30). 위 필터가 이미 같은 이유로 감춰져 있었는데 열만
+                남아 있었다. 아래 합계 줄의 colSpan 도 같이 움직인다.
+              */}
+              {seesAll && <th className="px-3 py-2.5 text-left">지급처</th>}
               <th className="px-3 py-2.5 text-left">구분</th>
-              <th className="px-3 py-2.5 text-right">건수</th>
+              {/* 여기부터 돈이다 — 얇은 선으로 「무엇이」와 「얼마」를 가른다(기성관리 표와 같은 모양) */}
+              <th className="border-l border-slate-200 px-3 py-2.5 text-right">건수</th>
               <th className="px-3 py-2.5 text-right">공급가액</th>
-              <th className="px-3 py-2.5 text-left">상태</th>
+              <th className="border-l border-slate-200 px-3 py-2.5 text-left">상태</th>
               {/*
                 세금계산서 — 상태 배지·첨부·확정이 세 열에 흩어져 있던 것을 하나로 모은
                 자리다(2026-08-24). 이름은 「할 일」이었는데 ★이 칸에 실제로 담기는 것은
@@ -224,7 +230,10 @@ export default function StatementsBoard({
           */}
           <tfoot className="border-t-2 border-slate-200 bg-slate-50/60 text-slate-800">
             <tr>
-              <td className="px-3 py-2.5 text-tiny font-bold tracking-[0.06em] text-slate-500" colSpan={3}>
+              <td
+                className="px-3 py-2.5 text-tiny font-bold tracking-[0.06em] text-slate-500"
+                colSpan={seesAll ? 3 : 2}
+              >
                 합계
                 {filtered && (
                   <span className="ml-1.5 font-semibold text-slate-400">
@@ -233,11 +242,13 @@ export default function StatementsBoard({
                   </span>
                 )}
               </td>
-              <td className="whitespace-nowrap px-3 py-2.5 text-right tabular-nums text-slate-500">{shownCount}건</td>
+              <td className="whitespace-nowrap border-l border-slate-200 px-3 py-2.5 text-right tabular-nums text-slate-500">
+                {shownCount}건
+              </td>
               <td className={`whitespace-nowrap px-3 py-2.5 text-right text-lead font-black tabular-nums ${shownTotal < 0 ? 'text-amber-800' : 'text-slate-900'}`}>
                 {won(shownTotal)}
               </td>
-              <td colSpan={3} />
+              <td className="border-l border-slate-200" colSpan={3} />
             </tr>
           </tfoot>
         </Frame>
@@ -253,18 +264,22 @@ function BatchRow({
   return (
     <tr className="transition hover:bg-brand-50/40">
       <td className="whitespace-nowrap px-3 py-2.5 tabular-nums text-slate-700">{b.paidAt}</td>
-      <td className="px-3 py-2.5 text-slate-700">
-        {/* 드롭다운의 이름표와 같은 말이어야 골라낸 것과 표의 줄이 같아 보인다 */}
-        {b.org ?? <Empty kind="miss" label={NO_ORG} />}
-      </td>
+      {seesAll && (
+        <td className="px-3 py-2.5 text-slate-700">
+          {/* 드롭다운의 이름표와 같은 말이어야 골라낸 것과 표의 줄이 같아 보인다 */}
+          {b.org ?? <Empty kind="miss" label={NO_ORG} />}
+        </td>
+      )}
       <td className="whitespace-nowrap px-3 py-2.5">
         <Tag tone={b.kind === '영업비' ? 'stage' : 'ok'}>{b.kind}</Tag>
       </td>
-      <td className="whitespace-nowrap px-3 py-2.5 text-right tabular-nums text-slate-500">{b.count}건</td>
+      <td className="whitespace-nowrap border-l border-slate-100 px-3 py-2.5 text-right tabular-nums text-slate-500">
+        {b.count}건
+      </td>
       <td className={`whitespace-nowrap px-3 py-2.5 text-right font-bold tabular-nums ${b.total < 0 ? 'text-amber-800' : 'text-slate-800'}`}>
         {won(b.total)}
       </td>
-      <td className="whitespace-nowrap px-3 py-2.5">
+      <td className="whitespace-nowrap border-l border-slate-100 px-3 py-2.5">
         <Badge tone={STATE_TONE[state]}>{state}</Badge>
       </td>
       <td className="whitespace-nowrap px-3 py-2.5">
@@ -276,7 +291,7 @@ function BatchRow({
             href={`/payments/statement?org=${encodeURIComponent(b.org)}&date=${b.paidAt}&kind=${encodeURIComponent(b.kind)}`}
             className="text-small font-bold text-brand-700 transition hover:text-brand-900"
           >
-            명세서 →
+            거래명세서 →
           </Link>
         )}
       </td>

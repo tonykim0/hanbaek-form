@@ -92,7 +92,11 @@ export default async function StatementPage({
 
   return (
     /* 왼쪽 정렬 — 가운데로 몰면 넓은 화면에서 왼쪽 사이드바와 종이 사이가 벌어져 읽는 눈이 멀리 간다 (한백 요청 2026-08-24) */
-    <div className="max-w-4xl print:max-w-none">
+    /*
+     * 폭을 넓힌다 — 오른쪽에 계산서 칸이 서기 때문이다(2026-08-30). 명세서 자체는 안 늘어난다:
+     * 왼쪽 칸이 56rem 으로 못 박혀 있고(StatementView), 남는 폭은 계산서가 갖는다.
+     */
+    <div className="max-w-[1600px] print:max-w-none">
       <div className="mb-5 flex items-center gap-2 print:hidden">
         <Link
           href="/statements"

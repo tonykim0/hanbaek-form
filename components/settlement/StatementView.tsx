@@ -90,8 +90,22 @@ export default function StatementView({
    */
   const labelSpan = kind === null ? 7 : 6;
 
+  /* 오른쪽 칸에 세울 것이 있나 — 붙은 계산서이거나, 붙일 수 있는 자리이거나 */
+  const hasInvoicePanel = kind !== null && (invoice !== null || canAttach);
+
   return (
-    <>
+    /*
+     * ★왼쪽 거래명세서 · 오른쪽 세금계산서★ (한백 지시 2026-08-30).
+     * 이 장에서 하는 일은 「명세와 계산서가 맞나」를 보는 것이라, 둘이 나란히 서야 한다.
+     * 예전에는 계산서가 명세 아래 작은 상자에 파일 이름만 있어서, 눌러 새 창을 띄우고
+     * 두 창을 오가며 견줘야 했다.
+     *
+     * 왼쪽 폭은 못 박는다(56rem) — 명세서는 종이의 물건이라 넓은 화면에서 늘어나면 안 된다.
+     * 오른쪽이 남는 폭을 갖는다. 좁은 화면에서는 위아래로 쌓인다.
+     * ★종이에는 명세서만★ — print:block 으로 칸을 풀고 오른쪽은 print:hidden 이다.
+     */
+    <div className="grid items-start gap-5 print:block xl:grid-cols-[minmax(0,56rem)_minmax(320px,1fr)]">
+      <div className="flex min-w-0 flex-col gap-5">
       <section className="rounded-panel border border-slate-200 bg-white p-8 print:border-0 print:p-0">
         <header className="flex flex-wrap items-end justify-between gap-3 border-b-2 border-slate-900 pb-4">
           <h1 className="flex items-center gap-2.5 text-h1 font-black tracking-tight text-slate-900">
@@ -246,36 +260,36 @@ export default function StatementView({
         )}
       </section>
 
+      {/* 배치를 잠그고 옮기는 자리 — 명세 바로 아래다. 계산서는 오른쪽 칸으로 갔다 */}
       {canEdit && kind && rows.length > 0 && (
-        <div className="mt-5 grid gap-4 print:hidden lg:grid-cols-2">
-          <div className="flex flex-col gap-4">
-            {finalized ? (
-              <Unfinalize org={org} kind={kind} date={date} />
-            ) : (
-              <>
-                <Finalize org={org} kind={kind} date={date} supply={supply} />
-                <MoveBatch org={org} kind={kind} date={date} />
-              </>
-            )}
-          </div>
-          <InvoiceCard org={org} kind={kind} date={date} invoice={invoice} canAttach={canAttach} />
+        <div className="grid gap-4 print:hidden sm:grid-cols-2">
+          {finalized ? (
+            <Unfinalize org={org} kind={kind} date={date} />
+          ) : (
+            <>
+              <Finalize org={org} kind={kind} date={date} supply={supply} />
+              <MoveBatch org={org} kind={kind} date={date} />
+            </>
+          )}
         </div>
       )}
+      </div>
 
       {/*
-        * 협력사 자리 — ★자기가 낸 계산서를 여기서 올리고 본다★ (한백 지시 2026-08-30).
-        * 목록에서도 올릴 수 있지만, 「무엇에 대한 계산서인가」가 가장 잘 보이는 곳이 이 장이다.
-        * 올릴 수 없고 낸 것도 없으면 칸을 세우지 않는다 — 빈 상자만 남는다.
+        * 오른쪽 칸 — 붙은 계산서를 크게 보고, 그 자리에서 올리고 바꾼다.
+        * 협력사도 여기서 낸다(한백 지시 2026-08-30) — 「무엇에 대한 계산서인가」가 가장 잘
+        * 보이는 곳이 이 장이다. 올릴 수도 없고 낸 것도 없으면 칸을 세우지 않는다.
+        * 스크롤을 내려도 따라온다 — 명세의 줄을 훑으며 계산서를 견주는 자리다.
         */}
-      {!canEdit && kind && (canAttach || invoice) && (
-        <div className="mt-5 print:hidden lg:max-w-md">
+      {hasInvoicePanel && kind && (
+        <aside className="print:hidden xl:sticky xl:top-4">
           <InvoiceCard
             org={org} kind={kind} date={date} invoice={invoice}
-            canAttach={canAttach} pdfOnly
+            canAttach={canAttach} pdfOnly={!canEdit}
           />
-        </div>
+        </aside>
       )}
-    </>
+    </div>
   );
 }
 
@@ -391,6 +405,20 @@ function ItemRow({
  * 협력사가 발행해 보낸 것을 붙여 두는 보관함이고, 배치 하나에 한 장이다.
  * 확정 여부와 상관없이 언제든 붙이고 바꾸고 지운다.
  */
+/**
+ * 브라우저가 펼쳐 보일 수 있는 PDF 인가 — 경로의 확장자로 본다.
+ *
+ * 파일 이름이 아니라 ★주소★를 본다: 이름은 사람이 바꿔 올릴 수 있지만 경로는 서버가
+ * 짓는다(tax-invoices/{uuid}.{ext}). 쿼리가 붙어도 경로만 떼어 본다.
+ */
+function isPdfUrl(url: string): boolean {
+  try {
+    return new URL(url).pathname.toLowerCase().endsWith('.pdf');
+  } catch {
+    return false;
+  }
+}
+
 function InvoiceCard({
   org, kind, date, invoice, canAttach, pdfOnly = false,
 }: {
@@ -423,6 +451,34 @@ function InvoiceCard({
     <section className="rounded-panel border border-slate-200 bg-white p-5">
       <h2 className="mb-3 text-base font-black tracking-[-0.02em] text-slate-900">세금계산서</h2>
 
+      {/*
+        * ★붙은 계산서는 크게 보인다★ (한백 지시 2026-08-30). 파일 이름만 적어 두면 눌러서
+        * 새 창을 띄우고 두 창을 오가며 명세와 견줘야 했다. PDF 는 그대로 펼쳐 보이고
+        * (전자세금계산서의 정본이 PDF 다), 스캔 이미지는 그림으로 놓는다.
+        * 눌러서 새 창으로 여는 길은 남긴다 — 크게 보거나 내려받을 자리다.
+        */}
+      {invoice && (
+        <div className="mb-3">
+          {isPdfUrl(invoice.blobUrl) ? (
+            <iframe
+              title={`세금계산서 ${invoice.filename}`}
+              src={`${invoice.blobUrl}#view=FitH`}
+              className="h-[min(70vh,860px)] w-full rounded-box border border-slate-200 bg-slate-50"
+            />
+          ) : (
+            <a href={invoice.blobUrl} target="_blank" rel="noopener">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={invoice.blobUrl}
+                alt={`세금계산서 ${invoice.filename}`}
+                loading="lazy"
+                className="w-full rounded-box border border-slate-200 bg-slate-50"
+              />
+            </a>
+          )}
+        </div>
+      )}
+
       {!invoice && !canAttach ? (
         /* 확정된 배치인데 낸 것이 없다 — 이제 여기서 붙일 수 없다는 사실만 적는다 */
         <p className="text-small text-slate-400">{INVOICE_LOCKED_WHY}</p>
@@ -440,12 +496,13 @@ function InvoiceCard({
         </label>
       ) : (
         <div className="flex flex-col gap-3">
+          {/* 미리보기가 위에 있으니 이 줄은 「무엇을·언제」만 말한다 */}
           <p className="flex flex-wrap items-baseline gap-2">
             <a
               href={invoice.blobUrl}
               target="_blank"
               rel="noopener"
-              className="font-bold text-brand-700 underline-offset-2 hover:underline"
+              className="min-w-0 truncate text-small font-bold text-brand-700 underline-offset-2 hover:underline"
             >
               {invoice.filename}
             </a>

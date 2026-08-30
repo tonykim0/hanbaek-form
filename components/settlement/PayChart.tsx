@@ -160,8 +160,16 @@ export default function PayChart({
             ))}
           </select>
         </span>
-        <span className="text-tiny font-bold tabular-nums text-slate-500">
-          {yearCount === 0 ? '지급 0건' : `${yearCount}건 · ${won(yearTotal)}원`}
+        {/*
+          ★이 화면의 지급 합계는 여기 하나다 (한백 2026-08-31).★ 페이지 머리말에도 같은
+          값이 있었는데 그쪽을 걷었다 — 여기 것은 ★고른 해★의 합이라 아래 열두 줄과 짝이
+          맞는다. 유일한 합계가 되었으니 금액은 제 무게로 적는다(건수는 곁들이다).
+        */}
+        <span className="flex items-baseline gap-1.5 tabular-nums">
+          <span className="text-tiny font-bold text-slate-500">{yearCount}건</span>
+          {yearCount > 0 && (
+            <span className="text-base font-black text-slate-900">{won(yearTotal)}원</span>
+          )}
         </span>
       </div>
 

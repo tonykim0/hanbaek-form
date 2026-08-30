@@ -3,7 +3,6 @@ import { actorOf, getSessionUser, viewerOf } from '@/lib/auth/session';
 import { isHanbaek } from '@/lib/roles';
 import { redirect } from 'next/navigation';
 import { thisMonth as seoulMonth } from '@/lib/date';
-import { won } from '@/lib/format';
 import PayChart, { type MonthBar } from '@/components/settlement/PayChart';
 import StatementsBoard from '@/components/settlement/StatementsBoard';
 
@@ -62,25 +61,23 @@ export default async function StatementsPage() {
     barBy.set(key, bar);
   }
   const series = [...barBy.values()].sort((a, b) => a.month.localeCompare(b.month));
-  const total = history.reduce((n, r) => n + r.amount, 0);
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="text-h1 font-black text-slate-900">협력사 거래명세서</h1>
-          <p className="mt-1.5 text-base text-slate-500">
-            {seesAll
-              ? '가확정 → 세금계산서 첨부 → 최종 확정 — 배치 하나가 명세서 한 장입니다'
-              : '가확정된 배치의 합계로 세금계산서를 발행해 주세요 — 첨부되면 확정으로 바뀝니다'}
-          </p>
-        </div>
-        {history.length > 0 && (
-          <p className="text-small text-slate-500">
-            지급 {history.length}건{' '}
-            <span className="ml-1 font-black tabular-nums text-slate-900">{won(total)}원</span>
-          </p>
-        )}
+      {/*
+        ★지급 합계를 머리말에 두지 않는다 (한백 지적 2026-08-31 「하나만해」).★ 바로 아래
+        월별 지급의 연도 옆에 같은 값이 또 있었다 — 지급이 다 올해라 두 숫자가 글자까지
+        같았고, 같은 값이 두 곳에 있으면 어느 것이 무엇의 합인지 눈이 짝지어야 한다
+        (화면 규칙 5). 남길 자리는 그래프 쪽이다: 거기 있는 것은 ★고른 해★의 합이라
+        보고 있는 열두 줄과 짝이 맞고, 여기 있던 것은 어느 해와도 짝이 맞지 않았다.
+      */}
+      <div>
+        <h1 className="text-h1 font-black text-slate-900">협력사 거래명세서</h1>
+        <p className="mt-1.5 text-base text-slate-500">
+          {seesAll
+            ? '가확정 → 세금계산서 첨부 → 최종 확정 — 배치 하나가 명세서 한 장입니다'
+            : '가확정된 배치의 합계로 세금계산서를 발행해 주세요 — 첨부되면 확정으로 바뀝니다'}
+        </p>
       </div>
 
       <PayChart months={series} thisMonth={thisMonth} />

@@ -3,11 +3,10 @@
 /**
  * 월별 지급 그래프 — 달마다 영업비·시공비가 얼마 나갔는지 한눈에 좇는다.
  *
- * ★수주 현황(/dashboard)의 그래프와 같은 얼개다 (한백 2026-08-29).★ 그전에는 이것만
- * 눈금선도 축도 없이 고정폭 막대를 늘어놓아서, 같은 콘솔의 두 그래프가 다른 물건으로
- * 보였다. 같은 얼개를 쓴다: 왼쪽에 눈금 넷(최대·66%·33%·0)과 가로선, 막대는 폭을 나눠
- * 갖고, 아래에 얇은 선을 긋고 달 이름과 건수를 적는다. 다른 것은 달마다 막대가 둘이라는
- * 것뿐이다 — 영업비와 시공비는 따로 나가는 돈이다.
+ * ★막대를 눕힌다 (한백 지적 2026-08-30).★ 수주 현황(/dashboard)의 세로 얼개를 따라
+ * 갔었는데, 그쪽은 값이 하나(대수)고 여기는 둘(영업비·시공비)이다. 열두 칸을 가로로 나누고
+ * 그 칸을 또 둘로 쪼개니 막대가 실오라기가 되고 금액을 적을 자리가 없었다. 눕히면 길이는
+ * 화면 폭을 다 쓰고 금액은 제 자리를 갖는다 — 그리고 ★두 금액을 다 적을 수 있다★.
  *
  * ★쌓지 않고 나란히 세운다★ (한백 지시 2026-08-29 「영업비와 시공비 분리해줘」).
  * 그전에는 한 막대에 두 조각을 쌓았다. 아래 조각(영업비)은 바닥에서 시작해 길이가 보이지만
@@ -33,9 +32,9 @@
  * 막대는 ★읽는 것이지 누르는 것이 아니다★ — 예전에는 아래 그 달의 묶음으로 내려가는
  * 목차였는데, 지급 내역 화면이 거래명세서로 합쳐지면서 내려갈 묶음이 없어졌다.
  *
- * 라이브러리를 쓰지 않는다. 막대를 div 높이로 그린다 — 이 화면이 필요한 것은 추세와
- * 비교뿐이라 축·눈금·툴팁이 없어도 읽힌다.
- * 회수가 큰 달은 합이 음수가 될 수 있다 — 막대는 0 으로 두고 숫자만 음수로 적는다.
+ * 라이브러리를 쓰지 않는다. 막대를 div 너비로 그린다 — 이 화면이 필요한 것은 추세와
+ * 비교뿐이라 축·눈금·툴팁이 없어도 읽힌다. 각 줄에 금액이 적혀 있으니 눈금도 필요 없다.
+ * 회수가 큰 달은 조각이 음수가 될 수 있다 — 막대는 0 으로 두고 숫자만 그대로 적는다.
  */
 import { useMemo, useState } from 'react';
 import { won, wonCompact } from '@/lib/format';
@@ -48,12 +47,9 @@ export interface MonthBar {
   cons: number;
   /** 이 달에 나간 지급이 있나 — 0원인 달과 「지급 0건」인 달을 가른다 */
   has: boolean;
-  /** 그 달의 지급 건수 — 축 아래에 적는다(수주 현황이 「N건」을 적는 자리와 같다) */
+  /** 그 달의 지급 건수 — 금액 오른쪽에 적는다 */
   count: number;
 }
-
-/** 수주 현황 그래프와 같은 높이 — 두 그래프가 나란히 놓여도 눈높이가 맞는다 */
-const H = 196;
 
 /**
  * 막대 둘 — 순서가 곧 범례 순서이고 왼쪽부터의 자리다.
@@ -116,10 +112,11 @@ export default function PayChart({
   );
 
   /*
-   * 높이는 고른 해 안에서만 견준다 — 해마다 축이 다시 잡혀야 그 해의 굴곡이 보인다.
-   * 쌓지 않으므로 합이 아니라 ★한 조각의 최대★다(영업비·시공비 중 큰 것).
+   * 길이는 고른 해 안에서만 견준다 — 해마다 자가 다시 잡혀야 그 해의 굴곡이 보인다.
+   * 가로 막대는 ★그 달의 합★이 길이다(조각은 그 안에서 색으로 갈린다).
    */
-  const max = Math.max(1, ...slots.flatMap((m) => kinds.map((k) => Math.max(0, k.of(m)))));
+  const totalOf = (m: MonthBar) => kinds.reduce((n, k) => n + Math.max(0, k.of(m)), 0);
+  const max = Math.max(1, ...slots.map(totalOf));
   const yearTotal = slots.reduce((n, m) => n + kinds.reduce((s, k) => s + k.of(m), 0), 0);
   const yearCount = slots.reduce((n, m) => n + m.count, 0);
 
@@ -156,114 +153,99 @@ export default function PayChart({
         </div>
       </div>
 
-      <div className="overflow-x-auto pb-1">
-        <div
-          role="img"
-          aria-label={`${year}년 월별 지급: ${slots
-            .map((m) => (m.has
-              ? `${Number(m.month.slice(5))}월 ${kinds.map((k) => `${k.label} ${won(k.of(m))}원`).join(' ')}`
-              : `${Number(m.month.slice(5))}월 ${m.month > thisMonth ? '아직 없음' : '0건'}`))
-            .join(', ')}`}
-          /*
-           * 최소 폭을 넓혔다(520 → 680px) — 막대 위 금액이 「9,590만」처럼 여섯 자면 칸을
-           * 넘어 두 줄로 접혔다(2026-08-30 실측: 11px 여섯 자 ≈ 33px, 칸 ≈ 34px).
-           * 좁은 화면에서는 옆으로 밀린다 — 접히는 것보다 미는 편이 읽힌다.
-           */
-          className="min-w-[680px]"
-        >
-          <div className="relative" style={{ height: H }}>
-            {/* 눈금 넷 — 수주 현황과 같은 간격(최대·66%·33%·0). 금액이라 압축 표기다 */}
-            <div aria-hidden className="absolute inset-0 flex flex-col justify-between">
-              {[max, Math.round(max * 0.66), Math.round(max * 0.33), 0].map((tick, i) => (
-                <div key={i} className="flex items-center gap-3">
-                  <span className="w-12 text-right text-micro font-semibold tabular-nums text-slate-300">
-                    {tick === 0 ? '0' : wonCompact(tick)}
-                  </span>
-                  <div className="flex-1 border-t border-slate-100" />
-                </div>
-              ))}
-            </div>
+      {/*
+        * ★막대를 눕혔다★ (한백 지적 2026-08-30 「막대 너비도 별로고, 숫자랑 그래프가 눈에
+        * 안 들어와」).
+        *
+        * 세로로는 이 데이터를 잘 그릴 수 없었다. 열두 칸을 가로로 나누면 한 칸이 30여
+        * 픽셀이라 ①막대가 실오라기처럼 가늘고 ②금액을 적을 자리가 없어 11px 로도 두 줄로
+        * 접혔으며 ③구분이 둘이라 칸을 또 반으로 쪼개니 대부분의 달에서 막대가 왼쪽으로
+        * 쏠렸다. 눕히면 셋이 한꺼번에 풀린다 — 길이는 화면 폭을 다 쓰고, 금액은 오른쪽에
+        * 제 자리를 갖고, 달은 왼쪽에 세로로 늘어서 훑기 좋다.
+        *
+        * ★그리고 두 금액을 다 적을 수 있다★ — 「분리」의 본뜻이 그것이다(2026-08-29 지시).
+        * 세로에서는 자리가 없어 막대를 둘로 갈랐는데, 가로에서는 숫자로 가르면 된다.
+        * 막대는 그 달의 합이고 색이 조각을 말한다.
+        */}
+      <ol
+        aria-label={`${year}년 월별 지급: ${slots
+          .map((m) => (m.has
+            ? `${Number(m.month.slice(5))}월 ${kinds.map((k) => `${k.label} ${won(k.of(m))}원`).join(' ')}`
+            : `${Number(m.month.slice(5))}월 ${m.month > thisMonth ? '아직 없음' : '0건'}`))
+          .join(', ')}`}
+        className="flex flex-col"
+      >
+        {slots.map((m) => {
+          const future = m.month > thisMonth;
+          const on = m.month === thisMonth;
+          const total = totalOf(m);
+          return (
+            <li
+              key={m.month}
+              className={`grid grid-cols-[2.25rem_minmax(0,1fr)_auto] items-center gap-x-3 rounded-ctl px-1.5 py-1 ${
+                on ? 'bg-brand-50/60' : ''
+              }`}
+            >
+              <span className={`text-right text-tiny font-bold tabular-nums ${
+                on ? 'text-brand-800' : m.has ? 'text-slate-600' : 'text-slate-300'
+              }`}>
+                {Number(m.month.slice(5))}월
+              </span>
 
-            <div className="absolute inset-y-0 left-[3.75rem] right-0 flex items-end gap-1">
-              {slots.map((m) => {
-                const total = kinds.reduce((n, k) => n + k.of(m), 0);
-                const on = m.month === thisMonth;
-                /*
-                 * ★아직 오지 않은 달은 0 이 아니다★ (한백 지적 2026-08-30 「UI 가 별로네」).
-                 * 올해가 반밖에 안 지났는데 남은 달마다 회색 막대가 서 있어서, 「앞으로 안
-                 * 나간다」로 읽혔다. 수주 현황 그래프는 이미 future 를 따로 다루고 있었는데
-                 * 이 그래프만 안 하고 있었다(app/(console)/dashboard). 자리는 지키고
-                 * 막대는 안 그린다 — 축의 달 이름이 그 자리를 말한다.
-                 */
-                const future = m.month > thisMonth;
-                /* 막대 몸통이 쓸 높이 — 위 숫자 자리를 뺀다(수주 현황과 같은 30px) */
-                const body = H - 30;
-                return (
-                  <div key={m.month} className="flex h-full min-w-0 flex-1 flex-col justify-end">
-                    {total !== 0 && !future && (
+              {/* 막대가 놓이는 바닥 — 자리는 늘 있고, 그 위에 실제로 나간 만큼만 칠한다 */}
+              <span className="flex h-5 items-center rounded-ctl bg-slate-50">
+                <span
+                  className="flex h-full overflow-hidden rounded-ctl"
+                  style={{ width: `${total > 0 && !future ? Math.max(1.5, (total / max) * 100) : 0}%` }}
+                  title={`${m.month} · ${kinds.map((k) => `${k.label} ${wonCompact(k.of(m))}`).join(' · ')}`}
+                >
+                  {kinds.map((k) => {
+                    const v = Math.max(0, k.of(m));
+                    if (v === 0) return null;
+                    return (
                       <span
-                        className={`mb-1.5 whitespace-nowrap text-center text-tiny font-black tabular-nums ${
-                          total < 0 ? 'text-amber-700' : on ? 'text-brand-800' : 'text-slate-600'
-                        }`}
-                      >
-                        {wonCompact(total)}
-                      </span>
-                    )}
-                    {/*
-                      왼쪽이 영업비, 오른쪽이 시공비 — 둘 다 바닥에서 시작한다.
-                      ★0 인 조각은 그리지 않는다★ (2026-08-30). 얇게라도 남겼더니 회색 조각이
-                      열 몇 개 늘어섰다 — 시공비가 한 달에만 있는 지금 데이터에서는 그것이
-                      정보가 아니라 얼룩이었다. ★자리는 지킨다★: 조각 수만큼 칸을 나눠 두어
-                      영업비 막대의 폭이 달마다 흔들리지 않게 한다. 「그 달에 시공비가 0 이었다」는
-                      hover 문구와 범례가 말한다.
-                    */}
-                    <div
-                      className="flex items-end justify-center gap-[3px]"
-                      style={{ height: `${body}px` }}
-                      title={`${m.month} · ${kinds.map((k) => `${k.label} ${wonCompact(k.of(m))}`).join(' · ')}`}
-                    >
-                      {kinds.map((k) => {
-                        const value = Math.max(0, k.of(m));
-                        return (
-                          <div key={k.label} className="flex h-full flex-1 items-end justify-center">
-                            {value > 0 && !future && (
-                              <div
-                                aria-hidden
-                                className={`w-full max-w-[20px] rounded-t-[4px] transition ${k.fill}`}
-                                /* 가장 작은 달도 보이게 — 큰 달과 서른 배 넘게 벌어진다 */
-                                style={{ height: `${Math.max(4, (value / max) * body)}px` }}
-                              />
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
+                        key={k.label}
+                        aria-hidden
+                        className={`h-full ${k.fill}`}
+                        style={{ width: `${(v / total) * 100}%` }}
+                      />
+                    );
+                  })}
+                </span>
+              </span>
 
-          {/* 축 — 달 이름과 그 달의 건수. 수주 현황이 「N건」을 적는 자리와 같다 */}
-          <div className="ml-[3.75rem] mt-2 flex gap-1 border-t border-slate-200 pt-2">
-            {slots.map((m) => {
-              const on = m.month === thisMonth;
-              const future = m.month > thisMonth;
-              return (
-                <div key={m.month} className="min-w-0 flex-1 text-center">
-                  <p className={`text-tiny font-bold ${on ? 'text-brand-800' : m.has ? 'text-slate-500' : 'text-slate-300'}`}>
-                    {Number(m.month.slice(5))}월
-                  </p>
-                  {/* 아직 안 온 달은 「0건」이 아니다 — 0 건과 아직 없음을 가른다(화면 규칙 10번) */}
-                  <p className={`mt-0.5 text-micro tabular-nums ${m.has ? 'text-slate-400' : 'text-slate-300'}`}>
-                    {future ? '—' : `${m.count}건`}
-                  </p>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </div>
+              {/*
+                ★금액이 그래프와 같은 급이다★ — 세로 막대 위에 11px 로 얹혀 있던 것을 제
+                자리로 옮긴다. 구분이 둘 다 있는 달은 둘을 나란히 적는다(그 달이 이 화면에서
+                가장 할 말이 많은 달이다).
+              */}
+              <span className="flex items-baseline justify-end gap-2 whitespace-nowrap">
+                {future ? (
+                  <span className="text-small text-slate-300">—</span>
+                ) : total === 0 ? (
+                  <span className="text-small text-slate-300">0</span>
+                ) : (
+                  <>
+                    {kinds.filter((k) => k.of(m) !== 0).map((k) => (
+                      <span key={k.label} className="flex items-baseline gap-1">
+                        {kinds.length > 1 && (
+                          <i className={`h-2 w-2 shrink-0 rounded-[2px] ${k.fill}`} aria-hidden />
+                        )}
+                        <span className="text-small font-black tabular-nums text-slate-900">
+                          {wonCompact(k.of(m))}
+                        </span>
+                      </span>
+                    ))}
+                  </>
+                )}
+                <span className="w-9 text-right text-tiny tabular-nums text-slate-400">
+                  {future ? '' : `${m.count}건`}
+                </span>
+              </span>
+            </li>
+          );
+        })}
+      </ol>
     </section>
   );
 }

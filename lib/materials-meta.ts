@@ -77,8 +77,15 @@ export interface MaterialGroup {
   fileCount: number;
 }
 
-/** 운영사 폴더명 → 표시 이름 */
+/**
+ * 운영사 폴더명 → 표시 이름.
+ *
+ * ★한백이 첫 자리다★ (한백 지시 2026-08-30) — 사업자등록증·지명원·신용등급평가서처럼
+ * ★우리 회사의 서류★를 두는 자리다. 운영사 목록에 함께 서지만 운영사는 아니다:
+ * 저쪽 자료는 그들이 준 것이고 이쪽은 우리가 내는 것이라, 꺼내 쓰는 일이 가장 잦다.
+ */
 export const GROUP_LABELS: Record<string, string> = {
+  hanbaek: '한백',
   common: '공통',
   pluglink: '플러그링크',
   hec: '현대엔지니어링',
@@ -87,7 +94,16 @@ export const GROUP_LABELS: Record<string, string> = {
 };
 
 /** 표시 순서 — 여기에 없는 키는 뒤에 이름순으로 붙습니다 */
-export const GROUP_ORDER = ['common', 'pluglink', 'hec', 'nice', 'sk'];
+export const GROUP_ORDER = ['hanbaek', 'common', 'pluglink', 'hec', 'nice', 'sk'];
+
+/**
+ * 올릴 때 처음 골라져 있는 곳.
+ *
+ * 예전에는 `GROUP_KEYS[1]` 이었다 — 「공통을 건너뛴 첫째」라는 뜻이었는데, 목록 앞에
+ * 무엇이 하나 끼면 조용히 딴 곳을 가리킨다(한백을 앞에 두면서 실제로 그럴 뻔했다).
+ * 자주 올리는 것은 운영사 자료라 그 첫째를 이름으로 못 박는다.
+ */
+export const DEFAULT_UPLOAD_GROUP = 'pluglink';
 
 /**
  * 분류 폴더명 → 표시 이름.

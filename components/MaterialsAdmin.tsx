@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import {
   UPLOAD_CATEGORY_KEYS,
+  DEFAULT_UPLOAD_GROUP,
   GROUP_KEYS,
   buildMaterialPath,
   categoryLabel,
@@ -28,7 +29,7 @@ export default function MaterialsAdmin({ groups }: { groups: MaterialGroup[] }) 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [password, setPassword] = useState('');
-  const [group, setGroup] = useState(GROUP_KEYS[1] ?? 'pluglink');
+  const [group, setGroup] = useState<string>(DEFAULT_UPLOAD_GROUP);
   const [category, setCategory] = useState('sales');
   const [progress, setProgress] = useState<Progress[]>([]);
   const [busy, setBusy] = useState(false);

@@ -462,7 +462,13 @@ function InvoiceCard({
           {isPdfUrl(invoice.blobUrl) ? (
             <iframe
               title={`세금계산서 ${invoice.filename}`}
-              src={`${invoice.blobUrl}#view=FitH`}
+              /*
+               * ★쪽 고르는 옆칸은 끈다★ (한백 지적 2026-08-30) — 세금계산서는 한 장이라
+               * 고를 쪽이 없는데 미리보기 폭만 잡아먹었다. navpanes 는 크로뮴 계열이,
+               * pagemode 는 그 밖의 뷰어가 알아듣는 말이다 — 모르는 뷰어는 그냥 무시한다.
+               * 도구줄(확대·내려받기)은 남긴다: 잔글씨를 키워 보는 자리다.
+               */
+              src={`${invoice.blobUrl}#view=FitH&navpanes=0&pagemode=none`}
               className="h-[min(70vh,860px)] w-full rounded-box border border-slate-200 bg-slate-50"
             />
           ) : (

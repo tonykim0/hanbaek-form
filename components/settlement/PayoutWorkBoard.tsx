@@ -38,7 +38,7 @@ import {
 import { DatePicker } from '@/components/DatePicker';
 import { today } from '@/lib/date';
 import { useAction } from '@/lib/use-action';
-import { Badge, Blank, Btn, Choice, Empty, Err, FIELD_CELL, Tag } from '@/components/ui';
+import { Badge, Blank, Btn, Choice, Empty, Err, FIELD_CELL } from '@/components/ui';
 import { Frame, SiteLink, won } from './parts';
 import { useFinalizeBatch } from './use-batch';
 
@@ -297,10 +297,18 @@ export default function PayoutWorkBoard({
               {orgs.length > 1 && <th rowSpan={2} className="px-3 py-2.5 text-left">지급처</th>}
               <th rowSpan={2} className="px-3 py-2.5 text-left">구분</th>
               <th rowSpan={2} className="px-3 py-2.5 text-right">총 지급액</th>
-              <th colSpan={canConfirm ? 4 : 3} className="border-l border-slate-200 px-3 pt-2 text-center">1차 · 70%</th>
-              <th colSpan={canConfirm ? 4 : 3} className="border-l border-slate-200 px-3 pt-2 text-center">2차 · 잔액</th>
+              {/*
+                머리 두 줄에 무게를 준다 (2026-08-31) — 둘 다 같은 회색 tiny 라 「네 칸이
+                한 회차」라는 것이 안 읽혔다. 묶음 이름은 진하게, 칸 이름은 옅게.
+              */}
+              <th colSpan={canConfirm ? 4 : 3} className="border-l border-slate-200 px-3 pt-2 text-center text-small font-black text-slate-700">
+                1차 · 70%
+              </th>
+              <th colSpan={canConfirm ? 4 : 3} className="border-l border-slate-200 px-3 pt-2 text-center text-small font-black text-slate-700">
+                2차 · 잔액
+              </th>
             </tr>
-            <tr>
+            <tr className="text-slate-400">
               {[1, 2].map((no) => (
                 <Fragment key={no}>
                   <th className="border-l border-slate-200 px-3 pb-2 text-right font-semibold">금액</th>
@@ -348,16 +356,28 @@ export default function PayoutWorkBoard({
                     )}
                   </td>
                 )}
-                <td className={`px-3 py-2.5 align-top ${canConfirm ? '' : lead}`}>
+                {/* 줄을 찾는 열쇠는 현장명이다 — 한 줄에서 가장 먼저 읽혀야 한다 */}
+                <td className={`min-w-[13rem] px-3 py-2.5 align-top ${canConfirm ? '' : lead}`}>
                   <SiteLink id={p.projectId} name={p.projectName} tab="settlement" />
-                  <p className="mt-0.5 text-tiny text-slate-400">{p.cpo}</p>
+                  <p className="text-tiny text-slate-400">{p.cpo}</p>
                 </td>
                 {orgs.length > 1 && (
                   <td className="px-3 py-2.5 align-top text-slate-600">{p.org ?? <Empty kind="miss" />}</td>
                 )}
-                <td className="px-3 py-2.5 align-top">
-                  <Tag tone={p.kind === '영업비' ? 'stage' : 'ok'}>{p.kind}</Tag>
-                  {p.adjust !== 0 && <p className="mt-0.5 text-micro font-semibold text-slate-400">조정 {p.adjust > 0 ? '+' : ''}{won(p.adjust)}</p>}
+                {/*
+                  * ★구분은 분류지 상태가 아니다★ (2026-08-31). 각진 칩(Tag)이라 누르는 것으로
+                  * 읽혔고, 같은 줄의 둥근 배지(상태)와 섞여 한 줄에 부품이 셋이었다
+                  * (화면 규칙 11: 동글면 상태, 각지면 누르는 것). 값이 둘뿐이라 색 글자면 된다.
+                  */}
+                <td className="whitespace-nowrap px-3 py-2.5 align-top">
+                  <p className={`font-bold ${p.kind === '영업비' ? 'text-sky-800' : 'text-brand-800'}`}>
+                    {p.kind}
+                  </p>
+                  {p.adjust !== 0 && (
+                    <p className="text-tiny font-semibold text-slate-400">
+                      조정 {p.adjust > 0 ? '+' : ''}{won(p.adjust)}
+                    </p>
+                  )}
                 </td>
                 <td className="whitespace-nowrap px-3 py-2.5 text-right align-top">
                   <p className="font-black tabular-nums text-slate-900">
@@ -365,7 +385,7 @@ export default function PayoutWorkBoard({
                   </p>
                   {/* 금액 자체가 안 서는 사정(단가 미지정 등)은 회차가 아니라 총액의 일이다 */}
                   {p.due <= 0 && p.blockers.map((reason) => (
-                    <p key={reason} className="text-micro font-bold text-amber-700">{reason}</p>
+                    <p key={reason} className="text-tiny font-bold text-amber-700">{reason}</p>
                   ))}
                   {/*
                     * ★계획보다 더 나간 돈은 여기서 말한다★ (2026-08-28) — 단가를 잘못 알고
@@ -373,7 +393,7 @@ export default function PayoutWorkBoard({
                     * 돌려받든 잔금에서 빼든 사람이 처리해야 하는 자리라 눈에 띄어야 한다.
                     */}
                   {p.confirmed > p.plan + p.adjust && (
-                    <p className="text-micro font-black text-red-700">
+                    <p className="text-tiny font-black text-red-700">
                       초과 {won(p.confirmed - p.plan - p.adjust)}
                     </p>
                   )}
@@ -451,11 +471,11 @@ function StepCells({
           {won(amount)}
         </p>
         {release.metAt ? (
-          <p className="text-micro tabular-nums text-slate-400">
+          <p className="text-tiny tabular-nums text-slate-400">
             {release.trigger} {release.metAt.slice(5)}
           </p>
         ) : (
-          <p className="text-micro font-bold text-amber-700">{release.trigger} 전</p>
+          <p className="text-tiny font-bold text-amber-700">{release.trigger} 전</p>
         )}
       </td>
 
@@ -464,9 +484,10 @@ function StepCells({
         {covered ? (
           <span className="text-slate-300">—</span>
         ) : done ? (
-          <p className="text-small font-bold tabular-nums text-brand-800">{at ?? '지급됨'}</p>
+          /* 지난 일은 조용하다 — 브랜드색이면 끝난 회차가 지금 낼 것보다 세게 읽힌다 */
+          <p className="text-small font-bold tabular-nums text-slate-500">{at ?? '지급됨'}</p>
         ) : openHere && p.state === '지급 가능' && release.metAt ? (
-          <p className="text-micro font-bold text-slate-400">
+          <p className="text-tiny font-bold text-slate-400">
             {Number(payDateChoices(release.metAt)[0].slice(5, 7))}월 10·25일
           </p>
         ) : (
@@ -509,7 +530,7 @@ function StepCells({
               {p.blockers
                 .filter((reason) => reason !== `${release.trigger} 대기`)
                 .map((reason) => (
-                  <p key={reason} className="mt-0.5 text-micro font-bold text-amber-700">
+                  <p key={reason} className="mt-0.5 text-tiny font-bold text-amber-700">
                     {reason}
                   </p>
                 ))}

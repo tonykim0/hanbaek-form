@@ -1141,8 +1141,14 @@ function Cell({
  * 정산 메모 — 그때그때 한 줄씩 남긴다(한백 확인). 특이사항·회수·추가지급이 여기 온다.
  *
  * 별도 테이블 없이 비고(payNote)에 날짜 스탬프 줄로 쌓는다 — 한 줄이 한 건이고,
- * 지우기는 그 줄만 걷어낸다. 전용 기능(원장)은 쓰면서 다시 정하기로 했다.
+ * 고치기·지우기는 그 줄만 갈아 끼우거나 걷어낸다. 전용 기능(원장)은 쓰면서 다시 정하기로 했다.
  * 협력사는 읽기만 한다.
+ *
+ * ★고치는 자리를 같이 만든다 (한백 2026-08-30, 화면 규칙 7).★ 그전에는 남기기와 삭제만
+ * 있어서, 오타 한 자를 고치려면 지우고 다시 적어야 했다 — 그러면 날짜가 오늘로 바뀌어
+ * 「언제 있었던 일인가」가 사라진다. 그래서 고침은 날짜 앞머리를 그대로 두고 본문만 바꾼다.
+ * 삭제는 한 번 더 묻는다 — 수정 옆에 한 번 누르면 지워지는 단추를 두면 오눌림이 곧
+ * 삭제다(화면 규칙 8·12). 진행현황 메모와 같은 꼴이다.
  */
 function PayNoteBox({
   projectId, payNote, canReview,
@@ -1151,16 +1157,27 @@ function PayNoteBox({
   payNote: string | null;
   canReview: boolean;
 }) {
-  const { busy, error, run } = useAction();
+  const { busy, busyKey, error, run } = useAction();
   const [draft, setDraft] = useState('');
+  /* 고치는 중인 줄 · 지울지 묻는 중인 줄 — 한 번에 하나다(둘이 동시에 열리면 어느 것을 누른 건지 흐려진다) */
+  const [editing, setEditing] = useState<number | null>(null);
+  const [edit, setEdit] = useState('');
+  const [asking, setAsking] = useState<number | null>(null);
   const entries = (payNote ?? '').split('\n').map((t) => t.trim()).filter(Boolean);
 
-  const saveAll = (next: string[]) =>
+  /* 「2026-08-30 본문」 — 날짜는 남긴 날이라 고쳐도 그대로 간다 */
+  const split = (line: string) => {
+    const m = line.match(/^(\d{4}-\d{2}-\d{2})\s+(.*)$/);
+    return { date: m ? m[1] : null, text: m ? m[2] : line };
+  };
+
+  const saveAll = (next: string[], key?: string) =>
     run({
       url: `/api/projects/${projectId}/payment`,
       method: 'PATCH',
       body: { payNote: next.join('\n') },
       fail: '저장에 실패했습니다.',
+      key,
     });
 
   const add = async () => {
@@ -1168,6 +1185,29 @@ function PayNoteBox({
     if (!text) return;
     const ok = await saveAll([`${today()} ${text}`, ...entries]);
     if (ok) setDraft('');
+  };
+
+  const openEdit = (i: number) => {
+    setAsking(null);
+    setEditing(i);
+    setEdit(split(entries[i]).text);
+  };
+
+  /* 고침은 그 줄만 갈아 끼운다 — 날짜 앞머리는 유지한다 */
+  const saveEdit = async (i: number) => {
+    const text = edit.trim();
+    if (!text) return;
+    const { date } = split(entries[i]);
+    const ok = await saveAll(
+      entries.map((line, j) => (j === i ? (date ? `${date} ${text}` : text) : line)),
+      `edit-${i}`
+    );
+    if (ok) setEditing(null);
+  };
+
+  const remove = async (i: number) => {
+    const ok = await saveAll(entries.filter((_, j) => j !== i), `del-${i}`);
+    if (ok) setAsking(null);
   };
 
   return (
@@ -1199,26 +1239,77 @@ function PayNoteBox({
 
       <ul className="mt-2 flex max-h-[560px] flex-col gap-1.5 overflow-y-auto">
         {entries.map((line, i) => {
-          const m = line.match(/^(\d{4}-\d{2}-\d{2})\s+(.*)$/);
+          const { date, text } = split(line);
           return (
             <li key={`${i}-${line}`} className="flex items-baseline gap-2 rounded-box bg-slate-50 px-2.5 py-1.5">
-              {m ? (
+              {date && <span className="shrink-0 text-tiny tabular-nums text-slate-400">{date}</span>}
+              {editing === i ? (
                 <>
-                  <span className="shrink-0 text-tiny tabular-nums text-slate-400">{m[1]}</span>
-                  <span className="min-w-0 whitespace-pre-wrap text-small text-slate-700">{m[2]}</span>
+                  {/* 고칠 때만 입력칸이다(화면 규칙 4) — 평소에는 글자로 굳어 있다 */}
+                  <input
+                    value={edit}
+                    autoFocus
+                    disabled={busy}
+                    onChange={(e) => setEdit(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') void saveEdit(i);
+                      if (e.key === 'Escape') setEditing(null);
+                    }}
+                    className={FIELD}
+                  />
+                  <Btn
+                    size="sm"
+                    busy={busyKey === `edit-${i}`}
+                    busyLabel="저장 중…"
+                    disabled={!edit.trim()}
+                    onClick={() => void saveEdit(i)}
+                  >
+                    저장
+                  </Btn>
+                  <Btn size="sm" kind="quiet" disabled={busy} onClick={() => setEditing(null)}>
+                    취소
+                  </Btn>
                 </>
               ) : (
-                <span className="min-w-0 whitespace-pre-wrap text-small text-slate-700">{line}</span>
-              )}
-              {canReview && (
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={() => void saveAll(entries.filter((_, j) => j !== i))}
-                  className="ml-auto shrink-0 text-micro font-bold text-slate-300 transition hover:text-red-700 disabled:opacity-40"
-                >
-                  삭제
-                </button>
+                <>
+                  <span className="min-w-0 whitespace-pre-wrap text-small text-slate-700">{text}</span>
+                  {canReview && (
+                    /* 되돌릴 수 없는 것은 한 번 더 묻는다 — 수정 옆에 그냥 두면 오눌림이 곧 삭제다
+                       (화면 규칙 8·12, 진행현황 메모와 같은 꼴) */
+                    <span className="ml-auto flex shrink-0 items-baseline gap-1">
+                      {asking === i ? (
+                        <>
+                          <Btn
+                            size="sm"
+                            kind="undo"
+                            busy={busyKey === `del-${i}`}
+                            busyLabel="삭제 중…"
+                            onClick={() => void remove(i)}
+                          >
+                            삭제합니다
+                          </Btn>
+                          <Btn size="sm" kind="quiet" disabled={busy} onClick={() => setAsking(null)}>
+                            취소
+                          </Btn>
+                        </>
+                      ) : (
+                        <>
+                          <Btn size="sm" kind="quiet" disabled={busy} onClick={() => openEdit(i)}>
+                            수정
+                          </Btn>
+                          <Btn
+                            size="sm"
+                            kind="quiet"
+                            disabled={busy}
+                            onClick={() => { setEditing(null); setAsking(i); }}
+                          >
+                            삭제
+                          </Btn>
+                        </>
+                      )}
+                    </span>
+                  )}
+                </>
               )}
             </li>
           );

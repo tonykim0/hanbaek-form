@@ -182,23 +182,23 @@ export default function StatementView({
           <table className="w-full text-base print:text-small">
             <thead className="border-b border-slate-200 text-tiny font-bold tracking-[0.08em] text-slate-500">
               <tr>
-                <th className="py-2 pr-3 text-left">현장</th>
+                <th className="whitespace-nowrap py-2 pr-3 text-left">현장</th>
                 {/*
                   배치는 구분 하나로 묶여 있어 머리글에 이미 적혀 있다 — 줄마다 또 적으면
                   같은 값이 한 장에 두 번이다(화면 규칙 5번). 옛 링크(구분 없이 그 지급일
                   전체)로 들어오면 줄마다 갈리므로 그때만 열을 낸다.
                 */}
-                {kind === null && <th className="px-3 py-2 text-left">구분</th>}
+                {kind === null && <th className="whitespace-nowrap px-3 py-2 text-left">구분</th>}
                 {/* 현장 기본정보 — 어느 현장의 무엇에 대한 값인지 이 넷이 말한다 (한백 요청) */}
-                <th className="px-2 py-2 text-left">사업구분</th>
-                <th className="px-2 py-2 text-right">연수</th>
-                <th className="px-2 py-2 text-left">전력인입</th>
-                <th className="px-2 py-2 text-right">계약대수</th>
-                <th className="px-3 py-2 text-left">명목</th>
+                <th className="whitespace-nowrap px-2 py-2 text-left">사업구분</th>
+                <th className="whitespace-nowrap px-2 py-2 text-right">연수</th>
+                <th className="whitespace-nowrap px-2 py-2 text-left">전력인입</th>
+                <th className="whitespace-nowrap px-2 py-2 text-right">계약대수</th>
+                <th className="whitespace-nowrap px-3 py-2 text-left">명목</th>
                 {/* 메모 열은 뺐다 (한백 요청 2026-08-24) — 원장 줄의 메모는 지급 내역에서 본다 */}
-                <th className="px-3 py-2 text-right">공급가액</th>
-                <th className="py-2 pl-3 text-right">부가세</th>
-                {canRemove && <th className="w-14 print:hidden"></th>}
+                <th className="whitespace-nowrap px-3 py-2 text-right">공급가액</th>
+                <th className="whitespace-nowrap py-2 pl-3 text-right">부가세</th>
+                {canRemove && <th className="whitespace-nowrap w-14 print:hidden"></th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">

@@ -613,17 +613,17 @@ function MoneyTable({ rows, revising }: { rows: MoneyRow[]; revising: boolean })
       {revising && (
         <thead>
           <tr className="text-tiny font-bold tracking-[0.04em] text-slate-400">
-            <th />
-            <th className="pb-1.5 text-right font-bold">기존</th>
-            <th className="pb-1.5 pl-4 text-left font-bold">새 값</th>
-            <th />
+            <th className="whitespace-nowrap" />
+            <th className="whitespace-nowrap pb-1.5 text-right font-bold">기존</th>
+            <th className="whitespace-nowrap pb-1.5 pl-4 text-left font-bold">새 값</th>
+            <th className="whitespace-nowrap" />
           </tr>
         </thead>
       )}
       <tbody className="divide-y divide-slate-100">
         {rows.map((r) => (
           <tr key={r.label} className={r.derived ? 'bg-slate-50/70' : ''}>
-            <th scope="row" className="py-2 pr-4 text-left font-bold text-slate-700">
+            <th scope="row" className="whitespace-nowrap py-2 pr-4 text-left font-bold text-slate-700">
               <span className="mr-1.5 inline-block w-3 text-center font-black text-slate-300" aria-hidden>{r.op ?? ''}</span>
               {r.label}
             </th>

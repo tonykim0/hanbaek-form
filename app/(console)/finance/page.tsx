@@ -290,13 +290,13 @@ function MonthTable({
       <table className="w-full min-w-[520px] text-base tabular-nums">
         <thead>
           <tr className="border-b border-slate-200 text-left text-tiny font-black text-slate-400">
-            <th className="w-14 py-2">달</th>
-            {isAdmin && <th className="py-2 text-right">수금</th>}
-            <th className="py-2 text-right">{isAdmin ? '지급' : '받은 돈'}</th>
-            {isAdmin && <th className="py-2 text-right">차액</th>}
-            <th className="w-40 py-2 pl-4">크기</th>
-            <th className="py-2 text-right">{isAdmin ? '누적 수금' : '누적'}</th>
-            {isAdmin && <th className="py-2 text-right">누적 지급</th>}
+            <th className="w-14 whitespace-nowrap py-2">달</th>
+            {isAdmin && <th className="whitespace-nowrap py-2 text-right">수금</th>}
+            <th className="whitespace-nowrap py-2 text-right">{isAdmin ? '지급' : '받은 돈'}</th>
+            {isAdmin && <th className="whitespace-nowrap py-2 text-right">차액</th>}
+            <th className="w-40 whitespace-nowrap py-2 pl-4">크기</th>
+            <th className="whitespace-nowrap py-2 text-right">{isAdmin ? '누적 수금' : '누적'}</th>
+            {isAdmin && <th className="whitespace-nowrap py-2 text-right">누적 지급</th>}
           </tr>
         </thead>
         <tbody>

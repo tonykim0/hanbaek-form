@@ -22,7 +22,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import type { SettlementSummary } from '@/types/project';
 import { STEP_LABEL, STEP_TONE } from '@/lib/settlement';
-import { Badge, Blank, Empty, FIELD, FIELD_BASE, Tag } from '@/components/ui';
+import { Badge, Blank, Empty, FIELD, FIELD_BASE, Tag, Td, Th } from '@/components/ui';
 import CheckMenu from '@/components/CheckMenu';
 import { Frame, SiteLink, Tile, won } from './parts';
 
@@ -222,38 +222,38 @@ export default function ReceivableBoard({ rows }: { rows: SettlementSummary[] })
         <Frame min="900px">
           <thead className="border-b border-slate-100 bg-slate-50 text-tiny font-bold tracking-[0.06em] text-slate-500">
             <tr>
-              <th className="px-3 py-2.5 text-left">현장</th>
+              <Th>현장</Th>
               {/* 차수 열의 값은 그 차수의 상태다. 금액과 트리거는 그 아래 딸린 값이다. */}
-              <th className="px-3 py-2.5 text-left">1차</th>
-              <th className="px-3 py-2.5 text-left">2차</th>
-              <th className="px-3 py-2.5 text-left">3차</th>
-              <th className="px-3 py-2.5 text-right">받아야 할 돈</th>
-              <th className="px-3 py-2.5 text-right">수금 완료</th>
-              <th className="px-3 py-2.5 text-right">미수금</th>
+              <Th>1차</Th>
+              <Th>2차</Th>
+              <Th>3차</Th>
+              <Th num>받아야 할 돈</Th>
+              <Th num>수금 완료</Th>
+              <Th num>미수금</Th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {shown.map((r) => (
               <tr key={r.id} className="transition hover:bg-brand-50/40">
-                <td className="px-3 py-2.5">
+                <Td className="min-w-[13rem]">
                   <SiteLink id={r.id} name={r.name} tab="receivable" />
                   <p className="mt-0.5 flex flex-wrap items-center gap-1.5 text-tiny text-slate-400">
                     <span>{r.cpo} · {r.qty}대 · {r.status}</span>
                     {r.ruleName === null && <Tag tone="warn">정산 규칙 미지정</Tag>}
                   </p>
-                </td>
+                </Td>
                 {([1, 2, 3] as const).map((no) => (
                   <StepCell key={no} step={r.steps.find((x) => x.no === no) ?? null} />
                 ))}
-                <td className="px-3 py-2.5 text-right font-bold tabular-nums text-slate-800">
+                <Td num className="font-bold text-slate-800">
                   {won(r.planTotal)}
-                </td>
-                <td className="px-3 py-2.5 text-right font-bold tabular-nums text-brand-800">
+                </Td>
+                <Td num className="font-bold text-brand-800">
                   {r.collectedTotal > 0 ? won(r.collectedTotal) : <span className="text-slate-300">—</span>}
-                </td>
-                <td className="px-3 py-2.5 text-right font-bold tabular-nums text-slate-500">
+                </Td>
+                <Td num className="font-bold text-slate-500">
                   {won(unpaidOf(r))}
-                </td>
+                </Td>
               </tr>
             ))}
           </tbody>
@@ -282,19 +282,19 @@ function StepCell({
   // 규칙상 없는 차수는 배지가 아니라 빈 값이다(화면 규칙 10번)
   if (!step || step.state === 'na') {
     return (
-      <td className="px-3 py-2.5">
+      <Td>
         <Empty kind="na" />
-      </td>
+      </Td>
     );
   }
   const note = step.state === 'collected' ? step.collectedAt : step.trigger;
   return (
-    <td className="px-3 py-2.5">
+    <Td className="whitespace-nowrap">
       <Badge tone={STEP_TONE[step.state]}>{STEP_LABEL[step.state]}</Badge>
       <p className="mt-0.5 text-tiny font-bold tabular-nums text-slate-700">
         {step.planAmount === null ? '—' : won(step.planAmount)}
         {note && <span className="ml-1 font-semibold text-slate-400">· {note}</span>}
       </p>
-    </td>
+    </Td>
   );
 }

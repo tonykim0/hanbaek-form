@@ -17,7 +17,7 @@ import {
   stepUnits,
 } from '@/lib/settlement';
 import {
-  Badge, Blank, Btn, Empty, Err, FIELD, FIELD_CELL, PANEL, Tag,
+  Badge, Blank, Btn, Empty, Err, FIELD, FIELD_CELL, PANEL, Tag, Td, Th,
 } from '@/components/ui';
 import {
   CanEdit, bldgAxisLabel, payoutUnitOf, prefillOf, receiveUnitOf, type FormOpen,
@@ -89,31 +89,33 @@ export function CaseList({
           <table className="w-full min-w-[1760px] text-base">
             <thead className="border-b border-slate-200 bg-slate-50 text-tiny font-bold tracking-[0.06em] text-slate-500">
               <tr>
-                <th className="px-3 pt-2.5 text-left" rowSpan={2}>케이스</th>
-                <th colSpan={5} className="border-l border-slate-200 px-3 pt-2 text-center">축</th>
-                <th colSpan={5} className="border-l border-slate-200 px-3 pt-2 text-center">단가 (대당)</th>
-                <th colSpan={stepCols} className="border-l border-slate-200 px-3 pt-2 text-center">기성 단계 (대당)</th>
-                <th className="border-l border-slate-200 px-3 pt-2.5 text-right" rowSpan={2}>상태</th>
+                <Th tight className="pt-2.5" rowSpan={2}>케이스</Th>
+                <Th tight colSpan={5} className="border-l border-slate-200 pt-2">축</Th>
+                <Th tight colSpan={5} className="border-l border-slate-200 pt-2">단가 (대당)</Th>
+                <Th tight colSpan={stepCols} className="border-l border-slate-200 pt-2">기성 단계 (대당)</Th>
+                <Th tight num className="border-l border-slate-200 pt-2.5" rowSpan={2}>상태</Th>
               </tr>
               <tr>
-                <th className="border-l border-slate-200 px-3 pb-2 text-left font-semibold">교체유형</th>
-                <th className="px-3 pb-2 text-left font-semibold">수전</th>
-                <th className="px-3 pb-2 text-left font-semibold">연수</th>
-                <th className="px-3 pb-2 text-left font-semibold">건축물</th>
-                <th className="px-3 pb-2 text-left font-semibold">채널</th>
+                <Th tight className="border-l border-slate-200 pb-2 font-semibold">교체유형</Th>
+                <Th tight className="pb-2 font-semibold">수전</Th>
+                <Th tight className="pb-2 font-semibold">연수</Th>
+                <Th tight className="pb-2 font-semibold">건축물</Th>
+                <Th tight className="pb-2 font-semibold">채널</Th>
                 {/* 돈의 흐름 순서 — 받는 단가에서 마진을 떼면 지급 단가, 그것을 영업·시공으로 나눈다 */}
-                <th className="border-l border-slate-200 px-3 pb-2 text-right font-semibold">받는</th>
-                <th className="px-3 pb-2 text-right font-semibold">마진</th>
-                <th className="px-3 pb-2 text-right font-semibold">지급</th>
-                <th className="px-3 pb-2 text-right font-semibold">영업</th>
-                <th className="px-3 pb-2 text-right font-semibold">시공</th>
+                <Th tight num className="border-l border-slate-200 pb-2 font-semibold">받는</Th>
+                <Th tight num className="pb-2 font-semibold">마진</Th>
+                <Th tight num className="pb-2 font-semibold">지급</Th>
+                <Th tight num className="pb-2 font-semibold">영업</Th>
+                <Th tight num className="pb-2 font-semibold">시공</Th>
                 {Array.from({ length: stepCols }, (_, i) => (
-                  <th
+                  <Th
+                    tight
+                    num
                     key={i}
-                    className={`px-3 pb-2 text-right font-semibold ${i === 0 ? 'border-l border-slate-200' : ''}`}
+                    className={`pb-2 font-semibold ${i === 0 ? 'border-l border-slate-200' : ''}`}
                   >
                     {i + 1}차
-                  </th>
+                  </Th>
                 ))}
               </tr>
             </thead>
@@ -178,7 +180,7 @@ function Row({
 
   return (
     <tr className={r.active ? '' : 'bg-slate-50/60'}>
-      <td className="px-3 py-2.5">
+      <Td>
         {/* 이름을 따로 짓지 않는다 — 케이스의 정체는 운영사·시기·축이다. caseName 은 셀렉트용 파생 라벨로만 남는다 */}
         <p className={`break-keep font-bold ${r.active ? 'text-slate-800' : 'text-slate-400'}`}>
           {r.cpo}
@@ -214,31 +216,31 @@ function Row({
             )}
           </p>
         )}
-      </td>
+      </Td>
       {/*
         축 다섯 — 값마다 한 칸이다. 꼬리표(Tag)를 벗기고 글자로 둔다: 열이 이미
         「무엇인가」를 말하고 있어서 꼬리표는 테를 한 겹 더 그리는 일뿐이고,
         누르는 것도 아니다(화면 규칙 11번 — 각지면 누르는 것).
       */}
-      <td className="break-keep border-l border-slate-100 px-3 py-2.5 text-slate-700">{replLabel(r.cpo, r.replType)}</td>
-      <td className="whitespace-nowrap px-3 py-2.5 text-slate-700">{r.powerType}</td>
-      <td className="whitespace-nowrap px-3 py-2.5 tabular-nums text-slate-700">{r.termYears.join('·')}년</td>
-      <td className="break-keep px-3 py-2.5 text-slate-700">
+      <Td className="break-keep border-l border-slate-100 text-slate-700">{replLabel(r.cpo, r.replType)}</Td>
+      <Td className="whitespace-nowrap text-slate-700">{r.powerType}</Td>
+      <Td className="whitespace-nowrap tabular-nums text-slate-700">{r.termYears.join('·')}년</Td>
+      <Td className="break-keep text-slate-700">
         {/* 매트릭스 머리글과 같은 이름표 — 두 자리가 다르게 부르면 같은 축인지 알 수 없다 */}
         {r.bldgTypes.length === 2 ? '전체' : bldgAxisLabel(r.cpo, r.bldgTypes[0])}
-      </td>
+      </Td>
       {/* 턴키가 대부분이라 연하게 — 눈에 걸려야 하는 것은 드문 영업·시공 채널이다 */}
-      <td className={`whitespace-nowrap px-3 py-2.5 ${r.channel === '턴키' ? 'text-slate-400' : 'font-bold text-slate-700'}`}>
+      <Td className={`whitespace-nowrap ${r.channel === '턴키' ? 'text-slate-400' : 'font-bold text-slate-700'}`}>
         {r.channel}
-      </td>
+      </Td>
 
-      <td className="border-l border-slate-100 px-3 py-2.5 text-right font-black tabular-nums text-slate-900">
+      <Td num className="border-l border-slate-100 font-black text-slate-900">
         {won(receiveUnitOf(r))}
-      </td>
-      <td className="px-3 py-2.5 text-right tabular-nums text-slate-700">{won(r.margin)}</td>
-      <td className="px-3 py-2.5 text-right font-bold tabular-nums text-slate-800">{won(payoutUnitOf(r))}</td>
-      <td className="px-3 py-2.5 text-right tabular-nums text-slate-700">{won(r.salesUnit)}</td>
-      <td className="px-3 py-2.5 text-right tabular-nums text-slate-700">{won(r.consUnit)}</td>
+      </Td>
+      <Td num className="text-slate-700">{won(r.margin)}</Td>
+      <Td num className="font-bold text-slate-800">{won(payoutUnitOf(r))}</Td>
+      <Td num className="text-slate-700">{won(r.salesUnit)}</Td>
+      <Td num className="text-slate-700">{won(r.consUnit)}</Td>
 
       {/*
         기성은 차수마다 한 칸이다 — 트리거와 대당 금액을 같이 적는다. 금액만 두면
@@ -247,17 +249,18 @@ function Row({
         빈 칸 세 개로 두면 「1차가 없다」로 읽힌다.
       */}
       {settle === null ? (
-        <td colSpan={stepCols} className="border-l border-slate-100 px-3 py-2.5">
+        <Td colSpan={stepCols} className="border-l border-slate-100">
           {/* 미정과 해당없음을 가르지 않는다 — 규칙이 없으면 이 케이스의 현장은 기성이 계산되지 않는다 */}
           <Tag tone="warn">기성 미정</Tag>
-        </td>
+        </Td>
       ) : (
         Array.from({ length: stepCols }, (_, i) => {
           const step = settle.steps[i];
           return (
-            <td
+            <Td
               key={i}
-              className={`px-3 py-2.5 text-right ${i === 0 ? 'border-l border-slate-100' : ''}`}
+              num
+              className={i === 0 ? 'border-l border-slate-100' : ''}
             >
               {step ? (
                 <>
@@ -268,11 +271,11 @@ function Row({
                 // 이 운영사에는 없는 차수다 — 값이 빠진 것이 아니다
                 <Empty kind="na" />
               )}
-            </td>
+            </Td>
           );
         })
       )}
-      <td className="border-l border-slate-100 px-3 py-2.5 text-right">
+      <Td num className="border-l border-slate-100">
         <div className="flex items-center justify-end gap-2">
           {r.active ? <Badge tone="ok">사용</Badge> : <Badge tone="hold">중지</Badge>}
           {/*
@@ -320,7 +323,7 @@ function Row({
         </div>
         {/* 실패 문구는 누른 단추 옆 — 첫 칸에 두면 좁은 창에서 스크롤 밖이다(규칙 9) */}
         <Err className="mt-1 block text-right">{error}</Err>
-      </td>
+      </Td>
     </tr>
   );
 }

@@ -166,9 +166,9 @@ export function QtyGrid<R extends string>({
         {cols.length > 1 && (
           <thead className="bg-slate-50 text-tiny font-bold text-slate-500">
             <tr>
-              <th className="px-3 py-2 text-left" />
+              <th className="whitespace-nowrap px-3 py-2 text-left" />
               {cols.map((c) => (
-                <th key={c ?? '-'} className="px-3 py-2 text-left">{c}</th>
+                <th key={c ?? '-'} className="whitespace-nowrap px-3 py-2 text-left">{c}</th>
               ))}
             </tr>
           </thead>
@@ -176,7 +176,7 @@ export function QtyGrid<R extends string>({
         <tbody className="divide-y divide-slate-100">
           {rows.map((r) => (
             <tr key={r}>
-              <th className="w-[150px] px-3 py-2 text-left text-small font-bold text-slate-600">
+              <th className="whitespace-nowrap w-[150px] px-3 py-2 text-left text-small font-bold text-slate-600">
                 {(rowLabel ? rowLabel(r) : r).replace('자체투자 ', '').replace(/[()]/g, '')}
               </th>
               {cols.map((c) => {

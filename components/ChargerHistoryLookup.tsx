@@ -107,12 +107,12 @@ function HistoryTable({ summary }: { summary: Summary }) {
       <table className="w-full min-w-[34rem] text-left text-sm">
         <thead>
           <tr className="border-b border-slate-200 text-tiny font-bold tracking-wide text-slate-500">
-            <th className="py-2 pr-3 font-bold">설치시기</th>
-            <th className="py-2 pr-3 font-bold">대수</th>
-            <th className="py-2 pr-3 font-bold">구분</th>
-            <th className="py-2 pr-3 font-bold">사업연도</th>
-            <th className="py-2 pr-3 font-bold">대기번호</th>
-            <th className="py-2 font-bold">운영기관</th>
+            <th className="whitespace-nowrap py-2 pr-3 font-bold">설치시기</th>
+            <th className="whitespace-nowrap py-2 pr-3 font-bold">대수</th>
+            <th className="whitespace-nowrap py-2 pr-3 font-bold">구분</th>
+            <th className="whitespace-nowrap py-2 pr-3 font-bold">사업연도</th>
+            <th className="whitespace-nowrap py-2 pr-3 font-bold">대기번호</th>
+            <th className="whitespace-nowrap py-2 font-bold">운영기관</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-100">

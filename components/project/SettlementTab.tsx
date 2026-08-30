@@ -28,6 +28,7 @@ import { won } from '@/lib/format';
 import { today } from '@/lib/date';
 import {
   Badge, Btn, Choice, Confirm, Empty, Err, FIELD, FIELD_BASE, FIELD_CELL, HR, Note, Saved, Tag,
+  Td, Th,
 } from '@/components/ui';
 import { DatePicker } from '@/components/DatePicker';
 
@@ -398,22 +399,22 @@ function ContractLines(
         <table className="w-full min-w-[560px] text-base">
           <thead className="bg-slate-50 text-tiny font-bold tracking-[0.08em] text-slate-500">
             <tr>
-              <th className="px-3 py-2 text-left">라인</th>
-              <th className="px-3 py-2 text-left">적용 단가 케이스</th>
-              <th className="px-3 py-2 text-right">영업비/대</th>
-              <th className="px-3 py-2 text-right">시공비/대</th>
+              <Th tight className="py-2">라인</Th>
+              <Th tight className="py-2">적용 단가 케이스</Th>
+              <Th tight num className="py-2">영업비/대</Th>
+              <Th tight num className="py-2">시공비/대</Th>
               {/*
                 * 협력사가 말하는 턴키단가 = 영업비 + 시공비 (배포가, 한백 확인).
                 * 마진은 이 탭에 없다 — 운영사 쪽 금액(마진 포함 턴키)은 기성 탭의 일이다.
                 * 양쪽을 다 보는 사람(턴키업체·한백)에게만 합이 뜬다.
                 */}
-              {vis.sales && vis.cons && <th className="px-3 py-2 text-right">턴키단가/대</th>}
+              {vis.sales && vis.cons && <Th tight num className="py-2">턴키단가/대</Th>}
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {lines.map((l) => (
               <tr key={l.id}>
-                <td className="whitespace-nowrap px-3 py-2 font-bold text-slate-800">
+                <Td tight className="whitespace-nowrap py-2 font-bold text-slate-800">
                   {l.termYears}년 × {l.qty}대
                   {[l.replType, l.powerType].filter(Boolean).length > 0 && (
                     <span className="ml-1.5 text-tiny font-semibold text-slate-400">
@@ -421,14 +422,14 @@ function ContractLines(
                         .filter(Boolean).join(' · ')}
                     </span>
                   )}
-                </td>
-                <td className="px-3 py-2 text-slate-600">
+                </Td>
+                <Td tight className="py-2 text-slate-600">
                   {l.rule ? (
                     l.rule.caseName
                   ) : (
                     <span className="text-slate-400">미지정 — 위 「지급조건」에서 고릅니다</span>
                   )}
-                </td>
+                </Td>
                 <Money show={vis.sales} value={l.rule?.salesUnit ?? null} />
                 <Money show={vis.cons} value={l.rule?.consUnit ?? null} />
                 {vis.sales && vis.cons && (
@@ -446,15 +447,15 @@ function ContractLines(
 function Money({ show, value }: { show: boolean; value: number | null }) {
   if (!show) {
     return (
-      <td className="px-3 py-2 text-right">
+      <Td tight num className="py-2">
         <Tag>권한 없음</Tag>
-      </td>
+      </Td>
     );
   }
   return (
-    <td className="whitespace-nowrap px-3 py-2 text-right font-semibold tabular-nums text-slate-800">
+    <Td tight num className="whitespace-nowrap py-2 font-semibold text-slate-800">
       {value === null ? <span className="text-slate-300">—</span> : won(value)}
-    </td>
+    </Td>
   );
 }
 
@@ -717,34 +718,34 @@ function PaymentSection({
           <table className="w-full min-w-[680px] text-base">
             <thead className="bg-slate-50 text-tiny font-bold tracking-[0.08em] text-slate-500">
               <tr>
-                <th className="px-3 py-2 text-left">구분</th>
-                <th className="px-3 py-2 text-right">대당</th>
-                <th className="px-3 py-2 text-right">대수</th>
-                <th className="px-3 py-2 text-right">총 지급액</th>
-                <th className="border-l border-slate-200 px-3 py-2 text-right">1차 · 70%</th>
-                <th className="px-3 py-2 text-left">지급시기</th>
-                <th className="border-l border-slate-200 px-3 py-2 text-right">2차 · 잔액</th>
-                <th className="px-3 py-2 text-left">지급시기</th>
+                <Th tight className="py-2">구분</Th>
+                <Th tight num className="py-2">대당</Th>
+                <Th tight num className="py-2">대수</Th>
+                <Th tight num className="py-2">총 지급액</Th>
+                <Th tight num className="border-l border-slate-200 py-2">1차 · 70%</Th>
+                <Th tight className="py-2">지급시기</Th>
+                <Th tight num className="border-l border-slate-200 py-2">2차 · 잔액</Th>
+                <Th tight className="py-2">지급시기</Th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 tabular-nums">
               {rows.map((r) => (
                 <tr key={r.kind}>
-                  <td className="whitespace-nowrap px-3 py-2.5">
+                  <Td className="whitespace-nowrap">
                     <span className="font-black text-slate-900">{r.kind}</span>
                     {r.org ? (
                       <span className="ml-1.5 text-tiny text-slate-500">→ {r.org}</span>
                     ) : (
                       <span className="ml-1.5 text-tiny font-bold text-amber-700">받는 곳 미지정</span>
                     )}
-                  </td>
-                  <td className="whitespace-nowrap px-3 py-2.5 text-right font-semibold text-slate-700">
+                  </Td>
+                  <Td num className="whitespace-nowrap font-semibold text-slate-700">
                     {unitCell(r.unit)}
-                  </td>
-                  <td className="whitespace-nowrap px-3 py-2.5 text-right font-semibold text-slate-700">
+                  </Td>
+                  <Td num className="whitespace-nowrap font-semibold text-slate-700">
                     {totalQty}대
-                  </td>
-                  <td className="whitespace-nowrap px-3 py-2.5 text-right font-black text-slate-900">
+                  </Td>
+                  <Td num className="whitespace-nowrap font-black text-slate-900">
                     {won(r.steps.due)}
                     {r.adjust !== 0 && (
                       <span className="block text-tiny font-semibold text-slate-400">
@@ -756,7 +757,7 @@ function PaymentSection({
                         실지급 {won(r.paid)} · 초과 {won(r.over)}
                       </span>
                     )}
-                  </td>
+                  </Td>
                   {([1, 2] as const).map((no) => {
                     const done = no === 1 ? r.steps.step1Done : r.steps.step2Done;
                     const planned = r.steps.open?.no === no ? r.steps.open.amount : r.steps.parts[no - 1];
@@ -767,7 +768,7 @@ function PaymentSection({
                     const gap = paidHere !== null && paidHere !== planned;
                     return (
                       <Fragment key={no}>
-                        <td className="whitespace-nowrap border-l border-slate-100 px-3 py-2.5 text-right">
+                        <Td num className="whitespace-nowrap border-l border-slate-100">
                           <span className={`font-bold ${done ? 'text-slate-900' : 'text-slate-500'}`}>
                             {won(amount)}
                           </span>
@@ -776,7 +777,7 @@ function PaymentSection({
                               계획 {won(planned)} · {paidHere! > planned ? '초과' : '부족'} {won(Math.abs(paidHere! - planned))}
                             </span>
                           )}
-                        </td>
+                        </Td>
                         {/*
                           지급시기 — 지급완료(날짜) · 미지급 · 초과 충당.
                           ★셋째가 필요했다★(한백 지적 2026-08-28): 회차 완료를 금액 누적으로
@@ -784,7 +785,7 @@ function PaymentSection({
                           「지급완료」로 보였다. 나갈 돈이 없는 것은 맞으니 그렇게 적는다.
                         */}
                         {/* 태그 아래 날짜 — 옆으로 붙이면 마지막 열이 날짜만큼 밀려 표가 가로로 넘친다 */}
-                        <td className="whitespace-nowrap px-3 py-2.5">
+                        <Td className="whitespace-nowrap">
                           {done && !at ? (
                             /*
                               그 회차 항목이 원장에 없다. 돈이 어디서 왔는지로 말이 갈린다 —
@@ -807,7 +808,7 @@ function PaymentSection({
                               미지급
                             </span>
                           )}
-                        </td>
+                        </Td>
                       </Fragment>
                     );
                   })}
@@ -815,22 +816,19 @@ function PaymentSection({
               ))}
               {rows.length > 1 && (
                 <tr className="border-t-2 border-slate-200 bg-slate-50/60 font-black">
-                  <td className="px-3 py-2.5 text-slate-900">합계</td>
-                  <td className="whitespace-nowrap px-3 py-2.5 text-right text-slate-700">
+                  <Td className="text-slate-900">합계</Td>
+                  <Td num className="whitespace-nowrap text-slate-700">
                     {unitCell(
                       rows.every((r) => typeof r.unit === 'number')
                         ? rows.reduce((sum, r) => sum + (r.unit as number), 0)
                         : rows.some((r) => r.unit === 'mixed') ? 'mixed' : null
                     )}
-                  </td>
-                  <td className="whitespace-nowrap px-3 py-2.5 text-right text-slate-700">{totalQty}대</td>
-                  <td className="whitespace-nowrap px-3 py-2.5 text-right text-slate-900">
+                  </Td>
+                  <Td num className="whitespace-nowrap text-slate-700">{totalQty}대</Td>
+                  <Td num className="whitespace-nowrap text-slate-900">
                     {won(rows.reduce((sum, r) => sum + r.steps.due, 0))}
-                  </td>
-                  <td className="px-3 py-2.5" />
-                  <td className="px-3 py-2.5" />
-                  <td className="px-3 py-2.5" />
-                  <td className="px-3 py-2.5" />
+                  </Td>
+                  <Td /><Td /><Td /><Td />
                 </tr>
               )}
             </tbody>
@@ -973,33 +971,33 @@ function AdjustBox({
             {/* 표 머리는 tiny 다 — 위 지급관리 표와 같은 눈금(2026-08-29 자료실과 같은 손질) */}
             <thead className="border-y border-slate-100 bg-slate-50/70 text-tiny font-bold tracking-[0.08em] text-slate-500">
               <tr>
-                <th className="px-3 py-1.5 text-left">구분</th>
-                <th className="px-3 py-1.5 text-left">명목</th>
-                <th className="px-3 py-1.5 text-right">금액</th>
-                <th className="px-3 py-1.5 text-left">반영일</th>
-                <th className="px-3 py-1.5 text-left">사유</th>
-                {canReview && <th className="px-3 py-1.5" />}
+                <Th tight className="py-1.5">구분</Th>
+                <Th tight className="py-1.5">명목</Th>
+                <Th tight num className="py-1.5">금액</Th>
+                <Th tight className="py-1.5">반영일</Th>
+                <Th tight className="py-1.5">사유</Th>
+                {canReview && <Th tight className="py-1.5" />}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {list.map((e) => (
                 <tr key={e.id}>
-                  <td className="whitespace-nowrap px-3 py-2 font-bold text-slate-700">{e.kind}</td>
-                  <td className="whitespace-nowrap px-3 py-2 text-slate-600">{e.category}</td>
+                  <Td tight className="whitespace-nowrap py-2 font-bold text-slate-700">{e.kind}</Td>
+                  <Td tight className="whitespace-nowrap py-2 text-slate-600">{e.category}</Td>
                   {/* 나가는 돈과 빼는 돈이 한눈에 갈려야 한다 — 부호와 색이 같이 말한다 */}
-                  <td className={`whitespace-nowrap px-3 py-2 text-right font-black tabular-nums ${
+                  <Td tight num className={`whitespace-nowrap py-2 font-black ${
                     e.amount < 0 ? 'text-red-700' : 'text-slate-900'
                   }`}>
                     {e.amount < 0 ? '−' : '+'}{won(Math.abs(e.amount))}
-                  </td>
-                  <td className="whitespace-nowrap px-3 py-2 tabular-nums text-slate-500">{e.at}</td>
-                  <td className="px-3 py-2 text-tiny text-slate-500">
+                  </Td>
+                  <Td tight className="whitespace-nowrap py-2 tabular-nums text-slate-500">{e.at}</Td>
+                  <Td tight className="py-2 text-tiny text-slate-500">
                     {e.note ?? <Empty kind="wait" />}
-                  </td>
+                  </Td>
                   {canReview && (
-                    <td className="whitespace-nowrap px-3 py-2 text-right">
+                    <Td tight num className="whitespace-nowrap py-2">
                       <Btn size="sm" kind="quiet" disabled={busy} onClick={() => setKilling(e)}>삭제</Btn>
-                    </td>
+                    </Td>
                   )}
                 </tr>
               ))}

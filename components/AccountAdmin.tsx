@@ -30,7 +30,7 @@ import { useAction } from '@/lib/use-action';
 import { useBackClose } from '@/lib/use-back-close';
 import { PASSWORD_MIN_LEN, type AccountView } from '@/lib/auth/types';
 import { isHanbaek, type Role } from '@/lib/roles';
-import { Badge, Btn, Choice, Empty, Err, FIELD, FIELD_CELL, Note, PANEL, Saved } from '@/components/ui';
+import { Badge, Btn, Choice, Empty, Err, FIELD, FIELD_CELL, Note, PANEL, Saved, Td, Th } from '@/components/ui';
 
 /** 이 화면에서 만들 수 있는 구분. 정본은 서버다(app/api/admin/accounts CREATABLE). */
 const KINDS: Array<{ role: Role; label: string; note: string }> = [
@@ -154,13 +154,13 @@ export default function AccountAdmin({
             <table className="w-full min-w-[880px] text-base">
               <thead className="border-b border-slate-100 bg-slate-50 text-tiny font-bold tracking-[0.06em] text-slate-500">
                 <tr>
-                  <th className="px-3 py-2.5 text-left">로그인 ID</th>
-                  <th className="px-3 py-2.5 text-left">이름</th>
-                  <th className="px-3 py-2.5 text-left">구분</th>
-                  <th className="px-3 py-2.5 text-left">소속</th>
-                  <th className="px-3 py-2.5 text-left">만든 날</th>
-                  <th className="px-3 py-2.5 text-left">상태</th>
-                  <th className="px-3 py-2.5 text-right">동작</th>
+                  <Th>로그인 ID</Th>
+                  <Th>이름</Th>
+                  <Th>구분</Th>
+                  <Th>소속</Th>
+                  <Th>만든 날</Th>
+                  <Th>상태</Th>
+                  <Th num>동작</Th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -398,12 +398,12 @@ function AccountRow({
   return (
     <>
       <tr className={a.active ? '' : 'bg-slate-50/60'}>
-        <td className="px-3 py-2.5 font-bold text-slate-900">
+        <Td className="font-bold text-slate-900">
           {a.id}
           {a.id === meId && <span className="ml-1.5 text-micro font-bold text-brand-700">나</span>}
-        </td>
+        </Td>
 
-        <td className="px-3 py-2.5 text-slate-600">
+        <Td className="text-slate-600">
           {fixed ? (
             a.name
           ) : (
@@ -417,9 +417,9 @@ function AccountRow({
               className={cellInput}
             />
           )}
-        </td>
+        </Td>
 
-        <td className="px-3 py-2.5">
+        <Td>
           {fixed ? (
             <Badge tone={a.role === 'admin' ? 'stage' : 'mute'}>{ROLE_TEXT[a.role]}</Badge>
           ) : (
@@ -437,9 +437,9 @@ function AccountRow({
               ))}
             </select>
           )}
-        </td>
+        </Td>
 
-        <td className="px-3 py-2.5 text-slate-600">
+        <Td className="text-slate-600">
           {fixed ? (
             /* 한백 관리자는 소속으로 가르지 않는다 — 빠뜨린 것이 아니라 규칙상 없는 것이다 */
             a.role === 'admin' ? <Empty kind="na" /> : a.org ?? <Empty kind="na" />
@@ -473,14 +473,14 @@ function AccountRow({
               </datalist>
             </>
           )}
-        </td>
+        </Td>
 
-        <td className="px-3 py-2.5 tabular-nums text-slate-400">
+        <Td className="tabular-nums text-slate-400">
           {a.createdAt ?? <span title="환경변수·개발 시드 계정">배포 설정</span>}
-        </td>
+        </Td>
 
         {/* 동글면 상태 — 누르는 것이 아니다(화면 규칙 11번) */}
-        <td className="px-3 py-2.5">
+        <Td>
           {a.source === '파일' ? (
             <Badge tone="mute">고정</Badge>
           ) : a.active ? (
@@ -488,9 +488,9 @@ function AccountRow({
           ) : (
             <Badge tone="hold">중지됨</Badge>
           )}
-        </td>
+        </Td>
 
-        <td className="px-3 py-2.5 text-right">
+        <Td num>
           {a.source === '파일' ? (
             <span
               className="text-tiny text-slate-400"
@@ -543,7 +543,7 @@ function AccountRow({
               </span>
             </span>
           )}
-        </td>
+        </Td>
       </tr>
       {pwOpen && (
         <tr>

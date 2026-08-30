@@ -315,13 +315,13 @@ export default function KaptApartmentExplorer({
                         <table className="w-full min-w-[46rem] border-collapse text-tiny">
                           <thead>
                             <tr className="bg-slate-50 text-left text-slate-500">
-                              <th className="px-3 py-3 font-bold">구분</th>
-                              <th className="px-3 py-3 font-bold">설치유형</th>
-                              <th className="px-3 py-3 font-bold">충전기타입</th>
-                              <th className="px-3 py-3 font-bold">충전속도</th>
-                              <th className="px-3 py-3 font-bold">설치대수</th>
-                              <th className="px-3 py-3 font-bold">충전사업자</th>
-                              <th className="px-3 py-3 font-bold">연락처</th>
+                              <th className="whitespace-nowrap px-3 py-3 font-bold">구분</th>
+                              <th className="whitespace-nowrap px-3 py-3 font-bold">설치유형</th>
+                              <th className="whitespace-nowrap px-3 py-3 font-bold">충전기타입</th>
+                              <th className="whitespace-nowrap px-3 py-3 font-bold">충전속도</th>
+                              <th className="whitespace-nowrap px-3 py-3 font-bold">설치대수</th>
+                              <th className="whitespace-nowrap px-3 py-3 font-bold">충전사업자</th>
+                              <th className="whitespace-nowrap px-3 py-3 font-bold">연락처</th>
                             </tr>
                           </thead>
                           <tbody>

@@ -253,9 +253,9 @@ export function Grid({
           */}
           <thead className="border-b-2 border-slate-300 bg-slate-100 text-tiny font-bold text-slate-700">
             <tr>
-              <th className="px-3 py-2 text-left tracking-[0.06em] text-slate-500" rowSpan={2}>교체유형 · 수전</th>
+              <th className="whitespace-nowrap px-3 py-2 text-left tracking-[0.06em] text-slate-500" rowSpan={2}>교체유형 · 수전</th>
               {gridTerms.map((t) => (
-                <th key={t} colSpan={2} className="border-l border-slate-300 px-3 pt-2 text-center text-base font-black text-slate-900">{t}년</th>
+                <th key={t} colSpan={2} className="whitespace-nowrap border-l border-slate-300 px-3 pt-2 text-center text-base font-black text-slate-900">{t}년</th>
               ))}
             </tr>
             <tr>
@@ -263,7 +263,7 @@ export function Grid({
                 BUILDING_TYPES.map((b) => (
                   <th
                     key={`${t}-${b}`}
-                    className={`break-keep px-3 pb-2 text-right font-semibold ${b === '공동주택' ? 'border-l border-slate-300' : ''}`}
+                    className={`whitespace-nowrap px-3 pb-2 text-right font-semibold ${b === '공동주택' ? 'border-l border-slate-300' : ''}`}
                   >
                     {/* 줄여 적지 않는다 — 운영사마다 경계가 다르다(BLDG_LABEL) */}
                     {bldgAxisLabel(cpo, b)}

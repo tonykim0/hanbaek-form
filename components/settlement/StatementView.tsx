@@ -26,7 +26,7 @@
  *
  * 편집(빼기·지급일·세금계산서)은 전부 print:hidden — 종이에는 명세서만 남는다.
  */
-import { Fragment, useState } from 'react';
+import { Fragment, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import type { PayoutKind, PayoutRow, TaxInvoice } from '@/types/project';
 import type { PartnerDetailsView } from '@/lib/auth/partner-details';
@@ -107,32 +107,23 @@ export default function StatementView({
      */
     <div className="grid items-start gap-5 print:block xl:grid-cols-[minmax(0,56rem)_minmax(320px,1fr)]">
       <div className="flex min-w-0 flex-col gap-5">
-      {/*
-        * ★인쇄는 이 문서의 일이라 이 문서 위에 선다★ (한백 지적 2026-08-30).
-        * 화면이 두 칸이 되면서, 페이지 맨 위 오른쪽에 있던 인쇄 단추가 거래명세서가 아니라
-        * ★세금계산서 칸 위★에 떠 있었다 — 무엇을 인쇄하는 단추인지가 자리로 거짓말을 했다.
-        */}
-      <div className="flex justify-end print:hidden">
-        <PrintButton />
-      </div>
-      <section className="rounded-panel border border-slate-200 bg-white p-8 print:border-0 print:p-0">
-        <header className="flex flex-wrap items-end justify-between gap-3 border-b-2 border-slate-900 pb-4">
-          <h1 className="flex items-center gap-2.5 text-h1 font-black tracking-tight text-slate-900">
-            거래명세서
-            {/* 종이에는 배지를 찍지 않는다 — 상태는 화면의 것이다 */}
-            {canEdit && (
-              <span className="print:hidden">
-                <Badge tone={
-                  state === '확정' ? 'ok'
-                    : state === '가확정' ? 'warn'
-                      : state === '확정 누락' ? 'stop'
-                        : 'mute'
-                }>
-                  {state}
-                </Badge>
-              </span>
-            )}
-          </h1>
+      {/* ★인쇄는 이 문서의 일이라 이 문서의 머리에 선다★ — 오른쪽 계산서의 내려받기와 짝이다 */}
+      <PaperPanel
+        as="h1"
+        title="거래명세서"
+        badge={/* 종이에는 배지를 찍지 않는다 — 상태는 화면의 것이다 */ canEdit ? (
+          <span className="print:hidden">
+            <Badge tone={
+              state === '확정' ? 'ok'
+                : state === '가확정' ? 'warn'
+                  : state === '확정 누락' ? 'stop'
+                    : 'mute'
+            }>
+              {state}
+            </Badge>
+          </span>
+        ) : undefined}
+        meta={(
           <div className="text-right text-small leading-relaxed text-slate-600">
             {/* 작성일과 지급일은 다른 날이다 — 다시 뽑으면 작성일만 바뀐다 */}
             <p>
@@ -150,7 +141,9 @@ export default function StatementView({
               </p>
             )}
           </div>
-        </header>
+        )}
+        action={<PrintButton />}
+      >
 
         {/*
           공급자(협력사) · 공급받는자(한백). 왼쪽이 공급자다 — 세금계산서와 같은 자리에 둔다.
@@ -267,7 +260,7 @@ export default function StatementView({
             )}
           </p>
         )}
-      </section>
+      </PaperPanel>
 
       {/* 배치를 잠그고 옮기는 자리 — 명세 바로 아래다. 계산서는 오른쪽 칸으로 갔다 */}
       {canEdit && kind && rows.length > 0 && (
@@ -415,6 +408,51 @@ function ItemRow({
  * 확정 여부와 상관없이 언제든 붙이고 바꾸고 지운다.
  */
 /**
+ * 두 문서의 같은 틀 (한백 지시 2026-08-30 「세금계산서랑 거래명세서랑 틀을 맞춰줘야지 —
+ * 버튼 위치, 제목 위치, 컴포넌트 통일」).
+ *
+ * 왼쪽 거래명세서와 오른쪽 세금계산서는 나란히 놓고 견주는 두 장이다. 그런데 제목은 하나가
+ * 크고 하나가 작았고, 단추는 하나가 패널 ★밖 위★에 하나가 ★안 머리★에 있었다 — 같은 급의
+ * 것이 다른 자리에 서면 눈이 매번 어디를 봐야 하는지 다시 찾는다.
+ *
+ *   제목 [배지]            곁말 · [단추]
+ *   ───────────────────────────────  ← 굵은 밑줄
+ *   내용
+ *
+ * 곁말(meta)은 그 문서를 식별하는 값이다 — 명세서는 작성일·지급일·구분, 계산서는 파일명·
+ * 첨부일. 단추는 그 문서에 하는 일이고 ★종이에는 안 찍힌다★.
+ */
+function PaperPanel({
+  as = 'h2', title, badge, meta, action, className = '', children,
+}: {
+  /** 한 장에 h1 은 하나다 — 거래명세서가 그 자리다 */
+  as?: 'h1' | 'h2';
+  title: string;
+  badge?: ReactNode;
+  meta?: ReactNode;
+  action?: ReactNode;
+  className?: string;
+  children: ReactNode;
+}) {
+  const Heading = as;
+  return (
+    <section className={`rounded-panel border border-slate-200 bg-white p-8 print:border-0 print:p-0 ${className}`}>
+      <header className="flex flex-wrap items-end justify-between gap-3 border-b-2 border-slate-900 pb-4">
+        <Heading className="flex items-center gap-2.5 text-h1 font-black tracking-tight text-slate-900">
+          {title}
+          {badge}
+        </Heading>
+        <div className="flex flex-wrap items-end justify-end gap-3">
+          {meta}
+          {action && <span className="print:hidden">{action}</span>}
+        </div>
+      </header>
+      {children}
+    </section>
+  );
+}
+
+/**
  * 브라우저가 펼쳐 보일 수 있는 PDF 인가 — 경로의 확장자로 본다.
  *
  * 파일 이름이 아니라 ★주소★를 본다: 이름은 사람이 바꿔 올릴 수 있지만 경로는 서버가
@@ -457,21 +495,25 @@ function InvoiceCard({
   }
 
   return (
-    <section className="rounded-panel border border-slate-200 bg-white p-5">
-      {/*
-        * 내려받기는 인쇄와 짝이다 (한백 지시 2026-08-30) — 왼쪽 문서 위에 인쇄가 있으면
-        * 오른쪽 문서 위에는 내려받기가 있어야 한다. 주소 뒤의 download=1 은 Blob 이
-        * content-disposition: attachment 로 돌려주는 자리다(2026-08-30 확인) — 새 창으로
-        * 열리는 것과 파일로 받는 것을 가른다.
-        */}
-      <div className="mb-3 flex items-center justify-between gap-2">
-        <h2 className="text-base font-black tracking-[-0.02em] text-slate-900">세금계산서</h2>
-        {invoice && (
-          <BtnLink kind="side" size="md" href={`${invoice.blobUrl}?download=1`}>
-            내려받기
-          </BtnLink>
-        )}
-      </div>
+    /*
+     * ★왼쪽 거래명세서와 같은 껍데기★ (한백 지시 2026-08-30) — 제목·곁말·단추가 같은 자리에
+     * 선다. 내려받기는 인쇄와 짝이다: 주소 뒤의 download=1 이 Blob 에서
+     * content-disposition: attachment 로 오는 것을 확인했다(새 창으로 열리는 것과 파일로
+     * 받는 것을 가른다).
+     */
+    <PaperPanel
+      title="세금계산서"
+      meta={invoice ? (
+        <p className="text-right text-small leading-relaxed text-slate-600">
+          <span className="font-bold text-slate-400">첨부</span>{' '}
+          <span className="font-bold tabular-nums text-slate-900">{invoice.uploadedAt}</span>
+        </p>
+      ) : undefined}
+      action={invoice ? (
+        <BtnLink kind="side" size="md" href={`${invoice.blobUrl}?download=1`}>내려받기</BtnLink>
+      ) : undefined}
+    >
+      <div className="mt-4">
 
       {/*
         * ★붙은 계산서는 크게 보인다★ (한백 지시 2026-08-30). 파일 이름만 적어 두면 눌러서
@@ -524,7 +566,7 @@ function InvoiceCard({
         </label>
       ) : (
         <div className="flex flex-col gap-3">
-          {/* 미리보기가 위에 있으니 이 줄은 「무엇을·언제」만 말한다 */}
+          {/* 미리보기가 위에 있고 첨부일은 머리에 있으니, 이 줄은 파일 이름만 말한다 */}
           <p className="flex flex-wrap items-baseline gap-2">
             <a
               href={invoice.blobUrl}
@@ -534,7 +576,6 @@ function InvoiceCard({
             >
               {invoice.filename}
             </a>
-            <span className="text-tiny text-slate-400">첨부 {invoice.uploadedAt}</span>
           </p>
 
           {/* 바꾸고 지우는 줄은 바꿀 수 있을 때만 — 확정된 뒤에는 낸 것만 보인다 */}
@@ -554,7 +595,8 @@ function InvoiceCard({
           )}
         </div>
       )}
-    </section>
+      </div>
+    </PaperPanel>
   );
 }
 

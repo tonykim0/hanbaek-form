@@ -200,6 +200,11 @@ export interface AttachUploadItemsResult {
 /**
  * 통합 PDF 분할을 포함한 업로드 항목 목록 생성.
  */
+/** 확장자를 뗀 파일 이름 — 기타의 제목 자리에 쓴다 */
+function stemOf(name: string): string {
+  return name.replace(/\.[^.]+$/, '').trim();
+}
+
 export async function buildUploadItems(
   files: NormalizedFile[],
   metadata: ExtractedMetadata | null
@@ -217,7 +222,8 @@ export async function buildUploadItems(
         originalName: file.name,
         category,
         standardName: metadata?.현장명
-          ? buildStandardName(metadata.현장명, category, ext)
+          /* 기타로 떨어지면 원본 이름이 곧 제목이다 — 통과 파일은 잘린 조각이 아니다 */
+          ? buildStandardName(metadata.현장명, category, ext, stemOf(normalName))
           : file.name,
         buffer: file.buffer,
         contentType: file.mimeType,
@@ -240,7 +246,12 @@ export async function buildUploadItems(
         originalName: file.name,
         category,
         standardName: metadata?.현장명
-          ? buildStandardName(metadata.현장명, category)
+          /*
+           * 기타일 때만 쓰인다(buildStandardName). 판독이 읽은 제목이 먼저고, 없으면
+           * 원본 파일명이다 — 이름 규칙만으로 온 파일에는 판독 제목이 아예 없다.
+           */
+          ? buildStandardName(metadata.현장명, category, 'pdf',
+              matchedInfos[0]?.title ?? stemOf(normalName))
           : file.name,
         buffer: file.buffer,
       });
@@ -261,7 +272,11 @@ export async function buildUploadItems(
           originalName: file.name,
           category: info.category,
           standardName: metadata?.현장명
-            ? buildStandardName(metadata.현장명, info.category)
+            /*
+             * 조각에는 원본 파일명을 쓸 수 없다 — 「스캔본.pdf」의 5~7쪽이라 이름이
+             * 조각을 가리키지 못한다. 판독이 읽은 제목만이 이 자리를 말할 수 있다.
+             */
+            ? buildStandardName(metadata.현장명, info.category, 'pdf', info.title)
             : file.name,
           buffer,
         });

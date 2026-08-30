@@ -146,11 +146,20 @@ function sha256(buffer: Buffer): string {
 /**
  * 표준 파일명 생성: {현장명}_{카테고리}.{ext}
  * 파일명에 허용되지 않는 문자는 '_'로 대체. ext 기본값은 pdf.
+ *
+ * ★「기타」만 제목을 뒤에 붙인다 (한백 지적 2026-08-31).★ 나머지 스무 카테고리는 이름이
+ * 곧 그 서류가 무엇인지를 말하지만, 기타는 「위 스무 개가 아니다」는 말뿐이라 무슨 서류인지
+ * 이름에서 사라졌다 — 통합 PDF 에서 잘려 나온 조각은 원본 파일명조차 없어서, 열어 보기
+ * 전에는 알 길이 없었다. 그래서 판독기가 읽은 문서 제목을 이름에 싣는다:
+ *   {현장명}_기타_전기차 등록대수 확인 공문.pdf
+ * 제목이 없으면(판독 실패·이름 규칙만으로 온 파일) 그냥 「기타」다 — 없는 것을 지어내지 않는다.
  */
 export function buildStandardName(
   현장명: string,
   category: string,
-  ext: string = 'pdf'
+  ext: string = 'pdf',
+  /** 문서에 적힌 제목 — 기타일 때만 쓴다 */
+  title?: string | null
 ): string {
   // 파일명용 카테고리 줄임말
   const categoryShort: Record<string, string> = {
@@ -177,6 +186,15 @@ export function buildStandardName(
 
   const catShort = categoryShort[category] ?? '기타';
   // Windows/macOS 파일명 금지 문자 제거
-  const safeName = 현장명.replace(/[<>:"/\\|?*\x00-\x1f]/g, '_').trim();
-  return `${safeName}_${catShort}.${ext}`;
+  const clean = (v: string) => v.replace(/[<>:"/\\|?*\x00-\x1f]/g, '_').trim();
+  const safeName = clean(현장명);
+  /*
+   * 제목은 기타에만, 그리고 길이를 자른다 — 공문 제목이 한 문장인 일이 있어서
+   * 그대로 붙이면 파일명이 화면 밖으로 나간다. 자를 때는 말줄임을 넣지 않는다(파일명이다).
+   */
+  const tail = catShort === '기타' && title?.trim()
+    /* 공백 접기가 먼저다 — 뒤에 하면 줄바꿈이 금지 문자로 잡혀 「협조_요청」이 된다 */
+    ? `_${clean(title.replace(/\s+/g, ' ')).slice(0, 40)}`
+    : '';
+  return `${safeName}_${catShort}${tail}.${ext}`;
 }

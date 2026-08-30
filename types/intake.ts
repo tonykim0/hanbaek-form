@@ -56,6 +56,14 @@ export interface ClassifiedFileInfo {
   category: FileCategory;
   date: string; // YYYYMMDD
   pages?: number[]; // 통합 PDF 분할용 페이지 번호 (1-based)
+  /**
+   * 문서에 적힌 제목 — ★「기타」가 무슨 서류인지 말하는 유일한 자리다★ (2026-08-31).
+   * 스무 카테고리는 이름이 곧 내용이지만 기타는 「그 스무 개가 아니다」는 말뿐이고,
+   * 통합 PDF 에서 잘려 나온 조각은 원본 파일명도 없다. 판독기가 이미 문서를 읽고
+   * 있으므로 제목을 같이 받아 파일명에 싣는다(buildStandardName).
+   * 판독이 실패했거나 이름 규칙만으로 분류된 파일에는 없다.
+   */
+  title?: string | null;
 }
 
 // Claude가 반환하는 전체 추출 결과

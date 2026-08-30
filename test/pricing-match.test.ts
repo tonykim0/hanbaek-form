@@ -6,7 +6,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { checkPricingRule, matchingRules, pricingRuleId } from '@/lib/pricing-match';
-import { replLabel, SPLITS_SELF_REPL } from '@/types/project';
+import { powerTypesOfRepl, replLabel, SPLITS_SELF_REPL } from '@/types/project';
 import type { NewPricingRule, PricingRule } from '@/types/project';
 
 const 케이스 = (o: Partial<PricingRule>): PricingRule => ({
@@ -88,6 +88,25 @@ describe('checkPricingRule — 저장 전 검산', () => {
   it('연동은 모자분리 전제다 — 한전불입 연동은 설 자리가 없다', () => {
     expect(checkPricingRule(새케이스({ replType: '연동', bizType: '연동', powerType: '한전불입' })).join())
       .toMatch(/모자분리/);
+  });
+
+  /* 한전불입금은 보조사업에서 운영사가 대주는 돈이다 — 제 돈으로 까는 투자사업에는
+     그 자리가 없고, 해주는 운영사도 없다(한백 2026-08-30) */
+  it.each(['자체투자 (제자리교체)', '자체투자 (신규위치)'] as const)(
+    '%s 도 모자분리만이다 — 한전불입을 해주는 운영사가 없다',
+    (replType) => {
+      expect(checkPricingRule(새케이스({ replType, bizType: '자체투자', powerType: '한전불입' })).join())
+        .toMatch(/모자분리/);
+      expect(checkPricingRule(새케이스({ replType, bizType: '자체투자', powerType: '모자분리' })))
+        .toEqual([]);
+    }
+  );
+
+  it('한전불입이 붙는 것은 환경부 신규뿐이다', () => {
+    expect(powerTypesOfRepl('환경부 신규')).toContain('한전불입');
+    for (const r of ['자체투자 (제자리교체)', '자체투자 (신규위치)', '연동'] as const) {
+      expect(powerTypesOfRepl(r)).toEqual(['모자분리']);
+    }
   });
 
   it('기성 단계 합이 받는 단가와 다르면 막는다', () => {

@@ -370,7 +370,8 @@ export function IntakeTab({
                          * 확정하는 자리에만 두라고 한다 — 여기는 상태이고, 반려 확정 단추가
                          * 그 짙은 빨강을 쓴다. 톤은 components/ui.tsx 의 stop·warn·ok 와 같다.
                          */
-                        className={`flex flex-col rounded-box border p-2.5 ${
+                        /* relative — 끌어다 놓는 덮개가 이 칸을 덮는다(DocFiles 의 DocUpload) */
+                        className={`relative flex flex-col rounded-box border p-2.5 ${
                           rejected
                             ? 'border-amber-300 bg-amber-50'
                             : doc?.blobUrl || doc?.status === 'uploaded' || doc?.status === 'approved'

@@ -91,7 +91,8 @@ export function PreInstall({
           const doc = byKind.get(d.key);
           const st = docState(doc, d.req);
           return (
-            <div key={d.key} className="flex flex-col rounded-box border border-slate-200 p-2.5">
+            /* relative — 끌어다 놓는 덮개가 이 칸을 덮는다(DocFiles 의 DocUpload) */
+            <div key={d.key} className="relative flex flex-col rounded-box border border-slate-200 p-2.5">
               <div className="flex items-start justify-between gap-2">
                 <p className="break-keep text-small font-bold leading-snug text-slate-800">
                   {d.label}

@@ -56,12 +56,27 @@ function onWindowDragEnd() {
   setDragging(false);
 }
 
+/**
+ * 빗맞힌 드롭을 삼킨다 (2026-08-30).
+ *
+ * ★놓을 자리를 빗나가면 브라우저가 그 파일을 열어 버린다★ — 작업하던 화면이 통째로
+ * 사라지고, 올리던 것도 잃는다. 칸 전체를 드롭 자리로 넓혀도 칸과 칸 사이·머리말 위는
+ * 남으므로, 창 밖에서 기본 동작을 막는다. 우리 칸에 놓은 것은 그 자리의 처리기가 먼저
+ * 받아 올리므로 영향이 없다.
+ */
+function swallowStrayDrop(e: DragEvent) {
+  // 파일을 끌고 있을 때만 — 글자 끌기·링크 끌기까지 막지 않는다
+  if (e.dataTransfer?.types?.includes('Files')) e.preventDefault();
+}
+
 function subscribeDrag(cb: () => void): () => void {
   if (dragSubs.size === 0) {
     window.addEventListener('dragenter', onWindowDragEnter);
     window.addEventListener('dragleave', onWindowDragLeave);
     window.addEventListener('drop', onWindowDragEnd);
     window.addEventListener('dragend', onWindowDragEnd);
+    window.addEventListener('dragover', swallowStrayDrop);
+    window.addEventListener('drop', swallowStrayDrop);
   }
   dragSubs.add(cb);
   return () => {
@@ -71,6 +86,8 @@ function subscribeDrag(cb: () => void): () => void {
       window.removeEventListener('dragleave', onWindowDragLeave);
       window.removeEventListener('drop', onWindowDragEnd);
       window.removeEventListener('dragend', onWindowDragEnd);
+      window.removeEventListener('dragover', swallowStrayDrop);
+      window.removeEventListener('drop', swallowStrayDrop);
       onWindowDragEnd();
     }
   };
@@ -546,44 +563,61 @@ export function DocUpload({
   }
 
   /*
-   * 파일을 끌고 들어오면 단추가 드롭 자리로 넓어진다 — 작은 단추에 조준해 놓기는 어렵다.
-   * 올리는 중에는 넓히지 않는다(진행률이 자리를 옮기면 어디를 보는지 잃는다).
+   * 파일을 끌고 들어오면 ★칸 전체★가 드롭 자리가 된다 (한백 지시 2026-08-30).
+   *
+   * 예전에는 단추만 넓어졌다 — 카드 아래쪽 한 줄이라, 카드 어디에 놓아도 되는 줄 알고
+   * 제목이나 파일 목록 위에 놓으면 브라우저가 그 파일을 새 탭으로 열어 버렸다(작업하던
+   * 화면이 사라진다). 칸을 덮는 자리를 띄운다: 조준할 것이 없어진다.
+   *
+   * 덮개는 ★끌고 있을 때만★ 뜬다 — 평소에 깔려 있으면 카드 안의 링크·단추를 다 가린다.
+   * 올리는 중에는 안 띄운다(진행률이 보여야 한다).
+   *
+   * 자리를 잡으려면 카드에 relative 가 있어야 한다 — 부르는 세 곳(계약 서류·기설치·공정
+   * 서류)이 그렇게 두고 있다.
    */
   const dropOpen = filesInFlight && !busy;
+  const catchDrag = {
+    onDragEnter: (e: React.DragEvent) => { e.preventDefault(); setOver(true); },
+    onDragOver: (e: React.DragEvent) => { e.preventDefault(); setOver(true); },
+    onDragLeave: (e: React.DragEvent) => {
+      // 자식으로 들어간 것은 떠난 것이 아니다 — 안 걸러내면 깜빡인다
+      if (e.currentTarget.contains(e.relatedTarget as Node | null)) return;
+      setOver(false);
+    },
+    onDrop,
+  };
 
   /* 자리(여백)는 부르는 쪽이 정한다 — 카드의 조작 줄에 다른 단추와 나란히 선다 */
   return (
     <div>
+      {dropOpen && (
+        <label
+          {...catchDrag}
+          className={`absolute inset-0 z-10 flex cursor-pointer items-center justify-center rounded-box border-2 border-dashed text-tiny font-bold transition ${
+            over
+              ? 'border-brand-500 bg-brand-50/95 text-brand-800'
+              : 'border-slate-300 bg-white/90 text-slate-500'
+          }`}
+        >
+          여기에 놓기
+          <input type="file" multiple className="hidden" onChange={onPick} disabled={busy} />
+        </label>
+      )}
       <label
-        onDragEnter={(e) => { e.preventDefault(); setOver(true); }}
-        onDragOver={(e) => { e.preventDefault(); setOver(true); }}
-        onDragLeave={(e) => {
-          // 자식으로 들어간 것은 떠난 것이 아니다 — 안 걸러내면 깜빡인다
-          if (e.currentTarget.contains(e.relatedTarget as Node | null)) return;
-          setOver(false);
-        }}
-        onDrop={onDrop}
-        className={`inline-flex cursor-pointer items-center rounded-ctl text-tiny font-bold transition ${
-          dropOpen
-            ? `w-full justify-center border border-dashed px-2 py-2 ${
-              over ? 'border-brand-500 bg-brand-50 text-brand-800' : 'border-slate-300 bg-white text-slate-500'
-            }`
-            : `px-2 py-1 ${
-              rejected
-                ? 'bg-brand-600 text-white hover:bg-brand-700'
-                : 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
-            }`
+        {...catchDrag}
+        className={`inline-flex cursor-pointer items-center rounded-ctl px-2 py-1 text-tiny font-bold transition ${
+          rejected
+            ? 'bg-brand-600 text-white hover:bg-brand-700'
+            : 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
         } ${busy ? 'pointer-events-none opacity-60' : ''}`}
       >
         {busy
           ? `${queue && queue.total > 1 ? `${queue.done + 1}/${queue.total} · ` : ''}업로드 중 ${pct}%`
-          : dropOpen
-            ? '여기에 놓기'
-            /*
-              * 이미 파일이 있으면 「추가」다 — 예전에는 「바꾸기」였고 실제로 갈아치웠다.
-              * 지금은 쌓이므로(migrations/0021) 바꾸기라고 적으면 앞 파일이 사라진다고 읽힌다.
-              */
-            : rejected && hasFile ? '다시 업로드' : hasFile ? '파일 추가' : '파일 업로드'}
+          /*
+            * 이미 파일이 있으면 「추가」다 — 예전에는 「바꾸기」였고 실제로 갈아치웠다.
+            * 지금은 쌓이므로(migrations/0021) 바꾸기라고 적으면 앞 파일이 사라진다고 읽힌다.
+            */
+          : rejected && hasFile ? '다시 업로드' : hasFile ? '파일 추가' : '파일 업로드'}
         <input type="file" multiple className="hidden" onChange={onPick} disabled={busy} />
       </label>
       <Err className="mt-1 block">{error}</Err>

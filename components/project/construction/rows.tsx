@@ -245,7 +245,8 @@ export function DocRow({
      * 넓은 화면에서 이름과 버튼이 양쪽 끝에 떨어져 있었다(한백 지적). 되돌리기 어려운
      * 삭제만 끝으로 민다(화면 규칙 8).
      */
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3.5 py-2 text-base">
+    /* relative — 끌어다 놓는 덮개가 이 줄을 덮는다(DocFiles 의 DocUpload) */
+    <div className="relative flex flex-wrap items-center gap-x-3 gap-y-1 px-3.5 py-2 text-base">
       <span className="w-32 shrink-0 text-slate-500">{spec.name}</span>
       <span className={`text-tiny font-black ${done ? 'text-brand-700' : 'text-slate-400'}`}>
         {done ? '제출됨' : '대기'}

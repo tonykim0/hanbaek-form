@@ -247,26 +247,26 @@ function FileRow({
         <Btn size="sm" kind="quiet" busy={busy} busyLabel="받는 중" onClick={download} className="shrink-0">
           받기
         </Btn>
-        {/* 빼기는 되돌릴 수 없어 글자 단추다 — 받기(칩)와 모양으로 갈린다(화면 규칙 12) */}
+        {/* 삭제는 되돌릴 수 없어 글자 단추다 — 받기(칩)와 모양으로 갈린다(화면 규칙 12) */}
         {canRemove && projectId && (
           <>
             <Btn
               size="sm"
               kind="undo"
               busy={remove.busy}
-              busyLabel="빼는 중"
+              busyLabel="삭제 중"
               className="shrink-0"
               onClick={() => setAsking(true)}
             >
-              빼기
+              삭제
             </Btn>
             <Confirm
               open={asking}
-              title={`「${file.name}」을 뺍니다.`}
+              title={`「${file.name}」을 삭제합니다.`}
               detail="파일도 함께 사라지고 되돌릴 수 없습니다."
-              confirmLabel="예, 뺍니다"
+              confirmLabel="예, 삭제합니다"
               busy={remove.busy}
-              busyLabel="빼는 중…"
+              busyLabel="삭제 중…"
               error={remove.error}
               onCancel={() => setAsking(false)}
               onConfirm={() => {
@@ -315,7 +315,7 @@ export function DocDelete({
     const ok = await run({
       url: `/api/projects/${projectId}/documents/${kind}`,
       method: 'DELETE',
-      fail: '지우지 못했습니다.',
+      fail: '삭제하지 못했습니다.',
     });
     if (ok) setAsking(false);
   }
@@ -323,17 +323,17 @@ export function DocDelete({
   /* 실패 문구는 누른 단추 아래에 붙는다(화면 규칙 9) — 줄에 세워도 흐트러지지 않게 한 겹으로 */
   return (
     <div className="flex flex-col items-end">
-      <Btn kind="undo" size="sm" busy={busy} busyLabel="지우는 중…" onClick={() => setAsking(true)}>
+      <Btn kind="undo" size="sm" busy={busy} busyLabel="삭제 중…" onClick={() => setAsking(true)}>
         삭제
       </Btn>
       <Err>{error}</Err>
       <Confirm
         open={asking}
-        title={`「${label}」 칸을 지웁니다.`}
+        title={`「${label}」 칸을 삭제합니다.`}
         detail={`${what}도 함께 사라지고 되돌릴 수 없습니다.`}
-        confirmLabel="예, 지웁니다"
+        confirmLabel="예, 삭제합니다"
         busy={busy}
-        busyLabel="지우는 중…"
+        busyLabel="삭제 중…"
         error={error}
         onConfirm={() => void remove()}
         onCancel={() => setAsking(false)}

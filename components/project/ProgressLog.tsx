@@ -129,7 +129,7 @@ function NoteItem({
 }) {
   const { busy, busyKey, error, setError, run } = useAction();
   const [editing, setEditing] = useState(false);
-  /** 지우기는 한 번 더 묻는다 — 되돌릴 수 없다 */
+  /** 삭제는 한 번 더 묻는다 — 되돌릴 수 없다 */
   const [asking, setAsking] = useState(false);
   const [body, setBody] = useState(note.body);
 
@@ -164,47 +164,52 @@ function NoteItem({
         byHanbaek ? 'border-l-slate-800' : 'border-l-brand-500'
       }`}
     >
-      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-        <span
-          className={`shrink-0 rounded-tag px-1.5 py-0.5 text-micro font-black ${
-            byHanbaek ? 'bg-slate-900 text-white' : 'bg-brand-100 text-brand-900'
-          }`}
-        >
-          {note.author}
-        </span>
-        <span className="shrink-0 text-tiny tabular-nums text-slate-400">{note.at}</span>
-        {note.editedAt && (
-          <span className="shrink-0 text-tiny text-slate-400" title={`${note.editedAt} 에 고침`}>
-            수정됨
+      {/*
+        * ★한 줄로 못 박는다★ (한백 지적 2026-08-30 「메모가 남겨지면 UI 도 너무 구려」).
+        * flex-wrap 줄에 flex-1 빈 칸을 끼워 두었더니, 좁은 자리(현장 상세의 아래 단)에서
+        * 그 빈 칸이 첫 줄을 다 먹고 단추가 한 줄에 하나씩 떨어져 ★넉 줄★이 됐다:
+        *   한백 / 2026-08-30 17:07 / 수정 / 삭제
+        * 접히지 않게 두 덩이로 나눈다 — 왼쪽(누가·언제)은 줄어들고 오른쪽(동작)은 안 줄어든다.
+        */}
+      <div className="flex items-center justify-between gap-2">
+        <span className="flex min-w-0 items-baseline gap-2 overflow-hidden">
+          <span
+            className={`shrink-0 rounded-tag px-1.5 py-0.5 text-micro font-black ${
+              byHanbaek ? 'bg-slate-900 text-white' : 'bg-brand-100 text-brand-900'
+            }`}
+          >
+            {note.author}
           </span>
-        )}
-        <span className="flex-1" />
+          <span className="shrink-0 text-tiny tabular-nums text-slate-400">{note.at}</span>
+          {note.editedAt && (
+            <span className="shrink-0 text-tiny text-slate-400" title={`${note.editedAt} 에 고침`}>
+              수정됨
+            </span>
+          )}
+        </span>
+        <span className="flex shrink-0 items-center gap-1">
         {mine && !editing && !asking && (
           <>
-            <Btn
-              size="sm"
-              kind="quiet"
-              className="shrink-0"
-              onClick={() => { setBody(note.body); setEditing(true); }}
-            >
+            <Btn size="sm" kind="quiet" onClick={() => { setBody(note.body); setEditing(true); }}>
               수정
             </Btn>
             {/* 되돌릴 수 없는 쪽은 글자 단추로 끝에 — 자주 누르는 것과 붙여 두지 않는다(화면 규칙 8) */}
-            <Btn size="sm" kind="undo" className="shrink-0" onClick={() => setAsking(true)}>
-              지우기
+            <Btn size="sm" kind="undo" onClick={() => setAsking(true)}>
+              삭제
             </Btn>
           </>
         )}
         {asking && (
-          <span className="flex shrink-0 items-center gap-1.5">
-            <Btn size="sm" kind="undo" busy={busyKey === 'del'} busyLabel="지우는 중…" onClick={remove}>
-              지웁니다
+          <>
+            <Btn size="sm" kind="undo" busy={busyKey === 'del'} busyLabel="삭제 중…" onClick={remove}>
+              삭제합니다
             </Btn>
             <Btn size="sm" kind="quiet" disabled={busy} onClick={() => { setAsking(false); setError(null); }}>
-              그만
+              취소
             </Btn>
-          </span>
+          </>
         )}
+        </span>
       </div>
       {asking && <Err className="mt-1 block">{error}</Err>}
 

@@ -192,7 +192,7 @@ export default function ReceivableBoard({ rows }: { rows: SettlementSummary[] })
             onClick={() => { setQ(''); setFlags([]); setCpos([]); }}
             className="rounded-ctl px-2.5 py-2 text-small font-semibold text-slate-500 transition hover:text-slate-800"
           >
-            지우기
+            초기화
           </button>
         )}
         <p className="ml-auto text-small font-semibold text-slate-500">

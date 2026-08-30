@@ -889,7 +889,7 @@ function AdjustBox({
 }) {
   const { busy, busyKey, error, run } = useAction();
   const [open, setOpen] = useState(false);
-  /** 지우기는 대화상자로 묻는다 — 되돌릴 수 없다 */
+  /** 삭제는 대화상자로 묻는다 — 되돌릴 수 없다 */
   const [killing, setKilling] = useState<PayoutEntry | null>(null);
   const [category, setCategory] = useState<PayoutCategory>('차감');
   const [kind, setKind] = useState<PayoutKind>(kinds[0] ?? '영업비');
@@ -931,7 +931,7 @@ function AdjustBox({
 
   const save = async () => {
     const ok = await run({
-      /* 줄마다 지우기가 도니 무엇이 도는 중인지 열쇠로 가른다 — 안 주면 단추가 다 같이 돈다 */
+      /* 줄마다 삭제가 도니 무엇이 도는 중인지 열쇠로 가른다 — 안 주면 단추가 다 같이 돈다 */
       key: 'save',
       url: `/api/projects/${projectId}/payouts`,
       // 배열이면 한 트랜잭션이다 — 추가공사비의 두 줄이 반쪽만 남으면 안 된다
@@ -998,7 +998,7 @@ function AdjustBox({
                   </td>
                   {canReview && (
                     <td className="whitespace-nowrap px-3 py-2 text-right">
-                      <Btn size="sm" kind="quiet" disabled={busy} onClick={() => setKilling(e)}>지우기</Btn>
+                      <Btn size="sm" kind="quiet" disabled={busy} onClick={() => setKilling(e)}>삭제</Btn>
                     </td>
                   )}
                 </tr>
@@ -1106,10 +1106,10 @@ function AdjustBox({
       <Confirm
         open={killing !== null}
         title={killing
-          ? `${killing.kind} ${killing.category} ${killing.amount < 0 ? '−' : '+'}${won(Math.abs(killing.amount))}원을 지웁니다`
+          ? `${killing.kind} ${killing.category} ${killing.amount < 0 ? '−' : '+'}${won(Math.abs(killing.amount))}원을 삭제합니다`
           : ''}
         detail="총 지급액과 1·2차 회차 금액이 다시 계산됩니다. 고치려면 지운 뒤 다시 적으세요."
-        confirmLabel="지웁니다"
+        confirmLabel="예, 삭제합니다"
         busy={busyKey === killing?.id}
         busyLabel="지우는 중…"
         error={error}
@@ -1217,7 +1217,7 @@ function PayNoteBox({
                   onClick={() => void saveAll(entries.filter((_, j) => j !== i))}
                   className="ml-auto shrink-0 text-micro font-bold text-slate-300 transition hover:text-red-700 disabled:opacity-40"
                 >
-                  지우기
+                  삭제
                 </button>
               )}
             </li>

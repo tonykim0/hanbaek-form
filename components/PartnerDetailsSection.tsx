@@ -518,11 +518,11 @@ function FileFact({
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({ userId: account.id, kind }),
                 },
-                '지우지 못했습니다.'
+                '삭제하지 못했습니다.'
               )}
               className="text-tiny font-bold text-slate-400 transition hover:text-red-700 disabled:opacity-40"
             >
-              지우기
+              삭제
             </button>
           </>
         ) : (

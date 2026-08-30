@@ -475,8 +475,16 @@ function SiteHeader({
         {/* 삭제는 반대쪽 끝 — 자주 누르는 것과 붙여 두지 않는다(화면 규칙 8) */}
         {canReview && <DeleteProject projectId={project.id} name={project.name} />}
       </div>
-      <div ref={titleRef}>
+      {/*
+        * ★멈춘 사정은 현장명 옆에 붙는다★ (한백 지시 2026-08-30). 아래 승인 흐름 밑에
+        * 떨어져 있어서, 이름을 읽고 정보 네 줄을 지나야 「반려 2건」이 보였다 — 그것이
+        * 이 현장에서 가장 먼저 알아야 하는 말인데 가장 늦게 읽혔다.
+        */}
+      <div ref={titleRef} className="flex flex-wrap items-center gap-x-2 gap-y-1">
         <NameTitle projectId={project.id} name={project.name} canEdit={canReview} />
+        {blockers.map((b) => (
+          <Tag key={b.label} tone={b.tone}>{b.label}</Tag>
+        ))}
       </div>
       {project.addr && <p className="mt-1 text-base text-slate-500">{project.addr}</p>}
 
@@ -547,13 +555,6 @@ function SiteHeader({
         canReview={canReview}
       />
 
-      {blockers.length > 0 && (
-        <div className="mt-3 flex flex-wrap gap-1.5">
-          {blockers.map((b) => (
-            <Tag key={b.label} tone={b.tone}>{b.label}</Tag>
-          ))}
-        </div>
-      )}
       </div>
 
       <div className="mt-5 min-w-0 border-t border-slate-100 pt-4">
@@ -625,20 +626,23 @@ function ApprovalFacts({
         * 제 줄을 통째로 쓴다 (한백 2026-08-27) — 라벨이 길어 옆 칸을 밀고, 이것만
         * 여부이고 나머지는 값이다.
         */}
+    {/*
+      * ★셋이 한 줄이다★ (한백 지시 2026-08-30). 제출 여부만 제 줄을 통째로 쓰고 있었는데
+      * (2026-08-27 판단: 라벨이 길고 이것만 여부라서), 그 아래 두 칸과 떨어져 있으니
+      * 승인 흐름이 두 층으로 보였다. 셋 다 「운영사에 내고 → 번호 받고 → 승인 났나」의
+      * 한 흐름이라 같은 줄에 선다.
+      */}
+    <dl className={FACT_GRID}>
       {edit === 'all' && (
-        <dl className={FACT_GRID}>
-          <div className="min-w-0">
-            <dt className="text-tiny font-bold tracking-[0.04em] text-slate-400">운영사 계약서 제출</dt>
-            <dd className={`mt-0.5 break-keep font-bold ${cpoSubmitted ? 'text-slate-800' : 'text-amber-700'}`}>
-              {cpoSubmitted
-                ? process.cpoSubmitDate ? `제출됨 · ${process.cpoSubmitDate}` : '제출됨'
-                : '미제출'}
-            </dd>
-          </div>
-        </dl>
+        <div className="min-w-0">
+          <dt className="text-tiny font-bold tracking-[0.04em] text-slate-400">운영사 계약서 제출</dt>
+          <dd className={`mt-0.5 break-keep font-bold ${cpoSubmitted ? 'text-slate-800' : 'text-amber-700'}`}>
+            {cpoSubmitted
+              ? process.cpoSubmitDate ? `제출됨 · ${process.cpoSubmitDate}` : '제출됨'
+              : '미제출'}
+          </dd>
+        </div>
       )}
-
-    <dl className={`${edit === 'all' ? 'mt-4' : ''} ${FACT_GRID}`}>
       <EditableFact
         label="환경부 대기번호"
         value={envQueueNo}

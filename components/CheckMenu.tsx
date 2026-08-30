@@ -116,7 +116,7 @@ export default function CheckMenu({
               onClick={() => { onChange([]); setOpen(false); }}
               className="mt-1 w-full rounded-ctl border-t border-slate-100 px-2 py-1.5 text-tiny font-bold text-slate-400 transition hover:text-slate-700"
             >
-              {label} 필터 지우기
+              {label} 필터 해제
             </button>
           )}
         </div>

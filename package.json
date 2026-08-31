@@ -4,6 +4,8 @@
   "version": "0.2.0",
   "scripts": {
     "dev": "next dev",
+    "predev": "node scripts/copy-pdf-worker.mjs",
+    "prebuild": "node scripts/copy-pdf-worker.mjs",
     "build": "tsx scripts/migrate.ts && next build",
     "db:migrate": "tsx scripts/migrate.ts",
     "start": "next start",
@@ -34,6 +36,7 @@
     "jszip": "^3.10.1",
     "next": "^14.2.29",
     "pdf-lib": "^1.17.1",
+    "pdfjs-dist": "^4.10.38",
     "postgres": "^3.4.9",
     "react": "^18.3.1",
     "react-day-picker": "^10.0.1",

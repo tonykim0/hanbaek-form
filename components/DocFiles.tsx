@@ -7,9 +7,10 @@
  * 다운로드는 받아서 「현장명_서류명」으로 이름을 바꿔 저장한다 —
  * Blob 에 저장된 이름은 중복 회피용 접미사가 붙어 있어 그대로 주면 알아보기 어렵다.
  */
-import { useState, useSyncExternalStore } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLeaveGuard } from '@/lib/use-leave-guard';
+import { pdfThumb } from '@/lib/pdf-thumb';
 import { useAction } from '@/lib/use-action';
 import { Btn, Confirm, Err } from '@/components/ui';
 import JSZip from 'jszip';
@@ -214,19 +215,20 @@ function FileRow({
           * next/image 를 쓰지 않는다: 파일이 Blob(외부 호스트)에 있어 remotePatterns 설정이
           * 필요하고, 콘솔 안에서 40px 로 보여주는 데 변환을 태울 이유가 없다.
           */}
-        {isImage(file) && (
-          <a href={file.url} target="_blank" rel="noopener noreferrer" className="shrink-0" title={file.name}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={file.url}
-              alt={file.name}
-              width={40}
-              height={40}
-              loading="lazy"
-              className="h-10 w-10 rounded-ctl border border-slate-200 bg-slate-50 object-cover transition hover:border-brand-300"
-            />
-          </a>
-        )}
+        {/*
+          ★그림 자리는 줄 위가 아니라 줄 앞이다★ — 이름·받기·삭제와 같은 줄에 서면 이름이
+          설 자리를 먹는다. 폭을 못 박아(w-16) 칸마다 같은 자리에 선다.
+          이미지도 PDF 도 같은 부품이 그린다 — 예전에는 이미지만 40px 로 따로 그렸다.
+        */}
+        <a
+          href={file.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          title={file.name}
+          className="w-16 shrink-0 transition hover:opacity-80"
+        >
+          <Thumb file={file} />
+        </a>
         {/*
           * 이름이 곧 미리보기 링크다 — 그릴 수 있는 형식만. 엑셀·워드는 링크를 열면
           * 내려받기가 시작돼서 「받기」와 구분이 없어진다(그때는 글자로만 둔다).
@@ -497,6 +499,67 @@ export function DownloadAll({
  */
 const PEEK_W = 420;
 const PEEK_H = 560;
+
+
+/* ── 썸네일 ───────────────────────────────────────────────────────────────
+ * ★칸마다 첫 장을 늘 보이게 한다★ (한백 지시 2026-08-31 「썸네일로 보여줘」).
+ * 손을 올리면 뜨는 미리보기(Peek)는 한 장씩 보는 길이다 — 열여섯 칸을 한눈에 훑으려면
+ * 늘 있는 그림이어야 한다. 둘은 같이 선다: 훑는 것은 썸네일, 읽는 것은 미리보기.
+ *
+ * ★화면에 들어온 것만 굽는다.★ 계약 탭을 열자마자 열여섯 개를 구우면 그동안 화면이
+ * 얼어붙는다. 눈에 보이는 칸부터 굽고, 스크롤해서 들어오면 그때 굽는다.
+ * 한 번 구운 것은 창을 닫을 때까지 들고 있는다(lib/pdf-thumb 의 캐시).
+ *
+ * 못 구우면 아무것도 안 그린다 — 미리보기는 곁들이라 그것 때문에 칸이 깨지면 안 된다.
+ */
+function Thumb({ file }: { file: DocFile }) {
+  const [src, setSrc] = useState<string | null>(null);
+  const [seen, setSeen] = useState(false);
+  const box = useRef<HTMLSpanElement>(null);
+  const pdf = extOf(file) === 'pdf';
+
+  useEffect(() => {
+    const el = box.current;
+    if (!el || seen) return;
+    const io = new IntersectionObserver((es) => {
+      if (es.some((e) => e.isIntersecting)) { setSeen(true); io.disconnect(); }
+    }, { rootMargin: '200px' });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [seen]);
+
+  useEffect(() => {
+    if (!seen || !pdf) return;
+    let alive = true;
+    void pdfThumb(file.url).then((v) => { if (alive) setSrc(v); });
+    return () => { alive = false; };
+  }, [seen, pdf, file.url]);
+
+  /* 이미지는 구울 것이 없다 — 파일이 곧 그림이다 */
+  const show = pdf ? src : isImage(file) ? file.url : null;
+
+  return (
+    <span
+      ref={box}
+      className="block h-24 w-full overflow-hidden rounded-ctl border border-slate-200 bg-white"
+    >
+      {show ? (
+        /* eslint-disable-next-line @next/next/no-img-element */
+        <img
+          src={show}
+          alt=""
+          /* 위를 보인다 — 서류는 제목이 맨 위에 있다. 가운데를 보이면 본문만 나온다 */
+          className="h-full w-full object-cover object-top"
+        />
+      ) : (
+        /* 빈 값도 자리를 지킨다(화면 규칙 6) — 자리가 사라지면 칸 높이가 들쭉날쭉해진다 */
+        <span className="flex h-full items-center justify-center text-micro font-bold text-slate-300">
+          {pdf ? '…' : extOf(file).toUpperCase()}
+        </span>
+      )}
+    </span>
+  );
+}
 
 function Peek({ file, className, children }: {
   file: DocFile;

@@ -18,5 +18,9 @@ out/
 # 로컬 개발용 데이터 (자체 DB 정해지면 제거)
 .data/
 
+# pdf.js 일꾼 — node_modules 에서 베껴 온다(scripts/copy-pdf-worker.mjs).
+# 커밋해 두면 pdfjs-dist 를 올릴 때 판이 어긋난다.
+/public/pdf.worker.min.mjs
+
 # 다른 도구의 로컬 설정 — Authorization 헤더가 들어가는 자리가 있어 올리지 않는다
 .codex/

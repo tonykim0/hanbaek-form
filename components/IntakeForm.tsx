@@ -150,9 +150,18 @@ export default function IntakeForm({ org, isAdmin = false, knownOrgs = [] }: {
    * 나가면 올린 사람은 낸 줄 알고, 콘솔에는 아무것도 없다. 현장이 만들어진 뒤에는(madeId)
    * 묻지 않는다: 그때부터는 나가도 남는다.
    */
+  /*
+   * ★올리는 도중이 가장 아까운 순간인데 안 막혀 있었다★ (한백 지시 2026-08-31).
+   * 올려 둔 것이 있는가(staged)만 보고 있어서, ZIP 을 읽는 20~30초 동안이나 파일이
+   * 올라가는 중에는 staged 가 아직 비어 있어 그냥 나가졌다 — 도는 요청이 끊긴다.
+   * 말도 갈라 적는다: 도는 중이면 「중단됩니다」, 다 올렸으면 「사라집니다」.
+   */
+  const uploading = busy !== null || Object.keys(picking).length > 0;
   useLeaveGuard(
-    !madeId && Object.keys(staged).length > 0,
-    '올린 서류가 아직 접수되지 않았습니다. 이 페이지를 벗어나면 사라집니다 — 나가시겠습니까?'
+    !madeId && (uploading || Object.keys(staged).length > 0),
+    uploading
+      ? '서류를 올리는 중입니다. 지금 나가면 올리던 것이 중단됩니다 — 나가시겠습니까?'
+      : '올린 서류가 아직 접수되지 않았습니다. 이 페이지를 벗어나면 사라집니다 — 나가시겠습니까?'
   );
 
   /** 자동으로 채운 뒤 사람이 만진 칸을 표시에서 뺀다 */
@@ -467,31 +476,42 @@ export default function IntakeForm({ org, isAdmin = false, knownOrgs = [] }: {
   return (
     <div className="flex max-w-[880px] flex-col gap-6">
       {/*
-        * ★끌어다 놓아도 된다★ (한백 지시 2026-08-31). 이 상자는 처음부터 점선 테두리라
-        * 놓는 자리처럼 보였는데 실제로는 단추만 받았다 — 보이는 것과 되는 것이 달랐다.
+        * ★상자째로 놓는 자리이자 누르는 자리다★ (한백 지시 2026-08-31 「끌어다 놓기」 →
+        * 「클릭해서 올릴 수도 있게」). 처음부터 점선 테두리라 놓는 자리처럼 보였는데
+        * 실제로는 안쪽 단추만 받았다 — 보이는 것과 되는 것이 달랐다.
         *
-        * 서류 칸(DocFiles 의 DocUpload)과 같은 방식이다: 창 단위로 한 번 세는 드래그
-        * 신호를 같이 쓰고(useFileDragging), 끌고 있을 때만 덮개를 띄운다. 평소에 깔아
-        * 두면 안쪽 단추를 가린다. 올리는 중에는 안 띄운다 — 진행 문구가 보여야 한다.
+        * 그래서 ★상자 자체를 label 로 둔다.★ 파일 입력 하나를 상자가 물고 있으므로
+        * 어디를 눌러도 같은 창이 열린다 — 조준할 것이 없어진다(서류 칸에서 덮개를 칸
+        * 전체로 넓힌 것과 같은 이유, 2026-08-30). 안쪽 단추는 이제 label 이 아니라
+        * 그냥 보이는 것이다: label 을 겹쳐 두면 창이 두 번 열린다.
+        *
+        * 끌 때 뜨는 덮개도 label 이 아니라 div 다 — 바깥 label 이 이미 클릭을 받는다.
+        * 덮개는 끌고 있을 때만 뜬다: 평소에 깔아 두면 안쪽 글자를 가리고, 올리는 중에는
+        * 진행 문구가 보여야 한다.
         */}
-      <section
+      <label
         {...catchZip}
-        className={`relative rounded-2xl border-2 border-dashed p-5 transition ${
-          overZip ? 'border-brand-500 bg-brand-50' : 'border-brand-300 bg-brand-50/40'
-        }`}
+        className={`group relative block rounded-2xl border-2 border-dashed p-5 transition ${
+          busy ? 'cursor-default opacity-60' : 'cursor-pointer'
+        } ${overZip ? 'border-brand-500 bg-brand-50' : 'border-brand-300 bg-brand-50/40'}`}
       >
+        <input
+          type="file"
+          accept=".zip,application/zip"
+          className="hidden"
+          disabled={busy !== null}
+          onChange={pickZip}
+        />
         {zipDropOpen && (
-          <label
-            {...catchZip}
-            className={`absolute inset-0 z-10 flex cursor-pointer items-center justify-center rounded-2xl border-2 border-dashed text-small font-bold transition ${
+          <div
+            className={`absolute inset-0 z-10 flex items-center justify-center rounded-2xl border-2 border-dashed text-small font-bold transition ${
               overZip
                 ? 'border-brand-500 bg-brand-50/95 text-brand-800'
                 : 'border-slate-300 bg-white/90 text-slate-500'
             }`}
           >
             여기에 ZIP 을 놓기
-            <input type="file" accept=".zip,application/zip" className="hidden" onChange={pickZip} />
-          </label>
+          </div>
         )}
         <h2 className="text-base font-black tracking-[-0.02em] text-slate-900">
           계약서 묶음 올리기
@@ -500,26 +520,20 @@ export default function IntakeForm({ org, isAdmin = false, knownOrgs = [] }: {
           ZIP 하나를 올리면 서류가 칸별로 갈리고, 계약서에서 읽은 값으로 아래가 채워집니다.
           주소가 서류마다 어긋나지 않는지도 함께 봅니다. 채워진 값은 고칠 수 있습니다.
         </p>
-        <label
-          className={`mt-3 inline-flex cursor-pointer items-center rounded-xl bg-brand-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-brand-700 ${
-            busy ? 'pointer-events-none opacity-60' : ''
+        {/* 누르는 자리는 상자 전체다 — 이것은 「여기를 누르면 된다」를 보이는 표지다 */}
+        <span
+          className={`mt-3 inline-flex items-center rounded-xl bg-brand-600 px-4 py-2.5 text-sm font-bold text-white transition ${
+            busy ? '' : 'group-hover:bg-brand-700'
           }`}
         >
           {busy ?? 'ZIP 고르기 · 끌어다 놓기'}
-          <input
-            type="file"
-            accept=".zip,application/zip"
-            className="hidden"
-            disabled={busy !== null}
-            onChange={pickZip}
-          />
-        </label>
+        </span>
         {autoCount > 0 && (
           <p className="mt-2 text-small font-bold text-brand-800">
             {autoCount}개 칸을 자동으로 채웠습니다 · 서류 {Object.keys(staged).length}건 첨부
           </p>
         )}
-      </section>
+      </label>
 
       {notes.length > 0 && (
         <ul className="flex flex-col gap-1 rounded-xl border-l-[3px] border-amber-500 bg-amber-50/70 px-4 py-3 text-xs leading-relaxed text-amber-900">

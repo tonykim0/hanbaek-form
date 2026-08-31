@@ -9,6 +9,7 @@
  */
 import { useState, useSyncExternalStore } from 'react';
 import { useRouter } from 'next/navigation';
+import { useLeaveGuard } from '@/lib/use-leave-guard';
 import { useAction } from '@/lib/use-action';
 import { Btn, Confirm, Err } from '@/components/ui';
 import JSZip from 'jszip';
@@ -497,6 +498,14 @@ export function DocUpload({
   const filesInFlight = useFileDragging();
   /** 이 칸 위에 있는가 — 창 전체의 드래그와 달리 놓을 자리를 가리킨다 */
   const [over, setOver] = useState(false);
+
+  /*
+   * ★올리는 중에 나가려 하면 한 번 묻는다★ (한백 지시 2026-08-31). 서류를 올리는 데는
+   * 스캔본 한 묶음이 수십 초씩 걸리는데, 그 사이 메뉴를 누르면 요청이 끊기고 화면이
+   * 사라진다 — 올린 줄 알고 나갔다가 칸이 비어 있는 것을 나중에 본다.
+   * 칸이 여럿이어도 확인창은 한 번이다(lib/use-leave-guard 가 창에 한 벌로 센다).
+   */
+  useLeaveGuard(busy, '서류를 올리는 중입니다. 지금 나가면 올리던 것이 중단됩니다 — 나가시겠습니까?');
 
   async function onPick(e: React.ChangeEvent<HTMLInputElement>) {
     const picked = Array.from(e.target.files ?? []);

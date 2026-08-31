@@ -32,7 +32,7 @@ import { useRouter } from 'next/navigation';
 import { PAYOUT_KINDS, type BatchFinal, type PayoutKind } from '@/types/project';
 import { payoutReleaseOf } from '@/lib/settlement';
 import {
-  batchKey, batchStateOf, payDateChoices, workGroupOf, workOf,
+  batchKey, batchStateOf, isPayoutSubject, payDateChoices, workGroupOf, workOf,
   type PayoutRowInput, type PayoutWork, type WorkGroup,
 } from '@/lib/payout-board';
 import { DatePicker } from '@/components/DatePicker';
@@ -70,7 +70,7 @@ const GROUPS: Array<{ key: WorkGroup; hint: string }> = [
   { key: '지급 가능', hint: '조건이 다 찼다' },
   { key: '보완 필요', hint: '서류·단가가 빈다' },
   { key: '공정 대기', hint: '설치·개통을 기다린다' },
-  { key: '확정 완료', hint: '더 낼 것이 없다' },
+  { key: '지급 완료', hint: '더 낼 것이 없다' },
   /*
    * 「전체」 타일은 없다 (한백 지시 2026-08-31 「전체는 필요없어」). 네 칸이 모든 줄을
    * 이미 나눠 갖고 있어 합계일 뿐이었고, 눌러 봐야 149줄이 섞여 나올 뿐이다.
@@ -123,7 +123,8 @@ export default function PayoutWorkBoard({
   const [sort, setSort] = useState<SortKey>('ready');
   const [group, setGroup] = useState<WorkGroup>('지급 가능');
 
-  const work = useMemo(() => rows.map(workOf), [rows]);
+  // 지급이라는 것이 애초에 없는 줄은 세지 않는다 — 「낼 것이 없다」와 「다 냈다」는 다르다
+  const work = useMemo(() => rows.map(workOf).filter(isPayoutSubject), [rows]);
   /*
    * ★구분은 갈래다 — 필터가 아니다★ (한백 지시 2026-08-31).
    *

@@ -76,7 +76,13 @@ export function payoutsOfDetail(d: ProjectDetail, vis: Visibility): PayoutRowInp
  * 가능인데 다른 쪽에는 없는 줄이 생긴다.
  */
 
-export type WorkState = '지급 가능' | '조건 대기' | '확정 완료';
+/*
+ * ★「확정」은 배치 잠금 하나에만 쓴다★ (한백 물음 2026-08-31 「확정 완료는 뭐야」).
+ * 이 화면의 다른 자리에서 「확정」은 가확정 → 확정 → 지급완료로 이어지는 배치의 잠금이다.
+ * 여기 「확정 완료」는 그것과 아무 상관이 없다 — 배치를 하나도 확정하지 않아도 돈만 다
+ * 나갔으면 이 자리였다. 같은 낱말이 한 화면에서 두 뜻이면 서로 말이 안 통한다.
+ */
+export type WorkState = '지급 가능' | '조건 대기' | '지급 완료';
 
 export interface PayoutWork extends PayoutRowInput {
   state: WorkState;
@@ -101,7 +107,7 @@ export interface PayoutWork extends PayoutRowInput {
  * 판정은 막는 사유의 글에 기대지 않는다 — 서류·단가는 그 자리에서 채울 수 있는 것이고,
  * 공정 마일스톤은 시간이 와야 하는 것이다. 그 성질로 가른다.
  */
-export type WorkGroup = '지급 가능' | '보완 필요' | '공정 대기' | '확정 완료';
+export type WorkGroup = '지급 가능' | '보완 필요' | '공정 대기' | '지급 완료';
 
 /**
  * 사람이 지금 채울 수 있는 사유인가 — 서류·단가·송금 대상이 그것이다.
@@ -118,6 +124,21 @@ export function workGroupOf(w: { state: WorkState; blockers: string[] }): WorkGr
   if (w.state !== '조건 대기') return w.state;
   return w.blockers.some((b) => FILLABLE.test(b)) ? '보완 필요' : '공정 대기';
 }
+
+/**
+ * 이 줄이 지급관리의 대상인가 — ★「낼 것이 없다」와 「다 냈다」는 다른 말이다.★
+ *
+ * (한백 지적 2026-08-31 「확정완료에 이상한 데이터가 들어가 있는 듯」)
+ * 계획액이 0 이하면 `payoutStepsOf` 가 열린 회차를 안 만들고, 그러면 workOf 가
+ * 「지급 완료」로 내보낸다 — 돈이 한 푼도 안 나갔는데 완료 칸에 선다. 프로덕션에서
+ * 실제로 한 건 나왔다(인천 서구 불로삼보해피하임 · 자체투자 · 영업비 계획 0).
+ *
+ * 계획도 0이고 나간 돈도 0이면 그 현장 그 구분에는 지급이라는 것이 애초에 없다 —
+ * 규칙상 없는 것이라 「해당없음」이고(화면 규칙 10), 지급관리가 셀 줄이 아니다.
+ * ★나간 돈이 있으면 계획이 0이어도 남긴다★ — 그건 초과 지급이라 오히려 봐야 한다.
+ */
+export const isPayoutSubject = (p: { due: number; confirmed: number }) =>
+  p.due > 0 || p.confirmed !== 0;
 
 export function workOf(p: PayoutRowInput): PayoutWork {
   const steps = payoutStepsOf(p.plan, p.adjust, p.confirmed);
@@ -136,7 +157,7 @@ export function workOf(p: PayoutRowInput): PayoutWork {
     return { ...p, ...stepFields, state: '조건 대기', blockers: prerequisites, open: null };
   }
   if (!steps.open) {
-    return { ...p, ...stepFields, state: '확정 완료', blockers: [], open: null };
+    return { ...p, ...stepFields, state: '지급 완료', blockers: [], open: null };
   }
 
   const release = payoutReleaseOf(p.kind, steps.open.no, p.milestones);

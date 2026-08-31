@@ -5,7 +5,7 @@
  * 「가확정」은 지급일 전에만 뜻이 있는 신호다.
  */
 import { describe, expect, it } from 'vitest';
-import { batchKey, batchStateOf, canAttachInvoice, payDateChoices, workGroupOf } from '@/lib/payout-board';
+import { batchKey, batchStateOf, canAttachInvoice, isPayoutSubject, payDateChoices, workGroupOf } from '@/lib/payout-board';
 
 describe('batchKey — 지급처 × 구분 × 지급일', () => {
   it('세 축이 같으면 같은 배치다', () => {
@@ -142,6 +142,22 @@ describe('workGroupOf — 「조건 대기」를 둘로 가른다', () => {
 
   it('나머지 상태는 그대로 간다', () => {
     expect(workGroupOf({ state: '지급 가능', blockers: [] })).toBe('지급 가능');
-    expect(workGroupOf({ state: '확정 완료', blockers: [] })).toBe('확정 완료');
+    expect(workGroupOf({ state: '지급 완료', blockers: [] })).toBe('지급 완료');
+  });
+});
+
+describe('isPayoutSubject — 「낼 것이 없다」와 「다 냈다」를 가른다', () => {
+  it('★계획도 0, 나간 돈도 0이면 지급이라는 것이 없다★ — 완료 칸에 세우면 안 된다', () => {
+    // 자체투자 현장의 영업비가 그 자리다(프로덕션 실측: 인천 서구 불로삼보해피하임)
+    expect(isPayoutSubject({ due: 0, confirmed: 0 })).toBe(false);
+  });
+
+  it('계획이 0이어도 돈이 나갔으면 남긴다 — 초과 지급이라 오히려 봐야 한다', () => {
+    expect(isPayoutSubject({ due: 0, confirmed: 500_000 })).toBe(true);
+  });
+
+  it('낼 돈이 있으면 당연히 대상이다', () => {
+    expect(isPayoutSubject({ due: 1_500_000, confirmed: 0 })).toBe(true);
+    expect(isPayoutSubject({ due: 1_500_000, confirmed: 1_785_000 })).toBe(true);
   });
 });

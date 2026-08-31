@@ -172,9 +172,20 @@ export const STATUS_GATES: Record<ProcessStatus, StatusGate | null> = {
     !p.commDoneDate && { key: 'commDoneDate', label: '통신완료일' },
     !p.openDoneAt && { key: 'openDoneAt', label: '개통 완료 선언' },
   ]),
-  // 검토 결과 보완이 필요하다는 한백·운영사 판단 — 시공팀이 제출을 끝냈다고 선언한 뒤의 일이다
+  /*
+   * 검토 결과 보완이 필요하다는 한백의 판단.
+   *
+   * ★「준공서류 제출 완료」 선언을 요구하지 않는다★ (한백 지시 2026-08-31). 그전에는
+   * 시공사가 다 냈다고 선언해야만 반려할 수 있었다 — 잘못된 서류가 이미 올라와 있어도
+   * 선언 전에는 한백이 아무 말도 못 하고, 선언을 안 하고 두면 그대로 멈춰 있었다.
+   * ★반려는 언제든, 승인은 다 낸 뒤에★ 다 — 검수를 「예외를 걸러내는 방식」으로 둔 것과
+   * 같은 결이다(제출된 것은 기본이 통과, 문제 있는 것만 돌려보낸다).
+   *
+   * 대신 개통 조건은 지킨다 — 개통도 안 한 현장을 준공보완에 세울 이유가 없다.
+   */
   '준공보완': (p) => missing([
-    !p.completionSubmitAt && { key: 'completionSubmitAt', label: '준공서류 제출 완료' },
+    !p.commDoneDate && { key: 'commDoneDate', label: '통신완료일' },
+    !p.openDoneAt && { key: 'openDoneAt', label: '개통 완료 선언' },
   ]),
   '준공완료': null,   // 보완이 해소되었다는 판단
 };

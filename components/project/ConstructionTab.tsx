@@ -555,13 +555,18 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
                 )
               )}
 
-              {/* 준공서류 검토 판정 — 한백이 보고, 이상 없으면 준공·아니면 보완으로 */}
+              {/*
+                준공서류 검토 판정 — 한백이 보고, 이상 없으면 준공완료·아니면 보완으로.
+                ★「준공서류 제출 완료」를 기다리지 않는다★ (한백 지시 2026-08-31) —
+                서류가 올라오는 대로 반려할 수 있어야 한다. 승인만 그 선언을 요구하고,
+                못 누르는 이유는 단추 이름이 말한다.
+              */}
               {selected === '준공서류 접수/검토' &&
                 p.status === '준공서류 접수/검토' &&
-                edit === 'all' &&
-                Boolean(p.completionSubmitAt) && (
+                edit === 'all' && (
                   <CompletionReview
                     busy={busyKey === 'status' || busyKey === 'completionFix'}
+                    submitted={Boolean(p.completionSubmitAt)}
                     onApprove={() => moveStatus('준공완료')}
                     onFix={(reason) => void sendToFix(reason)}
                   />

@@ -257,3 +257,30 @@ describe('canChangeContractDocs — 운영사에 낸 뒤로 계약 서류는 잠
     expect(canChangeContractDocs('viewer', '계약완료')).toBe(false);
   });
 });
+
+/*
+ * ★반려는 언제든, 승인은 다 낸 뒤에★ (한백 지시 2026-08-31).
+ *
+ * 그전에는 준공보완에 들어가는 조건이 「준공서류 제출 완료」였다 — 잘못된 서류가 이미
+ * 올라와 있어도 시공사가 다 냈다고 선언하기 전에는 한백이 돌려보낼 수 없었고, 선언을
+ * 안 하고 두면 그대로 멈춰 있었다. 검수를 「예외를 걸러내는 방식」으로 둔 것과 어긋난다.
+ */
+describe('준공서류 반려 — 제출 완료 선언을 기다리지 않는다', () => {
+  const 개통 = { commDoneDate: 'd', openDoneAt: 'd' };
+
+  it('제출 완료 선언이 없어도 준공보완으로 내려보낼 수 있다', () => {
+    expect(canEnter('준공보완', P({ status: '준공서류 접수/검토', ...개통 }), ENV).ok).toBe(true);
+  });
+
+  /* 개통 조건까지 걷지는 않는다 — 개통도 안 한 현장을 준공보완에 세울 이유가 없다 */
+  it('개통이 안 끝났으면 준공보완도 막는다', () => {
+    const before = canEnter('준공보완', P({ status: '설치완료' }), ENV);
+    expect(before).toEqual({ ok: false, blockedBy: '통신완료일 · 개통 완료 선언' });
+  });
+
+  /* 승인 쪽은 그대로다 — 다 냈다는 선언 없이 준공으로 넘기면 빠진 서류가 묻힌다 */
+  it('준공완료로 넘기려면 준공서류 제출 완료가 있어야 한다', () => {
+    expect(advanceBlockers('준공완료', 'completionSubmitAt', P({ status: '준공서류 접수/검토' }), ENV))
+      .not.toEqual([]);
+  });
+});

@@ -170,10 +170,24 @@ export function CheckRow({
  * 보완은 사유가 필수다 — 사유 없는 보완은 시공사가 무엇을 고칠지 모른다(반려와 같은 규칙).
  * 사유는 진행현황 메모로 남는다 — 보완 전달 채널이 정해질 때까지의 자리.
  */
+/**
+ * 준공서류 검토 판정 — 한백이 본다.
+ *
+ * ★반려는 언제든, 승인은 다 낸 뒤에★ (한백 지시 2026-08-31). 그전에는 둘 다 시공사의
+ * 「준공서류 제출 완료」 선언 뒤에만 열렸다 — 잘못된 서류가 이미 올라와 있어도 선언
+ * 전에는 한백이 아무 말도 못 했고, 선언을 안 하고 두면 그대로 멈춰 있었다.
+ * 검수를 「예외를 걸러내는 방식」으로 둔 것과 같은 결이다: 제출된 것은 기본이 통과이고
+ * 문제 있는 것만 돌려보낸다 — 돌려보내는 데 「다 냈다」는 선언이 필요할 이유가 없다.
+ *
+ * 승인은 다르다. 다 냈다는 선언 없이 준공으로 넘기면 빠진 서류가 그대로 묻힌다.
+ * 못 누르는 이유는 단추 이름에 적는다(화면 규칙 3).
+ */
 export function CompletionReview({
-  busy, onApprove, onFix,
+  busy, submitted, onApprove, onFix,
 }: {
   busy: boolean;
+  /** 시공사가 「준공서류 제출 완료」를 눌렀는가 — 승인만 이것을 요구한다 */
+  submitted: boolean;
   onApprove: () => void;
   onFix: (reason: string) => void;
 }) {
@@ -211,8 +225,14 @@ export function CompletionReview({
         </div>
       ) : (
         <div className="mt-2 flex flex-wrap items-center gap-2">
-          <Btn size="sm" busy={busy} busyLabel="처리 중…" onClick={onApprove}>
-            이상 없음 — 준공으로
+          <Btn
+            size="sm"
+            busy={busy}
+            busyLabel="처리 중…"
+            disabled={!submitted}
+            onClick={onApprove}
+          >
+            {submitted ? '이상 없음 — 준공완료로' : '준공서류 제출 완료 전 — 준공 불가'}
           </Btn>
           <Btn size="sm" kind="quiet" disabled={busy} onClick={() => setFixing(true)}>
             보완 필요

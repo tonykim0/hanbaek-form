@@ -93,8 +93,14 @@ function subscribeDrag(cb: () => void): () => void {
   };
 }
 
-/** 서버 렌더에서는 늘 false — 드래그는 브라우저에서만 일어난다 */
-function useFileDragging(): boolean {
+/**
+ * 서버 렌더에서는 늘 false — 드래그는 브라우저에서만 일어난다.
+ *
+ * ★내보내는 이유★ 접수 화면의 ZIP 자리도 같은 신호를 쓴다(2026-08-31). 거기서 따로
+ * 리스너를 붙이면 창에 두 쌍이 생기고, 「빗맞힌 드롭을 삼킨다」가 두 번 돌아 어느 쪽이
+ * 먼저 막았는지에 따라 동작이 갈린다. 세는 자리는 한 곳이다.
+ */
+export function useFileDragging(): boolean {
   return useSyncExternalStore(subscribeDrag, () => dragging, () => false);
 }
 

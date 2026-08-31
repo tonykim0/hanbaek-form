@@ -36,6 +36,7 @@ import { Btn, FIELD } from '@/components/ui';
 import { Card, Field, OrgPicks, QtyGrid, Select } from './intake/parts';
 import { DocSection } from './intake/DocSection';
 import type { DocReview } from '@/types/intake-auto';
+import { useFileDragging } from '@/components/DocFiles';
 
 const CPOS: CpoName[] = ['플러그링크', '나이스인프라', '현대엔지니어링', 'SK일렉링크', '에버온'];
 const BLDG: BuildingType[] = ['공동주택', '상업시설'];
@@ -408,12 +409,90 @@ export default function IntakeForm({ org, isAdmin = false, knownOrgs = [] }: {
     }
   }
 
+  /*
+   * ZIP 을 끌어다 놓는 자리 (한백 지시 2026-08-31).
+   *
+   * ★한 개만 받는다.★ 이 화면이 하는 일은 「묶음 하나를 푸는 것」이고, 여러 개를 놓으면
+   * 어느 것을 풀었는지 말할 수 없다. 여러 개가 오면 첫 개를 쓰지 않고 그대로 알린다 —
+   * 조용히 하나만 고르면 나머지가 사라진 것을 사람이 모른다.
+   *
+   * ★ZIP 이 아니면 받지 않는다.★ 여기서 안 막으면 PDF 한 장을 놓았을 때 서버까지 갔다가
+   * 「ZIP 파일이 아닙니다」로 돌아온다 — 그 왕복이 20초다. 서류 한 장은 아래 서류 칸이
+   * 받는 자리라, 그 말을 그대로 적는다(화면 규칙 3: 막는 것을 그 자리에 적는다).
+   */
+  const [overZip, setOverZip] = useState(false);
+  const filesInFlight = useFileDragging();
+  const zipDropOpen = filesInFlight && busy === null;
+
+  const takeZip = (files: FileList | null) => {
+    const list = [...(files ?? [])];
+    if (list.length === 0) return;
+    if (list.length > 1) {
+      setError('ZIP 하나만 놓아주세요 — 여러 묶음은 한 번에 풀지 않습니다.');
+      return;
+    }
+    const f = list[0];
+    if (!/\.zip$/i.test(f.name)) {
+      setError(`${f.name} 은(는) ZIP 이 아닙니다 — 서류 한 장은 아래 서류 칸에 놓아주세요.`);
+      return;
+    }
+    void applyZip(f);
+  };
+
+  const pickZip = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    e.target.value = ''; // 같은 파일을 다시 고를 수 있게 비운다
+    takeZip(files);
+  };
+
+  const catchZip = {
+    onDragEnter: (e: React.DragEvent) => { e.preventDefault(); setOverZip(true); },
+    onDragOver: (e: React.DragEvent) => { e.preventDefault(); setOverZip(true); },
+    onDragLeave: (e: React.DragEvent) => {
+      // 자식으로 들어간 것은 떠난 것이 아니다 — 안 걸러내면 깜빡인다
+      if (e.currentTarget.contains(e.relatedTarget as Node | null)) return;
+      setOverZip(false);
+    },
+    onDrop: (e: React.DragEvent) => {
+      e.preventDefault();
+      setOverZip(false);
+      if (busy !== null) return;
+      takeZip(e.dataTransfer.files);
+    },
+  };
+
   const autoCount = auto.size;
   const issueCount = review?.findings.filter((f) => !f.ok).length ?? 0;
 
   return (
     <div className="flex max-w-[880px] flex-col gap-6">
-      <section className="rounded-2xl border-2 border-dashed border-brand-300 bg-brand-50/40 p-5">
+      {/*
+        * ★끌어다 놓아도 된다★ (한백 지시 2026-08-31). 이 상자는 처음부터 점선 테두리라
+        * 놓는 자리처럼 보였는데 실제로는 단추만 받았다 — 보이는 것과 되는 것이 달랐다.
+        *
+        * 서류 칸(DocFiles 의 DocUpload)과 같은 방식이다: 창 단위로 한 번 세는 드래그
+        * 신호를 같이 쓰고(useFileDragging), 끌고 있을 때만 덮개를 띄운다. 평소에 깔아
+        * 두면 안쪽 단추를 가린다. 올리는 중에는 안 띄운다 — 진행 문구가 보여야 한다.
+        */}
+      <section
+        {...catchZip}
+        className={`relative rounded-2xl border-2 border-dashed p-5 transition ${
+          overZip ? 'border-brand-500 bg-brand-50' : 'border-brand-300 bg-brand-50/40'
+        }`}
+      >
+        {zipDropOpen && (
+          <label
+            {...catchZip}
+            className={`absolute inset-0 z-10 flex cursor-pointer items-center justify-center rounded-2xl border-2 border-dashed text-small font-bold transition ${
+              overZip
+                ? 'border-brand-500 bg-brand-50/95 text-brand-800'
+                : 'border-slate-300 bg-white/90 text-slate-500'
+            }`}
+          >
+            여기에 ZIP 을 놓기
+            <input type="file" accept=".zip,application/zip" className="hidden" onChange={pickZip} />
+          </label>
+        )}
         <h2 className="text-base font-black tracking-[-0.02em] text-slate-900">
           계약서 묶음 올리기
         </h2>
@@ -426,17 +505,13 @@ export default function IntakeForm({ org, isAdmin = false, knownOrgs = [] }: {
             busy ? 'pointer-events-none opacity-60' : ''
           }`}
         >
-          {busy ?? 'ZIP 고르기'}
+          {busy ?? 'ZIP 고르기 · 끌어다 놓기'}
           <input
             type="file"
             accept=".zip,application/zip"
             className="hidden"
             disabled={busy !== null}
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              e.target.value = '';
-              if (f) void applyZip(f);
-            }}
+            onChange={pickZip}
           />
         </label>
         {autoCount > 0 && (

@@ -20,6 +20,7 @@ import {
   estimateQuad, flatten, orderQuad, outputSize, warpToRect, type Bitmap, type Pt,
 } from '@/lib/scanify';
 import { useFileDragging } from '@/components/DocFiles';
+import { pdfPages } from '@/lib/pdf-render';
 import { useLeaveGuard } from '@/lib/use-leave-guard';
 import { Btn, Choice, Err, PANEL } from '@/components/ui';
 
@@ -50,6 +51,34 @@ const WORK_MAX = 2000;
  */
 const asImageData = (b: Bitmap) =>
   new ImageData(new Uint8ClampedArray(b.data), b.width, b.height);
+
+/**
+ * 한 장 이상으로 읽는다 — ★PDF 면 장마다 하나씩★.
+ *
+ * ★PDF 로 감싼 사진이 실제로 온다★ (한백 지시 2026-08-31). 접수에서 잡아내는 「휴대폰
+ * 사진」의 상당수가 그 꼴이다(페이지가 용지 규격이 아니고 4:3, lib/photo-check).
+ * 그런데 고치는 화면이 PDF 를 안 받으면 ★딱지가 붙은 파일을 정작 고칠 수 없다★ —
+ * 짚기만 하고 길이 없는 자리가 된다.
+ *
+ * 이미 스캔된 PDF 를 넣어도 상관없다: 종이가 반듯하면 네 점이 가장자리에 서고 결과는
+ * 거의 그대로다. 「사진인지 아닌지」를 여기서 판정하지 않는다 — 넣은 사람이 안다.
+ */
+async function readPdf(file: File): Promise<{ shots: Shot[]; dropped: number }> {
+  const { pages, total } = await pdfPages(await file.arrayBuffer(), {
+    maxPx: WORK_MAX,
+    /* 스캔 묶음을 통째로 넣으면 수십 장을 굽다가 화면이 얼어붙는다 */
+    maxPages: 20,
+  });
+  return {
+    shots: pages.map((bmp, i) => ({
+      id: `${file.name}-${i}`,
+      name: total > 1 ? `${file.name} (${i + 1}쪽)` : file.name,
+      bmp,
+      quad: orderQuad(estimateQuad(bmp)),
+    })),
+    dropped: Math.max(0, total - pages.length),
+  };
+}
 
 async function readShot(file: File): Promise<Shot> {
   const url = URL.createObjectURL(file);
@@ -112,16 +141,29 @@ export default function PhotoScanner() {
   const shot = shots[at] ?? null;
 
   const take = useCallback(async (files: FileList | null) => {
-    const picked = [...(files ?? [])].filter((f) => f.type.startsWith('image/'));
+    const isPdf = (f: File) => f.type === 'application/pdf' || /\.pdf$/i.test(f.name);
+    const picked = [...(files ?? [])].filter((f) => f.type.startsWith('image/') || isPdf(f));
     if (picked.length === 0) {
-      setError('사진 파일(JPG·PNG·HEIC)을 넣어주세요 — PDF 는 이미 스캔본입니다.');
+      setError('사진(JPG·PNG·HEIC)이나 PDF 를 넣어주세요.');
       return;
     }
     setError(null);
-    setBusy(`사진 ${picked.length}장 읽는 중…`);
+    setBusy(`${picked.length}개 읽는 중…`);
     try {
       const read: Shot[] = [];
-      for (const f of picked) read.push(await readShot(f));
+      let dropped = 0;
+      for (const f of picked) {
+        if (isPdf(f)) {
+          const r = await readPdf(f);
+          read.push(...r.shots);
+          dropped += r.dropped;
+        } else {
+          read.push(await readShot(f));
+        }
+      }
+      if (read.length === 0) throw new Error('읽을 수 있는 장이 없습니다.');
+      /* ★자른 것은 말한다★ — 조용히 20장만 가져오면 나머지가 사라진 것을 사람이 모른다 */
+      if (dropped > 0) setError(`장이 많아 앞 20장만 가져왔습니다 — ${dropped}장은 빠졌습니다.`);
       setShots((prev) => {
         setAt(prev.length);
         return [...prev, ...read];
@@ -190,7 +232,7 @@ export default function PhotoScanner() {
       >
         <input
           type="file"
-          accept="image/*"
+          accept="image/*,application/pdf"
           multiple
           className="hidden"
           disabled={busy !== null}
@@ -206,16 +248,16 @@ export default function PhotoScanner() {
               over ? 'border-brand-500 bg-brand-50/95 text-brand-800' : 'border-slate-300 bg-white/90 text-slate-500'
             }`}
           >
-            여기에 사진을 놓기
+            여기에 사진·PDF 를 놓기
           </div>
         )}
         <h2 className="text-base font-black tracking-[-0.02em] text-slate-900">사진 넣기</h2>
         <p className="mt-0.5 text-small leading-relaxed text-slate-500">
           찍은 서류 사진을 넣으면 종이만 잘라 반듯하게 펴고, 그림자를 걷어 스캔본처럼 만듭니다.
-          여러 장을 넣으면 한 PDF 로 묶입니다.
+          ★사진으로 만든 PDF 도 됩니다★ — 장마다 갈라서 받습니다. 여러 장은 한 PDF 로 묶입니다.
         </p>
         <span className="mt-3 inline-flex items-center rounded-xl bg-brand-600 px-4 py-2.5 text-sm font-bold text-white">
-          {busy ?? '사진 고르기 · 끌어다 놓기'}
+          {busy ?? '사진·PDF 고르기 · 끌어다 놓기'}
         </span>
       </label>
       <Err className="block">{error}</Err>

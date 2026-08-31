@@ -10,7 +10,7 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLeaveGuard } from '@/lib/use-leave-guard';
-import { pdfThumb } from '@/lib/pdf-thumb';
+import { pdfThumb } from '@/lib/pdf-render';
 import { useAction } from '@/lib/use-action';
 import { Btn, Confirm, Err } from '@/components/ui';
 import JSZip from 'jszip';

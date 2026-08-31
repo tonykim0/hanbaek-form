@@ -1,7 +1,10 @@
 'use client';
 
 /**
- * PDF 첫 장을 작은 그림으로 굽는다. [브라우저 전용]
+ * PDF 를 그림으로 굽는다. [브라우저 전용]
+ *
+ * 두 가지를 판다: 서류 칸의 ★첫 장 썸네일★(pdfThumb)과, 사진 → 스캔본이 고칠
+ * ★모든 장★(pdfPages). 둘 다 pdf.js 를 쓰므로 싣는 자리와 일꾼 설정을 한 곳에 둔다.
  *
  * ★왜 필요한가★ 계약 탭에는 서류 칸이 열여섯이고 칸마다 파일 이름만 있다. 「이게 무슨
  * 서류인가」를 알려면 하나씩 열어야 했다(한백 지시 2026-08-31 「썸네일로 보여줘」).
@@ -80,4 +83,55 @@ export function pdfThumb(url: string): Promise<string | null> {
 
   cache.set(url, job);
   return job;
+}
+
+/** 그림 하나 — lib/scanify 의 Bitmap 과 같은 모양이다(서로 모르게 두려고 여기서 다시 적는다) */
+export interface RenderedPage {
+  width: number;
+  height: number;
+  data: Uint8ClampedArray;
+}
+
+/**
+ * PDF 의 모든 장을 그림으로 — 사진 → 스캔본이 쓴다.
+ *
+ * ★PDF 로 감싼 사진이 실제로 온다.★ 접수에서 잡아내는 「휴대폰 사진」의 상당수가 그
+ * 꼴이다(페이지가 용지 규격이 아니고 4:3, lib/photo-check). 그런데 고치는 화면이 PDF 를
+ * 안 받으면 딱지가 붙은 파일을 정작 고칠 수 없다 — 짚기만 하고 길이 없는 자리가 된다.
+ *
+ * 장 수를 막는다: 스캔 묶음을 통째로 넣으면 수십 장을 한꺼번에 굽다가 화면이 얼어붙는다.
+ * 여기서 자르고, 몇 장을 버렸는지는 부르는 쪽이 말한다(조용히 자르지 않는다).
+ */
+export async function pdfPages(
+  data: ArrayBuffer,
+  opts: { maxPx: number; maxPages: number }
+): Promise<{ pages: RenderedPage[]; total: number }> {
+  const pdfjs = await lib();
+  const doc = await pdfjs.getDocument({ data }).promise;
+  try {
+    const total = doc.numPages;
+    const pages: RenderedPage[] = [];
+    for (let n = 1; n <= Math.min(total, opts.maxPages); n += 1) {
+      const page = await doc.getPage(n);
+      const base = page.getViewport({ scale: 1 });
+      /* 원본보다 크게 그리지 않는다 — 없는 화소를 지어낼 뿐이고 처리만 느려진다 */
+      const viewport = page.getViewport({
+        scale: Math.min(2, opts.maxPx / Math.max(base.width, base.height)),
+      });
+      const cv = document.createElement('canvas');
+      cv.width = Math.round(viewport.width);
+      cv.height = Math.round(viewport.height);
+      const ctx = cv.getContext('2d');
+      if (!ctx) continue;
+      /* 종이는 희다 — 안 칠하면 투명한 자리가 검게 나온다 */
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(0, 0, cv.width, cv.height);
+      await page.render({ canvasContext: ctx, viewport }).promise;
+      const img = ctx.getImageData(0, 0, cv.width, cv.height);
+      pages.push({ width: img.width, height: img.height, data: img.data });
+    }
+    return { pages, total };
+  } finally {
+    void doc.destroy();
+  }
 }

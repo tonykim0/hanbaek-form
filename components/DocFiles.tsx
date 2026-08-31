@@ -231,7 +231,7 @@ function FileRow({
           * 이름이 곧 미리보기 링크다 — 그릴 수 있는 형식만. 엑셀·워드는 링크를 열면
           * 내려받기가 시작돼서 「받기」와 구분이 없어진다(그때는 글자로만 둔다).
           */}
-        <span className="flex min-w-0 flex-1 flex-col">
+        <Peek file={file} className="flex min-w-0 flex-1 flex-col">
           {canPreview(file) ? (
             <a
               href={file.url}
@@ -277,7 +277,7 @@ function FileRow({
               <span className="ml-1 font-normal text-amber-800/70">{file.photo.join(' · ')}</span>
             </span>
           ) : null}
-        </span>
+        </Peek>
         {/*
           * 「받기」가 따로 있는 이유 — 이름 링크는 브라우저에 맡기는 것이고(그릴 수 있으면
           * 새 탭), 이쪽은 받아서 「현장명_서류명」으로 이름을 바꿔 저장한다. Blob 에 저장된
@@ -480,6 +480,74 @@ export function DownloadAll({
  * 칸마다 드롭 자리가 펴진다. 접수 화면(UploadZone)은 원래 그렇게 되는데 서류 칸은
  * 클릭뿐이라, 스캔한 서류를 폴더에서 바로 끌어 놓을 수 없었다.
  */
+
+/* ── 손을 올리면 미리 본다 ────────────────────────────────────────────────
+ * ★누르지 않고 보게 한다★ (한백 지시 2026-08-31). 계약 탭에는 서류 칸이 열여섯이고
+ * 칸마다 파일 이름만 있어서, 「이게 무슨 서류인가」를 알려면 하나씩 새 탭으로 열어야 했다.
+ * 열여섯 번 열고 닫는 일이 검토의 대부분이었다.
+ *
+ * ★새 부품을 들이지 않는다.★ PDF 를 그려 보려면 보통 pdf.js 를 얹는데, 그것만 1MB 가
+ * 넘고 워커까지 붙는다. 브라우저는 이미 PDF 를 그릴 줄 안다 — iframe 에 주소를 주면 된다.
+ *
+ * ★손을 올린 것만 싣는다.★ 칸마다 iframe 을 깔아 두면 화면 한 번에 PDF 열여섯 개를
+ * 내려받는다. 올린 순간에 만들고 떠나면 버린다.
+ *
+ * 자리는 fixed 로 잡는다 — 카드 안에 절대배치하면 표·칸의 overflow 에 잘린다.
+ * 화면 밖으로 나가지 않게 가두고, 오른쪽이 좁으면 왼쪽에 편다.
+ */
+const PEEK_W = 420;
+const PEEK_H = 560;
+
+function Peek({ file, className, children }: {
+  file: DocFile;
+  /* 감싸지 않고 ★그 자리를 대신한다★ — display:contents 로 감싸면 상자가 안 생겨서
+     좌표가 0 으로 나오고(getBoundingClientRect) 덧창이 화면 왼쪽 위에 뜬다 */
+  className: string;
+  children: React.ReactNode;
+}) {
+  const [box, setBox] = useState<{ left: number; top: number } | null>(null);
+  /* 그릴 수 있는 것만 — 엑셀·워드는 iframe 이 내려받기를 시작한다 */
+  const can = canPreview(file);
+
+  const open = (e: React.PointerEvent<HTMLSpanElement>) => {
+    /* 손가락으로는 「올리기」가 없다 — 눌러서 여는 길이 그대로 남아 있으므로 여기서는 뺀다 */
+    if (!can || e.pointerType === 'touch') return;
+    const r = e.currentTarget.getBoundingClientRect();
+    const room = window.innerWidth - r.right;
+    const left = room > PEEK_W + 24 ? r.right + 12 : Math.max(12, r.left - PEEK_W - 12);
+    const top = Math.max(12, Math.min(window.innerHeight - PEEK_H - 12, r.top - 40));
+    setBox({ left, top });
+  };
+
+  return (
+    <span
+      className={className}
+      onPointerEnter={open}
+      onPointerLeave={() => setBox(null)}
+    >
+      {children}
+      {box && (
+        <span
+          /* 읽기만 하는 덧창이다 — 손이 닿으면 안 된다(밑의 단추를 가린다) */
+          className="pointer-events-none fixed z-50 overflow-hidden rounded-box border border-slate-300 bg-white shadow-2xl"
+          style={{ left: box.left, top: box.top, width: PEEK_W, height: PEEK_H }}
+        >
+          {isImage(file) ? (
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img src={file.url} alt={file.name} className="h-full w-full object-contain" />
+          ) : (
+            <iframe
+              src={`${file.url}#toolbar=0&navpanes=0&view=FitH`}
+              title={file.name}
+              className="h-full w-full border-0"
+            />
+          )}
+        </span>
+      )}
+    </span>
+  );
+}
+
 export function DocUpload({
   projectId, kind, rejected, hasFile = false,
 }: {

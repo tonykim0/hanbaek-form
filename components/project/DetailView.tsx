@@ -604,6 +604,18 @@ function ApprovalFacts({
 
   // 낸 것은 그 칸에 들어섰다는 뜻이다 — 날짜는 언제 냈는지일 뿐 여부가 아니다
   const cpoSubmitted = statusIndex(process.status) >= statusIndex('운영사 계약서 제출');
+  /*
+   * ★되돌리는 자리를 그 사실 옆에 둔다★ (한백 지적 2026-08-31 「계약확인 완료 후
+   * 운영사제출로 넘어가면 다시 계약확인 완료로 못 돌아가네」).
+   *
+   * 넘기는 것은 보드에서 하고 이 칸은 결과만 적고 있었다 — 그래서 잘못 넘긴 현장을
+   * 상세에서 되돌릴 길이 없었다. 보드 카드에 되돌리기가 있지만 회색 밑줄 글자라
+   * 찾기 어렵고, 무엇보다 사실이 적힌 자리에 되돌리는 자리가 있어야 한다(화면 규칙 7).
+   *
+   * ★그 칸에 서 있을 때만 준다.★ 이미 지나가서 착공·설치완료에 있는 현장에 「제출 취소」를
+   * 두면 한 번 눌러 공정을 여러 칸 되돌리는 꼴이다 — 그것은 보드에서 한 칸씩 한다.
+   */
+  const canUndoSubmit = edit === 'all' && process.status === '운영사 계약서 제출';
 
   return (
     /*
@@ -636,10 +648,28 @@ function ApprovalFacts({
       {edit === 'all' && (
         <div className="min-w-0">
           <dt className="text-tiny font-bold tracking-[0.04em] text-slate-400">운영사 계약서 제출</dt>
-          <dd className={`mt-0.5 break-keep font-bold ${cpoSubmitted ? 'text-slate-800' : 'text-amber-700'}`}>
-            {cpoSubmitted
-              ? process.cpoSubmitDate ? `제출됨 · ${process.cpoSubmitDate}` : '제출됨'
-              : '미제출'}
+          <dd className={`mt-0.5 flex flex-wrap items-baseline gap-x-2 gap-y-1 break-keep font-bold ${cpoSubmitted ? 'text-slate-800' : 'text-amber-700'}`}>
+            <span>
+              {cpoSubmitted
+                ? process.cpoSubmitDate ? `제출됨 · ${process.cpoSubmitDate}` : '제출됨'
+                : '미제출'}
+            </span>
+            {canUndoSubmit && (
+              <Btn
+                kind="quiet"
+                size="sm"
+                busy={busyKey === 'status'}
+                busyLabel="되돌리는 중…"
+                onClick={() => void run({
+                  url: `/api/projects/${projectId}/status`,
+                  body: { status: '계약완료' },
+                  fail: '되돌리지 못했습니다.',
+                  key: 'status',
+                })}
+              >
+                제출 취소
+              </Btn>
+            )}
           </dd>
         </div>
       )}

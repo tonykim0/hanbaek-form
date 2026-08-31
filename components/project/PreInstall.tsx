@@ -66,27 +66,29 @@ export function PreInstall({
   return (
     <section>
       {/*
-        머리말 오른쪽 끝에 받는 자리 — 서류 구역과 같은 꼴이다(한백 지시 2026-08-31).
+        ★받는 단추는 제목 옆이다★ (한백 지시 2026-08-31) — 오른쪽 끝으로 밀면 넓은 화면에서
+        제목과 떨어져 무엇을 받는 것인지 눈이 가로질러 이어야 한다. 서류 구역과 같은 꼴이다.
         계약 서류의 「전체 다운로드」에도 기설치 파일이 들어가지만, 그것은 열여섯 칸을
         통째로 받는 자리다. 기설치만 따로 받을 일이 따로 있다(운영사 제출·조사 재확인).
       */}
-      <div className="mb-3 flex flex-wrap items-baseline justify-between gap-3">
-        <div className="flex flex-wrap items-baseline gap-2">
-          <h2 className="text-h3 font-black text-slate-900">기설치 조사</h2>
-          {project.preRejectReason ? (
-            <Tag tone="warn">조사 반려</Tag>
-          ) : project.preChecked ? (
-            <Badge tone="ok">기설치 {project.preInstall}</Badge>
-          ) : (
-            <Tag tone="warn">조사 필요</Tag>
-          )}
-        </div>
-        <DownloadAll
-          docs={docs.map((d) => byKind.get(d.key)).filter((d): d is ProjectDocument => Boolean(d))}
-          siteName={siteName}
-          labelOf={(kind) => docs.find((d) => d.key === kind)?.label ?? kind}
-          extra={surveyText ? [{ name: '기설치 조사내역', text: surveyText }] : []}
-        />
+      <div className="mb-3 flex flex-wrap items-baseline gap-x-2.5 gap-y-1.5">
+        <h2 className="text-h3 font-black text-slate-900">기설치 조사</h2>
+        {project.preRejectReason ? (
+          <Tag tone="warn">조사 반려</Tag>
+        ) : project.preChecked ? (
+          <Badge tone="ok">기설치 {project.preInstall}</Badge>
+        ) : (
+          <Tag tone="warn">조사 필요</Tag>
+        )}
+        {/* 테두리 있는 단추는 baseline 에서 조금 내려앉는다 — 글자 줄이 아니라 가운데에 맞춘다 */}
+        <span className="self-center">
+          <DownloadAll
+            docs={docs.map((d) => byKind.get(d.key)).filter((d): d is ProjectDocument => Boolean(d))}
+            siteName={siteName}
+            labelOf={(kind) => docs.find((d) => d.key === kind)?.label ?? kind}
+            extra={surveyText ? [{ name: '기설치 조사내역', text: surveyText }] : []}
+          />
+        </span>
       </div>
 
       <Survey project={project} />

@@ -258,27 +258,32 @@ export function IntakeTab({
       />
 
       <section>
-        <div className="mb-3 flex flex-wrap items-baseline justify-between gap-3">
-          <div className="flex flex-wrap items-baseline gap-2">
-            <h2 className="text-h3 font-black text-slate-900">서류</h2>
-            {/*
-              * 필수 수와 막는 태그를 제목 옆에 붙인다 (한백 지시 2026-08-25). 머리말에
-              * 있던 「필수 서류 미충족」은 무슨 서류가 모자란지 말하지 못했고, 그것을 보려면
-              * 어차피 이 구역까지 내려온다 — 막는 말은 막힌 자리에 있어야 한다.
-              */}
-            <span className="text-small font-bold tabular-nums text-slate-400">
-              필수 {requiredDone}/{requiredHere.length}
-            </span>
-            {requiredMissing && <Tag tone="warn">필수 서류 미충족</Tag>}
-          </div>
-          <div className="flex flex-wrap items-center gap-3">
+        {/*
+          ★받는 단추를 제목 옆에 붙인다★ (한백 지시 2026-08-31). 오른쪽 끝으로 밀어 두었더니
+          넓은 화면에서 제목과 단추가 양쪽 끝에 떨어져, 「무엇을 받는 것인가」를 눈이 가로질러
+          이어야 했다. 구역 이름 옆이 그 구역에 대고 하는 일의 자리다.
+          (같은 지적이 앞서 시공 탭의 서류 줄에도 있었다 — construction/rows 의 머리말)
+        */}
+        <div className="mb-3 flex flex-wrap items-baseline gap-x-2.5 gap-y-1.5">
+          <h2 className="text-h3 font-black text-slate-900">서류</h2>
+          {/*
+            * 필수 수와 막는 태그를 제목 옆에 붙인다 (한백 지시 2026-08-25). 머리말에
+            * 있던 「필수 서류 미충족」은 무슨 서류가 모자란지 말하지 못했고, 그것을 보려면
+            * 어차피 이 구역까지 내려온다 — 막는 말은 막힌 자리에 있어야 한다.
+            */}
+          <span className="text-small font-bold tabular-nums text-slate-400">
+            필수 {requiredDone}/{requiredHere.length}
+          </span>
+          {requiredMissing && <Tag tone="warn">필수 서류 미충족</Tag>}
+          {/* 테두리 있는 단추는 baseline 에서 조금 내려앉는다 — 글자 줄이 아니라 가운데에 맞춘다 */}
+          <span className="self-center">
             <DownloadAll
               docs={evaluated.map((d) => byKind.get(d.key)).filter((d): d is ProjectDocument => Boolean(d))}
               siteName={siteName}
               labelOf={(kind) => evaluated.find((d) => d.key === kind)?.label ?? kind}
               extra={surveyText ? [{ name: '기설치 조사내역', text: surveyText }] : []}
             />
-          </div>
+          </span>
         </div>
 
         {/*

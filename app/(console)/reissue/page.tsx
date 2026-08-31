@@ -4,7 +4,7 @@ import Image from 'next/image';
 import { internalModeHref } from '@/lib/internal-mode';
 
 export const metadata: Metadata = {
-  title: '서류 재발행 | 한백 전기차충전사업',
+  title: '서류 재발행 — 한백 전기차사업관리시스템',
   robots: { index: false, follow: false },
 };
 

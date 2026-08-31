@@ -22,6 +22,12 @@ import SiteHeader from '@/components/SiteHeader';
  * 정작 지금 해야 할 일(계약서 작성)을 아래로 밀어냈다.
  */
 
+/*
+ * 포털은 협력사가 보는 얼굴이라 이름이 콘솔과 다르다 — 루트 레이아웃의 기본값이
+ * 콘솔 이름(한백 전기차사업관리시스템)이 되었으므로 여기서 제 이름을 적는다.
+ */
+export const metadata = { title: '한백 전기차충전사업' };
+
 /** 계약서 작성 — 운영사별. 이 화면의 본론이다 */
 const cpos = [
   { name: '플러그링크', code: 'PL', href: '/pluglink' },

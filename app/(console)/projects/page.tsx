@@ -4,7 +4,7 @@ import { redirect } from 'next/navigation';
 import ProjectsView from '@/components/ProjectsView';
 import { phaseOfProject } from '@/lib/board';
 
-export const metadata = { title: '계약관리 — 한백 전기차사업관리' };
+export const metadata = { title: '계약관리 — 한백 전기차사업관리시스템' };
 
 /**
  * 계약 화면 — 계약이 아직 안 끝난 현장들. 보드와 표, 같은 자료의 두 가지 보기.

@@ -11,7 +11,7 @@ import { Blank, PANEL } from '@/components/ui';
 import type { ProjectSummary } from '@/types/project';
 import type { ReactNode } from 'react';
 
-export const metadata = { title: '수주 현황 — 한백 전기차사업관리' };
+export const metadata = { title: '수주 현황 — 한백 전기차사업관리시스템' };
 
 /**
  * 수주 현황의 숫자는 모두 계약 대수 기준이다.

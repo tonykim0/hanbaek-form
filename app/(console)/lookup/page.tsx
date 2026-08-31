@@ -6,7 +6,7 @@ import type { SubsidyMeta } from '@/lib/subsidy-history';
 import meta from '@/public/data/charger-history/meta.json';
 import subsidyMeta from '@/public/data/subsidy-history/meta.json';
 
-export const metadata = { title: '이력 조회 — 한백 전기차사업관리' };
+export const metadata = { title: '이력 조회 — 한백 전기차사업관리시스템' };
 
 /**
  * 충전기 · 보조금 이력 조회 — 콘솔 안에서 본다.

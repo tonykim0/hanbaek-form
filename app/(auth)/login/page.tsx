@@ -5,7 +5,7 @@ import LoginForm from './LoginForm';
 import { getSessionUser } from '@/lib/auth/session';
 import { isUsingDevSeed } from '@/lib/auth/users';
 
-export const metadata = { title: '로그인 — 한백 EV 콘솔' };
+export const metadata = { title: '로그인 — 한백 전기차사업관리시스템' };
 
 export default async function LoginPage() {
   if (await getSessionUser()) redirect('/projects');

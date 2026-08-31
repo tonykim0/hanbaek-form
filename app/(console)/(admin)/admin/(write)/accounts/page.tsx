@@ -5,7 +5,7 @@ import { getRepository } from '@/lib/data';
 import AccountAdmin from '@/components/AccountAdmin';
 
 export const metadata = {
-  title: '계정설정 — 한백 전기차사업관리',
+  title: '계정설정 — 한백 전기차사업관리시스템',
   robots: { index: false, follow: false },
 };
 export const dynamic = 'force-dynamic';

@@ -4,7 +4,7 @@ import { actorOf, getSessionUser, viewerOf } from '@/lib/auth/session';
 import PayoutWorkBoard from '@/components/settlement/PayoutWorkBoard';
 import { isHanbaek } from '@/lib/roles';
 
-export const metadata = { title: '협력사 지급관리 — 한백 전기차충전사업' };
+export const metadata = { title: '협력사 지급관리 — 한백 전기차사업관리시스템' };
 
 /**
  * 협력사 지급관리 — 한백은 줄에서 지급일을 골라 확정하고, 협력사는 자기 몫을 본다.

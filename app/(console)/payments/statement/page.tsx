@@ -10,7 +10,7 @@ import { userStore } from '@/lib/auth/users';
 import { today } from '@/lib/date';
 import StatementView from '@/components/settlement/StatementView';
 
-export const metadata = { title: '거래명세서 — 한백 전기차사업관리' };
+export const metadata = { title: '거래명세서 — 한백 전기차사업관리시스템' };
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 

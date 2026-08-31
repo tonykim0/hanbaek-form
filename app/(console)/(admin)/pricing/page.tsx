@@ -18,7 +18,7 @@ import { redirect } from 'next/navigation';
 import PricingMatrix from '@/components/PricingMatrix';
 import { matchingRules } from '@/lib/pricing-match';
 
-export const metadata = { title: '단가표 — 한백 전기차사업관리' };
+export const metadata = { title: '단가표 — 한백 전기차사업관리시스템' };
 
 export default async function PricingPage() {
   const session = await getSessionUser();

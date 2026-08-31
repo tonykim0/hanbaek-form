@@ -4,7 +4,7 @@ import { getSessionUser } from '@/lib/auth/session';
 import MaterialsBrowser from '@/components/MaterialsBrowser';
 import { getMaterials } from '@/lib/materials';
 
-export const metadata = { title: '운영사 자료실 — 한백 전기차사업관리' };
+export const metadata = { title: '운영사 자료실 — 한백 전기차사업관리시스템' };
 // 자료를 올리면 배포 없이 바로 보이도록 매 요청마다 목록을 읽는다
 export const dynamic = 'force-dynamic';
 

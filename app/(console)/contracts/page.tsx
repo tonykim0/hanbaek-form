@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation';
 import { getSessionUser } from '@/lib/auth/session';
 import { canWrite } from '@/lib/roles';
 
-export const metadata = { title: '계약서 작성 — 한백 전기차사업관리' };
+export const metadata = { title: '계약서 작성 — 한백 전기차사업관리시스템' };
 
 /**
  * 계약서 작성 — 운영사별 양식으로 들어가는 자리.

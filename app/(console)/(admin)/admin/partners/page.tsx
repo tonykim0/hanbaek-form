@@ -6,7 +6,7 @@ import { listPartnerDetails } from '@/lib/auth/partner-details';
 import PartnerDetailsSection from '@/components/PartnerDetailsSection';
 
 export const metadata = {
-  title: '협력사 정보 — 한백 전기차사업관리',
+  title: '협력사 정보 — 한백 전기차사업관리시스템',
   robots: { index: false, follow: false },
 };
 export const dynamic = 'force-dynamic';

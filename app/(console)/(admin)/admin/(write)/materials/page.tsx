@@ -5,7 +5,7 @@ import MaterialsAdmin from '@/components/MaterialsAdmin';
 import { getMaterials } from '@/lib/materials';
 
 export const metadata: Metadata = {
-  title: '자료실 관리 | 한백 전기차충전사업',
+  title: '자료실 관리 — 한백 전기차사업관리시스템',
   robots: { index: false, follow: false },
 };
 

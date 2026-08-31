@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation';
 import { getSessionUser } from '@/lib/auth/session';
 import KaptApartmentExplorer from '@/components/KaptApartmentExplorer';
 
-export const metadata = { title: '아파트 정보 조회 — 한백 전기차사업관리' };
+export const metadata = { title: '아파트 정보 조회 — 한백 전기차사업관리시스템' };
 
 /**
  * 아파트 정보 조회 (K-apt) — 콘솔 안에서 본다.

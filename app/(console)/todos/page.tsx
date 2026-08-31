@@ -3,7 +3,7 @@ import { getSessionUser } from '@/lib/auth/session';
 import { todosOf } from '@/lib/todos';
 import TodoBoard from '@/components/TodoBoard';
 
-export const metadata = { title: '할 일 — 한백 전기차사업관리' };
+export const metadata = { title: '할 일 — 한백 전기차사업관리시스템' };
 export const dynamic = 'force-dynamic';
 
 /**

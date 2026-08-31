@@ -4,7 +4,7 @@ import { getSessionUser, viewerOf } from '@/lib/auth/session';
 import ReceivableBoard from '@/components/settlement/ReceivableBoard';
 import { isHanbaek } from '@/lib/roles';
 
-export const metadata = { title: '운영사 기성관리 — 한백 전기차충전사업' };
+export const metadata = { title: '운영사 기성관리 — 한백 전기차사업관리시스템' };
 
 /**
  * 운영사 기성관리 — 운영사에게서 받을 돈.

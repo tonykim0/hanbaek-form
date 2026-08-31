@@ -17,7 +17,7 @@ import {
   Badge, Blank, Btn, Choice, Empty, Err, FIELD, FIELD_CELL, HR, Note, Saved, Tag, Td, Th, Val,
 } from '@/components/ui';
 
-export const metadata = { title: '디자인 기준 — 한백 전기차사업관리' };
+export const metadata = { title: '디자인 기준 — 한백 전기차사업관리시스템' };
 
 /*
  * 클래스 이름은 통째로 적는다.

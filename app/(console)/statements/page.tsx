@@ -6,7 +6,7 @@ import { thisMonth as seoulMonth } from '@/lib/date';
 import PayChart, { type MonthBar } from '@/components/settlement/PayChart';
 import StatementsBoard from '@/components/settlement/StatementsBoard';
 
-export const metadata = { title: '협력사 거래명세서 — 한백 전기차사업관리' };
+export const metadata = { title: '협력사 거래명세서 — 한백 전기차사업관리시스템' };
 export const dynamic = 'force-dynamic';
 
 /**

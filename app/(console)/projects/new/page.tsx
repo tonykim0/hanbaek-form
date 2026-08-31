@@ -5,7 +5,7 @@ import { knownOrgs } from '@/lib/orgs';
 import { canWrite } from '@/lib/roles';
 import { viewerOf } from '@/lib/auth/session';
 
-export const metadata = { title: '서류 접수 — 한백 전기차사업관리' };
+export const metadata = { title: '서류 접수 — 한백 전기차사업관리시스템' };
 
 /**
  * 서류 접수 — 협력사가 시스템 안에서 낸다.

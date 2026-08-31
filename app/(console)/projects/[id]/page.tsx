@@ -25,9 +25,9 @@ const loadDetail = cache((id: string, role: Role, org: string | null) =>
 
 export async function generateMetadata({ params }: { params: { id: string } }) {
   const session = await getSessionUser();
-  if (!session) return { title: '현장 관리' };
+  if (!session) return { title: '현장 관리 — 한백 전기차사업관리시스템' };
   const detail = await loadDetail(params.id, session.role, session.org);
-  return { title: detail ? `${detail.project.name} — 한백 EV 콘솔` : '현장 관리' };
+  return { title: detail ? `${detail.project.name} — 한백 전기차사업관리시스템` : '현장 관리 — 한백 전기차사업관리시스템' };
 }
 
 export default async function ProjectPage({

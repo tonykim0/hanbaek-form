@@ -14,7 +14,7 @@
  * components/ui.tsx(모양) 와 tailwind.config.js(토큰) 에 먼저 추가한다.
  */
 import {
-  Badge, Blank, Btn, Choice, Empty, Err, FIELD, FIELD_CELL, HR, Note, Saved, Tag, Td, Th, Val,
+  Badge, Blank, Btn, Choice, Empty, Err, FIELD, FIELD_CELL, HR, Note, Saved, Segments, Tag, Td, Th, Val,
 } from '@/components/ui';
 
 export const metadata = { title: '디자인 기준 — 한백 전기차사업관리시스템' };
@@ -235,6 +235,16 @@ export default function DesignPage() {
               </p>
             </div>
           </Part>
+        </div>
+      </Section>
+
+      <Section title="갈래" note="섞이면 안 되는 두엇은 필터가 아니라 갈래로 가른다. 하나뿐이면 안 그린다">
+        <div className="flex flex-col gap-2">
+          <Segments value="영업비" options={[{ key: '영업비', count: 7 }, { key: '시공비', count: 3 }]} />
+          <p className="text-tiny text-slate-400">
+            필터는 「전체」가 기본이라 섞인 것을 먼저 보여주고 좁힌다. 갈래는 섞인 자리가 없다 —
+            지급이 그렇다(배치가 구분마다 따로 끊긴다). 안 보고 있는 쪽의 건수를 적어 감춘 것이 되지 않게 한다.
+          </p>
         </div>
       </Section>
 

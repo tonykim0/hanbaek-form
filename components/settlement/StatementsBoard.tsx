@@ -35,12 +35,12 @@
  */
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
-import type { BatchFinal, PayoutKind, PayoutRow, TaxInvoice } from '@/types/project';
+import { PAYOUT_KINDS, type BatchFinal, type PayoutKind, type PayoutRow, type TaxInvoice } from '@/types/project';
 import {
   batchesOf, batchStateOf, canAttachInvoice, type Batch, type BatchState,
 } from '@/lib/payout-board';
 import type { Role } from '@/lib/roles';
-import { Badge, Blank, Btn, Empty, Err, FIELD, Tag, Td, Th } from '@/components/ui';
+import { Badge, Blank, Btn, Empty, Err, FIELD, Segments, Td, Th } from '@/components/ui';
 import { Frame, won } from './parts';
 import { useFinalizeBatch, useTaxInvoiceUpload } from './use-batch';
 
@@ -52,7 +52,6 @@ const STATE_TONE: Record<BatchState, 'warn' | 'ok' | 'mute' | 'stop'> = {
   확정: 'ok',
   지급완료: 'mute',
 };
-const PAYOUT_KINDS = ['영업비', '시공비'] as const satisfies readonly PayoutKind[];
 /** 지급처가 비어 있는 배치 — 드롭다운에서도 고를 수 있어야 골라내 고칠 수 있다 */
 const NO_ORG = '받는 곳 미지정';
 const ALL = '전체';
@@ -88,7 +87,14 @@ export default function StatementsBoard({
    */
   const [state, setState] = useState<string>(ALL);
   const [org, setOrg] = useState<string>(ALL);
-  const [kind, setKind] = useState<string>(ALL);
+  /*
+   * ★구분은 갈래다 — 필터가 아니다★ (한백 지시 2026-08-31 「거래명세서도 영업비와
+   * 시공비를 따로 나눠야 할 듯」). 명세서 한 장은 이미 배치 단위라 구분별로 끊겨
+   * 있는데(주소에 kind 가 실린다) 목록만 섞여 있었다. 세금계산서도 구분마다 따로
+   * 끊으니, 이 목록에서 하는 일도 한 구분 안에서만 돈다.
+   * 지급관리(PayoutWorkBoard)와 같은 모양이다 — 두 화면을 오가며 다시 배우지 않는다.
+   */
+  const [kind, setKind] = useState<PayoutKind | null>(null);
   const [month, setMonth] = useState<string>(ALL);
 
   /* 지급처 후보는 실제로 있는 배치에서 뽑는다 — 없는 곳을 고를 수 있으면 0건이 나온다 */
@@ -103,13 +109,20 @@ export default function StatementsBoard({
     [batches]
   );
 
+  // 이 사람에게 실제로 있는 구분만 갈래가 된다 — 하나뿐이면 Segments 가 안 그린다
+  const kinds = useMemo(
+    () => PAYOUT_KINDS.filter((k) => batches.some((b) => b.kind === k)),
+    [batches]
+  );
+  const kindNow = kind !== null && kinds.includes(kind) ? kind : kinds[0] ?? '영업비';
+
   const shown = useMemo(
     () => batches.filter((b) =>
       (state === ALL || batchStateOf(b) === state)
       && (org === ALL || (b.org ?? NO_ORG) === org)
-      && (kind === ALL || b.kind === kind)
+      && b.kind === kindNow
       && (month === ALL || b.paidAt.slice(0, 7) === month)),
-    [batches, state, org, kind, month]
+    [batches, state, org, kindNow, month]
   );
   const filtered = shown.length !== batches.length;
   /* 지금 보이는 것의 합 — 달을 고르면 그 달의 합이 된다(한백 2026-08-29) */
@@ -120,11 +133,12 @@ export default function StatementsBoard({
   const countByState = useMemo(() => {
     const m = new Map<BatchState, number>();
     for (const b of batches) {
+      if (b.kind !== kindNow) continue;
       const st = batchStateOf(b);
       m.set(st, (m.get(st) ?? 0) + 1);
     }
     return m;
-  }, [batches]);
+  }, [batches, kindNow]);
 
   return (
     <section>
@@ -151,13 +165,11 @@ export default function StatementsBoard({
             </select>
           </div>
         )}
-        <div className="w-32">
-          <select aria-label="구분" className={FIELD} value={kind} onChange={(e) => setKind(e.target.value)}>
-            {[ALL, ...PAYOUT_KINDS].map((v) => (
-              <option key={v} value={v}>{v === ALL ? '구분 전체' : v}</option>
-            ))}
-          </select>
-        </div>
+        <Segments
+          value={kindNow}
+          options={kinds.map((k) => ({ key: k, count: batches.filter((b) => b.kind === k).length }))}
+          onPick={(v) => setKind(v as PayoutKind)}
+        />
         {/* 달 — 배치가 한 달치뿐이면 고를 것이 없다(칸만 늘고 얻는 것이 없다) */}
         {months.length > 1 && (
           <div className="w-36">
@@ -187,7 +199,7 @@ export default function StatementsBoard({
       {shown.length === 0 ? (
         <Blank>{filtered ? '조건에 맞는 배치 0건' : '0건'}</Blank>
       ) : (
-        <Frame min="760px">
+        <Frame min="680px">
           <thead className="border-b border-slate-100 bg-slate-50 text-tiny font-bold tracking-[0.06em] text-slate-500">
             <tr>
               <Th>지급일</Th>
@@ -197,7 +209,6 @@ export default function StatementsBoard({
                 남아 있었다. 아래 합계 줄의 colSpan 도 같이 움직인다.
               */}
               {seesAll && <Th>지급처</Th>}
-              <Th>구분</Th>
               {/* 여기부터 돈이다 — 얇은 선으로 「무엇이」와 「얼마」를 가른다(기성관리 표와 같은 모양) */}
               <Th num className="border-l border-slate-200">건수</Th>
               <Th num>공급가액</Th>
@@ -232,7 +243,7 @@ export default function StatementsBoard({
             <tr>
               <Td
                 className="text-tiny font-bold tracking-[0.06em] text-slate-500"
-                colSpan={seesAll ? 3 : 2}
+                colSpan={seesAll ? 2 : 1}
               >
                 합계
                 {filtered && (
@@ -270,9 +281,6 @@ function BatchRow({
           {b.org ?? <Empty kind="miss" label={NO_ORG} />}
         </Td>
       )}
-      <Td className="whitespace-nowrap">
-        <Tag tone={b.kind === '영업비' ? 'stage' : 'ok'}>{b.kind}</Tag>
-      </Td>
       <Td num className="whitespace-nowrap border-l border-slate-100 text-slate-500">
         {b.count}건
       </Td>

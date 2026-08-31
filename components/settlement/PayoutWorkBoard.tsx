@@ -29,7 +29,7 @@
 import { Fragment, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import type { BatchFinal } from '@/types/project';
+import { PAYOUT_KINDS, type BatchFinal, type PayoutKind } from '@/types/project';
 import { payoutReleaseOf } from '@/lib/settlement';
 import {
   batchKey, batchStateOf, payDateChoices, workGroupOf, workOf,
@@ -38,7 +38,7 @@ import {
 import { DatePicker } from '@/components/DatePicker';
 import { today } from '@/lib/date';
 import { useAction } from '@/lib/use-action';
-import { Badge, Blank, Btn, Choice, Empty, Err, FIELD_CELL, Td, Th } from '@/components/ui';
+import { Badge, Blank, Btn, Choice, Empty, Err, FIELD_CELL, Segments, Td, Th } from '@/components/ui';
 import { Frame, SiteLink, won } from './parts';
 import { useFinalizeBatch } from './use-batch';
 
@@ -101,9 +101,8 @@ const SORTERS: Record<SortKey, (a: PayoutWork, b: PayoutWork) => number> = {
  * 한 드롭다운에 「영업비 1차」로 묶으면 「영업비 전체」를 볼 방법이 없다.
  * 지급시기 1차·2차는 「지금 그 회차가 차례인 줄」이다 — 다 나간 줄은 전체에서만 보인다.
  */
-const KIND_FILTERS = ['전체', '영업비', '시공비'] as const;
+
 const STEP_FILTERS = ['전체', '1차', '2차'] as const;
-type KindFilter = (typeof KIND_FILTERS)[number];
 type StepFilter = (typeof STEP_FILTERS)[number];
 
 export default function PayoutWorkBoard({
@@ -116,13 +115,30 @@ export default function PayoutWorkBoard({
   canConfirm: boolean;
 }) {
   const [org, setOrg] = useState<string | null>(null);
-  const [kindFilter, setKindFilter] = useState<KindFilter>('전체');
   const [stepFilter, setStepFilter] = useState<StepFilter>('전체');
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [sort, setSort] = useState<SortKey>('ready');
   const [group, setGroup] = useState<WorkGroup | '전체'>('지급 가능');
 
   const work = useMemo(() => rows.map(workOf), [rows]);
+  /*
+   * ★구분은 갈래다 — 필터가 아니다★ (한백 지시 2026-08-31).
+   *
+   * 배치 열쇠가 지급일 × 지급처 × 구분이라 한 번의 가확정이 두 구분에 걸치는 일이
+   * 구조적으로 없다. 받는 회사도 다르고(영업비 → 영업사, 시공비 → 시공사) 1차를 여는
+   * 사실도 다르다(계약완료 / 설치완료). 그래서 섞어 보여주고 좁히게 하지 않고,
+   * 처음부터 한쪽에 서게 한다. 이 화면이 하는 일이 한 구분 안에서만 돌기 때문이다.
+   *
+   * 이 사람에게 실제로 있는 구분만 갈래가 된다 — 영업만 하는 협력사에게 시공비 갈래는
+   * 늘 0건이다. 하나뿐이면 갈래를 안 그린다(Segments 가 판정한다).
+   */
+  const kinds = useMemo(
+    () => PAYOUT_KINDS.filter((k) => work.some((p) => p.kind === k)),
+    [work]
+  );
+  const [kind, setKind] = useState<PayoutKind | null>(null);
+  // 고른 것이 없거나 이 사람에게 없는 구분이면 첫 갈래에 선다
+  const kindNow = kind !== null && kinds.includes(kind) ? kind : kinds[0] ?? '영업비';
   // 배치 확정 여부 — 지급 칸이 「가확정」과 「확정」을 가르는 데 쓴다
   const finalizedBatches = useMemo(
     () => new Set(finals.map((f) => batchKey(f.payDate, f.org, f.kind))),
@@ -138,10 +154,21 @@ export default function PayoutWorkBoard({
   const inOtherFilters = useMemo(
     () => work
       .filter((p) => org === null || p.org === org)
-      .filter((p) => kindFilter === '전체' || p.kind === kindFilter)
+      .filter((p) => p.kind === kindNow)
       .filter((p) => stepFilter === '전체' || p.open?.no === (stepFilter === '1차' ? 1 : 2)),
-    [work, org, kindFilter, stepFilter]
+    [work, org, kindNow, stepFilter]
   );
+  /* 갈래에 적는 건수 — 「지금 낼 수 있는 것」이 몇 건인가. 안 보고 있는 쪽도 보여야 한다 */
+  const readyByKind = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const p of work) {
+      if (workGroupOf(p) !== '지급 가능') continue;
+      if (org !== null && p.org !== org) continue;
+      m.set(p.kind, (m.get(p.kind) ?? 0) + 1);
+    }
+    return m;
+  }, [work, org]);
+
   const countByGroup = useMemo(() => {
     const m = new Map<WorkGroup | '전체', { n: number; won: number }>();
     for (const p of inOtherFilters) {
@@ -173,8 +200,19 @@ export default function PayoutWorkBoard({
   return (
     <div>
       {/*
+        * 구분은 갈래다 — 타일보다 위에 선다. 아래 모든 셈(타일의 건수·금액, 표, 가확정)이
+        * 이 갈래 안에서 돈다. 하나뿐인 사람에게는 안 그려진다(위 kinds 주석).
+        */}
+      <Segments
+        className="mb-3"
+        value={kindNow}
+        options={kinds.map((k) => ({ key: k, count: readyByKind.get(k) ?? 0 }))}
+        onPick={(v) => { setKind(v as PayoutKind); setPicked(new Set()); }}
+      />
+
+      {/*
         * ★무엇부터 볼지를 맨 위에서 고른다★ (한백 지적 2026-08-31 「눈에 잘 안 들어와」).
-        * 건수와 금액이 적혀 있어 누르기 전에 안다 — 「지금 낼 것 10건 5,067만」이 이 화면의
+        * 건수와 금액이 적혀 있어 누르기 전에 안다 — 「지급 가능 10건 5,067만」이 이 화면의
         * 첫 문장이어야 한다. 0건인 자리도 지운다: 사라지면 자리를 외울 수 없다.
         */}
       <div className="mb-3 grid gap-2 sm:grid-cols-3 lg:grid-cols-5">
@@ -212,16 +250,6 @@ export default function PayoutWorkBoard({
 
       <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-2">
         {/* 필터는 펼쳐 두지 않는다(한백 확인) — 칩 일곱 개가 표보다 먼저 눈을 먹었다 */}
-        <label className="flex items-center gap-1.5 whitespace-nowrap text-small font-bold text-slate-500">
-          구분
-          <select
-            value={kindFilter}
-            onChange={(e) => setKindFilter(e.target.value as KindFilter)}
-            className={`${FIELD_CELL} w-auto min-w-[92px]`}
-          >
-            {KIND_FILTERS.map((label) => <option key={label} value={label}>{label}</option>)}
-          </select>
-        </label>
         <label className="flex items-center gap-1.5 whitespace-nowrap text-small font-bold text-slate-500">
           지급시기
           <select
@@ -281,7 +309,7 @@ export default function PayoutWorkBoard({
           )}
         </div>
       ) : (
-        <Frame min={orgs.length > 1 ? (canConfirm ? '1520px' : '1300px') : (canConfirm ? '1380px' : '1160px')}>
+        <Frame min={orgs.length > 1 ? (canConfirm ? '1420px' : '1200px') : (canConfirm ? '1280px' : '1060px')}>
           {/*
             머리가 두 줄이다 — 「N차 지급」 한 칸에 배지·날짜·단추가 세로로 쌓여 있던 것을
             지급일·상태·동작 열로 폈다(한백 요청 2026-08-25). 쌓인 칸은 줄마다 높이가
@@ -297,17 +325,21 @@ export default function PayoutWorkBoard({
                 되풀이된다(2026-08-30). 위 필터가 같은 조건으로 이미 감춰져 있었다.
               */}
               {orgs.length > 1 && <Th rowSpan={2}>지급처</Th>}
-              <Th rowSpan={2}>구분</Th>
               <Th rowSpan={2} num>총 지급액</Th>
               {/*
                 머리 두 줄에 무게를 준다 (2026-08-31) — 둘 다 같은 회색 tiny 라 「네 칸이
                 한 회차」라는 것이 안 읽혔다. 묶음 이름은 진하게, 칸 이름은 옅게.
               */}
+              {/*
+                ★회차를 여는 사실을 머리에 박는다★ (2026-08-31, 갈래로 나눈 덕이다).
+                1차의 뜻이 구분마다 다르다 — 영업비는 계약완료, 시공비는 설치완료다.
+                섞여 있을 때는 머리에 적을 수 없어 줄마다 금액 밑에 되풀이했다.
+              */}
               <Th tight colSpan={canConfirm ? 4 : 3} className="border-l border-slate-200 pt-2 text-small font-black text-slate-700">
-                1차 · 70%
+                1차 · {kindNow === '영업비' ? '계약완료' : '설치완료'} 70%
               </Th>
               <Th tight colSpan={canConfirm ? 4 : 3} className="border-l border-slate-200 pt-2 text-small font-black text-slate-700">
-                2차 · 잔액
+                2차 · 개통완료 잔액
               </Th>
             </tr>
             <tr className="text-slate-400">
@@ -367,20 +399,10 @@ export default function PayoutWorkBoard({
                   <Td className="text-slate-600">{p.org ?? <Empty kind="miss" />}</Td>
                 )}
                 {/*
-                  * ★구분은 분류지 상태가 아니다★ (2026-08-31). 각진 칩(Tag)이라 누르는 것으로
-                  * 읽혔고, 같은 줄의 둥근 배지(상태)와 섞여 한 줄에 부품이 셋이었다
-                  * (화면 규칙 11: 동글면 상태, 각지면 누르는 것). 값이 둘뿐이라 색 글자면 된다.
+                  * 구분 열은 없다 — 갈래가 이미 말한다(2026-08-31). 한 화면 안의 모든 줄이
+                  * 같은 구분이라 열로 세우면 같은 값이 스무 번 되풀이된다(지급처 열을
+                  * 하나뿐일 때 감추는 것과 같은 이유). 조정은 총액의 일이라 이 칸으로 왔다.
                   */}
-                <Td className="whitespace-nowrap">
-                  <p className={`font-bold ${p.kind === '영업비' ? 'text-sky-800' : 'text-brand-800'}`}>
-                    {p.kind}
-                  </p>
-                  {p.adjust !== 0 && (
-                    <p className="text-tiny font-semibold text-slate-400">
-                      조정 {p.adjust > 0 ? '+' : ''}{won(p.adjust)}
-                    </p>
-                  )}
-                </Td>
                 <Td num>
                   <p className="font-black text-slate-900">
                     {p.due > 0 ? won(p.due) : <span className="text-slate-300">—</span>}
@@ -396,6 +418,11 @@ export default function PayoutWorkBoard({
                     * 더 준 현장이 「확정 완료」로만 보여서, 전 현장을 훑어도 초과가 안 잡혔다.
                     * 돌려받든 잔금에서 빼든 사람이 처리해야 하는 자리라 눈에 띄어야 한다.
                     */}
+                  {p.adjust !== 0 && (
+                    <p className="whitespace-nowrap text-tiny font-semibold text-slate-400">
+                      조정 {p.adjust > 0 ? '+' : ''}{won(p.adjust)} 포함
+                    </p>
+                  )}
                   {p.confirmed > p.plan + p.adjust && (
                     <p className="whitespace-nowrap text-tiny font-black text-red-700">
                       초과 {won(p.confirmed - p.plan - p.adjust)}

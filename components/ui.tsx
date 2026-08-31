@@ -500,3 +500,45 @@ export function Td({ num = false, tight = false, className = '', children, ...re
     </td>
   );
 }
+
+/* ── 갈래 ──────────────────────────────────────────────────────────────────
+ * ★섞이면 안 되는 두엇을 아예 갈라 세운다★ (한백 지시 2026-08-31 「협력사 지급관리를
+ * 처음부터 영업비와 시공비로 나누는 게 좋을까」 → 「거래명세서도 나눠야 할 듯」).
+ *
+ * 드롭다운 필터와 다르다. 필터는 「전체」가 기본이라 섞인 것을 먼저 보여주고 좁히는
+ * 것이고, 갈래는 **섞인 자리가 애초에 없다.** 지급이 그렇다 — 배치 열쇠가
+ * 지급일 × 지급처 × 구분이라 한 번의 확정이 두 구분에 걸치는 일이 구조적으로 없고,
+ * 받는 회사도 다르다(영업비 → 영업사, 시공비 → 시공사).
+ *
+ * ★고를 것이 하나뿐이면 그리지 않는다★ — 영업만 하는 협력사에게 「시공비」 갈래는
+ * 늘 0건이다. 지급처 열을 orgs.length > 1 일 때만 세우는 것과 같은 규칙이다.
+ *
+ * 건수를 갈래에 적는다 — 「전체」를 없앤 대신, 안 보고 있는 쪽에 몇 건이 있는지가
+ * 늘 보여야 감춘 것이 안 된다.
+ */
+export function Segments({
+  value, options, onPick, className = '',
+}: {
+  value: string;
+  /** 갈래 이름과 그 갈래의 건수(0 도 적는다 — 세었고 없다는 말이다) */
+  options: ReadonlyArray<{ key: string; count?: number }>;
+  /** 없으면 안 눌리는 모양만 그린다 — /design 이 서버 컴포넌트라 그렇다(Choice 와 같다) */
+  onPick?: (v: string) => void;
+  className?: string;
+}) {
+  if (options.length < 2) return null;
+  return (
+    <div className={`inline-flex items-center gap-1 ${className}`}>
+      {options.map((o) => (
+        <Choice key={o.key} on={o.key === value} onClick={onPick && (() => onPick(o.key))}>
+          {o.key}
+          {o.count !== undefined && (
+            <span className={`ml-1.5 tabular-nums ${o.key === value ? 'text-white/70' : 'text-slate-400'}`}>
+              {o.count}
+            </span>
+          )}
+        </Choice>
+      ))}
+    </div>
+  );
+}

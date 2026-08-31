@@ -15,7 +15,8 @@ import { getRepository } from '@/lib/data';
 import { bandOfColumn, boardColumnOf } from '@/lib/board';
 import { batchesOf, batchKey, batchStateOf } from '@/lib/payout-board';
 import { actorOf, viewerOf } from '@/lib/auth/session';
-import { isHanbaek, type Role } from '@/lib/roles';
+import { isHanbaek } from '@/lib/roles';
+import { COURTS_OF_ROLE } from '@/lib/todo-types';
 import { won } from '@/lib/format';
 import { today } from '@/lib/date';
 import type { SessionPayload } from '@/lib/auth/types';
@@ -26,33 +27,20 @@ import { receivableTodos } from '@/lib/todo-receivables';
 /* 타입은 lib/todo-types 에 있다 — 클라이언트 부품이 이 파일을 안 끌어오게(빌드가 깨졌다) */
 export { TODO_GROUPS, type TodoGroup, type TodoItem } from '@/lib/todo-types';
 
-/**
- * 어느 차례가 내 것인가 — 턴키업체는 영업·시공 양쪽 다.
- *
- * 열람 전용은 빈 목록이다. 「내 차례」는 알림함이 아니라 할 일이라, 아무것도 할 수 없는
- * 눈에게는 차례가 오지 않는다 — 한백의 차례를 그대로 보여주면 처리할 수 없는 목록이
- * 영영 줄지 않는 배지로 남는다.
- */
-const COURTS_OF_ROLE: Record<Role, Court[]> = {
-  admin: ['한백'],
-  viewer: [],
-  sales: ['영업사'],
-  cons: ['시공사'],
-  salesCons: ['영업사', '시공사'],
-};
 
 export async function todosOf(session: SessionPayload): Promise<TodoItem[]> {
   const mine = COURTS_OF_ROLE[session.role];
   /*
-   * 발행은 협력사의 일, 확정 누락은 관리자의 일이다 — 열람 전용은 배치 확정 읽기를 안 건다.
+   * 발행은 협력사의 일, 확정 누락은 한백의 일이다.
    * 화면을 옮길 때마다 불리므로(TopBar) 두 읽기를 한꺼번에 시작한다 —
    * 하나를 기다렸다 다음을 읽으면 걸리는 시간이 그대로 더해진다.
    */
   const wantsInvoices = !isHanbaek(session.role) && session.org !== null;
-  const wantsMissed = session.role === 'admin';
+  /* 확정 누락도 한백의 눈이 보는 것이다 — 열람 전용은 확정을 못 할 뿐 봐야 안다 */
+  const wantsMissed = isHanbaek(session.role);
   const wantsBatches = wantsInvoices || wantsMissed;
-  /* 기성은 한백이 운영사에게서 받는 돈이다 — 넣는 칸이 있는 사람만 차례가 온다 */
-  const wantsReceivables = session.role === 'admin';
+  /* 기성은 한백이 운영사에게서 받는 돈이다 — 한백의 눈(관리자·열람 전용)이 본다 */
+  const wantsReceivables = isHanbaek(session.role);
   /*
    * 현장·지급 내역·기성을 한 번의 읽기로 받는다(listTodoSources) — 예전에는 현장 목록과
    * 지급 내역을 따로 불러 같은 현장을 두 번 읽었다. 여기에 기성까지 붙이면 세 번이 되고,

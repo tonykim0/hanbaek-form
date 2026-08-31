@@ -190,7 +190,7 @@ export const projects = pgTable('projects', {
   /** 한백이 현장별로 적용하는 정산 규칙 */
   settlementRuleId: text('settlement_rule_id').references(() => settlementRules.id),
   settlementAppliedAt: text('settlement_applied_at'),
-  /** 보류 | DROP. null 이면 정상 진행 중 — 진행 단계와 섞지 않는다. */
+  /** 계약중단(옛 값: 보류 · DROP). null 이면 정상 진행 중 — 진행 단계와 섞지 않는다. */
   holdState: text('hold_state'),
   holdNote: text('hold_note'),
   /** 담당 — 지금 누가 움직여야 하는가 */

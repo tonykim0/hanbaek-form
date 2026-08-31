@@ -18,8 +18,8 @@
 import type { HoldState, ProcessStatus, Stage } from '@/types/project';
 import { PROCESS_STATUSES } from '@/types/project';
 
-/** 공정에 들어가기 전(계약)과 흐름에서 빠진 것(보류·계약중단)은 공정 상태로 표현할 수 없어 따로 둔다 */
-export type BoardColumn = '계약접수' | '계약검토' | '계약보완' | ProcessStatus | '보류' | '계약중단';
+/** 공정에 들어가기 전(계약)과 흐름에서 빠진 것(계약중단)은 공정 상태로 표현할 수 없어 따로 둔다 */
+export type BoardColumn = '계약접수' | '계약검토' | '계약보완' | ProcessStatus | '계약중단';
 
 /** 칸을 묶는 띠 — 11칸이 한 줄로 늘어서면 눈이 구역을 못 찾는다 */
 export type BoardBand = '계약' | '시공' | '멈춤';
@@ -78,7 +78,7 @@ const BAND_OF_STATUS: Record<ProcessStatus, BoardBand> = {
 
 /**
  * 이 현장이 계약·시공 어느 국면인가 — 계약/시공 페이지가 이걸로 인구를 가른다.
- * 보류 현장도 국면을 따라간다(보류 칸은 양쪽 페이지에 각자 선다).
+ * 멈춘 현장도 국면을 따라간다(계약중단 칸은 양쪽 페이지에 각자 선다).
  */
 export function phaseOfProject(p: { stage: Stage; status: ProcessStatus }): '계약' | '시공' {
   if (p.stage === 'intake') return '계약';
@@ -148,14 +148,11 @@ export const BOARD_COLUMNS: BoardColumnDef[] = [
       ? { alsoOn: { band: '시공' as const, label: CONSTRUCTION_LABEL[s] } }
       : {}),
   })),
-  {
-    key: '보류',
-    label: '보류',
-    band: '멈춤',
-    droppable: false,
-    why: '보류는 카드의 「중단」이나 현장 상세에서 겁니다',
-  },
-  // 계약이 무산된 현장 — 맨 끝 칸이다. 지우지 않고 여기 세워 둔다(기록이 남아야 한다).
+  /*
+   * 계약이 무산된 현장 — 맨 끝 칸이다. 지우지 않고 여기 세워 둔다(기록이 남아야 한다).
+   * ★멈춤 칸은 이 하나다★ (한백 2026-08-31) — 「보류」 칸을 걷었다. 두 칸이 하는 일이
+   * 같았다: 흐름에서 빼고, 할 일에서 지우고, 보드 끝에 세운다.
+   */
   {
     key: '계약중단',
     label: '계약중단',
@@ -189,7 +186,7 @@ export function boardColumnOf(p: {
   /** 한백이 보완요청을 한 적이 있는가 — 접수와 재검토요청을 가른다 */
   fixAsked: boolean;
 }): BoardColumn {
-  if (p.holdState) return p.holdState; // 보류·계약중단이 곧 칸 이름이다
+  if (p.holdState) return p.holdState; // 계약중단이 곧 칸 이름이다
   if (p.stage === 'intake') {
     /*
      * 계약 안에서 세 칸으로 갈린다. 순서가 곧 우선순위다.

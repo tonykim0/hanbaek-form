@@ -614,18 +614,19 @@ export const PROCESS_STATUSES = [
 export type ProcessStatus = (typeof PROCESS_STATUSES)[number];
 
 /**
- * 현장이 멈춘 상태. 진행 흐름과 별개다.
+ * 현장이 멈춘 상태. 진행 흐름과 별개다 — 섞으면 「설치완료면서 멈춤」을 표현할 수 없다.
  *
- * 「보류」는 계약은 됐는데 도중에 중단된 것이라 시공 상태가 아니라 계약 쪽에 가깝다.
- * 그래서 진행 단계와 섞지 않고 따로 둔다 — 섞으면 「설치완료면서 보류」를 표현할 수 없다.
- */
-/**
- * 멈춤 — 보류(사정이 풀리면 재개)와 계약중단(계약이 무산됨).
+ * ★계약중단 하나다 (한백 지시 2026-08-31 「보류는 없애고 계약중단만 냅둬」).★
+ * 「보류」(사정이 풀리면 재개)를 같이 두었는데, 둘의 차이는 「돌아올 것 같은가」라는
+ * 짐작뿐이고 화면이 하는 일은 똑같았다 — 흐름에서 빼고, 할 일에서 지우고, 보드 끝에
+ * 세운다. 갈래가 둘이면 세울 때마다 어느 쪽인지 고민하게 되고 칸도 하나 더 먹는다.
+ * 다시 할 현장은 재개하면 그만이라 「보류」라는 이름이 따로 필요하지 않다.
+ *
  * 옛 이름 'DROP' 은 읽을 때 계약중단으로 바꾼다(저장소가 한다).
  * 세울 때는 사유가 필수다 — 왜 멈췄는지 없으면 몇 달 뒤 아무도 모른다.
  */
-export type HoldState = '보류' | '계약중단';
-export const HOLD_STATES = ['보류', '계약중단'] as const satisfies readonly HoldState[];
+export type HoldState = '계약중단';
+export const HOLD_STATES = ['계약중단'] as const satisfies readonly HoldState[];
 
 /** 노션 공정관리 마스터의 실제 날짜 필드 (준공서류일·기자재발주일은 없다) */
 export interface ProcessInfo {

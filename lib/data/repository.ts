@@ -219,7 +219,7 @@ export interface ProjectRepository {
   setCourt(projectId: string, court: Court, actor: Actor): Promise<void>;
 
   /**
-   * 현장을 멈추거나(보류·계약중단) 다시 돌린다(null). [한백 전용]
+   * 현장을 멈추거나(계약중단) 다시 돌린다(null). [한백 전용]
    *
    * 세울 때는 사유가 필수다 — 왜 멈췄는지 없으면 몇 달 뒤 아무도 모른다(반려와 같은 규칙).
    * 지우지 않는다 — 계약이 무산돼도 현장은 보드 끝 칸에 기록으로 남는다.

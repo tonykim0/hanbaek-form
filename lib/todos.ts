@@ -64,7 +64,7 @@ export async function todosOf(session: SessionPayload): Promise<TodoItem[]> {
   ]);
 
   const items: TodoItem[] = projects
-    // 멈춘 현장은 누구 차례도 아니다 — 보류 칸과 같은 판정
+    // 멈춘 현장은 누구 차례도 아니다 — 계약중단 칸과 같은 판정
     .filter((p) => !p.holdState && mine.includes(p.court))
     .map((p) => ({ p, column: boardColumnOf(p) }))
     /*
@@ -151,7 +151,7 @@ export async function todosOf(session: SessionPayload): Promise<TodoItem[]> {
    */
 
   /*
-   * 기성 — 멈춘 현장은 뺀다. 위 현장 카드와 같은 판정이다(보류·계약중단은 누구 차례도
+   * 기성 — 멈춘 현장은 뺀다. 위 현장 카드와 같은 판정이다(계약중단은 누구 차례도
    * 아니다). 기성 요약에는 멈춤이 없으므로 현장 목록에서 가져와 건넨다.
    */
   const held = new Set(projects.filter((p) => p.holdState).map((p) => p.id));

@@ -168,7 +168,7 @@ export default function DesignPage() {
             <Badge tone="ok">시공</Badge>
             <Badge tone="warn">받을 수 있음</Badge>
             {/* 멈춤은 색이 아니라 무게로 말한다 — 어느 단계도 아니기 때문이다 */}
-            <Badge tone="hold">보류</Badge>
+            <Badge tone="hold">계약중단</Badge>
             <span className="text-tiny text-slate-400">한 건에 하나 — 지금 있는 자리</span>
           </Part>
 

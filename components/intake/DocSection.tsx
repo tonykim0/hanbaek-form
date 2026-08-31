@@ -7,6 +7,7 @@
  * 올리는 절차는 lib/intake-upload 가 안다 — 이 부품은 고른 파일을 onPick 으로 넘길 뿐이다.
  */
 import { Finding, Preview } from './parts';
+import type { StagedFile } from '@/components/IntakeForm';
 import { PANEL, Tag } from '@/components/ui';
 import type { EvaluatedDoc } from '@/lib/doc-rules';
 import type { DocReview } from '@/types/intake-auto';
@@ -30,16 +31,12 @@ export function DocSection({
   check: { satisfiedCount: number; requiredCount: number };
   issueCount: number;
   review: DocReview | null;
-  /** title — 판독기가 읽은 문서 제목. ZIP 에서 온 칸에만 있다 */
-  staged: Record<string, {
-    filename: string; blobUrl: string;
-    title?: string | null;
-    /** 휴대폰 사진으로 보이는 근거 — 있으면 칸에 표가 붙는다 */
-    photo?: string[] | null;
-  }>;
+  /** 칸마다 올라간 파일들 — ★한 칸에 여러 장이 붙는다★ (2026-08-31) */
+  staged: Record<string, StagedFile[]>;
   picking: Record<string, number>;
   onPick: (kind: string, file: File) => void;
-  onRemove: (kind: string) => void;
+  /** 장 단위로 뺀다 — 두 장 중 하나만 잘못 온 경우가 있다 */
+  onRemove: (kind: string, index: number) => void;
 }) {
   return (
     /*
@@ -97,7 +94,8 @@ export function DocSection({
               {/* 칸을 넷으로 — 계약 탭과 같다(그전에는 둘이라 같은 서류가 두 배로 커 보였다) */}
               <div className="grid gap-1.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 {list.map((d) => {
-                  const filled = staged[d.key];
+                  const files = staged[d.key] ?? [];
+                  const filled = files[0];
                   const uploading = picking[d.key];
                   const finding = review?.findings.find((f) => f.kind === d.key);
                   const flagged = (finding !== undefined && !finding.ok)
@@ -140,7 +138,9 @@ export function DocSection({
                         <span className={`shrink-0 text-micro font-black ${
                           filled ? 'text-brand-700' : missing ? 'text-red-700' : 'text-slate-400'
                         }`}>
-                          {filled ? '고름' : d.req === 'o' ? '해당없음' : '미제출'}
+                          {/* 몇 장인지 상태 자리가 말한다 — 두 장이 왔는데 한 장으로 보이면 안 된다 */}
+                          {filled ? (files.length > 1 ? `고름 ${files.length}장` : '고름')
+                            : d.req === 'o' ? '해당없음' : '미제출'}
                         </span>
                       </div>
 
@@ -156,30 +156,46 @@ export function DocSection({
                             올리는 중 {uploading}%
                           </p>
                         </div>
-                      ) : filled ? (
-                        <>
-                          <p className="mt-1 truncate text-tiny text-slate-500" title={filled.filename}>
-                            {filled.filename}
-                          </p>
-                          {/*
-                            판독기가 읽은 제목 — 칸 이름과 어긋나면 열지 않고도 보인다
-                            (한백 2026-08-31). 파일명이 이미 그 말을 하면 적지 않는다(규칙 5).
-                          */}
-                          {filled.title && !filled.filename.includes(filled.title) && (
-                            <p className="mt-0.5 truncate text-tiny text-slate-400" title={filled.title}>
-                              읽은 제목 <span className="text-slate-600">{filled.title}</span>
-                            </p>
-                          )}
-                          {/* 스캔본이 아니라 사진으로 보인다 — 근거까지 적는다(lib/photo-check) */}
-                          {filled.photo?.length ? (
-                            <p className="mt-1 text-tiny font-bold text-amber-700">
-                              휴대폰 사진으로 보임
-                              <span className="ml-1 font-normal text-amber-800/70">
-                                {filled.photo.join(' · ')}
+                      ) : files.length > 0 ? (
+                        /*
+                          ★장마다 한 줄이다★ (한백 지시 2026-08-31 — 수완지구 숲안에1차아파트에서
+                          설치신청서가 두 장인데 옛것만 보였다). 한 줄로 접으면 두 번째 장이
+                          화면에 없어서, 낸 사람과 보는 사람이 다른 서류를 이야기하게 된다.
+                        */
+                        <ul className="mt-1 flex flex-col gap-1">
+                          {files.map((f, i) => (
+                            <li key={f.blobUrl} className="min-w-0">
+                              <span className="flex items-baseline gap-1.5">
+                                {files.length > 1 && (
+                                  <span className="shrink-0 text-micro font-bold tabular-nums text-slate-400">
+                                    {i + 1}
+                                  </span>
+                                )}
+                                <span className="truncate text-tiny text-slate-500" title={f.filename}>
+                                  {f.filename}
+                                </span>
                               </span>
-                            </p>
-                          ) : null}
-                        </>
+                              {/*
+                                판독기가 읽은 제목 — 칸 이름과 어긋나면 열지 않고도 보인다
+                                (2026-08-31). 파일명이 이미 그 말을 하면 적지 않는다(규칙 5).
+                              */}
+                              {f.title && !f.filename.includes(f.title) && (
+                                <span className="block truncate text-tiny text-slate-400" title={f.title}>
+                                  읽은 제목 <span className="text-slate-600">{f.title}</span>
+                                </span>
+                              )}
+                              {/* 스캔본이 아니라 사진으로 보인다 — 근거까지 적는다(lib/photo-check) */}
+                              {f.photo?.length ? (
+                                <span className="block text-tiny font-bold text-amber-700">
+                                  휴대폰 사진으로 보임
+                                  <span className="ml-1 font-normal text-amber-800/70">
+                                    {f.photo.join(' · ')}
+                                  </span>
+                                </span>
+                              ) : null}
+                            </li>
+                          ))}
+                        </ul>
                       ) : null}
 
                       {finding && <Finding finding={finding} />}
@@ -190,8 +206,13 @@ export function DocSection({
                         먹는다. 되돌릴 수 없는 「빼기」는 반대쪽 끝이다(화면 규칙 8).
                       */}
                       <div className="mt-2 flex items-center gap-1.5 border-t border-slate-100 pt-2">
+                        {/*
+                          ★「추가」다 — 「바꾸기」가 아니다★ (2026-08-31). 예전에는 갈아치웠고,
+                          그래서 두 장짜리 서류를 낼 길이 없었다. 지금은 쌓이므로 이름도 그렇게 적는다
+                          (현장 상세의 서류 칸이 같은 이유로 「파일 추가」다).
+                        */}
                         <label className="inline-flex cursor-pointer items-center rounded-ctl border border-slate-300 bg-white px-2 py-1 text-tiny font-bold text-slate-700 transition hover:border-brand-400 hover:text-brand-800">
-                          {filled ? '바꾸기' : '고르기'}
+                          {filled ? '파일 추가' : '고르기'}
                           <input
                             type="file"
                             className="hidden"
@@ -207,15 +228,24 @@ export function DocSection({
                           * ZIP 자동분류가 엉뚱한 칸에 넣는 일이 있다. 바꿀 파일이 따로
                           * 없으면 비우는 길이 있어야 한다 — 아직 접수 전이라 화면에서만 뺀다.
                           * 임시본은 사흘 뒤 청소가 걷어간다(lib/intake-stage).
+                          *
+                          * ★장 단위로 뺀다★ — 두 장 중 하나만 잘못 온 경우에 칸을 통째로
+                          * 비우면 멀쩡한 장까지 다시 올려야 한다. 여러 장이면 번호를 적는다.
                           */}
-                        {filled && (
-                          <button
-                            type="button"
-                            onClick={() => onRemove(d.key)}
-                            className="ml-auto text-tiny font-bold text-slate-400 transition hover:text-red-700"
-                          >
-                            빼기
-                          </button>
+                        {files.length > 0 && (
+                          <span className="ml-auto flex shrink-0 items-baseline gap-1.5">
+                            {files.map((f, i) => (
+                              <button
+                                key={f.blobUrl}
+                                type="button"
+                                onClick={() => onRemove(d.key, i)}
+                                title={`${f.filename} 을(를) 뺍니다`}
+                                className="text-tiny font-bold text-slate-400 transition hover:text-red-700"
+                              >
+                                {files.length > 1 ? `${i + 1} 빼기` : '빼기'}
+                              </button>
+                            ))}
+                          </span>
                         )}
                       </div>
                     </div>

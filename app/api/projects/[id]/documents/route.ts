@@ -70,23 +70,49 @@ export async function POST(
   const failed: Array<{ kind: string; error: string }> = [];
   let attached = 0;
 
-  for (let i = 0; i < docs.length; i += WAVE) {
+  /*
+   * ★같은 칸에 가는 것끼리는 줄을 세운다★ (한백 지시 2026-08-31 — 한 칸에 두 장).
+   *
+   * 붙이는 일은 그 칸의 파일 목록을 ★읽고 더해 다시 쓰는★ 것이다(appendedFiles).
+   * 같은 칸 두 장이 동시에 돌면 둘 다 「지금 목록」을 읽고 각자 한 장짜리 목록을 쓴다 —
+   * 나중에 끝난 쪽이 이기고 한 장이 조용히 사라진다. 접수 화면은 이제 한 칸에 여러 장을
+   * 보내므로 이 자리가 실제로 부딪힌다.
+   *
+   * 그래서 칸으로 묶고, 물결은 ★서로 다른 칸★끼리만 태운다. 한 칸 안은 차례로 간다.
+   */
+  const byKind = new Map<string, typeof docs>();
+  for (const d of docs) {
+    const kind = d.kind ?? '';
+    const list = byKind.get(kind) ?? [];
+    list.push(d);
+    byKind.set(kind, list);
+  }
+  const lists = [...byKind.entries()];
+
+  for (let i = 0; i < lists.length; i += WAVE) {
     const wave = await Promise.all(
-      docs.slice(i, i + WAVE).map(async (d) => ({
-        kind: d.kind ?? '',
-        result: await attachDocument({
-          projectId: params.id,
-          kind: d.kind ?? '',
-          filename: d.filename ?? '',
-          blobUrl: d.blobUrl ?? '',
-          title: d.title ?? null,
-          photo: Array.isArray(d.photo) ? d.photo.filter((x) => typeof x === 'string') : null,
-          has: hasOf(d.kind ?? ''),
-          session,
-        }),
-      }))
+      lists.slice(i, i + WAVE).map(async ([kind, list]) => {
+        const out: Array<{ kind: string; result: Awaited<ReturnType<typeof attachDocument>> }> = [];
+        /* 앞 장이 붙었으면 그 칸에는 이미 파일이 있다 — 뒷장의 has 는 그것까지 본다 */
+        let has = hasOf(kind);
+        for (const d of list) {
+          const result = await attachDocument({
+            projectId: params.id,
+            kind,
+            filename: d.filename ?? '',
+            blobUrl: d.blobUrl ?? '',
+            title: d.title ?? null,
+            photo: Array.isArray(d.photo) ? d.photo.filter((x) => typeof x === 'string') : null,
+            has,
+            session,
+          });
+          if (result.ok) has = true;
+          out.push({ kind, result });
+        }
+        return out;
+      })
     );
-    for (const { kind, result } of wave) {
+    for (const { kind, result } of wave.flat()) {
       if (result.ok) attached += 1;
       else failed.push({ kind, error: result.error });
     }

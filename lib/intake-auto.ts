@@ -141,27 +141,48 @@ export async function autoIntakeFromZip(
    * 회의록 2종·사업자등록증/고유번호증·건축물대장/K-apt 는 두 카테고리가 한 칸으로 모이므로
    * 겹치면 뒤엣것이 앞엣것을 덮는다. 조용히 덮지 않고 알린다.
    */
-  const byKind = new Map<string, { item: (typeof items)[number]; index: number }>();
+  /*
+   * ★같은 칸에 둘이 오면 둘 다 올린다★ (한백 지시 2026-08-31 — 수완지구 숲안에1차아파트).
+   *
+   * 그전에는 칸마다 하나만 남겼고 ★뒤엣것이 앞엣것을 덮었다.★ 설치신청서가 두 장 온
+   * 현장에서 옛 신청서가 남아, 접수한 사람은 새것을 낸 줄 알고 한백은 옛것을 봤다.
+   *
+   * 칸 하나에 파일 여러 장이 붙는 것은 이미 되는 일이다(documents.files, migrations/0021) —
+   * 회의록이 두 장으로 스캔되거나 사진대지가 동별로 갈려 오는 일이 흔해서 그렇게 만들었다.
+   * 접수 길만 그 사실을 모르고 하나로 접고 있었다.
+   *
+   * 겹치는 자리는 두 갈래다. 둘 다 버릴 것이 아니다:
+   *   · 같은 종류가 두 장   설치신청서 2장 — 실제로 두 장인 서류다
+   *   · 다른 종류가 한 칸으로 회의록 2종 · 사업자등록증/고유번호증 · 건축물대장/K-apt
+   */
+  const byKind = new Map<string, { item: (typeof items)[number]; index: number }[]>();
   items.forEach((item, index) => {
     const kind = kindOfCategory(item.category);
     if (!kind) return;
-    const seen = byKind.get(kind);
-    if (seen) {
-      warnings.push(
-        `${item.category} 와 ${seen.item.category} 가 같은 칸(${kind})입니다 — ${item.standardName} 만 남습니다.`
-      );
-    }
-    byKind.set(kind, { item, index });
+    const list = byKind.get(kind) ?? [];
+    list.push({ item, index });
+    byKind.set(kind, list);
   });
+  for (const [kind, list] of byKind) {
+    /*
+     * 잃는 것이 없으니 「덮인다」고 알리지 않는다. 대신 사실만 적는다 — 한 칸에 둘이
+     * 앉는 것은 판독이 엇나간 신호일 수도 있어서, 사람이 한 번 보는 편이 낫다.
+     */
+    if (list.length > 1) {
+      warnings.push(`${kind} 칸에 서류 ${list.length}건이 왔습니다 — 둘 다 올렸습니다. 맞는지 확인해주세요.`);
+    }
+  }
 
   // ── 임시 자리에 올린다 ────────────────────────────────────
   const docs: AutoDoc[] = [];
-  for (const [kind, { item, index }] of byKind) {
+  const totalDocs = [...byKind.values()].reduce((n, l) => n + l.length, 0);
+  for (const [kind, list] of byKind) {
+    for (const { item, index } of list) {
     onProgress({
       phase: 'upload',
       message: `서류를 올리는 중 — ${item.standardName}`,
       done: docs.length,
-      total: byKind.size,
+      total: totalDocs,
     });
     const ext = (item.standardName.split('.').pop() ?? 'pdf').toLowerCase();
     /*
@@ -179,6 +200,7 @@ export async function autoIntakeFromZip(
       title: item.title ?? null,
       photo: photoBy.get(item.originalName.normalize('NFC')) ?? null,
     });
+    }
   }
 
   /*

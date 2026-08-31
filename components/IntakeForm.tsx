@@ -57,6 +57,16 @@ interface Line {
 /** 자체투자 현장에서 갈리는 교체유형 두 가지 */
 const SELF_REPLS = ['자체투자 (제자리교체)', '자체투자 (신규위치)'] as const satisfies readonly ReplType[];
 
+/** 임시 자리에 올라간 파일 한 장 — 칸 하나에 여러 장이 붙는다 */
+export interface StagedFile {
+  filename: string;
+  blobUrl: string;
+  /** 판독기가 읽은 문서 제목 — ZIP 에서 온 것에만 있다 */
+  title?: string | null;
+  /** 휴대폰 사진으로 보이는 근거 — lib/photo-check */
+  photo?: string[] | null;
+}
+
 export default function IntakeForm({ org, isAdmin = false, knownOrgs = [] }: {
   /** 세션의 소속. 협력사는 화면에 적지 않는다 — 서버가 접수자의 소속으로 현장을 만든다. */
   org: string | null;
@@ -128,11 +138,14 @@ export default function IntakeForm({ org, isAdmin = false, knownOrgs = [] }: {
    */
   const [picking, setPicking] = useState<Record<string, number>>({});
 
-  /** ZIP 에서 나온 파일 — 이미 Blob 에 있어서 다시 올리지 않는다 */
-  const [staged, setStaged] = useState<
-    /* title — 판독기가 읽은 제목. ZIP 에서 온 것에만 있다(사람이 고른 파일은 칸을 이미 골랐다) */
-    Record<string, { filename: string; blobUrl: string; title?: string | null; photo?: string[] | null }>
-  >({});
+  /**
+   * ZIP 에서 나온 파일 — 이미 Blob 에 있어서 다시 올리지 않는다.
+   *
+   * ★칸 하나가 여러 장을 든다★ (한백 지시 2026-08-31 — 수완지구 숲안에1차아파트에서
+   * 설치신청서가 두 장이었는데 옛것만 남았다). 칸에 파일이 쌓이는 것은 이미 되는
+   * 일이고(documents.files), 접수 길만 그것을 모른 채 칸마다 하나로 접고 있었다.
+   */
+  const [staged, setStaged] = useState<Record<string, StagedFile[]>>({});
   /** 자동으로 채운 칸. 사람이 고치면 여기서 빠진다. */
   const [auto, setAuto] = useState<Set<string>>(new Set());
   const [review, setReview] = useState<DocReview | null>(null);
@@ -231,11 +244,14 @@ export default function IntakeForm({ org, isAdmin = false, knownOrgs = [] }: {
         setQty({});
       }
 
-      setStaged(Object.fromEntries(
-        data.docs.map((d) => [d.kind, {
+      /* 같은 칸에 둘이 와도 둘 다 담는다 — 접었다가 옛 서류가 남는 자리였다 */
+      const byKind: Record<string, StagedFile[]> = {};
+      for (const d of data.docs) {
+        (byKind[d.kind] ??= []).push({
           filename: d.filename, blobUrl: d.blobUrl, title: d.title, photo: d.photo,
-        }])
-      ));
+        });
+      }
+      setStaged(byKind);
       setAuto(filled);
       setReview(data.review);
       setNotes(data.warnings);
@@ -266,7 +282,8 @@ export default function IntakeForm({ org, isAdmin = false, knownOrgs = [] }: {
     setPicking((p) => ({ ...p, [kind]: 0 }));
     try {
       const up = await uploadIntakeFile(kind, file, (pct) => setPicking((p) => ({ ...p, [kind]: pct })));
-      setStaged((st) => ({ ...st, [kind]: up }));
+      /* 갈아치우지 않고 쌓는다 — 현장 상세의 서류 칸과 같은 규칙이다(2026-08-25) */
+      setStaged((st) => ({ ...st, [kind]: [...(st[kind] ?? []), up] }));
     } catch (err) {
       setError(`${labelOf(kind)}: ${(err as Error).message}`);
     } finally {
@@ -344,7 +361,8 @@ export default function IntakeForm({ org, isAdmin = false, knownOrgs = [] }: {
       powerType, replType: projectRepl, bizType, note: note || null,
       lines,
       // ZIP 에서 나온 것이든 사람이 고른 것이든 이미 임시 자리에 올라가 있다 — 한 곳만 본다
-      documents: Object.entries(staged).map(([kind, d]) => ({ kind, filename: d.filename })),
+      documents: Object.entries(staged).flatMap(([kind, list]) =>
+        list.map((d) => ({ kind, filename: d.filename }))),
     }),
     [cpo, name, addr, bldgType, contractParty, parkTotal, mgr, tel, mail, preInstall, preNote,
       powerType, projectRepl, bizType, note, lines, staged, isAdmin, salesOrg, gcOrg]
@@ -387,10 +405,11 @@ export default function IntakeForm({ org, isAdmin = false, knownOrgs = [] }: {
        * 그래서 여기서 넘기는 것은 주소 목록 하나뿐이고, 옮기는 일은 서버가 한 번에 한다.
        * 칸마다 요청을 보내던 때는 11칸에 12초였다.
        */
-      const docs = Object.entries(staged).map(([kind, d]) => ({
-        kind, filename: d.filename, blobUrl: d.blobUrl, title: d.title ?? null,
-        photo: d.photo ?? undefined,
-      }));
+      const docs = Object.entries(staged).flatMap(([kind, list]) =>
+        list.map((d) => ({
+          kind, filename: d.filename, blobUrl: d.blobUrl, title: d.title ?? null,
+          photo: d.photo ?? undefined,
+        })));
       if (docs.length > 0) {
         setBusy(`서류 ${docs.length}건을 붙이는 중…`);
         const res = await fetch(`/api/projects/${id}/documents`, {
@@ -530,7 +549,8 @@ export default function IntakeForm({ org, isAdmin = false, knownOrgs = [] }: {
         </span>
         {autoCount > 0 && (
           <p className="mt-2 text-small font-bold text-brand-800">
-            {autoCount}개 칸을 자동으로 채웠습니다 · 서류 {Object.keys(staged).length}건 첨부
+            {autoCount}개 칸을 자동으로 채웠습니다 · 서류{' '}
+            {Object.values(staged).reduce((n, l) => n + l.length, 0)}건 첨부
           </p>
         )}
       </label>
@@ -631,7 +651,14 @@ export default function IntakeForm({ org, isAdmin = false, knownOrgs = [] }: {
         staged={staged}
         picking={picking}
         onPick={pick}
-        onRemove={(kind: string) => setStaged((st) => { const next = { ...st }; delete next[kind]; return next; })}
+        /* 장 단위로 뺀다 — 칸을 통째로 비우면 두 장 중 하나만 잘못 온 경우에 다시 다 올려야 한다 */
+        onRemove={(kind: string, i: number) => setStaged((st) => {
+          const list = (st[kind] ?? []).filter((_, j) => j !== i);
+          const next = { ...st };
+          if (list.length === 0) delete next[kind];
+          else next[kind] = list;
+          return next;
+        })}
       />
 
       {/*

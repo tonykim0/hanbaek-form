@@ -37,7 +37,7 @@ if (!process.env.DATABASE_URL && process.env.DIRECT_URL) {
 
 async function main() {
   const { getRepository } = await import('../lib/data');
-  const { workOf, workGroupOf } = await import('../lib/payout-board');
+  const { isPayoutSubject, workOf, workGroupOf } = await import('../lib/payout-board');
 
   try {
     console.log(`DB ${new URL(process.env.DATABASE_URL!).host} (${ENV_FILE ?? '.env.local'}) — 읽기만 합니다\n`);
@@ -46,10 +46,15 @@ async function main() {
   // 화면과 같은 읽기 — 한백의 눈으로 전 현장을 본다
   const viewer = { role: 'admin' as const, org: null };
   const { plans } = await getRepository().listPayoutOverview(viewer);
-  const work = plans.map(workOf);
+  const all = plans.map(workOf);
+  // 화면과 같은 것을 세야 한다 — 보드는 지급 대상이 아닌 줄을 빼고 그린다
+  const work = all.filter(isPayoutSubject);
+  const dropped = all.filter((p) => !isPayoutSubject(p));
 
   const won = (n: number) => n.toLocaleString('ko-KR');
   const pad = (s: string, n: number) => s + ' '.repeat(Math.max(0, n - [...s].length * 1));
+
+  console.log(`지급 대상 ${work.length}줄 (계획도 0, 나간 돈도 0이라 뺀 줄 ${dropped.length}건${dropped.length ? ': ' + dropped.map((p) => `${p.projectName} ${p.kind}`).join(', ') : ''})\n`);
 
   for (const kind of ['영업비', '시공비'] as const) {
     const rows = work.filter((p) => p.kind === kind);
@@ -69,6 +74,21 @@ async function main() {
     for (const p of zero.slice(0, 12)) {
       console.log(`        ${pad(p.projectName, 34)} 계획 ${won(p.plan)} 조정 ${won(p.adjust)} 나감 ${won(p.confirmed)}`);
     }
+
+    /*
+     * ①-2 ★「완」이 원장에 근거가 있나★ (한백 지적 2026-08-31 「2차 나간 현장 아직 없어」).
+     * 회차 완료는 금액 누적으로 재므로, 앞 회차에 계획보다 많이 나가면 뒤 회차가 저절로
+     * 채워진다 — 원장에 2차 줄이 없는데 「완」이 된다(초과 충당).
+     */
+    const step2Ledger = rows.filter((p) => p.step2EntryId !== null || p.step2At !== null);
+    const step2Covered = rows.filter((p) => p.step2Done && p.step2EntryId === null && p.step2At === null);
+    const over = rows.filter((p) => p.confirmed > p.due && p.due > 0);
+    console.log(`\n  2차가 원장에 실제로 있는 줄   ${step2Ledger.length}건`);
+    console.log(`  ★2차가 초과분으로 덮인 줄★    ${step2Covered.length}건`);
+    for (const p of step2Covered.slice(0, 10)) {
+      console.log(`      ${pad(p.projectName, 34)} 계획 ${won(p.due)} · 나감 ${won(p.confirmed)} · 초과 ${won(p.confirmed - p.due)}`);
+    }
+    console.log(`  ★계획보다 더 나간 줄★        ${over.length}건 · 초과 합 ${won(over.reduce((n, p) => n + p.confirmed - p.due, 0))}`);
 
     // ② 돈이 이미 나간 줄은 어디에 있나 — 타일에 그 칸이 없다
     const started = rows.filter((p) => p.confirmed > 0);

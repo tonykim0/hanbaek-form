@@ -68,7 +68,7 @@ const dayLabel = (d: string) => `${Number(d.slice(5, 7))}월 ${Number(d.slice(8)
  */
 const GROUPS: Array<{ key: WorkGroup; hint: string }> = [
   { key: '지급 가능', hint: '조건이 다 찼다' },
-  { key: '보완 필요', hint: '서류·단가가 빈다' },
+  { key: '보완 필요', hint: '서류·단가가 비거나 초과가 났다' },
   { key: '공정 대기', hint: '설치·개통을 기다린다' },
   { key: '지급 완료', hint: '더 낼 것이 없다' },
   /*

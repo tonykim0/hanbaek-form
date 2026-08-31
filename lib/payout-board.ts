@@ -82,7 +82,7 @@ export function payoutsOfDetail(d: ProjectDetail, vis: Visibility): PayoutRowInp
  * 여기 「확정 완료」는 그것과 아무 상관이 없다 — 배치를 하나도 확정하지 않아도 돈만 다
  * 나갔으면 이 자리였다. 같은 낱말이 한 화면에서 두 뜻이면 서로 말이 안 통한다.
  */
-export type WorkState = '지급 가능' | '조건 대기' | '지급 완료';
+export type WorkState = '지급 가능' | '조건 대기' | '초과' | '지급 완료';
 
 export interface PayoutWork extends PayoutRowInput {
   state: WorkState;
@@ -121,6 +121,8 @@ export type WorkGroup = '지급 가능' | '보완 필요' | '공정 대기' | '�
 const FILLABLE = /지급조건 서류 미달|단가 미지정|송금 대상 미지정/;
 
 export function workGroupOf(w: { state: WorkState; blockers: string[] }): WorkGroup {
+  // 초과는 낼 것이 없을 뿐 끝난 것이 아니다 — 되받거나 잔금에서 뺄 일이 남았다
+  if (w.state === '초과') return '보완 필요';
   if (w.state !== '조건 대기') return w.state;
   return w.blockers.some((b) => FILLABLE.test(b)) ? '보완 필요' : '공정 대기';
 }
@@ -157,6 +159,23 @@ export function workOf(p: PayoutRowInput): PayoutWork {
     return { ...p, ...stepFields, state: '조건 대기', blockers: prerequisites, open: null };
   }
   if (!steps.open) {
+    /*
+     * ★계획보다 더 나간 줄은 완료가 아니다★ (한백 지적 2026-08-31 「2차 나간 현장 아직
+     * 없어」). 회차 완료를 금액 누적으로 재는 탓에, 1차에 계획보다 많이 나가면 2차가
+     * 원장에 줄 하나 없이 저절로 채워진다 — 반달마을푸르지오 영업비가 그 자리다
+     * (계획 150만 · 나감 178.5만 · 초과 28.5만). 프로덕션 실측으로 ★2차가 원장에 실제로
+     * 있는 줄은 0건★이고, 유일한 「완료」가 이 초과 충당이었다.
+     *
+     * 낼 것이 없는 것은 맞지만 끝난 것은 아니다 — 되받거나 잔금에서 빼야 한다.
+     * 그건 사람이 지금 할 수 있는 일이라 「보완 필요」로 간다.
+     */
+    const over = p.confirmed - steps.due;
+    if (over > 0) {
+      return {
+        ...p, ...stepFields, state: '초과', open: null,
+        blockers: [`초과 지급 ${over.toLocaleString('ko-KR')}원 — 회수·차감 필요`],
+      };
+    }
     return { ...p, ...stepFields, state: '지급 완료', blockers: [], open: null };
   }
 

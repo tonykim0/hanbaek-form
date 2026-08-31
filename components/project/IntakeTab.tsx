@@ -254,6 +254,7 @@ export function IntakeTab({
         siteName={siteName}
         canReview={canReview}
         canRemove={canEditDocs}
+        surveyText={surveyText}
       />
 
       <section>

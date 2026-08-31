@@ -14,7 +14,7 @@
 import { useState } from 'react';
 import type { PreInstall as PreInstallState, ProjectDetail, ProjectDocument } from '@/types/project';
 import { evaluateDocs, needsPreInstallCheck } from '@/lib/doc-rules';
-import { DocDelete, DocFileActions, DocUpload } from '@/components/DocFiles';
+import { DocDelete, DocFileActions, DocUpload, DownloadAll } from '@/components/DocFiles';
 import { useAction } from '@/lib/use-action';
 import { Badge, Btn, Choice, Empty, Err, FIELD, Tag } from '@/components/ui';
 import { DocReview } from './DocReview';
@@ -28,7 +28,7 @@ import {
 } from '@/lib/subsidy-history';
 
 export function PreInstall({
-  project, docs, byKind, siteName, canReview, canRemove = false,
+  project, docs, byKind, siteName, canReview, canRemove = false, surveyText,
 }: {
   project: ProjectDetail['project'];
   docs: ReturnType<typeof evaluateDocs>;
@@ -37,6 +37,15 @@ export function PreInstall({
   canReview: boolean;
   /** 파일 한 장을 뺄 수 있는가 — 내는 쪽(협력사)과 한백 (열람 전용은 아니다) */
   canRemove?: boolean;
+  /**
+   * 조사 내역을 글자로 — 묶음에 .txt 로 같이 들어간다.
+   *
+   * ★파일이 아니라 입력값이라 빠뜨리기 쉽다★ (2026-08-25 에 서류 묶음에서 겪은 것과
+   * 같은 자리다): 대수·kW·운영사가 적힌 조사 결과는 올린 파일이 아니어서, 파일만 받으면
+   * 그 내역이 화면에만 남아 사람이 옮겨 적어야 했다. 만드는 자리는 IntakeTab 한 곳이다 —
+   * 여기서 다시 만들면 두 묶음의 글이 갈린다.
+   */
+  surveyText?: string | null;
 }) {
   /*
    * 자체투자는 기설치 조사를 하지 않는다 — 환경부 보조금이 기설치 여부로 갈리기 때문에
@@ -56,15 +65,28 @@ export function PreInstall({
 
   return (
     <section>
-      <div className="mb-3 flex flex-wrap items-baseline gap-2">
-        <h2 className="text-h3 font-black text-slate-900">기설치 조사</h2>
-        {project.preRejectReason ? (
-          <Tag tone="warn">조사 반려</Tag>
-        ) : project.preChecked ? (
-          <Badge tone="ok">기설치 {project.preInstall}</Badge>
-        ) : (
-          <Tag tone="warn">조사 필요</Tag>
-        )}
+      {/*
+        머리말 오른쪽 끝에 받는 자리 — 서류 구역과 같은 꼴이다(한백 지시 2026-08-31).
+        계약 서류의 「전체 다운로드」에도 기설치 파일이 들어가지만, 그것은 열여섯 칸을
+        통째로 받는 자리다. 기설치만 따로 받을 일이 따로 있다(운영사 제출·조사 재확인).
+      */}
+      <div className="mb-3 flex flex-wrap items-baseline justify-between gap-3">
+        <div className="flex flex-wrap items-baseline gap-2">
+          <h2 className="text-h3 font-black text-slate-900">기설치 조사</h2>
+          {project.preRejectReason ? (
+            <Tag tone="warn">조사 반려</Tag>
+          ) : project.preChecked ? (
+            <Badge tone="ok">기설치 {project.preInstall}</Badge>
+          ) : (
+            <Tag tone="warn">조사 필요</Tag>
+          )}
+        </div>
+        <DownloadAll
+          docs={docs.map((d) => byKind.get(d.key)).filter((d): d is ProjectDocument => Boolean(d))}
+          siteName={siteName}
+          labelOf={(kind) => docs.find((d) => d.key === kind)?.label ?? kind}
+          extra={surveyText ? [{ name: '기설치 조사내역', text: surveyText }] : []}
+        />
       </div>
 
       <Survey project={project} />

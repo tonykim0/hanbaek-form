@@ -323,9 +323,18 @@ export function payoutReleaseOf(
   kind: PayoutKind,
   no: 1 | 2,
   milestones: PayoutMilestones
-): { trigger: '계약완료' | '설치완료' | '개통완료'; metAt: string | null; met: boolean } {
+): { trigger: '계약완료' | '설치완료' | '준공완료'; metAt: string | null; met: boolean } {
+  /*
+   * ★2차는 준공완료다★ (한백 지시 2026-08-31) — 개통완료였다. 개통은 됐어도 준공서류가
+   * 안 끝난 현장에 잔금이 나갈 수 있었고, 실제로 우리가 운영사에게 받는 기성도 준공을
+   * 본다. 내려주는 돈과 받는 돈이 같은 사실을 보게 맞춘다.
+   */
   if (no === 2) {
-    return { trigger: '개통완료', metAt: milestones.openedAt, met: milestones.openedAt !== null };
+    return {
+      trigger: '준공완료',
+      metAt: milestones.completedAt,
+      met: milestones.completedAt !== null,
+    };
   }
   if (kind === '영업비') {
     return {

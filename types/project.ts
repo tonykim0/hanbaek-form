@@ -602,13 +602,16 @@ export const PROCESS_STATUSES = [
   '착공',
   '설치완료',
   /*
-   * 전기사용신청 → 점검 → 통신까지 끝난 자리. 통신완료일과 개통 완료 체크가 조건이다.
-   * 설치는 끝났는데 개통 절차가 도는 현장과 준공서류를 준비하는 현장을 가른다.
+   * ★「개통완료」 칸을 걷었다★ (한백 지시 2026-08-31). 통신완료일·개통완료일은 「설치완료」
+   * 구간의 개통 상자가 이미 받는다 — 그것을 적고 나서 「개통완료」라는 칸에 한 번 더 서는
+   * 것이 걸음만 늘렸다. 2차 지급 조건도 준공완료로 옮겼으므로(lib/settlement
+   * payoutReleaseOf) 이 칸이 지키던 자리가 없어졌다. 개통 상자는 이제 곧바로
+   * 「준공서류 접수/검토」를 연다.
    */
-  '개통완료',
   '준공서류 접수/검토',
   '준공보완',
-  '준공',
+  /* 「준공」이었다 — 끝났다는 말이 분명하도록 이름을 바꿨다(한백 지시 2026-08-31) */
+  '준공완료',
 ] as const;
 
 export type ProcessStatus = (typeof PROCESS_STATUSES)[number];
@@ -709,7 +712,15 @@ export interface ProcessInfo {
   chargerDoneAt: string | null;      // 충전기 수령 완료 → 「충전기 수령」 조건
   installConfirmedAt: string | null; // 설치 완료 → 「설치완료」 조건
   openDoneAt: string | null;         // 개통 완료 → 「준공서류 접수/검토」 조건
-  completionSubmitAt: string | null; // 준공서류 제출 완료 → 「준공보완·준공」 조건
+  completionSubmitAt: string | null; // 준공서류 제출 완료 → 「준공보완·준공완료」 조건
+  /**
+   * 준공완료로 넘어간 날 — ★영업비·시공비 2차 지급의 조건이다★ (한백 2026-08-31).
+   *
+   * 앞서는 개통완료였다. 개통은 됐어도 준공서류가 안 끝난 현장에 잔금이 나갈 수 있었다.
+   * 준공완료는 상태를 옮기는 것이 곧 선언이라 따로 체크 칸을 두지 않는다 — 그 칸에
+   * 들어설 때 저장소가 찍고, 되돌리면 지운다(운영사 계약서 제출일과 같은 방식).
+   */
+  completeDoneAt: string | null;
   docs: ProjectDocument[];
   status: ProcessStatus;
   memo: string | null;
@@ -980,8 +991,8 @@ export interface PayoutMilestones {
   contractCompletedAt: string | null;
   /** 시공비 1차 — 설치 완료 체크일 */
   installCompletedAt: string | null;
-  /** 영업비·시공비 2차 — 개통 완료 체크일 */
-  openedAt: string | null;
+  /** 영업비·시공비 2차 — ★준공완료일★ (2026-08-31 에 개통완료에서 옮겼다) */
+  completedAt: string | null;
 }
 
 export interface SettlementSummary {

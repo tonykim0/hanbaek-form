@@ -120,6 +120,21 @@ export const processStore: Pick<
           ? { cpoSubmitDate: null }
           : {};
 
+    /*
+     * ★준공완료일도 같은 방식으로 찍는다★ (한백 2026-08-31) — 이 날이 영업비·시공비
+     * 2차 지급의 조건이다(lib/settlement payoutReleaseOf). 준공완료는 게이트가 없는
+     * 사람의 판단이라 체크 칸을 따로 두지 않고, 그 칸에 들어설 때를 선언으로 본다.
+     * 되돌려 내려가면 지운다 — 되돌리기는 「그 일이 없던 것으로」다(화면 규칙 7).
+     * 지우지 않으면 2차 지급 조건이 찬 채로 남아 돈이 나갈 수 있다.
+     */
+    const doneBefore = record.process.completeDoneAt;
+    const doneStamp =
+      status === '준공완료' && !doneBefore
+        ? { completeDoneAt: today() }
+        : status !== '준공완료' && doneBefore
+          ? { completeDoneAt: null }
+          : {};
+
     const db = getDb();
     await db.transaction(async (tx) => {
       const [row] = await tx
@@ -133,9 +148,9 @@ export const processStore: Pick<
        */
       if (row) {
         if (row.status === status) return;
-        await tx.update(processes).set({ status, ...stamp }).where(eq(processes.projectId, projectId));
+        await tx.update(processes).set({ status, ...stamp, ...doneStamp }).where(eq(processes.projectId, projectId));
       } else {
-        await tx.insert(processes).values({ projectId, status, ...stamp });
+        await tx.insert(processes).values({ projectId, status, ...stamp, ...doneStamp });
       }
       // 상태를 옮기면 차례도 따라 넘어간다 — 다음 사람이 움직일 차례다 (lib/process.ts)
       await tx
@@ -152,6 +167,14 @@ export const processStore: Pick<
           projectId, actor, action: '운영사 계약서 제출',
           field: 'process.cpoSubmitDate',
           oldValue: before, newValue: stamp.cpoSubmitDate,
+        });
+      }
+      /* 2차 지급의 조건이 되는 날이라 남긴다 — 돈이 걸린 값은 언제 바뀌었는지 물을 수 있어야 한다 */
+      if ('completeDoneAt' in doneStamp) {
+        await writeAudit(tx, {
+          projectId, actor, action: doneStamp.completeDoneAt ? '준공완료' : '준공완료 해제',
+          field: 'process.completeDoneAt',
+          oldValue: doneBefore, newValue: doneStamp.completeDoneAt ?? null,
         });
       }
     });

@@ -33,7 +33,7 @@ export function payoutsOfDetail(d: ProjectDetail, vis: Visibility): PayoutRowInp
   const milestones: PayoutMilestones = {
     contractCompletedAt: d.project.contractConfirmedAt,
     installCompletedAt: d.process.installConfirmedAt,
-    openedAt: d.process.openDoneAt,
+    completedAt: d.process.completeDoneAt,
   };
   const stepEntry = (kind: PayoutKind, cat: '1차' | '2차') =>
     d.payoutEntries.find((e: PayoutEntry) => e.kind === kind && e.category === cat) ?? null;

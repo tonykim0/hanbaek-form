@@ -172,7 +172,11 @@ export function groupsByStatus(
           { label: '충전기 출고일', field: 'chargerShipDate', value: p.chargerShipDate },
         ],
         extras: ['chargerModel', 'orderQty'],
-        docs: [],
+        /*
+         * 발주 때 같이 받는 둘 (한백 지시 2026-08-31). 설치 신고서는 설치 상자에 있었는데,
+         * 신고는 설치 전에 하는 일이라 그 묶음에 있을 자리가 아니었다.
+         */
+        docs: ['orderQuote', 'installNotice'],
         advance: { label: '다음 단계로 진행', target: '충전기 수령', move: '충전기 수령' },
       },
     ],
@@ -195,7 +199,8 @@ export function groupsByStatus(
          */
         title: '착공',
         rows: [{ label: '착공일', field: 'startActualDate', value: p.startActualDate, trigger: '착공' }],
-        docs: [],
+        /* 착공일 아래에 선다 — 착공 전에 갖추는 안전서류다(한백 지시 2026-08-31) */
+        docs: ['preStartDocs'],
       },
       {
         title: '설치',
@@ -207,7 +212,8 @@ export function groupsByStatus(
          * 사진 뒤에 설치완료 때 같이 내는 것들을 둔다 (한백 지시 2026-08-26).
          * 전기사용신청 접수증은 개통 상자에 있었는데, 신청은 설치 무렵의 일이라 여기로 옮겼다.
          */
-        docs: ['photoDone', 'installReport', 'installNotice', 'elecapply'],
+        /* installNotice(충전시설 설치 신고서)는 발주 상자로 옮겼다 (2026-08-31) */
+        docs: ['photoDone', 'installReport', 'elecapply'],
         advance: { label: '다음 단계로 진행', target: '설치완료', field: 'installConfirmedAt' },
       },
     ],
@@ -221,7 +227,8 @@ export function groupsByStatus(
           { label: '개통완료일', field: 'openDate', value: p.openDate },
         ],
         docs: ['kepcofee', 'comm'],
-        advance: { label: '다음 단계로 진행', target: '개통완료', field: 'openDoneAt' },
+        /* 「개통완료」 칸을 걷었다(2026-08-31) — 개통을 마치면 곧바로 준공서류 칸이 열린다 */
+        advance: { label: '다음 단계로 진행', target: '준공서류 접수/검토', field: 'openDoneAt' },
       },
     ],
     /*

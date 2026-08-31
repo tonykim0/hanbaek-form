@@ -124,6 +124,7 @@ export interface ProjectRecord {
 export const emptyProcess = (projectId: string): ProcessInfo => ({
   projectId,
   envApprovalDate: null,
+  completeDoneAt: null,
   cpoSubmitDate: null,
   cpoApprovalDate: null,
   chargerOrderDate: null,
@@ -209,7 +210,7 @@ export function payoutMilestonesFor(r: ProjectRecord): PayoutMilestones {
   return {
     contractCompletedAt: r.project.contractConfirmedAt,
     installCompletedAt: r.process.installConfirmedAt,
-    openedAt: r.process.openDoneAt,
+    completedAt: r.process.completeDoneAt,
   };
 }
 

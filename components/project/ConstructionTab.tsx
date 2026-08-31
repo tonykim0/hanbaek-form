@@ -562,7 +562,7 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
                 Boolean(p.completionSubmitAt) && (
                   <CompletionReview
                     busy={busyKey === 'status' || busyKey === 'completionFix'}
-                    onApprove={() => moveStatus('준공')}
+                    onApprove={() => moveStatus('준공완료')}
                     onFix={(reason) => void sendToFix(reason)}
                   />
                 )}

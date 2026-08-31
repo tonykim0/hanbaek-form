@@ -33,7 +33,7 @@ function row(over: Partial<SettlementSummary> = {}): SettlementSummary {
     steps: [step({ no: 1 }), step({ no: 2 }), step({ no: 3 })],
     planTotal: 900_000, collectedTotal: 0, cpoCloseDate: null,
     salesOrg: null, gcOrg: null,
-    payoutMilestones: { contractCompletedAt: null, installCompletedAt: null, openedAt: null },
+    payoutMilestones: { contractCompletedAt: null, installCompletedAt: null, completedAt: null },
     salesFeeMissing: [], salesTotal: 0, consTotal: 0, marginTotal: 0, unpricedLines: 0,
     salesAdjust: 0, salesPaid: 0, salesLastPaidAt: null,
     consAdjust: 0, consPaid: 0, consLastPaidAt: null,
@@ -115,19 +115,19 @@ describe('준공마감일 지정 — 마지막 기성이 열리지 않는 자리
   ];
 
   it('준공했는데 준공마감일이 없다 → 한백이 넣을 차례다', () => {
-    const [t] = receivableTodos([row({ status: '준공', steps: 잔액대기 })], 오늘);
+    const [t] = receivableTodos([row({ status: '준공완료', steps: 잔액대기 })], 오늘);
     expect(t.kind).toBe('준공마감일 지정');
     expect(t.what).toBe('3차 기성 660,000원 · 준공마감일 없음');
     expect(t.urgency).toBe(30);
   });
 
   it('★준공 전에는 안 세운다★ — 통보가 올 때가 아니고, 띄우면 준공까지 내내 걸려 있다', () => {
-    expect(receivableTodos([row({ status: '개통완료', steps: 잔액대기 })], 오늘)).toHaveLength(0);
+    expect(receivableTodos([row({ status: '설치완료', steps: 잔액대기 })], 오늘)).toHaveLength(0);
   });
 
   it('준공마감일이 들어오면 그 차수는 열린다 — 그때는 수금 카드다', () => {
     const [t] = receivableTodos([row({
-      status: '준공', cpoCloseDate: '2026-08-10',
+      status: '준공완료', cpoCloseDate: '2026-08-10',
       steps: [
         잔액대기[0], 잔액대기[1],
         step({ no: 3, trigger: '준공마감', basisLabel: '잔액', planAmount: 660_000, state: 'open', openedAt: '2026-08-10' }),
@@ -168,7 +168,7 @@ describe('정산 규칙 미지정 — 기성이 계산조차 안 되는 자리',
 describe('한 현장에 두 가지가 겹칠 때', () => {
   it('열린 차수와 준공마감일 대기는 다른 일이다 — 카드도 둘', () => {
     const items = receivableTodos([row({
-      status: '준공',
+      status: '준공완료',
       steps: [
         step({ no: 1, state: 'open', openedAt: '2026-08-01' }),
         step({ no: 2, state: 'collected', openedAt: '2026-06-01', collectedAt: '2026-06-20', trigger: '착공' }),

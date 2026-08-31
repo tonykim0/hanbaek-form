@@ -61,7 +61,7 @@ export function receivableTodos(rows: SettlementSummary[], now: Date = new Date(
      * 아직 통보가 올 때가 아니라, 그때 띄우면 준공까지 내내 걸려 있다.
      */
     const closing = r.steps.filter((s) => s.trigger === '준공마감' && s.state === 'waiting');
-    if (r.status === '준공' && closing.length > 0) {
+    if (r.status === '준공완료' && closing.length > 0) {
       const amount = closing.reduce((n, s) => n + (s.planAmount ?? 0), 0);
       items.push({
         id: `close|${r.id}`,

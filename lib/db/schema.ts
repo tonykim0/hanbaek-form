@@ -299,6 +299,8 @@ export const processes = pgTable('processes', {
   installConfirmedAt: text('install_confirmed_at'),
   openDoneAt: text('open_done_at'),
   completionSubmitAt: text('completion_submit_at'),
+  /** 준공완료로 넘어간 날 — 영업비·시공비 2차 지급의 조건이다(2026-08-31) */
+  completeDoneAt: text('complete_done_at'),
   /** 진행현황 6단계 (types/project.ts PROCESS_STATUSES) */
   status: text('status').notNull().default('계약완료'),
   memo: text('memo'),

@@ -74,7 +74,7 @@ export async function todosOf(session: SessionPayload): Promise<TodoItem[]> {
      * 목록에 남았다. 그 자리에 실제로 남은 일(준공마감 지정 · 기성 수금)은 기성 할 일이
      * 금액까지 적어 따로 세우고, 그것들은 끝나면 사라진다. 두 벌로 세울 이유가 없다.
      */
-    .filter(({ column }) => column !== '준공')
+    .filter(({ column }) => column !== '준공완료')
     .map(({ p, column }) => {
       return {
         id: p.id,

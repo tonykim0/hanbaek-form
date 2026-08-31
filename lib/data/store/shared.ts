@@ -234,6 +234,7 @@ export function toProcess(projectId: string, r: ProcRow | undefined, docRows: Pr
   return {
     projectId,
     envApprovalDate: r?.envApprovalDate ?? null,
+    completeDoneAt: r?.completeDoneAt ?? null,
     cpoSubmitDate: r?.cpoSubmitDate ?? null,
     cpoApprovalDate: r?.cpoApprovalDate ?? null,
     chargerOrderDate: r?.chargerOrderDate ?? null,

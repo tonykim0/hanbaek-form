@@ -70,10 +70,9 @@ const BAND_OF_STATUS: Record<ProcessStatus, BoardBand> = {
   '충전기 수령': '시공',
   '착공': '시공',
   '설치완료': '시공',
-  '개통완료': '시공',
   '준공서류 접수/검토': '시공',
   '준공보완': '시공',
-  '준공': '시공',
+  '준공완료': '시공',
 };
 
 /**
@@ -232,7 +231,7 @@ const PARTNER_WAITING: Partial<Record<ProcessStatus, string>> = {
    */
   '운영사 계약서 제출': '한백 제출 대기 중',
   '준공서류 접수/검토': '한백 검토 대기 중',
-  '준공': '한백 준공마감 대기 중',
+  '준공완료': '한백 준공마감 대기 중',
 };
 
 export function partnerWaitingOf(next: ProcessStatus): string | null {

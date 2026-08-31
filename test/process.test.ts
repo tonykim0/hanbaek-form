@@ -69,8 +69,15 @@ describe('advanceBlockers — 진행 단추를 막는 것들', () => {
     expect(blockers.filter((b) => b === '설치완료 사진')).toHaveLength(1);
   });
 
-  it('개통: 통신·개통일이 다 있으면 열린다', () => {
-    expect(advanceBlockers('개통완료', 'openDoneAt', P({ commDoneDate: 'd', openDate: 'd' }), ENV)).toEqual([]);
+  /*
+   * 「개통완료」 칸을 걷으면서(한백 2026-08-31) 개통 조건이 준공서류 칸으로 옮겨 왔다.
+   * ★조건을 같이 걷으면 개통도 안 한 현장이 준공서류로 넘어간다★ — 그래서 여기서 지킨다.
+   */
+  it('개통: 통신·개통 선언이 다 있어야 준공서류 칸이 열린다', () => {
+    const done = P({ commDoneDate: 'd', openDate: 'd' });
+    expect(advanceBlockers('준공서류 접수/검토', 'openDoneAt', done, ENV)).toEqual([]);
+    const noComm = P({ openDate: 'd' });
+    expect(advanceBlockers('준공서류 접수/검토', 'openDoneAt', noComm, ENV)).toEqual(['통신완료일']);
   });
 });
 
@@ -132,7 +139,8 @@ describe('완료 선언이 여는 칸 (CHECK_ADVANCES)', () => {
     expect(CHECK_ADVANCES.notifyDoneAt).toBe('충전기 발주');
     expect(CHECK_ADVANCES.chargerDoneAt).toBe('착공');
     expect(CHECK_ADVANCES.installConfirmedAt).toBe('설치완료');
-    expect(CHECK_ADVANCES.openDoneAt).toBe('개통완료');
+    /* 「개통완료」 칸을 걷었다 — 개통 선언이 곧바로 준공서류 칸을 연다(2026-08-31) */
+    expect(CHECK_ADVANCES.openDoneAt).toBe('준공서류 접수/검토');
   });
 });
 
@@ -141,12 +149,12 @@ describe('준공서류 제출 완료 — 세부 칸으로 본다 (2026-08-29 흐
 
   it('세부 칸이 다 차면 열린다 — 옛 「준공서류」 칸이 없어도', () => {
     const p = P({ status: '준공서류 접수/검토', docs: ALL.map(doc) });
-    expect(advanceBlockers('준공', 'completionSubmitAt', p, ENV)).toEqual([]);
+    expect(advanceBlockers('준공완료', 'completionSubmitAt', p, ENV)).toEqual([]);
   });
 
   it('안 온 서류를 이름으로 말한다', () => {
     const p = P({ status: '준공서류 접수/검토', docs: [doc('completeConfirm'), doc('costSurvey')] });
-    expect(advanceBlockers('준공', 'completionSubmitAt', p, ENV))
+    expect(advanceBlockers('준공완료', 'completionSubmitAt', p, ENV))
       .toEqual(['안전점검필증 (사용전점검필증)', '사용검사 필증', '준공도']);
   });
 
@@ -154,14 +162,14 @@ describe('준공서류 제출 완료 — 세부 칸으로 본다 (2026-08-29 흐
   it('한전불입 현장은 선임신고증명서까지 본다', () => {
     const p = P({ status: '준공서류 접수/검토', docs: ALL.map(doc) });
     const kepco: GateContext = { subsidized: true, powerType: '한전불입', bizType: '환경부' };
-    expect(advanceBlockers('준공', 'completionSubmitAt', p, kepco))
+    expect(advanceBlockers('준공완료', 'completionSubmitAt', p, kepco))
       .toEqual(['전기안전관리자 선임신고증명서']);
   });
 
   /* 이관 현장은 준공서류를 한 칸에 냈다 — 그 파일이 있으면 세부 칸을 다시 받지 않는다 */
   it('옛 한 칸으로 낸 현장은 그것으로 갈음한다', () => {
     const p = P({ status: '준공서류 접수/검토', docs: [doc('completion')] });
-    expect(advanceBlockers('준공', 'completionSubmitAt', p, ENV)).toEqual([]);
+    expect(advanceBlockers('준공완료', 'completionSubmitAt', p, ENV)).toEqual([]);
   });
 });
 
@@ -232,7 +240,7 @@ describe('canChangeContractDocs — 운영사에 낸 뒤로 계약 서류는 잠
   });
 
   it('★그 뒤 단계에서도 잠겨 있다★ — 낸 자리 한 칸만 막으면 다음 칸에서 다시 열린다', () => {
-    for (const status of ['행위신고', '충전기 발주', '착공', '설치완료', '준공'] as const) {
+    for (const status of ['행위신고', '충전기 발주', '착공', '설치완료', '준공완료'] as const) {
       expect(canChangeContractDocs('sales', status)).toBe(false);
     }
   });
@@ -242,7 +250,7 @@ describe('canChangeContractDocs — 운영사에 낸 뒤로 계약 서류는 잠
   });
 
   it('★한백은 낸 뒤에도 바꾼다★ — 운영사가 반려해 다시 내는 길이 있어야 한다', () => {
-    expect(canChangeContractDocs('admin', '준공')).toBe(true);
+    expect(canChangeContractDocs('admin', '준공완료')).toBe(true);
   });
 
   it('열람 전용은 언제나 못 바꾼다', () => {

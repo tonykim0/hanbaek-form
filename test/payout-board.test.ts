@@ -124,7 +124,7 @@ describe('workGroupOf — 「조건 대기」를 둘로 가른다', () => {
   });
 
   it('공정 마일스톤은 기다리는 것이다 — 사람이 당길 수 없다', () => {
-    for (const b of ['설치완료 대기', '개통완료 대기', '계약완료 대기']) {
+    for (const b of ['설치완료 대기', '준공완료 대기', '계약완료 대기']) {
       expect(workGroupOf({ state: '조건 대기', blockers: [b] })).toBe('공정 대기');
     }
   });

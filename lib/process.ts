@@ -157,27 +157,26 @@ export const STATUS_GATES: Record<ProcessStatus, StatusGate | null> = {
     !docApproved(p, 'photoDone') && { key: 'photoDone', label: '설치완료 사진' },
     !p.installConfirmedAt && { key: 'installConfirmedAt', label: '설치 완료 선언' },
   ]),
-  // 전기사용신청 → 점검 → 통신까지 끝났다. 개통 체크가 여기로 왔다(단계를 쪼개면서).
-  '개통완료': (p) => missing([
-    !p.commDoneDate && { key: 'commDoneDate', label: '통신완료일' },
-    !p.openDoneAt && { key: 'openDoneAt', label: '개통 완료 선언' },
-  ]),
   /*
-   * 시공팀이 준공서류를 접수하면 넘어간다 — 개통은 앞 단계(개통완료)가 이미 확인했다.
+   * ★개통 조건이 여기로 왔다★ (한백 지시 2026-08-31, 「개통완료」 칸을 걷으면서).
+   * 개통 상자가 이 칸을 곧바로 열므로, 개통완료가 지키던 조건(통신완료일·개통 완료 선언)을
+   * 이 칸이 대신 지킨다 — 같이 걷으면 개통도 안 한 현장이 준공서류로 넘어간다.
    *
-   * ★조건을 「설치완료확인서(환경부)」로 옮겼다★ (한백 확인 2026-08-27) — 준공에 받는 서류를
-   * 여섯 칸으로 갈랐으니(환경부 둘·대관서류 넷) 뭉뚱그린 「준공서류」 칸이 조건일 이유가 없다.
-   * 그 묶음에서 가장 먼저 나오는 것이 설치완료확인서라 그것을 접수의 표지로 삼는다.
+   * ★들어오는 조건에서 「설치완료확인서(환경부)」를 뺐다.★ 2026-08-27 에 그것을 접수의
+   * 표지로 삼았는데, 그 서류를 올리는 자리가 ★이 칸 안★이다 — 앞 칸(개통완료)이 있을
+   * 때는 거기 서서 올릴 수 있었지만, 그 칸을 걷으면 들어가야 올릴 수 있고 올려야
+   * 들어가는 교착이 된다. 준공서류가 다 왔는지는 ★나갈 때★ 이미 지킨다
+   * (CHECK_REQUIRES.completionSubmitAt → missingCompletionDocs). 한 사실을 두 번 막지 않는다.
    */
   '준공서류 접수/검토': (p) => missing([
-    !docApproved(p, 'completeConfirm')
-      && { key: 'completeConfirm', label: '설치완료확인서 (환경부)' },
+    !p.commDoneDate && { key: 'commDoneDate', label: '통신완료일' },
+    !p.openDoneAt && { key: 'openDoneAt', label: '개통 완료 선언' },
   ]),
   // 검토 결과 보완이 필요하다는 한백·운영사 판단 — 시공팀이 제출을 끝냈다고 선언한 뒤의 일이다
   '준공보완': (p) => missing([
     !p.completionSubmitAt && { key: 'completionSubmitAt', label: '준공서류 제출 완료' },
   ]),
-  '준공': null,       // 보완이 해소되었다는 판단
+  '준공완료': null,   // 보완이 해소되었다는 판단
 };
 
 /**
@@ -323,7 +322,8 @@ export const CHECK_ADVANCES = {
   // 수령 완료는 「착공」을 연다 — 수령 칸에 서서 수령을 확인하고 넘어간다
   chargerDoneAt: '착공',
   installConfirmedAt: '설치완료',
-  openDoneAt: '개통완료',
+  /* 개통 상자가 곧바로 준공서류 칸을 연다 — 「개통완료」 칸을 걷었다(2026-08-31) */
+  openDoneAt: '준공서류 접수/검토',
   completionSubmitAt: '준공서류 접수/검토',
 } as const satisfies Record<string, ProcessStatus>;
 
@@ -418,10 +418,9 @@ export const COURT_AFTER_STATUS: Record<ProcessStatus, Court> = {
   '충전기 수령': '시공사',        // 충전기를 받고 수량을 세는 것은 현장이다
   '착공': '시공사',               // 공사 중
   '설치완료': '시공사',           // 개통 절차 진행
-  '개통완료': '시공사',           // 준공서류 준비
   '준공서류 접수/검토': '한백',
   '준공보완': '시공사',
-  '준공': '한백',                 // 준공마감·정산 처리
+  '준공완료': '한백',             // 준공마감·정산 처리
 };
 
 /**

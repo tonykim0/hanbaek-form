@@ -66,12 +66,15 @@ const dayLabel = (d: string) => `${Number(d.slice(5, 7))}월 ${Number(d.slice(8)
  * 이 화면에서 하는 일이 「낼 것을 추려 한 날짜로 묶는」 것이니, 열 때 그것만 서 있는 것이 맞다.
  * 나머지는 위 타일을 눌러 본다 — 몇 건인지는 늘 보인다.
  */
-const GROUPS: Array<{ key: WorkGroup | '전체'; hint: string }> = [
+const GROUPS: Array<{ key: WorkGroup; hint: string }> = [
   { key: '지급 가능', hint: '조건이 다 찼다' },
   { key: '보완 필요', hint: '서류·단가가 빈다' },
   { key: '공정 대기', hint: '설치·개통을 기다린다' },
   { key: '확정 완료', hint: '더 낼 것이 없다' },
-  { key: '전체', hint: '' },
+  /*
+   * 「전체」 타일은 없다 (한백 지시 2026-08-31 「전체는 필요없어」). 네 칸이 모든 줄을
+   * 이미 나눠 갖고 있어 합계일 뿐이었고, 눌러 봐야 149줄이 섞여 나올 뿐이다.
+   */
 ];
 
 type SortKey = 'ready' | 'org' | 'amount' | 'name';
@@ -118,7 +121,7 @@ export default function PayoutWorkBoard({
   const [stepFilter, setStepFilter] = useState<StepFilter>('전체');
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [sort, setSort] = useState<SortKey>('ready');
-  const [group, setGroup] = useState<WorkGroup | '전체'>('지급 가능');
+  const [group, setGroup] = useState<WorkGroup>('지급 가능');
 
   const work = useMemo(() => rows.map(workOf), [rows]);
   /*
@@ -169,21 +172,28 @@ export default function PayoutWorkBoard({
     return m;
   }, [work, org]);
 
+  /*
+   * ★타일의 금액은 「이 칸이 풀리면 나갈 돈」 하나다★ (한백 지적 2026-08-31 「확정완료에
+   * 이상한 데이터가 들어가 있는 듯」).
+   *
+   * 전에는 `open?.amount ?? due` 였다 — 열린 회차가 있으면 그 회차 금액(지금 낼 돈),
+   * 없으면 총액(계획+조정)이라 ★칸마다 다른 뜻의 숫자가 나란히 섰다.★ 확정 완료가
+   * 그 자리다: 더 낼 것이 없는데 총 계획액 150만이 적혀, 지급 가능 5,067만 옆에서
+   * 더해도 되는 숫자처럼 보였다. 단가 미지정 줄도 총액(=0)을 적고 있었다.
+   * 열린 회차가 없으면 나갈 돈도 없다 — 0 이다.
+   */
   const countByGroup = useMemo(() => {
-    const m = new Map<WorkGroup | '전체', { n: number; won: number }>();
+    const m = new Map<WorkGroup, { n: number; won: number }>();
     for (const p of inOtherFilters) {
       const g = workGroupOf(p);
-      const amount = p.open?.amount ?? p.due;
-      for (const key of [g, '전체' as const]) {
-        const cur = m.get(key) ?? { n: 0, won: 0 };
-        m.set(key, { n: cur.n + 1, won: cur.won + amount });
-      }
+      const cur = m.get(g) ?? { n: 0, won: 0 };
+      m.set(g, { n: cur.n + 1, won: cur.won + (p.open?.amount ?? 0) });
     }
     return m;
   }, [inOtherFilters]);
 
   const shown = inOtherFilters
-    .filter((p) => group === '전체' || workGroupOf(p) === group)
+    .filter((p) => workGroupOf(p) === group)
     .sort(SORTERS[sort]);
 
   const toggle = (key: string) =>
@@ -215,7 +225,7 @@ export default function PayoutWorkBoard({
         * 건수와 금액이 적혀 있어 누르기 전에 안다 — 「지급 가능 10건 5,067만」이 이 화면의
         * 첫 문장이어야 한다. 0건인 자리도 지운다: 사라지면 자리를 외울 수 없다.
         */}
-      <div className="mb-3 grid gap-2 sm:grid-cols-3 lg:grid-cols-5">
+      <div className="mb-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
         {GROUPS.map((g) => {
           const c = countByGroup.get(g.key) ?? { n: 0, won: 0 };
           const on = group === g.key;
@@ -298,13 +308,11 @@ export default function PayoutWorkBoard({
 
       {shown.length === 0 ? (
         <div className="flex flex-col gap-3">
-          <Blank>
-            {group === '전체' ? '조건에 맞는 지급이 0건' : `${group} 0건`}
-          </Blank>
-          {/* 거른 사람만 막다른 곳에 선다 — 되돌릴 길을 그 자리에 둔다 */}
-          {group !== '전체' && (
+          <Blank>{`${group} 0건`}</Blank>
+          {/* 거른 사람만 막다른 곳에 선다 — 되돌릴 길을 그 자리에 둔다(이제 갈 곳은 첫 칸이다) */}
+          {group !== '지급 가능' && (
             <span className="text-center">
-              <Btn size="sm" kind="quiet" onClick={() => setGroup('전체')}>전체 보기</Btn>
+              <Btn size="sm" kind="quiet" onClick={() => setGroup('지급 가능')}>지급 가능 보기</Btn>
             </span>
           )}
         </div>

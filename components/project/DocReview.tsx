@@ -27,10 +27,16 @@ export function DocReview({
   kind,
   status,
   hasFile = true,
+  onRejected,
 }: {
   projectId: string;
   kind: string;
   status: ProjectDocument['status'];
+  /**
+   * 반려가 실제로 된 뒤에 부르는 것 — ★단계를 옮기는 일은 부르는 쪽이 안다★
+   * (공정 서류는 준공보완으로 내려간다, 2026-08-31). 이 부품은 칸 하나만 판정한다.
+   */
+  onRejected?: () => void;
   /**
    * 이 칸에 파일이 있는가.
    *
@@ -54,6 +60,7 @@ export function DocReview({
     if (!ok) return;
     setRejecting(false);
     setReason('');
+    if (next === 'rejected') onRejected?.();
   }
 
   /*

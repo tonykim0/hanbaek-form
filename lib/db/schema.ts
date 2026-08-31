@@ -312,6 +312,8 @@ export const processDocuments = pgTable('process_documents', {
   filename: text('filename'),
   blobUrl: text('blob_url'),
   status: text('status').notNull().default('none'),
+  /** 반려 사유 — 계약 서류와 같은 자리다 (migrations/0049, 2026-08-31) */
+  rejectReason: text('reject_reason'),
   uploadedBy: text('uploaded_by'),
   uploadedAt: text('uploaded_at'),
   /** 이 칸의 파일들 — 계약 서류와 같은 모양이다 (migrations/0021) */

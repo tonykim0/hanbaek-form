@@ -11,6 +11,7 @@ import type { CountField, DateField, MilestoneRow } from './milestones';
 import {
   DocDelete, DocFileActions, DocUpload,
 } from '@/components/DocFiles';
+import { DocReview } from '@/components/project/DocReview';
 import { DatePicker } from '@/components/DatePicker';
 
 import { Badge, Btn, Empty, Err, FIELD_CELL } from '@/components/ui';
@@ -228,7 +229,7 @@ export function DateRow({
  * 「제출됨」이 통과다 — 공정 게이트(lib/process.ts)도 uploaded 를 통과로 본다.
  */
 export function DocRow({
-  projectId, siteName, spec, doc, canDelete, canRemove,
+  projectId, siteName, spec, doc, canDelete, canRemove, canReview, onReject,
 }: {
   projectId: string;
   siteName: string;
@@ -237,8 +238,17 @@ export function DocRow({
   canDelete: boolean;
   /** 파일 한 장을 뺄 수 있는가 — 올리는 쪽(한백·그 현장 시공사)이면 뺄 수도 있다 */
   canRemove: boolean;
+  /**
+   * ★칸별로 반려할 수 있는가★ — 한백만 (한백 지시 2026-08-31).
+   * 그전에는 단계 전체 판정(「보완 필요」)의 사유 글로 어느 칸이 문제인지 풀어 썼다.
+   * 계약 서류는 이미 칸마다 반려하는데 공정만 그 자리가 없었다.
+   */
+  canReview?: boolean;
+  /** 반려한 뒤 단계를 옮기는 일 — 어디로 갈지는 부르는 쪽이 안다(준공서류 → 준공보완) */
+  onReject?: () => void;
 }) {
   const done = doc?.status === 'uploaded' || doc?.status === 'approved';
+  const rejected = doc?.status === 'rejected';
   return (
     /*
      * 이름·상태·버튼이 붙어 앉는다 — 예전엔 버튼을 오른쪽 끝으로 밀어서(ml-auto)
@@ -248,8 +258,10 @@ export function DocRow({
     /* relative — 끌어다 놓는 덮개가 이 줄을 덮는다(DocFiles 의 DocUpload) */
     <div className="relative flex flex-wrap items-center gap-x-3 gap-y-1 px-3.5 py-2 text-base">
       <span className="w-32 shrink-0 text-slate-500">{spec.name}</span>
-      <span className={`text-tiny font-black ${done ? 'text-brand-700' : 'text-slate-400'}`}>
-        {done ? '제출됨' : '대기'}
+      <span className={`text-tiny font-black ${
+        rejected ? 'text-red-700' : done ? 'text-brand-700' : 'text-slate-400'
+      }`}>
+        {rejected ? '반려' : done ? '제출됨' : '대기'}
       </span>
       {doc?.uploadedAt && <span className="text-tiny tabular-nums text-slate-400">{doc.uploadedAt}</span>}
       {/* 파일 실체가 없는 기록 — 옛 데이터에 있다. 제출됨으로만 보이면 볼 수도 없는 서류를 믿게 된다 */}
@@ -269,9 +281,27 @@ export function DocRow({
             canRemove={canRemove}
           />
         )}
-        <DocUpload projectId={projectId} kind={spec.key} rejected={false} hasFile={Boolean(doc?.blobUrl)} />
+        <DocUpload projectId={projectId} kind={spec.key} rejected={rejected} hasFile={Boolean(doc?.blobUrl)} />
+        {/*
+          반려는 올라온 파일에 대한 판정이다 — 파일 없는 칸에는 세우지 않는다
+          (저장소도 거절한다). 되돌리는 자리는 같은 부품의 「반려 해제」다.
+        */}
+        {canReview && doc?.blobUrl && (
+          <DocReview
+            projectId={projectId}
+            kind={spec.key}
+            status={doc.status}
+            onRejected={onReject}
+          />
+        )}
       </span>
       <span className="flex-1" />
+      {/* 왜 돌려보냈는지 — 사유가 없으면 시공사는 무엇을 고칠지 알 수 없다 */}
+      {rejected && doc?.rejectReason && (
+        <p className="w-full rounded-ctl bg-red-50 px-2.5 py-1.5 text-tiny leading-snug text-red-800">
+          {doc.rejectReason}
+        </p>
+      )}
       {/* 지우기는 한백만 — 협력사는 다시 올리는 것으로 고친다(덮어쓴다) */}
       {canDelete && doc && doc.status !== 'none' && (
         <span>

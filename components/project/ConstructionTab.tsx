@@ -457,6 +457,19 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
                           doc={p.docs.find((x) => x.kind === kind)}
                           canDelete={edit === 'all'}
                           canRemove={edit !== 'none'}
+                          canReview={edit === 'all'}
+                          /*
+                            ★반려하면 준공보완으로 내려간다★ (한백 지시 2026-08-31).
+                            칸 하나를 돌려보낸 것이 곧 「이 구간은 아직 아니다」라는 판정이다 —
+                            단계가 그대로면 시공사는 자기 차례인 줄 모르고, 한백의 할 일에도
+                            그 현장이 남는다. 단계 전체 판정(보완 필요)과 같은 곳으로 간다.
+                            이미 준공보완이면 옮길 것이 없다.
+                          */
+                          onReject={
+                            p.status === '준공서류 접수/검토'
+                              ? () => moveStatus('준공보완')
+                              : undefined
+                          }
                         />
                       );
                     })}

@@ -35,24 +35,33 @@ export const docStore: Pick<
       throw new Error('반려 사유를 입력해주세요.');
     }
 
+    /*
+     * ★공정 서류도 칸별로 반려한다★ (한백 지시 2026-08-31). 준공서류 여섯 칸 중 어느 것이
+     * 문제인지 단계 판정(「보완 필요」)의 사유 글로 풀어 쓰고 있었다 — 받는 쪽은 그 글을
+     * 읽고 다시 칸을 짚어야 했다. 계약 서류는 이미 칸마다 반려하는데 공정만 그 자리가
+     * 없어서, 같은 일을 두 화면이 다르게 하고 있었다.
+     *
+     * 표만 다르고 하는 일은 같다 — 종류 이름으로 가른다(uploadDocument 와 같은 기준).
+     */
+    const table = isProcessDocKind(input.kind) ? processDocuments : documents;
     const db = getDb();
     await db.transaction(async (tx) => {
       const [row] = await tx
         .select()
-        .from(documents)
-        .where(and(eq(documents.projectId, input.projectId), eq(documents.kind, input.kind)))
+        .from(table)
+        .where(and(eq(table.projectId, input.projectId), eq(table.kind, input.kind)))
         .limit(1);
 
       if (!checkReviewable(row, input)) return; // 같은 값이면 로그를 남기지 않는다
 
       await tx
-        .update(documents)
+        .update(table)
         .set({
           status: input.status,
           // 반려가 아니면 사유를 지운다 — 남겨두면 통과 상태인데 반려사유가 함께 뜬다
           rejectReason: input.status === 'rejected' ? input.reason!.trim() : null,
         })
-        .where(and(eq(documents.projectId, input.projectId), eq(documents.kind, input.kind)));
+        .where(and(eq(table.projectId, input.projectId), eq(table.kind, input.kind)));
 
       /*
        * 검수는 진척이다 — 정체일 계산의 기준을 갱신한다.
@@ -73,7 +82,14 @@ export const docStore: Pick<
        * 공을 한백으로 되돌린다. 이 한쪽이 없으면 반려한 뒤에도 담당가 「한백」으로 남아,
        * 협력사를 기다리는 현장이 한백이 막고 있는 것처럼 보인다.
        */
-      await applyReviewSideEffects(tx, input.projectId, input.status === 'rejected');
+      /*
+       * ★곁효과는 계약 서류에만.★ 공정 서류를 반려한다고 계약 확인을 지우면, 준공 직전
+       * 현장이 계약보완으로 떨어진다 — 반려한 것은 준공서류 한 장인데 계약이 되돌아간다.
+       * 공정 쪽의 「어디로 내려가는가」는 단계가 정하는 일이라 화면이 부른다(준공보완).
+       */
+      if (!isProcessDocKind(input.kind)) {
+        await applyReviewSideEffects(tx, input.projectId, input.status === 'rejected');
+      }
 
       await writeAudit(tx, {
         projectId: input.projectId,
@@ -322,6 +338,8 @@ async function putProcessDoc(
         filename: files[0].name,
         blobUrl: files[0].url,
         status: 'uploaded',
+      // 다시 올리면 반려가 풀린다 — 안 지우면 통과인데 반려사유가 같이 뜬다
+      rejectReason: null,
         uploadedBy: actor.name,
         uploadedAt: day,
       };

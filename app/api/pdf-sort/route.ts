@@ -14,7 +14,7 @@ import { del } from '@vercel/blob';
 import { generateClientTokenFromReadWriteToken } from '@vercel/blob/client';
 import { NextResponse } from 'next/server';
 import { getSessionUser } from '@/lib/auth/session';
-import { canWrite } from '@/lib/roles';
+import { canWrite, isHanbaek } from '@/lib/roles';
 import { sortPdf } from '@/lib/pdf-sort';
 import { stagePrefix, sweepStaleStaging } from '@/lib/intake-stage';
 
@@ -30,10 +30,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: '로그인이 필요합니다.' }, { status: 401 });
   }
   /*
-   * 열람 전용은 부르지 못한다. 판독은 부를 때마다 값이 나가는 일이라(Anthropic) 로그인만으로
-   * 열어 두지 않는다 — 쓰기의 문(lib/api/write-route)을 못 쓰는 라우트라 같은 판정을 손으로 한다.
+   * 판독은 부를 때마다 값이 나가는 일이라(Anthropic) 로그인만으로 열어 두지 않는다 —
+   * 쓰기의 문(lib/api/write-route)을 못 쓰는 라우트라 같은 판정을 손으로 한다.
+   *
+   * ★한백의 눈은 연다★ (한백 지시 2026-08-31) — 열람 전용(재무)도 서류를 갈라 볼 일이
+   * 있고, 값이 나가는 것을 걱정할 상대는 밖이 아니라 소속 없는 계정이다. 이 라우트는
+   * 아무것도 저장하지 않으므로 「쓰기」의 문으로 재는 것이 애초에 맞지 않았다.
    */
-  if (!canWrite(session.role)) {
+  if (!canWrite(session.role) && !isHanbaek(session.role)) {
     return NextResponse.json(
       { error: '열람 전용 계정입니다 — 보기만 할 수 있습니다.' },
       { status: 403 }

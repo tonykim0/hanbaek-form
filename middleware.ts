@@ -130,7 +130,17 @@ export async function middleware(request: NextRequest) {
      * 재발행도 「내는 자리」다 — 서류를 만들어 내보내는 일이라 열람 전용의 자리가 아니다.
      * PDF 분류·분할도 같다: 부를 때마다 판독 비용이 나가므로 보기만 하는 계정에는 안 연다.
      */
-    const writerOnly = ['/projects/new', '/contracts', '/reissue', '/split', '/scan', '/settings'];
+    /*
+     * ★도구는 쓰기가 아니다★ (한백 지시 2026-08-31). 재발행·분할·스캔을 여기 두고 있었는데
+     * 셋 다 우리 DB 에 아무것도 안 쓴다: 재발행은 포털 양식으로 보내는 링크 모음이고,
+     * 분할·스캔은 파일을 갈라 받아 가는 자리다. 「내는 자리」라는 이유로 막았지만
+     * 그것은 자리의 성격이지 권한이 아니었다 — 재무(열람 전용)가 서류를 손질해 볼 일이 있다.
+     *
+     * 남은 셋은 진짜 쓰기다: 접수·계약서 작성은 현장과 계약을 만들고, 협력사 정보는
+     * 제 사업자등록증을 적는 자리다. 여기까지 열면 「열람 전용」이 아니게 된다 —
+     * 재무가 실제로 그 일을 해야 하면 계정 구분을 올리는 것이 맞다.
+     */
+    const writerOnly = ['/projects/new', '/contracts', '/settings'];
 
     const blocked =
       (starts(adminOnly) && !starts(adminReadable) && (session.role !== 'admin' || session.asId))

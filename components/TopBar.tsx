@@ -12,7 +12,7 @@
  */
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import type { Role } from '@/lib/roles';
+import { isHanbaek, type Role } from '@/lib/roles';
 
 const TOOLS: { href: string; label: string; adminOnly?: boolean }[] = [
   { href: '/library', label: '운영사 자료실' },
@@ -22,10 +22,24 @@ const TOOLS: { href: string; label: string; adminOnly?: boolean }[] = [
   { href: '/apartments', label: 'K-APT 정보' },
 ];
 
-/** 접수·재발행은 협력사에게 사이드바(주 업무)지만 한백에게는 가끔 있는 일이라 여기다 */
+/**
+ * 접수·계약서 작성은 협력사에게 사이드바(주 업무)지만 한백에게는 가끔 있는 일이라 여기다.
+ * ★현장과 계약을 만드는 자리라 관리자만★ — 여기까지 열면 「열람 전용」이 아니게 된다.
+ */
 const ADMIN_INTAKE = [
   { href: '/projects/new', label: '서류 접수' },
   { href: '/contracts', label: '계약서 작성' },
+];
+
+/**
+ * 서류를 손질하는 도구 — ★한백의 눈이면 다 쓴다★ (한백 지시 2026-08-31).
+ *
+ * 셋 다 우리 DB 에 아무것도 안 쓴다: 재발행은 포털 양식으로 보내는 링크 모음이고,
+ * 분할·스캔은 파일을 갈라 받아 가는 자리다. 「내는 자리」라는 이유로 관리자에게만
+ * 두었는데 그것은 자리의 성격이지 권한이 아니었다 — 재무(열람 전용)가 받은 서류를
+ * 갈라 보고 사진을 스캔본으로 고칠 일이 있다.
+ */
+const TOOLS_DOC = [
   // 사이드바 관리에 있던 것을 올렸다(한백 확인) — 접수·계약서와 같은 「가끔 하는 서류 일」이다
   { href: '/reissue', label: '서류 재발행' },
   // 스캔 묶음을 종류별로 가르는 자리 (한백 지시 2026-08-29) — 재발행과 같은 서류 손질이다
@@ -67,11 +81,15 @@ export default function TopBar({ role, onMenu }: {
         aria-label="바로가기"
         className="flex min-w-0 items-center gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
-        {role === 'admin' && (
+        {role === 'admin' && ADMIN_INTAKE.map((t) => (
+          <BarLink key={t.href} href={t.href} label={t.label} active={pathname.startsWith(t.href)} />
+        ))}
+        {isHanbaek(role) && (
           <>
-            {ADMIN_INTAKE.map((t) => (
+            {TOOLS_DOC.map((t) => (
               <BarLink key={t.href} href={t.href} label={t.label} active={pathname.startsWith(t.href)} />
             ))}
+            {/* 가르는 선 — 서류를 손질하는 일과 조회 도구는 다른 갈래다 */}
             <div className="mx-1 h-5 w-px shrink-0 bg-white/25" />
           </>
         )}

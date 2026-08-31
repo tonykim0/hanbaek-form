@@ -8,54 +8,88 @@ import { describe, expect, it } from 'vitest';
 import { PDFDocument } from 'pdf-lib';
 import { cameraOf, isCameraRatio, paperOf, checkImagePhoto, checkPdfPhoto } from '@/lib/photo-check';
 
-/** 최소한의 EXIF 를 만든다 — 「Exif\0\0」 + TIFF(LE) + IFD0(제조사·기종) */
-function exifBuffer(make: string, model: string): Buffer {
-  const HEAD = 38; // IFD0 뒤 데이터가 시작하는 자리(TIFF 헤더 기준)
-  const makeBytes = Buffer.from(`${make}\0`, 'latin1');
-  const modelBytes = Buffer.from(`${model}\0`, 'latin1');
-  const tiff = Buffer.alloc(HEAD + makeBytes.length + modelBytes.length);
+/**
+ * 최소한의 EXIF 를 만든다 — 「Exif\0\0」 + TIFF(LE) + IFD0(제조사·기종).
+ *
+ * `lens` 를 주면 Exif SubIFD 를 하나 더 달고 거기에 조리개를 적는다. ★그 유무가 이
+ * 시험의 전부다★: 스캐너도 제조사·기종은 적지만 조리개는 못 적는다(렌즈가 없다).
+ */
+function exifBuffer(make: string, model: string, opts: { lens?: boolean } = {}): Buffer {
+  const makeB = Buffer.from(`${make}\0`, 'latin1');
+  const modelB = Buffer.from(`${model}\0`, 'latin1');
+  const n = opts.lens ? 3 : 2;                 // IFD0 항목 수
+  const head = 2 + n * 12 + 4 + 8;             // IFD0 시작(8) 뒤의 자리 잡기용
+  const IFD0 = 8;
+  const dataAt = IFD0 + head;                  // 문자열이 놓이는 자리
+  const subAt = dataAt + makeB.length + modelB.length;   // Exif SubIFD 가 놓이는 자리
+  const subLen = opts.lens ? 2 + 12 + 4 + 8 : 0;
+  const tiff = Buffer.alloc(subAt + subLen + 8);
 
   tiff.write('II', 0, 'latin1');
   tiff.writeUInt16LE(42, 2);
-  tiff.writeUInt32LE(8, 4);
-  tiff.writeUInt16LE(2, 8); // 항목 둘
+  tiff.writeUInt32LE(IFD0, 4);
+  tiff.writeUInt16LE(n, IFD0);
 
-  const entry = (at: number, tag: number, len: number, dataAt: number) => {
+  const entry = (at: number, tag: number, type: number, count: number, value: number) => {
     tiff.writeUInt16LE(tag, at);
-    tiff.writeUInt16LE(2, at + 2); // ASCII
-    tiff.writeUInt32LE(len, at + 4);
-    tiff.writeUInt32LE(dataAt, at + 8);
+    tiff.writeUInt16LE(type, at + 2);
+    tiff.writeUInt32LE(count, at + 4);
+    tiff.writeUInt32LE(value, at + 8);
   };
-  entry(10, 0x010f, makeBytes.length, HEAD);
-  entry(22, 0x0110, modelBytes.length, HEAD + makeBytes.length);
-  tiff.writeUInt32LE(0, 34); // 다음 IFD 없음
-  makeBytes.copy(tiff, HEAD);
-  modelBytes.copy(tiff, HEAD + makeBytes.length);
+  entry(IFD0 + 2, 0x010f, 2, makeB.length, dataAt);
+  entry(IFD0 + 2 + 12, 0x0110, 2, modelB.length, dataAt + makeB.length);
+  if (opts.lens) entry(IFD0 + 2 + 24, 0x8769, 4, 1, subAt); // Exif SubIFD 로 가는 길
+  tiff.writeUInt32LE(0, IFD0 + 2 + n * 12);                 // 다음 IFD 없음
+  makeB.copy(tiff, dataAt);
+  modelB.copy(tiff, dataAt + makeB.length);
+
+  if (opts.lens) {
+    tiff.writeUInt16LE(1, subAt);
+    /* FNumber — 분수(RATIONAL)다. 값은 안 읽고 ★있는지★만 본다 */
+    entry(subAt + 2, 0x829d, 5, 1, subAt + 2 + 12 + 4);
+    tiff.writeUInt32LE(0, subAt + 2 + 12);
+  }
 
   /* 앞에 JPEG 부스러기를 붙여 둔다 — 실제로는 PDF 한가운데에서 찾아야 한다 */
   return Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe1, 0x00, 0x00]),
     Buffer.from('Exif\0\0', 'latin1'), tiff]);
 }
 
-describe('카메라 정보 — 사진이 스스로 적어 둔 사실', () => {
-  it('제조사와 기종을 읽는다', () => {
-    expect(cameraOf(exifBuffer('Apple', 'iPhone 15 Pro'))).toBe('Apple iPhone 15 Pro');
-    expect(cameraOf(exifBuffer('samsung', 'SM-S928N'))).toBe('samsung SM-S928N');
+describe('카메라로 찍었다는 증거 — 이름이 아니라 렌즈 값으로 가른다', () => {
+  /*
+   * ★이 시험이 이 파일의 이유다★ (한백 지적 2026-08-31). 처음에는 EXIF 에 제조사가
+   * 있으면 사진으로 봤고, 계약서류가 거의 다 「카메라 정보 — Canon」으로 잡혔다.
+   * Canon 은 복합기다 — 사무용 스캐너가 스캔한 JPEG 에 제 이름을 그대로 박는다.
+   */
+  it('★Canon 복합기 스캔은 안 잡는다★ — 이름만 있고 렌즈 값이 없다', () => {
+    expect(cameraOf(exifBuffer('Canon', 'Canon iR-ADV C5560'))).toBeNull();
+    expect(checkImagePhoto(exifBuffer('Canon', 'Canon iR-ADV C5560')).suspect).toBe(false);
+    /* 다른 복합기도 같다 — 브랜드 목록으로 막는 것이 아니라 구조로 가르기 때문이다 */
+    expect(cameraOf(exifBuffer('EPSON', 'ET-3850 Series'))).toBeNull();
+    expect(cameraOf(exifBuffer('Hewlett-Packard', 'HP ScanJet Pro'))).toBeNull();
+    expect(cameraOf(exifBuffer('SINDOH', 'D410'))).toBeNull();
+  });
+
+  it('렌즈 값이 있으면 잡고, 제조사·기종을 적는다', () => {
+    expect(cameraOf(exifBuffer('Apple', 'iPhone 15 Pro', { lens: true })))
+      .toBe('Apple iPhone 15 Pro');
+    expect(cameraOf(exifBuffer('samsung', 'SM-S928N', { lens: true })))
+      .toBe('samsung SM-S928N');
   });
 
   /* 「Canon」 + 「Canon EOS」처럼 기종이 제조사를 이미 품는 일이 흔하다 */
   it('기종이 제조사로 시작하면 기종만 적는다', () => {
-    expect(cameraOf(exifBuffer('Canon', 'Canon EOS R5'))).toBe('Canon EOS R5');
+    expect(cameraOf(exifBuffer('Canon', 'Canon EOS R5', { lens: true }))).toBe('Canon EOS R5');
   });
 
-  it('카메라 정보가 없으면 null — 스캐너는 이 칸을 안 쓴다', () => {
+  it('EXIF 가 아예 없으면 null', () => {
     expect(cameraOf(Buffer.from('%PDF-1.7 스캔본입니다', 'utf8'))).toBeNull();
     /* 「Exif」라는 글자만 우연히 있는 것으로는 안 잡는다 */
     expect(cameraOf(Buffer.from('Exif\0\0 그냥 글자', 'latin1'))).toBeNull();
   });
 
   it('이미지 파일도 같은 잣대로 본다', () => {
-    expect(checkImagePhoto(exifBuffer('Apple', 'iPhone 15 Pro'))).toEqual({
+    expect(checkImagePhoto(exifBuffer('Apple', 'iPhone 15 Pro', { lens: true }))).toEqual({
       suspect: true, reasons: ['카메라 정보 — Apple iPhone 15 Pro'],
     });
     expect(checkImagePhoto(Buffer.from('스캔', 'utf8')).suspect).toBe(false);

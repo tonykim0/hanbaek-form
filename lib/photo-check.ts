@@ -34,70 +34,124 @@ export interface PhotoCheck {
 
 const OK: PhotoCheck = { suspect: false, reasons: [] };
 
-/* ── ① 카메라 정보 ────────────────────────────────────────────────────────
+/* ── ① 카메라로 찍었다는 증거 ───────────────────────────────────────────
  * JPEG 의 EXIF 는 APP1 마커 안에 「Exif\0\0」 + TIFF 헤더로 들어 있다. PDF 는 JPEG 를
- * DCTDecode 스트림으로 ★그대로★ 품으므로(재압축하지 않는다) 버퍼에서 그 표지를 찾으면
- * 된다. 페이지 객체를 파헤치지 않는 이유: pdf-lib 로 XObject 를 걸어 들어가는 것보다
- * 짧고, 어느 페이지의 이미지든 하나라도 카메라 정보가 있으면 판정은 같다.
+ * DCTDecode 스트림으로 ★그대로★ 품으므로(재압축하지 않는다) 버퍼에서 그 표지를 찾으면 된다.
+ *
+ * ★제조사·기종이 있다고 카메라가 아니다 (한백 지적 2026-08-31).★ 처음에는 Make/Model 이
+ * 있으면 사진으로 봤는데, 계약서류가 거의 다 「카메라 정보 — Canon」으로 잡혔다.
+ * ★Canon 은 복합기다★ — imageRUNNER 같은 사무용 스캐너가 스캔한 JPEG 에 제 이름을
+ * 그대로 박는다. 스캐너는 이 칸을 안 쓴다는 전제가 틀렸다.
+ *
+ * 그래서 ★브랜드가 아니라 구조로 가른다.★ 이름 목록(iPhone·SM-·Pixel…)으로 막는 길은
+ * 늘 새 기종에 뚫리고, 반대로 새 복합기가 또 걸린다. 대신 ★카메라만 적는 칸★을 본다:
+ *
+ *   조리개(FNumber) · 셔터(ExposureTime) · 감도(ISO) · 초점거리(FocalLength) · 위치(GPS)
+ *
+ * 유리판에 대고 미는 스캐너에는 조리개도 셔터도 초점거리도 없다 — 있을 수가 없는 값이라
+ * 안 적는다. 렌즈로 찍은 것에는 거의 언제나 있다. 이름은 사람에게 보여줄 때만 쓴다.
+ *
+ * 못 잡는 자리는 있다: 편집기로 다시 저장해 EXIF 가 통째로 날아간 사진. 그때는 두 번째
+ * 신호(페이지 규격)가 받는다. ★놓치는 것이 멀쩡한 스캔을 반려하게 만드는 것보다 낫다.★
  */
 const EXIF_MARK = Buffer.from('Exif\0\0', 'latin1');
-/** ASCII 태그 둘만 읽는다 — 제조사와 기종이면 사람이 알아본다 */
 const TAG_MAKE = 0x010f;
 const TAG_MODEL = 0x0110;
+/** IFD0 에서 갈라져 나가는 곳 */
+const TAG_EXIF_IFD = 0x8769;
+const TAG_GPS_IFD = 0x8825;
+/** ★렌즈가 있어야 생기는 값들★ — 스캐너에는 있을 수가 없다 */
+const LENS_TAGS = new Set([
+  0x829a, // ExposureTime 셔터
+  0x829d, // FNumber 조리개
+  0x8827, // ISOSpeedRatings 감도
+  0x920a, // FocalLength 초점거리
+  0x9202, // ApertureValue
+  0x9201, // ShutterSpeedValue
+]);
 
-/** EXIF 에 적힌 카메라 — 없으면 null */
+/** EXIF 에 적힌 카메라 — ★렌즈로 찍은 증거가 있을 때만★ 이름을 돌려준다 */
 export function cameraOf(buffer: Buffer): string | null {
   let from = 0;
-  /*
-   * 첫 EXIF 가 카메라 정보를 안 들고 있을 수 있다(썸네일 IFD 등) — 나오는 대로 다 본다.
-   * 파일 하나에 이미지가 여러 장이면 그중 하나만 카메라 것이어도 사진이 섞인 것이다.
-   */
+  /* 파일 하나에 이미지가 여럿일 수 있다 — 하나라도 카메라 것이면 사진이 섞인 것이다 */
   for (let i = 0; i < 8; i += 1) {
     const at = buffer.indexOf(EXIF_MARK, from);
     if (at < 0) return null;
-    const found = readCamera(buffer, at + EXIF_MARK.length);
-    if (found) return found;
+    const read = readExif(buffer, at + EXIF_MARK.length);
+    if (read?.byLens) return read.name ?? '카메라';
     from = at + EXIF_MARK.length;
   }
   return null;
 }
 
-/** TIFF 헤더가 tiff 위치에서 시작한다고 보고 IFD0 의 제조사·기종을 읽는다 */
-function readCamera(buf: Buffer, tiff: number): string | null {
+interface ExifRead {
+  /** 사람에게 보여줄 이름 — 제조사·기종 */
+  name: string | null;
+  /** 렌즈로 찍은 증거가 있는가 */
+  byLens: boolean;
+}
+
+/** TIFF 헤더가 tiff 위치에서 시작한다고 보고 읽는다 */
+function readExif(buf: Buffer, tiff: number): ExifRead | null {
   if (tiff + 8 > buf.length) return null;
   const order = buf.toString('latin1', tiff, tiff + 2);
   const le = order === 'II';
   if (!le && order !== 'MM') return null;
-  const u16 = (at: number) => (le ? buf.readUInt16LE(at) : buf.readUInt16BE(at));
-  const u32 = (at: number) => (le ? buf.readUInt32LE(at) : buf.readUInt32BE(at));
+  const u16 = (a: number) => (le ? buf.readUInt16LE(a) : buf.readUInt16BE(a));
+  const u32 = (a: number) => (le ? buf.readUInt32LE(a) : buf.readUInt32BE(a));
   if (u16(tiff + 2) !== 42) return null;
 
-  const ifd0 = tiff + u32(tiff + 4);
-  if (ifd0 + 2 > buf.length) return null;
-  const count = u16(ifd0);
-  // 터무니없는 개수는 EXIF 가 아니라 우연히 같은 글자가 나온 자리다
-  if (count === 0 || count > 512) return null;
+  /** 한 IFD 의 항목을 훑는다 — { 태그: 항목 시작 위치 } */
+  const walk = (offset: number): Map<number, number> | null => {
+    const ifd = tiff + offset;
+    if (ifd < 0 || ifd + 2 > buf.length) return null;
+    const count = u16(ifd);
+    // 터무니없는 개수는 EXIF 가 아니라 우연히 같은 글자가 나온 자리다
+    if (count === 0 || count > 512) return null;
+    const out = new Map<number, number>();
+    for (let i = 0; i < count; i += 1) {
+      const e = ifd + 2 + i * 12;
+      if (e + 12 > buf.length) break;
+      out.set(u16(e), e);
+    }
+    return out;
+  };
 
-  const parts: string[] = [];
-  for (let i = 0; i < count; i += 1) {
-    const e = ifd0 + 2 + i * 12;
-    if (e + 12 > buf.length) break;
-    const tag = u16(e);
-    if (tag !== TAG_MAKE && tag !== TAG_MODEL) continue;
-    if (u16(e + 2) !== 2) continue; // ASCII 만
-    const len = u32(e + 4);
-    if (len === 0 || len > 128) continue;
-    // 4바이트를 넘으면 값 자리에 오프셋이 들어 있다(TIFF 헤더 기준)
-    const at = len <= 4 ? e + 8 : tiff + u32(e + 8);
-    if (at < 0 || at + len > buf.length) continue;
+  const ifd0 = walk(u32(tiff + 4));
+  if (!ifd0) return null;
+
+  /** ASCII 값을 읽는다 — 4바이트를 넘으면 값 자리에 오프셋이 들어 있다 */
+  const ascii = (entry: number | undefined): string | null => {
+    if (entry === undefined) return null;
+    if (u16(entry + 2) !== 2) return null;
+    const len = u32(entry + 4);
+    if (len === 0 || len > 128) return null;
+    const at = len <= 4 ? entry + 8 : tiff + u32(entry + 8);
+    if (at < 0 || at + len > buf.length) return null;
     const text = buf.toString('latin1', at, at + len).replace(/\0.*$/, '').trim();
-    if (text) parts.push(text);
+    return text || null;
+  };
+
+  const make = ascii(ifd0.get(TAG_MAKE));
+  const model = ascii(ifd0.get(TAG_MODEL));
+  const parts = [make, model].filter((v): v is string => Boolean(v));
+  /* 「Canon」 + 「Canon EOS R5」처럼 기종이 제조사를 이미 품는 일이 흔하다 */
+  const name = parts.length === 0
+    ? null
+    : model && make && model.toLowerCase().startsWith(make.toLowerCase())
+      ? model
+      : parts.join(' ');
+
+  /* 위치가 박혀 있으면 들고 다니며 찍은 것이다 — 스캐너는 제자리에 있다 */
+  let byLens = ifd0.has(TAG_GPS_IFD);
+  if (!byLens) {
+    const ptr = ifd0.get(TAG_EXIF_IFD);
+    if (ptr !== undefined && u16(ptr + 2) === 4) {
+      const sub = walk(u32(ptr + 8));
+      if (sub) for (const tag of sub.keys()) if (LENS_TAGS.has(tag)) { byLens = true; break; }
+    }
   }
-  if (parts.length === 0) return null;
-  /* 「Apple」 + 「Apple iPhone 15 Pro」처럼 기종이 제조사를 이미 품는 일이 흔하다 */
-  const [make, model] = parts;
-  if (model && model.toLowerCase().startsWith(make.toLowerCase())) return model;
-  return parts.join(' ');
+  return { name, byLens };
 }
 
 /* ── ② 페이지 규격 ────────────────────────────────────────────────────────

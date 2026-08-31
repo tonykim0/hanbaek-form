@@ -103,8 +103,16 @@ export interface PayoutWork extends PayoutRowInput {
  */
 export type WorkGroup = '지급 가능' | '보완 필요' | '공정 대기' | '확정 완료';
 
-/** 사람이 지금 채울 수 있는 사유인가 — 서류와 단가가 그것이다 */
-const FILLABLE = /지급조건 서류 미달|단가 미지정/;
+/**
+ * 사람이 지금 채울 수 있는 사유인가 — 서류·단가·송금 대상이 그것이다.
+ *
+ * ★막는 사유 넷을 전부 세어 맞춘다★ (한백 물음 2026-08-31 「보완 필요, 공정 대기는
+ * 뭐야」). 처음 가를 때 「송금 대상 미지정」(영업사·시공사가 안 정해진 줄)을 빠뜨려서,
+ * 현장 상세에서 지급처만 넣으면 되는 줄이 「공정 대기」에 앉아 있었다 — 기다릴 것이
+ * 없는데 기다리는 칸에 있으니 아무도 안 본다.
+ * `payoutPrerequisiteBlockersOf` 에 사유를 더하면 여기도 같이 본다.
+ */
+const FILLABLE = /지급조건 서류 미달|단가 미지정|송금 대상 미지정/;
 
 export function workGroupOf(w: { state: WorkState; blockers: string[] }): WorkGroup {
   if (w.state !== '조건 대기') return w.state;

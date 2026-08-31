@@ -110,6 +110,17 @@ describe('workGroupOf — 「조건 대기」를 둘로 가른다', () => {
       .toBe('보완 필요');
     expect(workGroupOf({ state: '조건 대기', blockers: ['단가 미지정 1건 — 지급 금액 확정 불가'] }))
       .toBe('보완 필요');
+    // 지급처를 넣으면 풀리는 줄이다 — 기다릴 것이 없으니 공정 대기에 두면 안 본다
+    expect(workGroupOf({ state: '조건 대기', blockers: ['송금 대상 미지정'] }))
+      .toBe('보완 필요');
+  });
+
+  it('★막는 사유 넷이 전부 갈림에 걸린다★ — 하나라도 새면 그 줄이 안 보이는 칸에 앉는다', () => {
+    // payoutPrerequisiteBlockersOf 가 내는 사유 셋 + 트리거 대기
+    const fillable = ['단가 미지정 2건 — 지급 금액 확정 불가', '송금 대상 미지정', '지급조건 서류 미달: 실사보고서'];
+    for (const b of fillable) {
+      expect(workGroupOf({ state: '조건 대기', blockers: [b] })).toBe('보완 필요');
+    }
   });
 
   it('공정 마일스톤은 기다리는 것이다 — 사람이 당길 수 없다', () => {

@@ -30,6 +30,8 @@ const ADMIN_INTAKE = [
   { href: '/reissue', label: '서류 재발행' },
   // 스캔 묶음을 종류별로 가르는 자리 (한백 지시 2026-08-29) — 재발행과 같은 서류 손질이다
   { href: '/split', label: 'PDF 분류·분할' },
+  // 찍은 사진을 스캔본으로 (한백 지시 2026-08-31) — 재발행·분할과 같은 서류 손질이다
+  { href: '/scan', label: '사진 → 스캔본' },
 ];
 
 export default function TopBar({ role, onMenu }: {

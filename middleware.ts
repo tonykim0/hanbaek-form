@@ -130,7 +130,7 @@ export async function middleware(request: NextRequest) {
      * 재발행도 「내는 자리」다 — 서류를 만들어 내보내는 일이라 열람 전용의 자리가 아니다.
      * PDF 분류·분할도 같다: 부를 때마다 판독 비용이 나가므로 보기만 하는 계정에는 안 연다.
      */
-    const writerOnly = ['/projects/new', '/contracts', '/reissue', '/split', '/settings'];
+    const writerOnly = ['/projects/new', '/contracts', '/reissue', '/split', '/scan', '/settings'];
 
     const blocked =
       (starts(adminOnly) && !starts(adminReadable) && (session.role !== 'admin' || session.asId))

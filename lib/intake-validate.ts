@@ -71,10 +71,11 @@ export function checkDraft(draft: IntakeDraft): IntakeCheck {
     errors.push(`필수 서류 ${missing.length}건 미첨부: ${missing.map((d) => d.label).join(', ')}`);
   }
 
-  const feeMissing = evaluated.filter((d) => d.fee && d.req === 'm' && !attached.has(d.key));
-  if (feeMissing.length > 0) {
-    warnings.push(`영업비 지급조건 미달 — ${feeMissing.map((d) => d.label).join(' · ')}`);
-  }
+  /*
+   * 「영업비 지급조건 미달」 경고는 걷었다 (2026-08-31) — 지급조건이 필수 서류 전체가
+   * 되면서 바로 위 「필수 서류 N건 미첨부」와 같은 말이 됐다. 같은 것을 두 번 적으면
+   * 어느 쪽이 접수를 막는 것인지 흐려진다(화면 규칙 5).
+   */
 
   return {
     errors,

@@ -469,7 +469,7 @@ function openStepFor(
     kind,
     org,
     unpriced: r.lines.filter((line) => !line.pricingRuleId).length,
-    feeMissing: kind === '영업비' ? contractStateFor(r).feeMissing : [],
+    payoutDocsMissing: kind === '영업비' ? contractStateFor(r).payoutDocsMissing : [],
   });
   if (prerequisites.length > 0) throw new Error(`${name} ${kind} — ${prerequisites[0]}`);
 

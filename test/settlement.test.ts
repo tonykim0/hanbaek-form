@@ -6,7 +6,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import {
-  adjustEntriesOf, checkPayoutEntry,
+  adjustEntriesOf, checkPayoutEntry, payoutPrerequisiteBlockersOf,
   checkSettlementSteps, payInstallments, payoutStepsOf, stepAmounts, stepUnits,
   settlementRuleNameOf, settlementStepsKeyOf, turnkeyUnit,
 } from '@/lib/settlement';
@@ -195,5 +195,38 @@ describe('adjustEntriesOf — 조정 한 건이 원장에 남기는 줄', () => 
         }
       }
     }
+  });
+});
+
+describe('payoutPrerequisiteBlockersOf — 지급조건은 「모든 필수 서류」다 (2026-08-31)', () => {
+  const base = { kind: '영업비' as const, org: '엘앤에스', unpriced: 0, payoutDocsMissing: [] as string[] };
+
+  it('★건수를 앞에 적고 이름은 세 개까지★ — 표의 한 칸에 들어가야 한다', () => {
+    const b = payoutPrerequisiteBlockersOf({
+      ...base,
+      payoutDocsMissing: ['계약서', '회의록', '실사보고서 (사진대지)', '건축물대장', '사업자등록증'],
+    });
+    expect(b).toEqual(['지급조건 서류 5건 미제출: 계약서 · 회의록 · 실사보고서 (사진대지) 외 2건']);
+  });
+
+  it('세 개 이하면 「외 N건」을 붙이지 않는다', () => {
+    expect(payoutPrerequisiteBlockersOf({ ...base, payoutDocsMissing: ['계약서'] }))
+      .toEqual(['지급조건 서류 1건 미제출: 계약서']);
+  });
+
+  it('이관 현장은 빈 배열로 와서 안 막는다 — 계약 확인이 이미 면제한다', () => {
+    expect(payoutPrerequisiteBlockersOf(base)).toEqual([]);
+  });
+
+  it('시공비에는 아직 묻지 않는다', () => {
+    expect(payoutPrerequisiteBlockersOf({ ...base, kind: '시공비', payoutDocsMissing: ['계약서'] }))
+      .toEqual([]);
+  });
+
+  it('단가·송금 대상은 그대로 본다', () => {
+    expect(payoutPrerequisiteBlockersOf({ ...base, org: null, unpriced: 2 })).toEqual([
+      '단가 미지정 2건 — 지급 금액 확정 불가',
+      '송금 대상 미지정',
+    ]);
   });
 });

@@ -371,7 +371,7 @@ export function settlementSummaryOf(r: ProjectRecord, rules: RuleMap, settles: S
     salesOrg: d.project.salesOrg,
     gcOrg: d.project.gcOrg,
     payoutMilestones: payoutMilestonesFor(r),
-    salesFeeMissing: d.contract.feeMissing,
+    salesPayoutDocsMissing: d.contract.payoutDocsMissing,
     salesTotal: d.lines.reduce((n, l) => n + (l.rule?.salesUnit ?? 0) * l.qty, 0),
     consTotal: d.lines.reduce((n, l) => n + (l.rule?.consUnit ?? 0) * l.qty, 0),
     marginTotal: d.lines.reduce((n, l) => n + (l.rule?.margin ?? 0) * l.qty, 0),

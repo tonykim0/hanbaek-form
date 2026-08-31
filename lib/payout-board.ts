@@ -55,7 +55,7 @@ export function payoutsOfDetail(d: ProjectDetail, vis: Visibility): PayoutRowInp
       // 자기 쪽 단가가 안 붙은 라인 — 요약의 unpricedLines 와 같은 말을 자기 쪽만 센다
       unpriced: d.lines.filter((l) => unit(l) === null).length,
       milestones,
-      feeMissing: kind === '영업비' ? d.contract.feeMissing : [],
+      payoutDocsMissing: kind === '영업비' ? d.contract.payoutDocsMissing : [],
       step1At: stepEntry(kind, '1차')?.at ?? null,
       step2At: stepEntry(kind, '2차')?.at ?? null,
       step1EntryId: stepEntry(kind, '1차')?.id ?? null,
@@ -118,7 +118,7 @@ export type WorkGroup = '지급 가능' | '보완 필요' | '공정 대기' | '�
  * 없는데 기다리는 칸에 있으니 아무도 안 본다.
  * `payoutPrerequisiteBlockersOf` 에 사유를 더하면 여기도 같이 본다.
  */
-const FILLABLE = /지급조건 서류 미달|단가 미지정|송금 대상 미지정/;
+const FILLABLE = /지급조건 서류|단가 미지정|송금 대상 미지정/;
 
 export function workGroupOf(w: { state: WorkState; blockers: string[] }): WorkGroup {
   // 초과는 낼 것이 없을 뿐 끝난 것이 아니다 — 되받거나 잔금에서 뺄 일이 남았다
@@ -138,14 +138,20 @@ export function workGroupOf(w: { state: WorkState; blockers: string[] }): WorkGr
  * 계획도 0이고 나간 돈도 0이면 그 현장 그 구분에는 지급이라는 것이 애초에 없다 —
  * 규칙상 없는 것이라 「해당없음」이고(화면 규칙 10), 지급관리가 셀 줄이 아니다.
  * ★나간 돈이 있으면 계획이 0이어도 남긴다★ — 그건 초과 지급이라 오히려 봐야 한다.
+ *
+ * ★단가 미지정은 0이 아니다 — 모른다★ (2026-08-31 실측에서 잡았다).
+ * 계획액은 단가 × 대수라, 단가가 안 붙은 라인은 0으로 더해진다. 그것을 「지급이 없다」로
+ * 읽으면 ★단가를 지정해야 하는 줄이 화면에서 사라진다★ — 프로덕션에서 제외 줄이
+ * 9건에서 17건으로 늘며 드러났다. 0 이 정말 0 이라고 말할 수 있는 것은 단가가 다
+ * 붙었을 때뿐이다.
  */
-export const isPayoutSubject = (p: { due: number; confirmed: number }) =>
-  p.due > 0 || p.confirmed !== 0;
+export const isPayoutSubject = (p: { due: number; confirmed: number; unpriced: number }) =>
+  p.due > 0 || p.confirmed !== 0 || p.unpriced > 0;
 
 export function workOf(p: PayoutRowInput): PayoutWork {
   const steps = payoutStepsOf(p.plan, p.adjust, p.confirmed);
   const prerequisites = payoutPrerequisiteBlockersOf({
-    kind: p.kind, org: p.org, unpriced: p.unpriced, feeMissing: p.feeMissing,
+    kind: p.kind, org: p.org, unpriced: p.unpriced, payoutDocsMissing: p.payoutDocsMissing,
   });
   const stepFields = {
     due: steps.due,

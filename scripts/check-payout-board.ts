@@ -60,9 +60,16 @@ async function main() {
     const rows = work.filter((p) => p.kind === kind);
     console.log(`── ${kind} ${rows.length}줄 ──────────────────────────────`);
 
-    const byGroup = new Map<string, number>();
-    for (const p of rows) byGroup.set(workGroupOf(p), (byGroup.get(workGroupOf(p)) ?? 0) + 1);
-    for (const [g, n] of byGroup) console.log(`  ${pad(g, 10)} ${String(n).padStart(4)}건`);
+    // 화면 타일과 같은 셈 — 금액은 「이 칸이 풀리면 나갈 돈」이다
+    const byGroup = new Map<string, { n: number; won: number }>();
+    for (const p of rows) {
+      const g = workGroupOf(p);
+      const cur = byGroup.get(g) ?? { n: 0, won: 0 };
+      byGroup.set(g, { n: cur.n + 1, won: cur.won + (p.open?.amount ?? 0) });
+    }
+    for (const [g, c] of byGroup) {
+      console.log(`  ${pad(g, 10)} ${String(c.n).padStart(4)}건  ${won(c.won).padStart(14)}`);
+    }
 
     // ① 확정 완료가 무엇으로 채워졌나 — 다 나간 것인가, 계획이 0인 것인가
     const done = rows.filter((p) => p.state === '지급 완료');

@@ -355,13 +355,23 @@ export function payoutPrerequisiteBlockersOf(input: {
   kind: PayoutKind;
   org: string | null;
   unpriced: number;
-  feeMissing: string[];
+  /** 지급을 막는 미제출 필수 서류 — 이관 현장은 비어서 온다(contractStateOf 가 면제) */
+  payoutDocsMissing: string[];
 }): string[] {
   const blockers: string[] = [];
   if (input.unpriced > 0) blockers.push(`단가 미지정 ${input.unpriced}건 — 지급 금액 확정 불가`);
   if (!input.org) blockers.push('송금 대상 미지정');
-  if (input.kind === '영업비' && input.feeMissing.length > 0) {
-    blockers.push(`지급조건 서류 미달: ${input.feeMissing.join(' · ')}`);
+  /*
+   * ★모든 필수 서류가 지급조건이다★ (한백 2026-08-31). 넓히면 이름이 여럿이라
+   * 건수를 앞에 적고 이름은 세 개까지만 — 표의 한 칸에 들어가야 한다.
+   * 아직 영업비에만 묻는다: 시공비도 물을지는 정하지 않았다.
+   */
+  const docs = input.payoutDocsMissing;
+  if (input.kind === '영업비' && docs.length > 0) {
+    const head = docs.slice(0, 3).join(' · ');
+    blockers.push(
+      `지급조건 서류 ${docs.length}건 미제출: ${head}${docs.length > 3 ? ` 외 ${docs.length - 3}건` : ''}`
+    );
   }
   return blockers;
 }

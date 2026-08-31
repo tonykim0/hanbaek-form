@@ -104,7 +104,26 @@ export function contractStateOf(input: {
     allPriced,
     docsExempt,
     ready: rejected === 0 && !preRejected && (docsExempt || satisfied === required.length) && allPriced,
-    feeMissing: evaluated.filter((d) => d.fee && d.req === 'm' && !passes(d.key)).map((d) => d.label),
+    /*
+     * ★지급조건은 「모든 필수 서류」다★ (한백 정정 2026-08-31 「사전현장컨설팅
+     * 결과서·실사보고서 뿐만 아니라 모든 필수서류가 올라오지 않으면 지급조건이 안 돼」).
+     *
+     * 전에는 doc-rules 의 `fee` 표시가 붙은 두 장만 봤다 — 그래서 계약서가 비어 있어도
+     * 「지급 가능」으로 섰다. 돈이 잘못 나갈 수 있는 구멍이었다.
+     *
+     * ★이관 현장은 면제한다★ (한백 결정 2026-08-31). 계약 확인이 이미 같은 이유로
+     * 면제하고 있다(위 docsExempt 주석) — 이관분의 서류는 노션·파일에 있고 콘솔에는
+     * 0건이다. 지급만 다르게 판정하면 같은 현장을 계약은 「조건 충족」, 지급은
+     * 「서류 미달」로 불러 두 화면이 서로 다른 말을 한다. 프로덕션 실측(2026-08-31):
+     * 이 사유로 막힌 110줄이 전부 이관 현장이었고 콘솔 접수 현장은 0건이었다.
+     *
+     * 콘솔로 접수한 현장은 접수가 이미 필수 서류를 강제하므로 평소엔 안 걸린다.
+     * 그래도 두는 이유는 접수 뒤에 생기는 일 때문이다 — 파일을 빼면 미제출로 돌아가고
+     * (deleteDocumentFile), 반려된 칸은 passes 를 통과하지 못한다.
+     */
+    payoutDocsMissing: docsExempt
+      ? []
+      : evaluated.filter((d) => d.req === 'm' && !passes(d.key)).map((d) => d.label),
   };
 }
 

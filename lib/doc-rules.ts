@@ -47,8 +47,6 @@ export interface DocContext {
 interface DocSpec {
   key: string;
   name: string;
-  /** 영업비 지급조건 서류 */
-  fee?: boolean;
   ext?: string;
   /**
    * 기설치 조사에 딸린 서류.
@@ -103,7 +101,7 @@ const SPECS: DocSpec[] = [
    */
   { key: 'privacy', name: '개인정보 수집·이용 동의서', req: (c) => envOnly(c) },
   { key: 'apply', name: '전기차 완속충전시설 설치신청서', req: (c) => envOnly(c) },
-  { key: 'consult', name: '사전현장컨설팅 결과서', fee: true, req: () => 'm' },
+  { key: 'consult', name: '사전현장컨설팅 결과서', req: () => 'm' },
   {
     key: 'minutes',
     name: '회의록',
@@ -133,7 +131,6 @@ const SPECS: DocSpec[] = [
      */
     key: 'survey',
     name: '실사보고서 (사진대지)',
-    fee: true,
     req: () => 'm',
   },
   {
@@ -209,7 +206,6 @@ export interface EvaluatedDoc {
   key: string;
   label: string;
   req: DocReq;
-  fee: boolean;
   ext: string | null;
   /** 기설치 구역에서 다루는 서류 — 서류 목록에서는 빠진다 */
   preinstall: boolean;
@@ -221,7 +217,6 @@ export function evaluateDocs(ctx: DocContext): EvaluatedDoc[] {
     key: s.key,
     label: s.label ? s.label(ctx) : s.name,
     req: s.req(ctx),
-    fee: s.fee ?? false,
     ext: s.ext ?? null,
     preinstall: s.preinstall ?? false,
   }));

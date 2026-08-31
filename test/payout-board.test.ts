@@ -149,16 +149,20 @@ describe('workGroupOf — 「조건 대기」를 둘로 가른다', () => {
 describe('isPayoutSubject — 「낼 것이 없다」와 「다 냈다」를 가른다', () => {
   it('★계획도 0, 나간 돈도 0이면 지급이라는 것이 없다★ — 완료 칸에 세우면 안 된다', () => {
     // 자체투자 현장의 영업비가 그 자리다(프로덕션 실측: 인천 서구 불로삼보해피하임)
-    expect(isPayoutSubject({ due: 0, confirmed: 0 })).toBe(false);
+    expect(isPayoutSubject({ due: 0, confirmed: 0, unpriced: 0 })).toBe(false);
   });
 
   it('계획이 0이어도 돈이 나갔으면 남긴다 — 초과 지급이라 오히려 봐야 한다', () => {
-    expect(isPayoutSubject({ due: 0, confirmed: 500_000 })).toBe(true);
+    expect(isPayoutSubject({ due: 0, confirmed: 500_000, unpriced: 0 })).toBe(true);
+  });
+
+  it('★단가 미지정은 0이 아니라 「모른다」★ — 지정해야 하는 줄이 사라지면 안 된다', () => {
+    expect(isPayoutSubject({ due: 0, confirmed: 0, unpriced: 2 })).toBe(true);
   });
 
   it('낼 돈이 있으면 당연히 대상이다', () => {
-    expect(isPayoutSubject({ due: 1_500_000, confirmed: 0 })).toBe(true);
-    expect(isPayoutSubject({ due: 1_500_000, confirmed: 1_785_000 })).toBe(true);
+    expect(isPayoutSubject({ due: 1_500_000, confirmed: 0, unpriced: 0 })).toBe(true);
+    expect(isPayoutSubject({ due: 1_500_000, confirmed: 1_785_000, unpriced: 0 })).toBe(true);
   });
 });
 

@@ -819,7 +819,8 @@ export interface PayoutPlanRow {
   /** 자기 쪽 단가가 안 붙은 라인 수 — 계획 금액이 그만큼 비어 있다 */
   unpriced: number;
   milestones: PayoutMilestones;
-  feeMissing: string[];
+  /** 지급을 막는 미제출 필수 서류 (이관 현장은 면제라 빈 배열) */
+  payoutDocsMissing: string[];
   /** 회차 지급 기록의 지급일 — 원장에서 유도 */
   step1At: string | null;
   step2At: string | null;
@@ -1022,8 +1023,8 @@ export interface SettlementSummary {
   gcOrg: string | null;
   /** 지급 회차를 여는 업무 완료일 */
   payoutMilestones: PayoutMilestones;
-  /** 영업비 지급 전에 반드시 갖춰야 하는 서류 */
-  salesFeeMissing: string[];
+  /** 영업비 지급 전에 반드시 갖춰야 하는 서류 — 미제출 필수 서류 전체 */
+  salesPayoutDocsMissing: string[];
   /** 영업비 계획 = Σ(영업비/대 × 대수) */
   salesTotal: number;
   /** 시공비 계획 = Σ(시공비/대 × 대수) */
@@ -1272,8 +1273,11 @@ export interface ContractState {
   allPriced: boolean;
   /** 한백 확인만 남았는가 — 확인 버튼이 열리는 조건이고 저장소도 이것을 본다 */
   ready: boolean;
-  /** 영업비 지급조건 서류 중 아직 통과하지 못한 것 */
-  feeMissing: string[];
+  /**
+   * 지급을 막는 미제출 필수 서류 — ★두 장이 아니라 필수 전체다★ (한백 2026-08-31).
+   * 이관 현장은 서류 조건을 면제받으므로 빈 배열로 온다(contractStateOf docsExempt).
+   */
+  payoutDocsMissing: string[];
 }
 
 export interface ProjectDetail {

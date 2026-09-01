@@ -18,13 +18,20 @@ import { Btn, Err } from '@/components/ui';
 
 /** 행동마다 색 — 돌려보낸 것과 올라온 것이 한눈에 갈려야 한다 */
 const TONE: Record<string, string> = {
+  /* 돌려보낸 것 — 붉게 */
   '서류 반려': 'text-red-700',
   '기설치 조사 반려': 'text-red-700',
   '누락 서류 보완요청': 'text-red-700',
-  '서류 삭제': 'text-slate-500',
-  '서류 파일 삭제': 'text-slate-500',
+  /* 앞으로 간 것 — 초록. 취소는 되돌린 것이라 여기 넣지 않는다 */
   '계약 확인': 'text-brand-700',
   '반려 해제': 'text-brand-700',
+  '기설치 조사': 'text-brand-700',
+  /* 무른 것 — 회색. 「없던 일로」는 나아간 것도 물러선 것도 아니다 */
+  '계약 확인 취소': 'text-slate-500',
+  '계약서 접수 취소': 'text-slate-500',
+  '누락 서류 보완요청 취소': 'text-slate-500',
+  '서류 삭제': 'text-slate-500',
+  '서류 파일 삭제': 'text-slate-500',
 };
 
 /** 「에코일렉(ecoelec)」에서 사람이 부르는 이름만 — 계정 id 는 감사기록에나 쓴다 */
@@ -64,12 +71,13 @@ export function ReviewHistory({ projectId, labelOf }: {
 
   if (!open) {
     return (
-      /* 스스로 flex 항목이 된다 — 감싸면 펼쳤을 때 한 줄을 못 차지한다 */
-      <span className="flex items-center gap-1.5 self-center">
+      <span className="flex items-center gap-1.5">
         {/*
           ★고스트 칩이 아니다★ (한백 2026-09-01 「검수 이력 안 나와」). 곁다리 동작의
           모양(kind="quiet")으로 두었더니 바로 옆 「전체 다운로드」의 진한 테두리에 묻혀
           있는 줄도 몰랐다. 이것은 곁다리가 아니라 ★열어서 읽는 것★이라 같은 무게로 선다.
+          (그 뒤 자리도 서류 머리말에서 화면 맨 아래로 옮겼다 — 매번 보는 줄에 가끔 여는
+          것이 끼어 있었다.)
         */}
         <Btn size="sm" kind="side" busy={busy} busyLabel="여는 중…" onClick={() => void load()}>
           검수 이력 보기
@@ -80,8 +88,7 @@ export function ReviewHistory({ projectId, labelOf }: {
   }
 
   return (
-    /* 펼치면 구역이 된다 — 머리말 줄 안에서 통째로 한 줄을 차지한다(basis-full) */
-    <div className="mt-1 w-full basis-full">
+    <div className="w-full">
       <div className="mb-2 flex items-baseline gap-2">
         <h3 className="text-tiny font-black tracking-[0.1em] text-slate-500">검수 이력</h3>
         <span className="text-tiny font-bold tabular-nums text-slate-400">

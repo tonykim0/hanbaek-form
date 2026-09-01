@@ -299,16 +299,6 @@ export function IntakeTab({
               extra={surveyText ? [{ name: '기설치 조사내역', text: surveyText }] : []}
             />
           </span>
-          {/*
-            ★반려하고 다시 올린 왕복을 되짚는 자리★ (한백 지적 2026-09-01). 반려 사유는
-            다시 올리는 순간 지워지므로(통과인데 사유가 같이 뜨지 않게), 협력사가 재검토를
-            요청해 오면 무엇 때문에 돌려보냈고 무엇이 새로 왔는지 알 길이 없었다.
-            접힌 채로 두고 누를 때 받아 온다 — 늘 보는 목록이 아니다.
-          */}
-          <ReviewHistory
-            projectId={project.id}
-            labelOf={(kind) => evaluated.find((d) => d.key === kind)?.label ?? kind}
-          />
         </div>
 
         {/*
@@ -600,6 +590,20 @@ export function IntakeTab({
           />
         )}
         </div>
+      </section>
+
+      {/*
+        ★검수 이력은 맨 아래다★ (한백 지시 2026-09-01). 서류 머리말에 두었더니 매번 보는
+        줄에 가끔 여는 것이 끼어 있었다 — 이 화면의 차례는 현장정보 → 기설치 → 서류 →
+        판정이고, 지나온 자취는 그 뒤에 읽는 것이다.
+        기설치 구역에 따로 두지 않는다: 기설치 조사·조사 반려도 이 한 목록에 들어간다
+        (REVIEW_ACTIONS) — 왕복은 하나인데 목록이 둘이면 어느 것이 전부인지 알 수 없다.
+      */}
+      <section>
+        <ReviewHistory
+          projectId={project.id}
+          labelOf={(kind) => evaluated.find((d) => d.key === kind)?.label ?? kind}
+        />
       </section>
 
     </div>

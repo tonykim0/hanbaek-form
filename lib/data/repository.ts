@@ -15,6 +15,7 @@ import type {
   Court, DocStatus, HoldState, IntakeDraft, LineAxes, NewPayoutEntry, NewPricingRule, PayoutKind, PayoutRow, PreInstall, PricingRule,
   ChargerModel,
   PayoutPlanRow, ProcessInfo, ProcessStatus, ProjectDetail, ProjectSummary, Settlement, SettlementRule, SettlementSummary, BatchFinal, TaxInvoice,
+  ReviewEvent,
 } from '@/types/project';
 import type { Actor, Viewer } from '@/lib/auth/types';
 
@@ -587,6 +588,14 @@ export interface ProjectRepository {
    * 반려된 서류를 다시 올리면 반려가 풀린다 — 그래야 계약 단계가 한 바퀴 돈다.
    * 반려만 표시하고 고칠 길을 안 주면 협력사는 화면을 보고도 아무것도 할 수 없다.
    */
+  /**
+   * 검수가 오간 자취 — 반려하고 다시 올린 왕복. [그 현장의 협력사 · 한백]
+   *
+   * audit_log 를 읽기만 한다. 새 표를 만들지 않는 이유: 이미 남고 있는 것을 두 번 적으면
+   * 두 기록이 갈린다(dual-write). 없던 것은 기록이 아니라 ★읽는 길★이었다.
+   */
+  listReviewHistory(projectId: string, viewer: Viewer): Promise<ReviewEvent[]>;
+
   uploadDocument(
     input: {
       projectId: string; kind: string; filename: string; blobUrl: string;

@@ -14,6 +14,7 @@ import { evaluateDocs, needsPreInstallCheck, type DocReq } from '@/lib/doc-rules
 import { DocDelete, DocFileActions, DocUpload, DownloadAll } from '@/components/DocFiles';
 import { useAction } from '@/lib/use-action';
 import { DocReview } from './DocReview';
+import { ReviewHistory } from './ReviewHistory';
 import { PreInstall } from './PreInstall';
 import { docState } from './parts';
 import { Btn, Err, FIELD, Note, Tag } from '@/components/ui';
@@ -282,6 +283,18 @@ export function IntakeTab({
               siteName={siteName}
               labelOf={(kind) => evaluated.find((d) => d.key === kind)?.label ?? kind}
               extra={surveyText ? [{ name: '기설치 조사내역', text: surveyText }] : []}
+            />
+          </span>
+          {/*
+            ★반려하고 다시 올린 왕복을 되짚는 자리★ (한백 지적 2026-09-01). 반려 사유는
+            다시 올리는 순간 지워지므로(통과인데 사유가 같이 뜨지 않게), 협력사가 재검토를
+            요청해 오면 무엇 때문에 돌려보냈고 무엇이 새로 왔는지 알 길이 없었다.
+            접힌 채로 두고 누를 때 받아 온다 — 늘 보는 목록이 아니다.
+          */}
+          <span className="self-center">
+            <ReviewHistory
+              projectId={project.id}
+              labelOf={(kind) => evaluated.find((d) => d.key === kind)?.label ?? kind}
             />
           </span>
         </div>

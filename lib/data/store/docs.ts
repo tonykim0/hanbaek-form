@@ -8,10 +8,10 @@
  * (손으로 SQL 을 볼 때를 위해 같이 맞춘다). 올리면 쌓이고, 마지막 장을 빼면 미제출로
  * 돌아간다. 계약 서류와 공정 서류가 표가 달라 두 갈래가 한 메서드 안에 있다.
  */
-import { and, eq, inArray, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import { getDb } from '@/lib/db/client';
 import { writeAudit } from '@/lib/db/audit';
-import { documents, processDocuments, processes, projects } from '@/lib/db/schema';
+import { auditLog, documents, processDocuments, processes, projects } from '@/lib/db/schema';
 import { today } from '@/lib/date';
 import { canAccessProject, canWrite, isHanbaek } from '@/lib/roles';
 import {
@@ -19,16 +19,72 @@ import {
 } from '@/lib/process';
 import { isProcessDocKind } from '../assemble';
 import { PROCESS_DOCS } from '@/lib/doc-rules';
-import type { DocFile, DocStatus, ProjectDocument } from '@/types/project';
+import type { DocFile, DocStatus, ProjectDocument, ReviewEvent } from '@/types/project';
 import type { Actor, ProjectRepository } from '../repository';
 import { assertAdmin, mergeDocs, PROCESS_DOC_KEYS, recordsOf } from './shared';
+
+/**
+ * 검수의 왕복으로 볼 행동 — 계약 서류를 두고 오간 것만.
+ *
+ * 지급·단가·공정 입력은 여기 넣지 않는다: 이 자리가 답할 물음은 「무엇을 돌려보냈고
+ * 무엇이 다시 왔나」이고, 그 밖의 것이 섞이면 그 물음이 묻힌다.
+ */
+const REVIEW_ACTIONS = [
+  '계약서 접수', '계약서 접수 취소', '계약 확인',
+  '서류 업로드', '서류 재업로드', '서류 반려', '반려 해제', '서류 확인',
+  '서류 삭제', '서류 파일 삭제', '누락 서류 보완요청',
+  '기설치 조사 반려',
+] as const;
 import type { TxLike } from './shared';
 
 /** pgRepository 가 펼쳐 담는 조각 — 이름과 시그니처는 인터페이스가 정한다 */
 export const docStore: Pick<
   ProjectRepository,
   'setDocumentStatus' | 'deleteDocument' | 'deleteDocumentFile' | 'uploadDocument'
+  | 'listReviewHistory'
 > = {
+  /*
+   * ★검수가 오간 자취 — 새로 적는 것이 없다.★ (한백 지적 2026-09-01)
+   *
+   * 반려 사유는 다시 올리는 순간 지워진다(통과 상태인데 사유가 같이 뜨는 일이 없게).
+   * 그래서 협력사가 「계약 재검토 요청」을 보내오면 한백은 무엇 때문에 돌려보냈고 무엇이
+   * 새로 왔는지 알 길이 없었다. 그런데 그 왕복은 audit_log 에 이미 다 남고 있었다 —
+   * 없던 것은 기록이 아니라 ★읽는 길★이었다. 새 표를 만들면 두 기록이 갈린다.
+   *
+   * 계약의 왕복만 고른다: 서류를 올리고 돌려보내고 다시 올리고 확인한 자취.
+   * 지급·단가·공정 입력은 이 자리의 이야기가 아니다(그쪽은 그쪽 화면이 말한다).
+   */
+  async listReviewHistory(projectId, viewer): Promise<ReviewEvent[]> {
+    const db = getDb();
+    const [project] = await db
+      .select({ id: projects.id, salesOrg: projects.salesOrg, gcOrg: projects.gcOrg })
+      .from(projects)
+      .where(eq(projects.id, projectId))
+      .limit(1);
+    /* 남의 현장 자취를 id 만 알고 볼 수 없다 — 화면에서도 보지만 여기서 한 번 더 본다 */
+    if (!project || !canAccessProject(viewer.role, viewer.org, project)) return [];
+
+    const rows = await db
+      .select()
+      .from(auditLog)
+      .where(and(eq(auditLog.projectId, projectId), inArray(auditLog.action, [...REVIEW_ACTIONS])))
+      .orderBy(desc(auditLog.at))
+      .limit(80);
+
+    return rows.map((r) => ({
+      id: r.id,
+      actor: r.actor,
+      action: r.action,
+      kind: r.field,
+      /*
+       * 반려는 「rejected: 사유」 꼴로 적힌다 — 사유만 꺼낸다. 그 밖(uploaded 등)은
+       * 상태 글자일 뿐이라 보여줄 것이 없다: 무엇을 했는지는 action 이 이미 말한다.
+       */
+      note: r.newValue?.startsWith('rejected: ') ? r.newValue.slice('rejected: '.length) : null,
+      at: (r.at instanceof Date ? r.at : new Date(r.at as never)).toISOString(),
+    }));
+  },
+
   async setDocumentStatus(input, actor): Promise<void> {
     assertAdmin(actor, '서류 검수');
     if (input.status === 'rejected' && !input.reason?.trim()) {

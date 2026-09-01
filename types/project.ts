@@ -987,6 +987,29 @@ export interface ProjectSummary {
  * 여기에는 계획액·수금액이 들어 있다. 한 타입으로 묶으면 「이 화면은 금액을 안 쓴다」는
  * 약속을 타입이 지켜주지 못하고, 언젠가 협력사 화면으로 실려 나간다.
  */
+/**
+ * 검수가 오간 자취 한 줄 — ★반려하고 다시 올린 왕복을 되짚는 자리다.★
+ *
+ * ★왜 필요한가★ 반려 사유는 다시 올리는 순간 지워진다(그래야 통과 상태인데 사유가 같이
+ * 뜨는 일이 없다). 그래서 협력사가 「계약 재검토 요청」을 보내오면 한백은 ★무엇 때문에
+ * 돌려보냈고 무엇이 새로 왔는지★를 알 길이 없었다(한백 지적 2026-09-01).
+ *
+ * 새로 적는 것이 아니다 — audit_log 에 이미 다 남아 있는데 읽는 코드가 없었다.
+ */
+export interface ReviewEvent {
+  id: string;
+  /** 누가 — 「에코일렉(ecoelec)」처럼 이름과 계정이 같이 적혀 있다 */
+  actor: string;
+  /** 무엇을 했나 — 「서류 반려」·「서류 재업로드」·「계약서 접수」… */
+  action: string;
+  /** 어느 서류인가 — 서류 종류 키. 계약 확인처럼 서류가 아닌 것은 null */
+  kind: string | null;
+  /** 반려 사유 등 — 「rejected: …」에서 사유만 꺼낸 것 */
+  note: string | null;
+  /** ISO 시각 */
+  at: string;
+}
+
 export interface PayoutMilestones {
   /** 영업비 1차 — 한백이 계약 확인을 완료한 날 */
   contractCompletedAt: string | null;

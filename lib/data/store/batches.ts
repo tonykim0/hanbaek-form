@@ -53,14 +53,28 @@ export const batchStore: Pick<
           (r.kind === '영업비' ? r.salesOrg : r.gcOrg) === org
       );
       if (mine.length === 0) throw new Error('그 지급일에 이 지급처로 나간 지급이 없습니다.');
-      // 확정된 배치는 잠긴다
-      const [fin] = await tx
-        .select({ id: batchFinals.id })
-        .from(batchFinals)
-        .where(and(eq(batchFinals.org, org), eq(batchFinals.kind, kind), eq(batchFinals.payDate, from)))
-        .limit(1);
-      if (fin) {
-        throw new Error('최종 확정된 배치입니다 — 옮기려면 먼저 확정을 해제하세요.');
+      /*
+       * ★확정은 양쪽 다 본다★ (한백 지적 2026-08-31).
+       *
+       * 전에는 옮겨 오는 쪽(from)만 봤다. 그런데 옮겨간 날에 같은 지급처의 배치가 있으면
+       * 합쳐지므로(아래 주석), ★잠긴 배치의 내용이 바깥에서 늘어날 수 있었다.★
+       * 확정은 「이 내용으로 잠갔다」는 뜻이고, 세금계산서도 그 합계로 발행돼 있다 —
+       * 줄이 하나 밀려 들어가면 협력사가 발행한 금액과 우리 명세서가 어긋난다.
+       *
+       * 가확정(runPayoutBatch)과 원장 추가는 이미 받는 쪽을 본다(assertBatchOpen) —
+       * 옮기기만 그 잣대에서 빠져 있었다.
+       */
+      for (const [day, why] of [[from, '옮기려는'], [to, '옮겨갈']] as const) {
+        const [fin] = await tx
+          .select({ id: batchFinals.id })
+          .from(batchFinals)
+          .where(and(eq(batchFinals.org, org), eq(batchFinals.kind, kind), eq(batchFinals.payDate, day)))
+          .limit(1);
+        if (fin) {
+          throw new Error(
+            `${why} ${day} ${org} ${kind} 배치는 최종 확정돼 잠겨 있습니다 — 먼저 확정을 해제하세요.`
+          );
+        }
       }
 
       // 옮겨간 날에 같은 지급처의 배치가 이미 있으면 합쳐진다 — 명세서도 한 장이 된다. 막지 않는다.

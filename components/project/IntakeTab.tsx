@@ -10,6 +10,7 @@ import { useState } from 'react';
 import type { ContractState, ProcessStatus, ProjectDetail, ProjectDocument } from '@/types/project';
 import { PROCESS_STATUSES, replLabel } from '@/types/project';
 import { CONTRACT_DOCS_LOCKED_WHY, statusIndex } from '@/lib/process';
+import { HANDOFF_STATUS } from '@/lib/board';
 import { evaluateDocs, needsPreInstallCheck, type DocReq } from '@/lib/doc-rules';
 import { DocDelete, DocFileActions, DocUpload, DownloadAll } from '@/components/DocFiles';
 import { useAction } from '@/lib/use-action';
@@ -166,6 +167,19 @@ export function IntakeTab({
    * 이름은 PROCESS_STATUSES 에서 뽑는다: 손으로 적으면 순서가 바뀔 때 여기만 옛말이 된다.
    */
   const nextStep = status === '계약완료' ? PROCESS_STATUSES[statusIndex(status) + 1] : null;
+
+  /*
+   * ★밀었으면 되돌릴 자리도 같이 둔다★ (한백 지적 2026-09-01, 화면 규칙 7).
+   *
+   * 이 탭에는 앞으로 미는 단추만 있었다 — 「운영사 계약서 제출 로 넘기기 →」. 잘못 밀면
+   * 되돌릴 길이 이 화면에 없어서, 「확인 취소」를 눌러 ★계약검토까지★ 내려갔다가 다시
+   * 확인하는 수밖에 없었다(한 걸음 되돌리려고 두 걸음을 무른다). 되돌리는 자리는 시공
+   * 탭에 있었는데, 계약 보드를 보고 있는 사람이 시공 탭을 열어 볼 이유가 없다.
+   *
+   * 「운영사 계약서 제출」일 때만이다. 그 뒤(행위신고부터)는 시공 탭 스테퍼가 민다 —
+   * 한 걸음을 두 자리에서 밀면 어느 것이 정본인지 알 수 없다(화면 규칙 5).
+   */
+  const backStep = status === HANDOFF_STATUS ? PROCESS_STATUSES[statusIndex(status) - 1] : null;
 
   const requiredHere = evaluated.filter((d) => d.req === 'm' && !d.preinstall);
   const requiredDone = requiredHere.filter((d) => {
@@ -558,6 +572,11 @@ export function IntakeTab({
           <AdvanceStage projectId={projectId} next={nextStep} />
         )}
 
+        {/* 되돌리는 것은 곁다리 동작이라 테두리 단추다 — 미는 것과 무게가 달라야 한다 */}
+        {canReview && project.contractConfirmedAt && backStep && (
+          <AdvanceStage projectId={projectId} next={backStep} back />
+        )}
+
         {canReview
           && !project.contractConfirmedAt
           && asked.length === 0
@@ -807,23 +826,29 @@ function ConfirmContract({
  * 막는 것을 이름에 적지 않는다 — 이 걸음에는 조건이 없다(STATUS_GATES 의 운영사 계약서
  * 제출은 null). 넘기는 것이 곧 「우리가 냈다」는 선언이고, 낸 날은 저장소가 찍는다.
  */
-function AdvanceStage({ projectId, next }: { projectId: string; next: ProcessStatus }) {
+function AdvanceStage({ projectId, next, back = false }: {
+  projectId: string;
+  next: ProcessStatus;
+  /** 되돌리는 걸음인가 — 이름과 무게가 갈린다(미는 것은 주 단추, 되돌리는 것은 곁다리) */
+  back?: boolean;
+}) {
   const { busy, error, run } = useAction();
 
   /* 여백은 줄을 쥔 쪽(위 flex)이 준다 — ConfirmContract 와 같은 규칙이다 */
   return (
     <div className="flex flex-col gap-1.5">
       <Btn
+        kind={back ? 'side' : 'do'}
         busy={busy}
-        busyLabel="넘기는 중…"
+        busyLabel={back ? '되돌리는 중…' : '넘기는 중…'}
         className="self-start"
         onClick={() => void run({
           url: `/api/projects/${projectId}/status`,
           body: { status: next },
-          fail: '넘기지 못했습니다.',
+          fail: back ? '되돌리지 못했습니다.' : '넘기지 못했습니다.',
         })}
       >
-        {next} 로 넘기기 →
+        {back ? `← ${next} 로 되돌리기` : `${next} 로 넘기기 →`}
       </Btn>
       <Err>{error}</Err>
     </div>

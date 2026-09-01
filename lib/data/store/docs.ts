@@ -280,8 +280,14 @@ async function assertContractDocsOpen(
     .from(processes)
     .where(eq(processes.projectId, projectId))
     .limit(1);
+  // 반려·보완요청이 걸리면 계약 확인이 풀린다 — 그때는 고칠 수 있어야 한다(canChangeContractDocs)
+  const [proj] = await tx
+    .select({ confirmedAt: projects.contractConfirmedAt })
+    .from(projects)
+    .where(eq(projects.id, projectId))
+    .limit(1);
   // 공정 행이 아직 없으면 계약완료 자리다 — asProcessStatus 가 그 기본값을 안다
-  if (!canChangeContractDocs(actor.role, asProcessStatus(proc?.status))) {
+  if (!canChangeContractDocs(actor.role, asProcessStatus(proc?.status), proj?.confirmedAt !== null)) {
     throw new Error(CONTRACT_DOCS_LOCKED_WHY);
   }
 }

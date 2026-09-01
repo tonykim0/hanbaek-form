@@ -128,7 +128,11 @@ export default async function ProjectPage({
        * (한백 지시 2026-08-29). 판정은 lib/process 한 곳이고, 저장소도 같은 것을 본다 —
        * 화면에서 단추만 감추면 주소를 직접 두드리는 길이 남는다.
        */
-      canEditDocs={canChangeContractDocs(session.role, detail.process.status)}
+      canEditDocs={canChangeContractDocs(
+        session.role,
+        detail.process.status,
+        detail.project.contractConfirmedAt !== null
+      )}
     />
   );
 }

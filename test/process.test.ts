@@ -255,6 +255,27 @@ describe('canChangeContractDocs — 운영사에 낸 뒤로 계약 서류는 잠
 
   it('열람 전용은 언제나 못 바꾼다', () => {
     expect(canChangeContractDocs('viewer', '계약완료')).toBe(false);
+    expect(canChangeContractDocs('viewer', '계약완료', false)).toBe(false);
+  });
+
+  /*
+   * ★고쳐 오라고 해 놓고 고칠 자리를 잠가 두지 않는다★ (한백 지적 2026-08-31
+   * 「협력사에 반려해서 보완요청했는데 협력사는 파일 추가가 안 돼」).
+   *
+   * 반려·보완요청은 계약 확인만 푼다 — 공정 단계는 그대로 「운영사 계약서 제출」에
+   * 남는다. 그래서 단계로만 재면 계속 잠겨 있었다. 프로덕션에서 2건이 그렇게 갇혔다.
+   */
+  it('★반려로 계약 확인이 풀리면 협력사가 다시 올릴 수 있다★', () => {
+    expect(canChangeContractDocs('sales', CONTRACT_DOCS_LOCK_AT, false)).toBe(true);
+    expect(canChangeContractDocs('cons', '착공', false)).toBe(true);
+  });
+
+  it('확인이 살아 있으면 그대로 잠긴다 — 낸 서류가 정본이다', () => {
+    expect(canChangeContractDocs('sales', CONTRACT_DOCS_LOCK_AT, true)).toBe(false);
+  });
+
+  it('안 주면 확인된 것으로 본다 — 빠뜨렸을 때 잠기는 쪽이어야 한다', () => {
+    expect(canChangeContractDocs('sales', CONTRACT_DOCS_LOCK_AT)).toBe(false);
   });
 });
 

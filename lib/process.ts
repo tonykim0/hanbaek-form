@@ -223,9 +223,29 @@ export const CONTRACT_DOCS_LOCK_AT: ProcessStatus = '운영사 계약서 제출'
  * 판정을 한 곳에 두는 이유: 저장소가 막고 화면이 그 판정으로 단추를 감춘다. 두 벌이면
  * 「단추는 있는데 눌리지 않는」 자리가 생긴다.
  */
-export function canChangeContractDocs(role: Role, status: ProcessStatus): boolean {
+export function canChangeContractDocs(
+  role: Role,
+  status: ProcessStatus,
+  /**
+   * 계약이 확인된 상태인가. ★반려·보완요청이 걸리면 풀린다★ — 저장소가
+   * contractConfirmedAt 을 null 로 만든다(applyAskSideEffects).
+   *
+   * 안 주면 확인된 것으로 본다 — 빠뜨렸을 때 열리는 쪽이 아니라 잠기는 쪽이어야 한다.
+   */
+  contractConfirmed = true
+): boolean {
   if (!canWrite(role)) return false;
   if (isHanbaek(role)) return true;
+  /*
+   * ★고쳐 오라고 해 놓고 고칠 자리를 잠가 두지 않는다★ (한백 지적 2026-08-31
+   * 「협력사에 반려해서 보완요청했는데 협력사는 파일 추가가 안 돼」).
+   *
+   * 잠금의 근거는 「낸 서류가 정본이다」인데, 우리가 반려했다는 것은 스스로 「그것은
+   * 정본이 아니다」라고 한 것이다 — 근거가 사라진 자리에 자물쇠만 남아 있었다.
+   * 반려는 공정 단계를 건드리지 않아서(계약 확인만 푼다) 단계로만 재면 계속 잠겨 있다.
+   * 프로덕션 실측(2026-08-31): 그렇게 갇힌 현장이 2건이었다.
+   */
+  if (!contractConfirmed) return true;
   return statusIndex(status) < statusIndex(CONTRACT_DOCS_LOCK_AT);
 }
 

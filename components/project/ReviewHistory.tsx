@@ -64,9 +64,15 @@ export function ReviewHistory({ projectId, labelOf }: {
 
   if (!open) {
     return (
-      <span className="flex items-center gap-1.5">
-        <Btn size="sm" kind="quiet" busy={busy} busyLabel="여는 중…" onClick={() => void load()}>
-          검수 이력
+      /* 스스로 flex 항목이 된다 — 감싸면 펼쳤을 때 한 줄을 못 차지한다 */
+      <span className="flex items-center gap-1.5 self-center">
+        {/*
+          ★고스트 칩이 아니다★ (한백 2026-09-01 「검수 이력 안 나와」). 곁다리 동작의
+          모양(kind="quiet")으로 두었더니 바로 옆 「전체 다운로드」의 진한 테두리에 묻혀
+          있는 줄도 몰랐다. 이것은 곁다리가 아니라 ★열어서 읽는 것★이라 같은 무게로 선다.
+        */}
+        <Btn size="sm" kind="side" busy={busy} busyLabel="여는 중…" onClick={() => void load()}>
+          검수 이력 보기
         </Btn>
         <Err>{error}</Err>
       </span>
@@ -74,7 +80,8 @@ export function ReviewHistory({ projectId, labelOf }: {
   }
 
   return (
-    <div className="w-full">
+    /* 펼치면 구역이 된다 — 머리말 줄 안에서 통째로 한 줄을 차지한다(basis-full) */
+    <div className="mt-1 w-full basis-full">
       <div className="mb-2 flex items-baseline gap-2">
         <h3 className="text-tiny font-black tracking-[0.1em] text-slate-500">검수 이력</h3>
         <span className="text-tiny font-bold tabular-nums text-slate-400">

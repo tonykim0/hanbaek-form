@@ -305,12 +305,10 @@ export function IntakeTab({
             요청해 오면 무엇 때문에 돌려보냈고 무엇이 새로 왔는지 알 길이 없었다.
             접힌 채로 두고 누를 때 받아 온다 — 늘 보는 목록이 아니다.
           */}
-          <span className="self-center">
-            <ReviewHistory
-              projectId={project.id}
-              labelOf={(kind) => evaluated.find((d) => d.key === kind)?.label ?? kind}
-            />
-          </span>
+          <ReviewHistory
+            projectId={project.id}
+            labelOf={(kind) => evaluated.find((d) => d.key === kind)?.label ?? kind}
+          />
         </div>
 
         {/*

@@ -163,13 +163,13 @@ export default function ProjectTable({
   /** 정렬 단추. 필터가 함께 붙는 열은 attr 를 준다. */
   function head(
     label: string,
-    opts: { sort?: SortKey; attr?: AttrKey } = {}
+    opts: { sort?: SortKey; attr?: AttrKey; left?: boolean } = {}
   ) {
-    const { sort: key, attr } = opts;
+    const { sort: key, attr, left } = opts;
     const on = key !== undefined && sort === key;
     return (
       <th
-        className="whitespace-nowrap px-3 py-2"
+        className={`whitespace-nowrap px-3 py-2 ${left ? 'text-left' : ''}`}
       >
         <div className="inline-flex items-center gap-1">
           {key ? (
@@ -232,7 +232,7 @@ export default function ProjectTable({
           {/* 머리글은 붙여 둔다 — 138건을 훑으면서 어느 열인지 계속 알아야 한다 */}
           <thead className="sticky top-0 z-10 border-b border-slate-200 bg-slate-50 text-tiny tracking-[0.06em]">
             <tr>
-              {head('현장', { sort: 'name' })}
+              {head('현장', { sort: 'name', left: true })}
               {show('stage') && head('단계', { sort: 'stage', attr: 'col' })}
               {show('qty') && head('대수', { sort: 'qty' })}
               {show('term') && head('계약연수', { sort: 'term', attr: 'term' })}
@@ -261,7 +261,8 @@ export default function ProjectTable({
               const busy = busyId === p.id;
               return (
                 <tr key={p.id} className={`transition hover:bg-brand-50/40 ${busy ? 'opacity-50' : ''}`}>
-                  <td className="px-3 py-2.5">
+                  {/* 현장 열만 왼쪽 — 줄을 찾는 열쇠다(화면 규칙 13, 한백 지시 2026-09-02) */}
+                  <td className="px-3 py-2.5 text-left">
                     <Link
                       href={`/projects/${p.id}?tab=${tab}`}
                       className="font-bold text-slate-900 hover:text-brand-800 hover:underline"

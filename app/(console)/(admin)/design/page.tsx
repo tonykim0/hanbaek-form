@@ -248,12 +248,12 @@ export default function DesignPage() {
         </div>
       </Section>
 
-      <Section title="표의 칸" note="칸은 전부 가운데. 금액·건수에는 num — 자릿수 고정 글꼴 (화면 규칙 13)">
+      <Section title="표의 칸" note="칸은 전부 가운데, 현장 열만 left. 금액·건수에는 num (화면 규칙 13)">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[520px] border-collapse text-base">
             <thead className="border-b border-slate-100 bg-slate-50 text-tiny font-bold tracking-[0.06em] text-slate-500">
               <tr>
-                <Th>현장</Th>
+                <Th left>현장</Th>
                 <Th num>총 지급액</Th>
                 <Th>지급일</Th>
                 <Th>상태</Th>
@@ -265,7 +265,7 @@ export default function DesignPage() {
                 ['충북 청주 율량동 현대아파트', '2,940,000', '—', <Badge key="b" tone="mute">대기</Badge>],
               ].map(([name, won, day, tag], i) => (
                 <tr key={String(name)} className={i === 0 ? '' : 'border-t border-slate-100'}>
-                  <Td className="font-semibold text-slate-900">{name}</Td>
+                  <Td left className="font-semibold text-slate-900">{name}</Td>
                   <Td num className="font-black text-slate-900">{won}</Td>
                   <Td className="text-slate-500">{day}</Td>
                   <Td>{tag}</Td>

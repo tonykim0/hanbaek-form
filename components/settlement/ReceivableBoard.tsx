@@ -222,7 +222,7 @@ export default function ReceivableBoard({ rows }: { rows: SettlementSummary[] })
         <Frame min="900px">
           <thead className="border-b border-slate-100 bg-slate-50 text-tiny font-bold tracking-[0.06em] text-slate-500">
             <tr>
-              <Th>현장</Th>
+              <Th left>현장</Th>
               {/* 차수 열의 값은 그 차수의 상태다. 금액과 트리거는 그 아래 딸린 값이다. */}
               <Th>1차</Th>
               <Th>2차</Th>
@@ -235,7 +235,7 @@ export default function ReceivableBoard({ rows }: { rows: SettlementSummary[] })
           <tbody className="divide-y divide-slate-100">
             {shown.map((r) => (
               <tr key={r.id} className="transition hover:bg-brand-50/40">
-                <Td className="min-w-[13rem]">
+                <Td left className="min-w-[13rem]">
                   <SiteLink id={r.id} name={r.name} tab="receivable" />
                   <p className="mt-0.5 flex flex-wrap items-center gap-1.5 text-tiny text-slate-400">
                     <span>{r.cpo} · {r.qty}대 · {r.status}</span>

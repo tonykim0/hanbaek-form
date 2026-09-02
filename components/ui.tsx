@@ -464,6 +464,12 @@ type CellProps = {
   /** 세는 값(금액·건수)이면 참 — 자릿수 고정 글꼴(폭이 같아 가운데서도 자리가 선다) */
   num?: boolean;
   /**
+   * ★현장처럼 줄을 찾는 열쇠 열만 왼쪽★ (한백 지시 2026-09-02 「현장은 왼쪽 정렬」).
+   * 긴 이름은 첫 글자가 한 줄에 서야 훑어 내려갈 수 있다 — 가운데면 시작점이 줄마다
+   * 다르다. 값 열에는 쓰지 않는다: 왼쪽이 둘이 되는 순간 다시 「제각각」이다.
+   */
+  left?: boolean;
+  /**
    * 머리가 두 줄일 때 참 — 세로 여백을 부르는 자리에서 준다(위 줄은 pt, 아래 줄은 pb).
    * `!py-0` 같은 important 로 덮지 않는다: 덮으면 그 뒤의 `pt-2` 가 조용히 안 먹는다.
    */
@@ -475,11 +481,11 @@ type CellProps = {
 };
 
 /** 표의 머리 칸. 정렬은 제 몸(num)을 따르고, 절대 줄바꿈하지 않는다. */
-export function Th({ num = false, tight = false, className = '', children, ...rest }: CellProps) {
+export function Th({ num = false, tight = false, left = false, className = '', children, ...rest }: CellProps) {
   return (
     <th
       {...rest}
-      className={`${CELL_X} ${tight ? '' : CELL_Y} whitespace-nowrap text-center ${className}`}
+      className={`${CELL_X} ${tight ? '' : CELL_Y} whitespace-nowrap ${left ? 'text-left' : 'text-center'} ${className}`}
     >
       {children}
     </th>
@@ -487,11 +493,11 @@ export function Th({ num = false, tight = false, className = '', children, ...re
 }
 
 /** 표의 몸 칸. 여러 줄이 쌓이는 칸이 있어 위 맞춤이 기본이다. */
-export function Td({ num = false, tight = false, className = '', children, ...rest }: CellProps) {
+export function Td({ num = false, tight = false, left = false, className = '', children, ...rest }: CellProps) {
   return (
     <td
       {...rest}
-      className={`${CELL_X} ${tight ? '' : CELL_Y} align-top text-center ${num ? 'tabular-nums' : ''} ${className}`}
+      className={`${CELL_X} ${tight ? '' : CELL_Y} align-top ${left ? 'text-left' : 'text-center'} ${num ? 'tabular-nums' : ''} ${className}`}
     >
       {children}
     </td>

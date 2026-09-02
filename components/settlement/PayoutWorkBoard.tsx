@@ -328,7 +328,7 @@ export default function PayoutWorkBoard({
           <thead className="border-b border-slate-100 bg-slate-50 text-tiny font-bold tracking-[0.06em] text-slate-500">
             <tr>
               {canConfirm && <Th rowSpan={2} className="w-10" />}
-              <Th rowSpan={2}>현장</Th>
+              <Th left rowSpan={2}>현장</Th>
               {/*
                 지급처가 하나뿐이면 열을 안 세운다 — 협력사에게는 모든 줄에 제 회사 이름이
                 되풀이된다(2026-08-30). 위 필터가 같은 조건으로 이미 감춰져 있었다.
@@ -400,7 +400,7 @@ export default function PayoutWorkBoard({
                   </Td>
                 )}
                 {/* 줄을 찾는 열쇠는 현장명이다 — 한 줄에서 가장 먼저 읽혀야 한다 */}
-                <Td className={`min-w-[13rem] ${canConfirm ? '' : lead}`}>
+                <Td left className={`min-w-[13rem] ${canConfirm ? '' : lead}`}>
                   <SiteLink id={p.projectId} name={p.projectName} tab="settlement" />
                   <p className="text-tiny text-slate-400">{p.cpo}</p>
                 </Td>

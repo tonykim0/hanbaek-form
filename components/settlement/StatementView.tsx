@@ -182,7 +182,7 @@ export default function StatementView({
           <table className="text-center w-full text-base print:text-small">
             <thead className="border-b border-slate-200 text-tiny font-bold tracking-[0.08em] text-slate-500">
               <tr>
-                <th className="whitespace-nowrap py-2 pr-3">현장</th>
+                <th className="whitespace-nowrap py-2 pr-3 text-left">현장</th>
                 {/*
                   배치는 구분 하나로 묶여 있어 머리글에 이미 적혀 있다 — 줄마다 또 적으면
                   같은 값이 한 장에 두 번이다(화면 규칙 5번). 옛 링크(구분 없이 그 지급일
@@ -364,7 +364,7 @@ function ItemRow({
         * 지급관리(PayoutWorkBoard)·기성관리(ReceivableBoard)가 이미 같은 부품으로 같은
         * 자리를 열고 있어서, 세 화면의 현장명이 같은 곳을 가리키게 된다.
         */}
-      <td className="py-2.5 pr-3 font-semibold text-slate-800">
+      <td className="py-2.5 pr-3 text-left font-semibold text-slate-800">
         <SiteLink id={r.projectId} name={r.projectName} tab="settlement" />
         <span className="ml-1.5 text-tiny font-normal text-slate-400">{r.cpo}</span>
       </td>

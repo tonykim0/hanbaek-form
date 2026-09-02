@@ -108,7 +108,7 @@ function HistoryTable({ summary }: { summary: Summary }) {
         <thead>
           <tr className="border-b border-slate-200 text-tiny font-bold tracking-wide text-slate-500">
             <th className="whitespace-nowrap py-2 pr-3 font-bold">설치시기</th>
-            <th className="whitespace-nowrap py-2 pr-3 font-bold">대수</th>
+            <th className="whitespace-nowrap py-2 pr-3 text-right font-bold">대수</th>
             <th className="whitespace-nowrap py-2 pr-3 font-bold">구분</th>
             <th className="whitespace-nowrap py-2 pr-3 font-bold">사업연도</th>
             <th className="whitespace-nowrap py-2 pr-3 font-bold">대기번호</th>
@@ -124,7 +124,7 @@ function HistoryTable({ summary }: { summary: Summary }) {
                 {year}
                 {month ? `. ${month}` : ''}
               </td>
-              <td className="py-2 pr-3 tabular-nums font-semibold text-slate-900">
+              <td className="py-2 pr-3 text-right tabular-nums font-semibold text-slate-900">
                 {qty}
                 <span className="ml-1 text-tiny font-medium text-slate-400">
                   {fast ? '급속' : '완속'}

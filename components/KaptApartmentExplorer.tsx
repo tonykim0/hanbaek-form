@@ -319,7 +319,7 @@ export default function KaptApartmentExplorer({
                               <th className="whitespace-nowrap px-3 py-3 font-bold">설치유형</th>
                               <th className="whitespace-nowrap px-3 py-3 font-bold">충전기타입</th>
                               <th className="whitespace-nowrap px-3 py-3 font-bold">충전속도</th>
-                              <th className="whitespace-nowrap px-3 py-3 font-bold">설치대수</th>
+                              <th className="whitespace-nowrap px-3 py-3 text-right font-bold">설치대수</th>
                               <th className="whitespace-nowrap px-3 py-3 font-bold">충전사업자</th>
                               <th className="whitespace-nowrap px-3 py-3 font-bold">연락처</th>
                             </tr>
@@ -331,7 +331,7 @@ export default function KaptApartmentExplorer({
                                 <td className="px-3 py-3">{charger.installationType}</td>
                                 <td className="px-3 py-3">{charger.chargerType}</td>
                                 <td className="px-3 py-3">{charger.speed}</td>
-                                <td className="whitespace-nowrap px-3 py-3 font-black text-brand-700">
+                                <td className="whitespace-nowrap px-3 py-3 text-right tabular-nums font-black text-brand-700">
                                   {charger.count === null
                                     ? '-'
                                     : `${charger.count.toLocaleString('ko-KR')}대`}

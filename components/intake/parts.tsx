@@ -168,7 +168,7 @@ export function QtyGrid<R extends string>({
             <tr>
               <th className="whitespace-nowrap px-3 py-2 text-left" />
               {cols.map((c) => (
-                <th key={c ?? '-'} className="whitespace-nowrap px-3 py-2 text-left">{c}</th>
+                <th key={c ?? '-'} className="whitespace-nowrap px-3 py-2 text-right">{c}</th>
               ))}
             </tr>
           </thead>
@@ -189,7 +189,7 @@ export function QtyGrid<R extends string>({
                         inputMode="numeric"
                         placeholder="0"
                         onChange={(e) => onChange(k, num(e))}
-                        className="w-[72px] rounded-lg border border-slate-200 px-2 py-1 text-sm tabular-nums text-slate-900 placeholder:text-slate-300 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-100"
+                        className="w-[72px] rounded-lg border border-slate-200 px-2 py-1 text-right text-sm tabular-nums text-slate-900 placeholder:text-slate-300 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-100"
                       />
                       <span className="text-small text-slate-400">기</span>
                     </span>

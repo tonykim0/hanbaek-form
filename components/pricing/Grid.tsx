@@ -356,7 +356,8 @@ export function Grid({
                       <td
                         key={i}
                         colSpan={c.span}
-                        className={`whitespace-pre-line break-keep px-3 py-2 text-small text-center font-bold tabular-nums text-slate-800 ${i === 0 ? '' : 'border-l border-slate-200'}`}
+                        /* 위 단가 칸과 같은 열이다 — 세는 값은 오른쪽(화면 규칙 13). 가운데면 열을 훑을 때 어긋난다 */
+                        className={`whitespace-pre-line break-keep px-3 py-2 text-right text-small font-bold tabular-nums text-slate-800 ${i === 0 ? '' : 'border-l border-slate-200'}`}
                       >
                         {c.value === null ? <Empty kind="wait" /> : c.value}
                       </td>

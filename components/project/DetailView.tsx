@@ -33,6 +33,7 @@ import { IntakeTab } from './IntakeTab';
 import { EditableFact } from './EditableFact';
 import { ProgressLog } from './ProgressLog';
 import { ReceivableTab, SettlementTab } from './SettlementTab';
+import { daysSince } from '@/lib/date';
 
 /** settlement = 협력사 지급(주소가 이미 퍼져 있어 키는 안 바꾼다) · receivable = 기성(한백만) */
 export type TabKey = 'intake' | 'construction' | 'settlement' | 'receivable';
@@ -695,6 +696,8 @@ function ApprovalFacts({
         canEdit={edit === 'all'}
         busy={busyKey === 'envApprovalDate'}
         onSave={(v) => save('envApprovalDate', v)}
+        /* 승인이 난 뒤 얼마나 지났나 — 발주가 안 나간 채 몇 주가 흐르는 일이 있다 */
+        elapsed
         hint="기성 「환경부 승인」 트리거와 「충전기 발주」 조건이 이 날짜로 열립니다"
         /*
          * 자체투자·연동에는 환경부 승인이 없다 (한백 2026-08-28) — 대기번호와 같은 자리다.
@@ -712,7 +715,7 @@ function ApprovalFacts({
 
 /** 머리말의 날짜 사실 — 평소엔 글자, 고칠 때만 달력(화면 규칙 4). EditableFact 의 날짜판. */
 function DateFact({
-  label, value, canEdit, busy, onSave, hint, na = false,
+  label, value, canEdit, busy, onSave, hint, na = false, elapsed = false,
 }: {
   label: string;
   value: string | null;
@@ -720,6 +723,17 @@ function DateFact({
   busy: boolean;
   onSave: (v: string | null) => void;
   hint?: string;
+  /**
+   * 그날부터 며칠 지났는지 같이 적는가 (한백 지시 2026-09-02).
+   *
+   * ★기다림이 얼마나 길어졌는지를 날짜만으로는 못 읽는다★ — 「2026-07-14」를 보고 오늘과
+   * 빼는 일을 사람이 하고 있었다. 승인일이 그렇다: 승인이 난 뒤 발주가 안 나간 채 몇 주가
+   * 지났는지가 이 화면에서 답해야 할 물음이다.
+   *
+   * 모든 날짜에 붙이지 않는다 — 지난 날이 뜻을 갖는 칸에만 켠다. 「언제 냈나」처럼 사실을
+   * 적어 두는 칸에 붙으면 숫자만 늘고 읽을 것이 는다.
+   */
+  elapsed?: boolean;
   /**
    * 이 현장에는 해당없는 날짜인가 — 칸을 없애지 않는다(화면 규칙 6·10).
    * 「빠뜨린 것」과 「원래 없는 것」은 다른 말이고, 칸이 사라지면 둘이 같아 보인다.
@@ -759,6 +773,16 @@ function DateFact({
         <dd className="mt-0.5 flex flex-wrap items-baseline gap-1.5">
           {/* 승인일은 기다리는 값이다 — 비어 있음은 「아직 올 때가 아님」(—) */}
           {value ? <Val value={value} /> : <Empty kind="wait" />}
+          {/*
+            경과일 — 날짜 바로 옆이다. 「그날로부터」를 읽는 값이라 떨어뜨리면 무엇을
+            센 것인지 다시 짝지어야 한다. 오늘이면 「오늘」이라고 적는다: 「0일째」는
+            세는 말이 아니라 계산한 말로 읽힌다.
+          */}
+          {value && elapsed && (
+            <span className="text-tiny font-bold tabular-nums text-slate-400">
+              {daysSince(value) === 0 ? '오늘' : `${daysSince(value)}일째`}
+            </span>
+          )}
           {canEdit && (
             <Btn size="sm" kind="quiet" onClick={() => setEditing(true)}>
               {value ? '수정' : '입력'}

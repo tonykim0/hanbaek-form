@@ -19,8 +19,12 @@
  * 칸에 또 한 번 나와서 한 일이 두 자리에 있었다 — 처리하면 두 곳에서 사라지는 것을
  * 눈으로 좇아야 했다. 급한 것을 고르는 길은 필터(밀린 것만)로 남는다.
  *
- * ★필터★ 업무 · 종류 · 밀린 것만. 매트릭스·배치 목록과 같은 모양이다(고르는 것은 왼쪽에
+ * ★필터★ 업무 · 밀린 것만. 매트릭스·배치 목록과 같은 모양이다(고르는 것은 왼쪽에
  * 몰고 한 줄로) — 세 화면의 필터가 다르게 생기면 같은 일을 세 번 배운다.
+ *
+ * ★「할 일 종류」 필터는 걷었다 (한백 지시 2026-09-02).★ 칸 안을 종류로 쪼개면서
+ * 소제목이 그 말을 하게 됐다 — 종류마다 소제목과 수가 서 있는데 위에서 또 고르게 하면
+ * 같은 것을 두 자리에 둔 것이다(화면 규칙 5). 고르는 것보다 훑는 것이 빠른 자리이기도 하다.
  *
  * ★거른 뒤에도 칸은 안 사라진다.★ 업무를 고르면 그 칸만 남지만, 종류·밀림으로 거르면
  * 빈 칸도 자리를 지킨다 — 칸의 유무가 흔들리면 칸의 자리를 외울 수 없고, 「기성에는
@@ -53,21 +57,13 @@ const FLOW_RANK = new Map(BOARD_COLUMNS.map((c, i) => [c.key as string, i]));
 
 export default function TodoBoard({ items }: { items: TodoItem[] }) {
   const [group, setGroup] = useState<string>(ALL);
-  const [kind, setKind] = useState<string>(ALL);
   const [overdueOnly, setOverdueOnly] = useState(false);
-
-  /* 종류 후보는 실제로 있는 할 일에서 뽑는다 — 없는 것을 고를 수 있으면 0건이 나온다 */
-  const kinds = useMemo(
-    () => [...new Set(items.map((t) => t.kind))].sort((a, b) => a.localeCompare(b, 'ko')),
-    [items]
-  );
 
   const shown = useMemo(
     () => items.filter((t) =>
       (group === ALL || t.group === group)
-      && (kind === ALL || t.kind === kind)
       && (!overdueOnly || t.urgency >= OVERDUE_AT)),
-    [items, group, kind, overdueOnly]
+    [items, group, overdueOnly]
   );
   const filtered = shown.length !== items.length;
 
@@ -83,15 +79,6 @@ export default function TodoBoard({ items }: { items: TodoItem[] }) {
             {[ALL, ...TODO_GROUPS].map((v) => (
               <option key={v} value={v}>
                 {v === ALL ? '업무 전체' : `${v} (${items.filter((t) => t.group === v).length})`}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="w-48">
-          <select aria-label="할 일 종류" className={FIELD} value={kind} onChange={(e) => setKind(e.target.value)}>
-            {[ALL, ...kinds].map((v) => (
-              <option key={v} value={v}>
-                {v === ALL ? '할 일 종류 전체' : `${v} (${items.filter((t) => t.kind === v).length})`}
               </option>
             ))}
           </select>

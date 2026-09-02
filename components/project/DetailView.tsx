@@ -742,10 +742,30 @@ function DateFact({
   na?: boolean;
 }) {
   const [editing, setEditing] = useState(false);
+  /*
+   * 경과일 — ★제목 옆이다★ (한백 지적 2026-09-02 「수정 버튼이 내려갔어」).
+   *
+   * 값 줄에 끼웠더니 그 줄이 셋이 되어(날짜 · 경과 · 수정) 좁은 칸에서 「수정」이 다음
+   * 줄로 밀렸다. 제목 줄은 낱말 하나뿐이라 자리가 남고, 「환경부 승인일 83일 경과」로
+   * 붙어 읽혀 무엇을 센 것인지도 그대로 말한다.
+   *
+   * ★붉게 적는다★ — 이 숫자는 「얼마나 밀렸나」를 말하는 자리라 회색으로 두면 날짜의
+   * 곁말로 읽히고 만다. 배경이 아니라 글자만 붉다: 짙은 빨강 배경은 되돌릴 수 없는 것을
+   * 확정할 때만 쓴다(화면 규칙 12).
+   * 오늘이면 「오늘」이다 — 「0일 경과」는 셀 것이 없는데 센 말이라 어색하다.
+   */
+  const since = elapsed && value ? (daysSince(value) === 0 ? '오늘' : `${daysSince(value)}일 경과`) : null;
+  const head = (
+    <dt className="flex flex-wrap items-baseline gap-1.5 text-tiny font-bold tracking-[0.04em] text-slate-400">
+      {label}
+      {since && <span className="tabular-nums text-red-700">{since}</span>}
+    </dt>
+  );
+
   if (na) {
     return (
       <div className="min-w-0" title={hint}>
-        <dt className="text-tiny font-bold tracking-[0.04em] text-slate-400">{label}</dt>
+        {head}
         <dd className="mt-0.5"><Empty kind="na" /></dd>
       </div>
     );
@@ -755,7 +775,7 @@ function DateFact({
   return (
     // 달력이 열리면 격자의 한 칸으로는 좁다 — 그때만 한 줄을 쓴다(EditableFact 와 같다)
     <div className={`min-w-0 ${open ? 'col-span-full' : ''}`} title={hint}>
-      <dt className="text-tiny font-bold tracking-[0.04em] text-slate-400">{label}</dt>
+      {head}
       {open ? (
         <dd className="mt-0.5 flex flex-wrap items-center gap-1.5">
           <DatePicker
@@ -773,19 +793,6 @@ function DateFact({
         <dd className="mt-0.5 flex flex-wrap items-baseline gap-1.5">
           {/* 승인일은 기다리는 값이다 — 비어 있음은 「아직 올 때가 아님」(—) */}
           {value ? <Val value={value} /> : <Empty kind="wait" />}
-          {/*
-            경과일 — 날짜 바로 옆이다. 「그날로부터」를 읽는 값이라 떨어뜨리면 무엇을
-            센 것인지 다시 짝지어야 한다.
-            ★붉게 적는다★ (한백 지시 2026-09-02) — 이 숫자는 「얼마나 밀렸나」를 말하는
-            자리라 회색으로 두면 날짜의 곁말로 읽히고 만다. 배경이 아니라 글자만 붉다:
-            짙은 빨강 배경은 되돌릴 수 없는 것을 확정할 때만 쓴다(화면 규칙 12).
-            오늘이면 「오늘」이다 — 「0일 경과」는 셀 것이 없는데 센 말이라 어색하다.
-          */}
-          {value && elapsed && (
-            <span className="text-tiny font-bold tabular-nums text-red-700">
-              {daysSince(value) === 0 ? '오늘' : `${daysSince(value)}일 경과`}
-            </span>
-          )}
           {canEdit && (
             <Btn size="sm" kind="quiet" onClick={() => setEditing(true)}>
               {value ? '수정' : '입력'}

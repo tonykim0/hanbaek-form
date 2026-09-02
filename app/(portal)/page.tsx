@@ -43,18 +43,6 @@ const tools = [
   { href: '/materials', title: '운영사 자료실', hint: '영업자료 · 시방서' },
 ];
 
-/**
- * 안내문 — public/notices/ 의 정적 HTML 이라 새 탭으로 연다.
- * 비면 이 구역은 통째로 사라진다 — 빈 상자를 두지 않는다.
- */
-const notices = [
-  {
-    href: '/notices/legacy-charger-history.html',
-    title: '기설치 충전기 설치이력 제출 안내',
-    date: '2026. 08. 09.',
-  },
-];
-
 /** 구역 머리 — 제목과 곁말이 한 줄에 선다 */
 function Head({ title, hint }: { title: string; hint?: string }) {
   return (
@@ -71,30 +59,11 @@ export default function Home() {
       <SiteHeader active="home" />
 
       <main className="mx-auto flex max-w-5xl flex-col gap-10 px-5 pb-16 pt-8 sm:px-6 sm:pt-10">
-        {notices.length > 0 && (
-          <section aria-label="안내" className="flex flex-col gap-2">
-            {notices.map((notice) => (
-              <a
-                key={notice.href}
-                href={notice.href}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="group flex items-center gap-3 rounded-2xl border-l-[3px] border-amber-400 bg-white px-4 py-3 ring-1 ring-slate-200 transition hover:ring-amber-300"
-              >
-                <span className="min-w-0 flex-1 break-keep text-sm font-bold leading-snug text-slate-900">
-                  {notice.title}
-                </span>
-                <span className="hidden flex-none text-xs tabular-nums text-slate-400 sm:block">
-                  {notice.date}
-                </span>
-                <span aria-hidden className="flex-none text-slate-300 transition group-hover:text-amber-700">
-                  ↗
-                </span>
-              </a>
-            ))}
-          </section>
-        )}
-
+        {/*
+          ★안내문은 머리말로 올렸다★ (한백 지시 2026-09-02). 본문에 두면 첫 화면에서만
+          보이는데, 이 글이 필요한 순간은 서류를 챙기다 「무엇을 내야 하나」가 막힐 때다 —
+          어느 화면에 있든 손이 닿아야 한다. 자리는 이력조회 옆이다(components/SiteHeader).
+        */}
         <section id="contracts" className="scroll-mt-20">
           <Head title="계약서 작성" hint="운영사를 고르세요" />
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">

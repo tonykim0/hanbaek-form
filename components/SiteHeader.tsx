@@ -7,13 +7,22 @@ type ActiveSection =
   | 'intake'
   | 'materials'
   | 'kapt'
-  | 'charger-history';
+  | 'charger-history'
+  /* 안내문은 새 탭으로 열려 이 머리말을 떠나지 않는다 — 켜진 자리가 될 일이 없다 */
+  | 'notice';
 
 const navItems: Array<{
   href: string;
   label: string;
   shortLabel: string;
   section: ActiveSection;
+  /**
+   * 새 탭으로 여는가 — public/ 의 정적 안내문이 그렇다.
+   *
+   * 앱 껍데기(이 머리말) 밖이라 같은 탭에서 열면 돌아오는 길이 브라우저 뒤로가기뿐이다.
+   * next/link 도 쓰지 않는다: 라우터가 아는 자리가 아니라 보통 앵커로 열어야 한다.
+   */
+  blank?: boolean;
 }> = [
   { href: '/#contracts', label: '계약서 작성', shortLabel: '계약서', section: 'contracts' },
   /*
@@ -29,6 +38,20 @@ const navItems: Array<{
     section: 'charger-history',
   },
   { href: '/kapt', label: '단지조회', shortLabel: '단지', section: 'kapt' },
+  /*
+   * 기설치 안내문 — 첫 화면 본문에 있던 것을 여기로 올렸다(한백 지시 2026-09-02).
+   * 본문에 두면 첫 화면에서만 보이는데, 이 글이 필요한 순간은 서류를 챙기다 「무엇을
+   * 내야 하나」가 막힐 때다 — 어느 화면에 있든 손이 닿아야 한다. 이력조회 옆이다:
+   * 같은 일의 두 쪽이라(무엇을 내는가 · 그 이력을 어떻게 찾는가) 떨어뜨리면 하나를
+   * 보고 다른 하나를 다시 찾는다. 콘솔 상단바도 같은 자리에 같은 글을 건다(TopBar).
+   */
+  {
+    href: '/notices/legacy-charger-history.html',
+    label: '제출안내',
+    shortLabel: '안내',
+    section: 'notice',
+    blank: true,
+  },
 ];
 
 export default function SiteHeader({ active }: { active: ActiveSection }) {
@@ -64,19 +87,29 @@ export default function SiteHeader({ active }: { active: ActiveSection }) {
         >
           {navItems.map((item) => {
             const isActive = active === item.section;
-            return (
+            const cls = `flex-none whitespace-nowrap rounded-lg px-2.5 py-2 text-xs font-semibold transition sm:px-4 sm:text-sm ${
+              isActive
+                ? 'bg-brand-700 text-white shadow-sm'
+                : 'text-slate-600 hover:bg-brand-50 hover:text-brand-800'
+            }`;
+            const inner = (
+              <>
+                <span className="sm:hidden">{item.shortLabel}</span>
+                <span className="hidden sm:inline">{item.label}</span>
+              </>
+            );
+            return item.blank ? (
+              <a key={item.href} href={item.href} target="_blank" rel="noopener noreferrer" className={cls}>
+                {inner}
+              </a>
+            ) : (
               <Link
                 key={item.href}
                 href={item.href}
                 aria-current={isActive ? 'page' : undefined}
-                className={`flex-none whitespace-nowrap rounded-lg px-2.5 py-2 text-xs font-semibold transition sm:px-4 sm:text-sm ${
-                  isActive
-                    ? 'bg-brand-700 text-white shadow-sm'
-                    : 'text-slate-600 hover:bg-brand-50 hover:text-brand-800'
-                }`}
+                className={cls}
               >
-                <span className="sm:hidden">{item.shortLabel}</span>
-                <span className="hidden sm:inline">{item.label}</span>
+                {inner}
               </Link>
             );
           })}

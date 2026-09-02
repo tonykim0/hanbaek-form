@@ -775,12 +775,15 @@ function DateFact({
           {value ? <Val value={value} /> : <Empty kind="wait" />}
           {/*
             경과일 — 날짜 바로 옆이다. 「그날로부터」를 읽는 값이라 떨어뜨리면 무엇을
-            센 것인지 다시 짝지어야 한다. 오늘이면 「오늘」이라고 적는다: 「0일째」는
-            세는 말이 아니라 계산한 말로 읽힌다.
+            센 것인지 다시 짝지어야 한다.
+            ★붉게 적는다★ (한백 지시 2026-09-02) — 이 숫자는 「얼마나 밀렸나」를 말하는
+            자리라 회색으로 두면 날짜의 곁말로 읽히고 만다. 배경이 아니라 글자만 붉다:
+            짙은 빨강 배경은 되돌릴 수 없는 것을 확정할 때만 쓴다(화면 규칙 12).
+            오늘이면 「오늘」이다 — 「0일 경과」는 셀 것이 없는데 센 말이라 어색하다.
           */}
           {value && elapsed && (
-            <span className="text-tiny font-bold tabular-nums text-slate-400">
-              {daysSince(value) === 0 ? '오늘' : `${daysSince(value)}일째`}
+            <span className="text-tiny font-bold tabular-nums text-red-700">
+              {daysSince(value) === 0 ? '오늘' : `${daysSince(value)}일 경과`}
             </span>
           )}
           {canEdit && (

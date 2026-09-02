@@ -24,7 +24,7 @@ import {
 } from '@/lib/project-filter';
 import { ALL_YEARS, businessYearsOf, inBusinessYear } from '@/lib/business-year';
 import ProjectBoard from './ProjectBoard';
-import ProjectTable from './ProjectTable';
+import ProjectTable, { ColumnPicker, useTableColumns } from '@/components/ProjectTable';
 
 type ViewKey = 'board' | 'table';
 type FlagKey = 'rejected' | 'unpriced' | 'stalled';
@@ -292,6 +292,9 @@ export default function ProjectsView({
     });
   }, []);
 
+  /* 열 상태 — 「열」 단추(필터 줄)와 표가 같이 본다. 숨긴 열의 필터를 푸는 일이 있어 여기가 주인이다 */
+  const columns = useTableColumns(band === '계약' ? 'intake' : 'construction', attrs, setAttr);
+
   return (
     <div>
       <div className="mb-4 flex flex-wrap items-center gap-2">
@@ -350,6 +353,14 @@ export default function ProjectsView({
         >
           필터{activeCount > 0 && <span className="ml-1 tabular-nums">{activeCount}</span>}
         </button>
+
+        {/*
+          * 「열」 — 필터 옆이다 (한백 지시 2026-09-02 「표 항목 필터 설정하는 것도 필터
+          * 옆에 두고」). 표 위에 혼자 떠 있어서 거르는 자리가 두 군데처럼 보였다.
+          * 둘은 다른 물건이라 이름으로 가른다: 필터는 ★줄★을 거르고 열은 ★열★을 켜고
+          * 끈다 — 「표 항목」은 필터의 「항목」과 겹쳐 읽혔다. 보드에는 열이 없다.
+          */}
+        {view === 'table' && <ColumnPicker columns={columns} />}
 
         {/* 거는 자리 곁에 푸는 자리를 둔다(화면 규칙 7) — 조건·검색을 통째로 지운다 */}
         {activeCount > 0 && (
@@ -436,6 +447,7 @@ export default function ProjectsView({
           options={options}
           onFilter={setAttr}
           tab={band === '계약' ? 'intake' : 'construction'}
+          columns={columns}
         />
       )}
     </div>

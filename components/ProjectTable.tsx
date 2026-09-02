@@ -60,7 +60,7 @@ type ColKey = (typeof PICKABLE)[number]['key'];
 const PICK_GROUPS = ['기본', '영업', '시공'] as const;
 
 /**
- * 페이지별 기본 열 — 사용자가 「표 항목」에서 고르기 전의 시작점.
+ * 페이지별 기본 열 — 사용자가 「열」에서 고르기 전의 시작점.
  * 계약 페이지에는 아직 없는 시공 일정을, 시공 페이지에는 계약 속성을 접어 둔다.
  */
 const MILESTONE_KEYS: readonly ColKey[] = [
@@ -85,27 +85,16 @@ function termsOf(p: ProjectSummary): string {
 }
 const maxTermOf = (p: ProjectSummary) => Math.max(0, ...p.lines.map((l) => l.termYears));
 
-export default function ProjectTable({
-  projects, canMove, onMove, busyId, filters, options, onFilter, tab,
-}: {
-  projects: ProjectSummary[];
-  canMove: boolean;
-  /** 상세를 열 때 먼저 보일 탭 — 이 페이지의 국면(계약·시공)을 따라간다 */
-  tab: 'intake' | 'construction';
-  onMove: (p: ProjectSummary, status: ProcessStatus) => void;
-  busyId: string | null;
-  /** 지금 걸린 필터 — 껍데기가 쥐고 있다 */
-  filters: AttrFilters;
-  options: Record<AttrKey, string[]>;
-  onFilter: (key: AttrKey, values: string[]) => void;
-}) {
-  const [sort, setSort] = useState<SortKey>('stage');
-  const [desc, setDesc] = useState(false);
-
-  /*
-   * 숨긴 열 — 기본은 전부 보인다. 계약·시공 페이지가 각자 기억한다(브라우저 저장).
-   * 저장값이 없거나 깨졌으면 조용히 기본으로 돈다.
-   */
+/**
+ * 열 상태 — 표 밖(필터 줄)의 「열」 단추와 표가 같은 것을 봐야 해서 훅으로 뺐다
+ * (한백 지시 2026-09-02 「표 항목 필터 설정하는 것도 필터 옆에 두고」).
+ * 숨긴 열에 걸린 필터를 푸는 일이 있어 필터의 주인(껍데기)이 부르는 것이 맞다.
+ */
+export function useTableColumns(
+  tab: 'intake' | 'construction',
+  filters: AttrFilters,
+  onFilter: (key: AttrKey, values: string[]) => void
+) {
   const storageKey = `hb-table-cols-${tab}`;
   const [hidden, setHidden] = useState<Set<ColKey>>(() => new Set(DEFAULT_HIDDEN[tab]));
   useEffect(() => {
@@ -114,8 +103,6 @@ export default function ProjectTable({
       if (raw) setHidden(new Set(JSON.parse(raw) as ColKey[]));
     } catch { /* 저장값이 없거나 깨졌으면 페이지 기본으로 */ }
   }, [storageKey]);
-
-  const show = (k: ColKey) => !hidden.has(k);
 
   function setHiddenAndSave(next: Set<ColKey>) {
     setHidden(next);
@@ -139,7 +126,38 @@ export default function ProjectTable({
     setHiddenAndSave(next);
   }
 
-  const toggleColumn = (key: ColKey) => setColumns([key], hidden.has(key));
+  return {
+    hidden,
+    setColumns,
+    toggleColumn: (key: ColKey) => setColumns([key], hidden.has(key)),
+    reset: () => setHiddenAndSave(new Set(DEFAULT_HIDDEN[tab])),
+    defaultHidden: DEFAULT_HIDDEN[tab],
+  };
+}
+
+export type TableColumns = ReturnType<typeof useTableColumns>;
+
+export default function ProjectTable({
+  projects, canMove, onMove, busyId, filters, options, onFilter, tab, columns,
+}: {
+  projects: ProjectSummary[];
+  canMove: boolean;
+  /** 상세를 열 때 먼저 보일 탭 — 이 페이지의 국면(계약·시공)을 따라간다 */
+  tab: 'intake' | 'construction';
+  onMove: (p: ProjectSummary, status: ProcessStatus) => void;
+  busyId: string | null;
+  /** 지금 걸린 필터 — 껍데기가 쥐고 있다 */
+  filters: AttrFilters;
+  options: Record<AttrKey, string[]>;
+  onFilter: (key: AttrKey, values: string[]) => void;
+  /** 열 상태 — 껍데기가 useTableColumns 로 쥐고 「열」 단추와 나눠 쓴다 */
+  columns: TableColumns;
+}) {
+  const [sort, setSort] = useState<SortKey>('stage');
+  const [desc, setDesc] = useState(false);
+
+  const { hidden } = columns;
+  const show = (k: ColKey) => !hidden.has(k);
 
   const rows = useMemo(() => {
     const dir = desc ? -1 : 1;
@@ -207,21 +225,9 @@ export default function ProjectTable({
     );
   }
 
-  return (
-    <div>
-      <div className="mb-2 flex justify-start">
-        <ColumnPicker
-          hidden={hidden}
-          defaultHidden={DEFAULT_HIDDEN[tab]}
-          onToggle={toggleColumn}
-          onSetMany={setColumns}
-          onReset={() => setHiddenAndSave(new Set(DEFAULT_HIDDEN[tab]))}
-        />
-      </div>
+  if (rows.length === 0) return <Blank>조건에 맞는 현장이 없습니다.</Blank>;
 
-      {rows.length === 0 ? (
-        <Blank>조건에 맞는 현장이 없습니다.</Blank>
-      ) : (
+  return (
     <div className="overflow-hidden rounded-panel border border-slate-200 bg-white">
       <div className="overflow-x-auto">
         {/* 최소 폭은 보이는 열 수에 따라간다 — 열이 적은데 가로 스크롤이 남으면 이상하다 */}
@@ -355,24 +361,19 @@ export default function ProjectTable({
         </table>
       </div>
     </div>
-      )}
-    </div>
   );
 }
 
 /**
- * 표 항목 고르기 — 현장(이름)은 항상 있고 나머지 열을 켜고 끈다.
+ * 「열」 고르기 — 현장(이름)은 항상 있고 나머지 열을 켜고 끈다. 필터 줄에 선다.
+ *
+ * ★이름이 「표 항목」이었다★ (한백 지적 2026-09-02 「필터랑 표 항목 용어도 중복되는 것
+ * 같은데」). 「항목」은 필터가 거르는 것과 같은 말로 읽힌다 — 필터는 ★줄★을 거르고
+ * 이것은 ★열★을 켜고 끈다. 물건의 이름을 그대로 쓴다.
  * 끈 것이 있으면 개수가 단추에 붙는다 — 열이 왜 없는지 표만 보고 알 수 있어야 한다.
  */
-function ColumnPicker({
-  hidden, defaultHidden, onToggle, onSetMany, onReset,
-}: {
-  hidden: Set<ColKey>;
-  defaultHidden: readonly ColKey[];
-  onToggle: (key: ColKey) => void;
-  onSetMany: (keys: readonly ColKey[], visible: boolean) => void;
-  onReset: () => void;
-}) {
+export function ColumnPicker({ columns }: { columns: TableColumns }) {
+  const { hidden, defaultHidden, toggleColumn: onToggle, setColumns: onSetMany, reset: onReset } = columns;
   const [open, setOpen] = useState(false);
   const box = useRef<HTMLDivElement>(null);
   const isDefault =
@@ -398,13 +399,13 @@ function ColumnPicker({
         type="button"
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
-        className={`flex items-center gap-1.5 rounded-ctl border px-2.5 py-1 text-tiny font-bold transition ${
+        className={`flex items-center gap-1.5 rounded-ctl border px-3.5 py-2 text-lead font-bold transition ${
           !isDefault
             ? 'border-brand-300 bg-brand-50 text-brand-800'
             : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:text-slate-700'
         }`}
       >
-        표 항목
+        열
         <span className="rounded-tag bg-slate-100 px-1.5 py-0.5 text-micro font-bold text-slate-500 tabular-nums">
           {PICKABLE.length - hidden.size + 1}
         </span>

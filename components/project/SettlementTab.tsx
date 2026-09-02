@@ -976,7 +976,7 @@ function AdjustBox({
                 <Th tight num className="py-1.5">금액</Th>
                 <Th tight className="py-1.5">반영일</Th>
                 <Th tight className="py-1.5">사유</Th>
-                {canReview && <Th tight className="py-1.5" />}
+                {canReview && <Th tight num className="py-1.5" />}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">

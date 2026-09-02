@@ -33,6 +33,7 @@ export const CATEGORY_TO_KIND: Record<FileCategory, string | null> = {
   '기설치 증빙자료': 'legacyev',
   '별지2 사전체크리스트': 'checklist2',
   '설치승인서': 'approval',
+  '설치승낙서': 'installConsent',
   '견적서': 'quote',
   '기타': 'etc',
 };
@@ -85,6 +86,12 @@ export function preInstallFromCategories(categories: FileCategory[]): PreInstall
 export function categoryFromFileName(fileName: string): FileCategory | null {
   const n = fileName.normalize('NFC').replace(/\s+/g, '');
   if (/(전기차|EV)등록대수|등록대수(확인|공문)|전기차수량공문/i.test(n)) return '기타';
+  /*
+   * ★승낙서와 승인서는 한 글자 차이다★ (2026-09-02). 판독기에게 맡기면 「설치승인서」
+   * (현대엔지니어링이 내주는 것)로 흘러 들어가고, 그 칸은 조건부라 엉뚱한 현장에서
+   * 채워진 것처럼 보인다. 이름에 「승낙」이 박혀 있으면 그것은 다른 서류일 수 없다.
+   */
+  if (/설치승낙(서)?|승낙서/.test(n)) return '설치승낙서';
   return null;
 }
 

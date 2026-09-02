@@ -98,3 +98,31 @@ describe('표준 파일명 — 기타에만 제목을 싣는다', () => {
       .toBe(`율현마을_기타_${'가'.repeat(40)}.pdf`);
   });
 });
+
+/*
+ * ★「승낙서」와 「승인서」는 한 글자 차이다★ (2026-09-02). 판독기에게 맡기면 서로 흘러
+ * 들어가는데, 두 서류는 내주는 쪽이 다르다: 승인서는 운영사(현대엔지니어링)가, 승낙서는
+ * 건물 쪽(입주자대표회의·관리단·소유자)이 내준다. 이름에 박혀 있으면 결정적으로 가른다.
+ */
+describe('설치승낙서 — 설치승인서와 갈린다', () => {
+  const 승낙 = [
+    '설치승낙서.pdf',
+    '설치 승낙서.pdf',
+    '율현마을_설치승낙서_260902.pdf',
+    '[플러그링크] 승낙서.pdf',
+  ];
+  it.each(승낙)('%s 는 설치승낙서다', (name) => {
+    expect(categoryFromFileName(name)).toBe('설치승낙서');
+  });
+
+  /* 승인서는 이름 규칙이 잡지 않는다 — 판독이 정한다(현대엔지니어링 현장에만 있다) */
+  it('설치승인서는 이름 규칙이 건드리지 않는다', () => {
+    expect(categoryFromFileName('설치승인서.pdf')).toBeNull();
+    expect(categoryFromFileName('현대엔지니어링_설치승인서.pdf')).toBeNull();
+  });
+
+  it('칸은 따로다 — 승낙서와 승인서가 같은 칸에 앉지 않는다', () => {
+    expect(kindOfCategory('설치승낙서')).toBe('installConsent');
+    expect(kindOfCategory('설치승인서')).toBe('approval');
+  });
+});

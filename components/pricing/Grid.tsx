@@ -263,7 +263,7 @@ export function Grid({
                 BUILDING_TYPES.map((b) => (
                   <th
                     key={`${t}-${b}`}
-                    className={`whitespace-nowrap px-3 pb-2 font-semibold ${b === '공동주택' ? 'border-l border-slate-300' : ''}`}
+                    className={`whitespace-nowrap px-3 pb-2 text-right font-semibold ${b === '공동주택' ? 'border-l border-slate-300' : ''}`}
                   >
                     {/* 줄여 적지 않는다 — 운영사마다 경계가 다르다(BLDG_LABEL) */}
                     {bldgAxisLabel(cpo, b)}
@@ -292,7 +292,7 @@ export function Grid({
                     BUILDING_TYPES.map((bldg) => {
                       const { now, carried } = at(repl, power, term, bldg);
                       return (
-                        <td key={`${term}-${bldg}`} className={`px-1 py-1 ${bldg === '공동주택' ? 'border-l border-slate-200' : ''}`}>
+                        <td key={`${term}-${bldg}`} className={`px-1 py-1 text-right ${bldg === '공동주택' ? 'border-l border-slate-200' : ''}`}>
                           <button
                             type="button"
                             disabled={!canEdit}
@@ -314,7 +314,7 @@ export function Grid({
                                   : { cpo, replType: repl, powerType: power, terms: [term], bldgs: [bldg] },
                               })
                             }
-                            className="w-full rounded-ctl px-2 py-1.5 text-center tabular-nums transition enabled:hover:bg-brand-50 disabled:cursor-default"
+                            className="w-full rounded-ctl px-2 py-1.5 text-right tabular-nums transition enabled:hover:bg-brand-50 disabled:cursor-default"
                           >
                             {now ? (
                               /*
@@ -356,8 +356,8 @@ export function Grid({
                       <td
                         key={i}
                         colSpan={c.span}
-                        /* 위 단가 칸과 같은 열이다 — 세는 값은 오른쪽(화면 규칙 13). 가운데면 열을 훑을 때 어긋난다 */
-                        className={`whitespace-pre-line break-keep px-3 py-2 text-small font-bold tabular-nums text-slate-800 ${i === 0 ? '' : 'border-l border-slate-200'}`}
+                        /* 위 단가 칸과 같은 열이다 — 금액은 오른쪽(화면 규칙 13). 가운데면 열을 훑을 때 어긋난다 */
+                        className={`whitespace-pre-line break-keep px-3 py-2 text-right text-small font-bold tabular-nums text-slate-800 ${i === 0 ? '' : 'border-l border-slate-200'}`}
                       >
                         {c.value === null ? <Empty kind="wait" /> : c.value}
                       </td>

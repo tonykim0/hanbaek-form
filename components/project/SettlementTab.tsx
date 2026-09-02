@@ -401,14 +401,14 @@ function ContractLines(
             <tr>
               <Th tight className="py-2">라인</Th>
               <Th tight className="py-2">적용 단가 케이스</Th>
-              <Th tight num className="py-2">영업비/대</Th>
-              <Th tight num className="py-2">시공비/대</Th>
+              <Th tight money className="py-2">영업비/대</Th>
+              <Th tight money className="py-2">시공비/대</Th>
               {/*
                 * 협력사가 말하는 턴키단가 = 영업비 + 시공비 (배포가, 한백 확인).
                 * 마진은 이 탭에 없다 — 운영사 쪽 금액(마진 포함 턴키)은 기성 탭의 일이다.
                 * 양쪽을 다 보는 사람(턴키업체·한백)에게만 합이 뜬다.
                 */}
-              {vis.sales && vis.cons && <Th tight num className="py-2">턴키단가/대</Th>}
+              {vis.sales && vis.cons && <Th tight money className="py-2">턴키단가/대</Th>}
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -447,13 +447,13 @@ function ContractLines(
 function Money({ show, value }: { show: boolean; value: number | null }) {
   if (!show) {
     return (
-      <Td tight num className="py-2">
+      <Td tight className="py-2">
         <Tag>권한 없음</Tag>
       </Td>
     );
   }
   return (
-    <Td tight num className="whitespace-nowrap py-2 font-semibold text-slate-800">
+    <Td tight money className="whitespace-nowrap py-2 font-semibold text-slate-800">
       {value === null ? <span className="text-slate-300">—</span> : won(value)}
     </Td>
   );
@@ -719,12 +719,12 @@ function PaymentSection({
             <thead className="bg-slate-50 text-tiny font-bold tracking-[0.08em] text-slate-500">
               <tr>
                 <Th tight className="py-2">구분</Th>
-                <Th tight num className="py-2">대당</Th>
+                <Th tight money className="py-2">대당</Th>
                 <Th tight num className="py-2">대수</Th>
-                <Th tight num className="py-2">총 지급액</Th>
-                <Th tight num className="border-l border-slate-200 py-2">1차 · 70%</Th>
+                <Th tight money className="py-2">총 지급액</Th>
+                <Th tight money className="border-l border-slate-200 py-2">1차 · 70%</Th>
                 <Th tight className="py-2">지급시기</Th>
-                <Th tight num className="border-l border-slate-200 py-2">2차 · 잔액</Th>
+                <Th tight money className="border-l border-slate-200 py-2">2차 · 잔액</Th>
                 <Th tight className="py-2">지급시기</Th>
               </tr>
             </thead>
@@ -739,13 +739,13 @@ function PaymentSection({
                       <span className="ml-1.5 text-tiny font-bold text-amber-700">받는 곳 미지정</span>
                     )}
                   </Td>
-                  <Td num className="whitespace-nowrap font-semibold text-slate-700">
+                  <Td money className="whitespace-nowrap font-semibold text-slate-700">
                     {unitCell(r.unit)}
                   </Td>
                   <Td num className="whitespace-nowrap font-semibold text-slate-700">
                     {totalQty}대
                   </Td>
-                  <Td num className="whitespace-nowrap font-black text-slate-900">
+                  <Td money className="whitespace-nowrap font-black text-slate-900">
                     {won(r.steps.due)}
                     {r.adjust !== 0 && (
                       <span className="block text-tiny font-semibold text-slate-400">
@@ -768,7 +768,7 @@ function PaymentSection({
                     const gap = paidHere !== null && paidHere !== planned;
                     return (
                       <Fragment key={no}>
-                        <Td num className="whitespace-nowrap border-l border-slate-100">
+                        <Td money className="whitespace-nowrap border-l border-slate-100">
                           <span className={`font-bold ${done ? 'text-slate-900' : 'text-slate-500'}`}>
                             {won(amount)}
                           </span>
@@ -817,7 +817,7 @@ function PaymentSection({
               {rows.length > 1 && (
                 <tr className="border-t-2 border-slate-200 bg-slate-50/60 font-black">
                   <Td className="text-slate-900">합계</Td>
-                  <Td num className="whitespace-nowrap text-slate-700">
+                  <Td money className="whitespace-nowrap text-slate-700">
                     {unitCell(
                       rows.every((r) => typeof r.unit === 'number')
                         ? rows.reduce((sum, r) => sum + (r.unit as number), 0)
@@ -825,7 +825,7 @@ function PaymentSection({
                     )}
                   </Td>
                   <Td num className="whitespace-nowrap text-slate-700">{totalQty}대</Td>
-                  <Td num className="whitespace-nowrap text-slate-900">
+                  <Td money className="whitespace-nowrap text-slate-900">
                     {won(rows.reduce((sum, r) => sum + r.steps.due, 0))}
                   </Td>
                   <Td /><Td /><Td /><Td />
@@ -973,10 +973,10 @@ function AdjustBox({
               <tr>
                 <Th tight className="py-1.5">구분</Th>
                 <Th tight className="py-1.5">명목</Th>
-                <Th tight num className="py-1.5">금액</Th>
+                <Th tight money className="py-1.5">금액</Th>
                 <Th tight className="py-1.5">반영일</Th>
                 <Th tight className="py-1.5">사유</Th>
-                {canReview && <Th tight num className="py-1.5" />}
+                {canReview && <Th tight className="py-1.5" />}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -985,7 +985,7 @@ function AdjustBox({
                   <Td tight className="whitespace-nowrap py-2 font-bold text-slate-700">{e.kind}</Td>
                   <Td tight className="whitespace-nowrap py-2 text-slate-600">{e.category}</Td>
                   {/* 나가는 돈과 빼는 돈이 한눈에 갈려야 한다 — 부호와 색이 같이 말한다 */}
-                  <Td tight num className={`whitespace-nowrap py-2 font-black ${
+                  <Td tight money className={`whitespace-nowrap py-2 font-black ${
                     e.amount < 0 ? 'text-red-700' : 'text-slate-900'
                   }`}>
                     {e.amount < 0 ? '−' : '+'}{won(Math.abs(e.amount))}
@@ -995,7 +995,7 @@ function AdjustBox({
                     {e.note ?? <Empty kind="wait" />}
                   </Td>
                   {canReview && (
-                    <Td tight num className="whitespace-nowrap py-2">
+                    <Td tight className="whitespace-nowrap py-2">
                       <Btn size="sm" kind="quiet" disabled={busy} onClick={() => setKilling(e)}>삭제</Btn>
                     </Td>
                   )}

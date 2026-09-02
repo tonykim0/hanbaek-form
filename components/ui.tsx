@@ -447,11 +447,12 @@ export function HR({ className = '' }: { className?: string }) {
  * ★정렬은 부품이 정한다★ (한백 지적 2026-08-31) — 표 열넷이 정렬 클래스를 168 자리에
  * 손으로 적고 있어 같은 표 안에서도 갈렸다. 정하는 곳을 여기 하나로 모은다.
  *
- * ★칸은 전부 가운데다★ (한백 결정 2026-09-02). 처음에는 「세는 것은 오른쪽, 읽는 것은
- * 왼쪽」으로 갈랐는데, 열마다 좌우가 다른 것 자체가 「통일이 안 되어 있다」로 읽혔다
- * (「차라리 중앙정렬을 하던가 — 금액은 오른쪽, 지급일은 왼쪽, 지급처는 왼쪽. 통일이
- * 안 되어 있다고 모든 표에서」). 자릿수 비교는 tabular-nums(num)가 감당한다 —
- * 같은 열의 숫자는 폭이 같아 가운데서도 자리가 흐트러지지 않는다.
+ * ★칸은 가운데가 기본, 금액 열만 오른쪽, 현장 열만 왼쪽이다★ (한백 결정 2026-09-02).
+ * 처음에는 「세는 것은 오른쪽, 읽는 것은 왼쪽」 — 열마다 좌우가 다른 것 자체가 「통일이
+ * 안 되어 있다」로 읽혀 전부 가운데로 모았다. 그런데 가운데는 금액의 일의 자리를 못
+ * 세운다(tabular-nums 는 폭만 같게 한다 — 자리수가 다른 금액끼리는 끝이 안 선다).
+ * 그래서 금액만 되돌렸다(「금액 열만 오른쪽」). 예외는 이 둘로 끝이다 — 셋째 예외를
+ * 만들면 다시 「제각각」이다.
  *
  * ★머리는 줄바꿈하지 않는다★ — 「총 지급액」이 두 줄로 접히던 자리다. 표가 좁아지면
  * 브라우저는 가장 먼저 접히는 것을 접는데, 몸의 칸이 nowrap 이면 머리만 혼자 접힌다.
@@ -461,8 +462,10 @@ const CELL_X = 'px-3';
 const CELL_Y = 'py-2.5';
 
 type CellProps = {
-  /** 세는 값(금액·건수)이면 참 — 자릿수 고정 글꼴(폭이 같아 가운데서도 자리가 선다) */
+  /** 건수·대수처럼 세는 값 — 자릿수 고정 글꼴. 정렬은 가운데 그대로다 */
   num?: boolean;
+  /** ★금액 열만 오른쪽★ (한백 결정 2026-09-02) — 일의 자리가 한 줄에 서야 크기가 읽힌다 */
+  money?: boolean;
   /**
    * ★현장처럼 줄을 찾는 열쇠 열만 왼쪽★ (한백 지시 2026-09-02 「현장은 왼쪽 정렬」).
    * 긴 이름은 첫 글자가 한 줄에 서야 훑어 내려갈 수 있다 — 가운데면 시작점이 줄마다
@@ -481,11 +484,11 @@ type CellProps = {
 };
 
 /** 표의 머리 칸. 정렬은 제 몸(num)을 따르고, 절대 줄바꿈하지 않는다. */
-export function Th({ num = false, tight = false, left = false, className = '', children, ...rest }: CellProps) {
+export function Th({ tight = false, left = false, money = false, className = '', children, ...rest }: CellProps) {
   return (
     <th
       {...rest}
-      className={`${CELL_X} ${tight ? '' : CELL_Y} whitespace-nowrap ${left ? 'text-left' : 'text-center'} ${className}`}
+      className={`${CELL_X} ${tight ? '' : CELL_Y} whitespace-nowrap ${left ? 'text-left' : money ? 'text-right' : 'text-center'} ${className}`}
     >
       {children}
     </th>
@@ -493,11 +496,11 @@ export function Th({ num = false, tight = false, left = false, className = '', c
 }
 
 /** 표의 몸 칸. 여러 줄이 쌓이는 칸이 있어 위 맞춤이 기본이다. */
-export function Td({ num = false, tight = false, left = false, className = '', children, ...rest }: CellProps) {
+export function Td({ num = false, tight = false, left = false, money = false, className = '', children, ...rest }: CellProps) {
   return (
     <td
       {...rest}
-      className={`${CELL_X} ${tight ? '' : CELL_Y} align-top ${left ? 'text-left' : 'text-center'} ${num ? 'tabular-nums' : ''} ${className}`}
+      className={`${CELL_X} ${tight ? '' : CELL_Y} align-top ${left ? 'text-left' : money ? 'text-right' : 'text-center'} ${num || money ? 'tabular-nums' : ''} ${className}`}
     >
       {children}
     </td>

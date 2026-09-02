@@ -227,9 +227,9 @@ export default function ReceivableBoard({ rows }: { rows: SettlementSummary[] })
               <Th>1차</Th>
               <Th>2차</Th>
               <Th>3차</Th>
-              <Th num>받아야 할 돈</Th>
-              <Th num>수금 완료</Th>
-              <Th num>미수금</Th>
+              <Th money>받아야 할 돈</Th>
+              <Th money>수금 완료</Th>
+              <Th money>미수금</Th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -245,13 +245,13 @@ export default function ReceivableBoard({ rows }: { rows: SettlementSummary[] })
                 {([1, 2, 3] as const).map((no) => (
                   <StepCell key={no} step={r.steps.find((x) => x.no === no) ?? null} />
                 ))}
-                <Td num className="font-bold text-slate-800">
+                <Td money className="font-bold text-slate-800">
                   {won(r.planTotal)}
                 </Td>
-                <Td num className="font-bold text-brand-800">
+                <Td money className="font-bold text-brand-800">
                   {r.collectedTotal > 0 ? won(r.collectedTotal) : <span className="text-slate-300">—</span>}
                 </Td>
-                <Td num className="font-bold text-slate-500">
+                <Td money className="font-bold text-slate-500">
                   {won(unpaidOf(r))}
                 </Td>
               </tr>

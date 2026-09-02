@@ -211,7 +211,7 @@ export default function StatementsBoard({
               {seesAll && <Th>지급처</Th>}
               {/* 여기부터 돈이다 — 얇은 선으로 「무엇이」와 「얼마」를 가른다(기성관리 표와 같은 모양) */}
               <Th num className="border-l border-slate-200">건수</Th>
-              <Th num>공급가액</Th>
+              <Th money>공급가액</Th>
               <Th className="border-l border-slate-200">상태</Th>
               {/*
                 세금계산서 — 상태 배지·첨부·확정이 세 열에 흩어져 있던 것을 하나로 모은
@@ -222,7 +222,7 @@ export default function StatementsBoard({
                 (화면 규칙 8번).
               */}
               <Th>세금계산서</Th>
-              <Th num />
+              <Th />
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -256,7 +256,7 @@ export default function StatementsBoard({
               <Td num className="whitespace-nowrap border-l border-slate-200 text-slate-500">
                 {shownCount}건
               </Td>
-              <Td num className={`whitespace-nowrap text-lead font-black ${shownTotal < 0 ? 'text-amber-800' : 'text-slate-900'}`}>
+              <Td money className={`whitespace-nowrap text-lead font-black ${shownTotal < 0 ? 'text-amber-800' : 'text-slate-900'}`}>
                 {won(shownTotal)}
               </Td>
               <td className="border-l border-slate-200" colSpan={3} />
@@ -284,7 +284,7 @@ function BatchRow({
       <Td num className="whitespace-nowrap border-l border-slate-100 text-slate-500">
         {b.count}건
       </Td>
-      <Td num className={`whitespace-nowrap font-bold ${b.total < 0 ? 'text-amber-800' : 'text-slate-800'}`}>
+      <Td money className={`whitespace-nowrap font-bold ${b.total < 0 ? 'text-amber-800' : 'text-slate-800'}`}>
         {won(b.total)}
       </Td>
       <Td className="whitespace-nowrap border-l border-slate-100">
@@ -293,7 +293,7 @@ function BatchRow({
       <Td className="whitespace-nowrap">
         <TodoCell b={b} state={state} seesAll={seesAll} canEdit={canEdit} role={role} myOrg={myOrg} />
       </Td>
-      <Td num className="whitespace-nowrap">
+      <Td className="whitespace-nowrap">
         {b.org && (
           <Link
             href={`/payments/statement?org=${encodeURIComponent(b.org)}&date=${b.paidAt}&kind=${encodeURIComponent(b.kind)}`}

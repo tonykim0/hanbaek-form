@@ -101,7 +101,7 @@ export function Money({ value, onChange }: { value: string; onChange: (v: string
         onChange={(e) => onChange(e.target.value)}
         inputMode="numeric"
         placeholder="0"
-        className={`${FIELD} text-center tabular-nums`}
+        className={`${FIELD} text-right tabular-nums`}
       />
       <span className="shrink-0 text-micro text-slate-400">{n > 0 ? `${won(n)}원` : '원'}</span>
     </span>

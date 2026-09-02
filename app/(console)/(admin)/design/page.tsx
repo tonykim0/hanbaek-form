@@ -248,13 +248,13 @@ export default function DesignPage() {
         </div>
       </Section>
 
-      <Section title="표의 칸" note="칸은 전부 가운데, 현장 열만 left. 금액·건수에는 num (화면 규칙 13)">
+      <Section title="표의 칸" note="칸은 가운데 · 금액 열만 money(오른쪽) · 현장 열만 left. 건수는 num (화면 규칙 13)">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[520px] border-collapse text-base">
             <thead className="border-b border-slate-100 bg-slate-50 text-tiny font-bold tracking-[0.06em] text-slate-500">
               <tr>
                 <Th left>현장</Th>
-                <Th num>총 지급액</Th>
+                <Th money>총 지급액</Th>
                 <Th>지급일</Th>
                 <Th>상태</Th>
               </tr>
@@ -266,7 +266,7 @@ export default function DesignPage() {
               ].map(([name, won, day, tag], i) => (
                 <tr key={String(name)} className={i === 0 ? '' : 'border-t border-slate-100'}>
                   <Td left className="font-semibold text-slate-900">{name}</Td>
-                  <Td num className="font-black text-slate-900">{won}</Td>
+                  <Td money className="font-black text-slate-900">{won}</Td>
                   <Td className="text-slate-500">{day}</Td>
                   <Td>{tag}</Td>
                 </tr>
@@ -275,7 +275,7 @@ export default function DesignPage() {
           </table>
         </div>
         <p className="pt-2 text-tiny text-slate-400">
-          좌우를 섞지 않는다 — 열마다 다르면 통일이 안 된 것으로 읽힌다(한백 결정 2026-09-02).
+          예외는 금액(오른쪽)과 현장(왼쪽) 둘로 끝이다 — 셋째 예외를 만들면 다시 「제각각」이다.
           머리는 접히지 않는다 — 좁으면 표가 가로로 밀린다.
         </p>
       </Section>

@@ -160,7 +160,7 @@ export default function AccountAdmin({
                   <Th>소속</Th>
                   <Th>만든 날</Th>
                   <Th>상태</Th>
-                  <Th num>동작</Th>
+                  <Th>동작</Th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -490,7 +490,7 @@ function AccountRow({
           )}
         </Td>
 
-        <Td num>
+        <Td>
           {a.source === '파일' ? (
             <span
               className="text-tiny text-slate-400"

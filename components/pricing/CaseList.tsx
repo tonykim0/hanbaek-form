@@ -93,7 +93,7 @@ export function CaseList({
                 <Th tight colSpan={5} className="border-l border-slate-200 pt-2">축</Th>
                 <Th tight colSpan={5} className="border-l border-slate-200 pt-2">단가 (대당)</Th>
                 <Th tight colSpan={stepCols} className="border-l border-slate-200 pt-2">기성 단계 (대당)</Th>
-                <Th tight num className="border-l border-slate-200 pt-2.5" rowSpan={2}>상태</Th>
+                <Th tight className="border-l border-slate-200 pt-2.5" rowSpan={2}>상태</Th>
               </tr>
               <tr>
                 <Th tight className="border-l border-slate-200 pb-2 font-semibold">교체유형</Th>
@@ -102,15 +102,15 @@ export function CaseList({
                 <Th tight className="pb-2 font-semibold">건축물</Th>
                 <Th tight className="pb-2 font-semibold">채널</Th>
                 {/* 돈의 흐름 순서 — 받는 단가에서 마진을 떼면 지급 단가, 그것을 영업·시공으로 나눈다 */}
-                <Th tight num className="border-l border-slate-200 pb-2 font-semibold">받는</Th>
-                <Th tight num className="pb-2 font-semibold">마진</Th>
-                <Th tight num className="pb-2 font-semibold">지급</Th>
-                <Th tight num className="pb-2 font-semibold">영업</Th>
-                <Th tight num className="pb-2 font-semibold">시공</Th>
+                <Th tight money className="border-l border-slate-200 pb-2 font-semibold">받는</Th>
+                <Th tight money className="pb-2 font-semibold">마진</Th>
+                <Th tight money className="pb-2 font-semibold">지급</Th>
+                <Th tight money className="pb-2 font-semibold">영업</Th>
+                <Th tight money className="pb-2 font-semibold">시공</Th>
                 {Array.from({ length: stepCols }, (_, i) => (
                   <Th
                     tight
-                    num
+                    money
                     key={i}
                     className={`pb-2 font-semibold ${i === 0 ? 'border-l border-slate-200' : ''}`}
                   >
@@ -234,13 +234,13 @@ function Row({
         {r.channel}
       </Td>
 
-      <Td num className="border-l border-slate-100 font-black text-slate-900">
+      <Td money className="border-l border-slate-100 font-black text-slate-900">
         {won(receiveUnitOf(r))}
       </Td>
-      <Td num className="text-slate-700">{won(r.margin)}</Td>
-      <Td num className="font-bold text-slate-800">{won(payoutUnitOf(r))}</Td>
-      <Td num className="text-slate-700">{won(r.salesUnit)}</Td>
-      <Td num className="text-slate-700">{won(r.consUnit)}</Td>
+      <Td money className="text-slate-700">{won(r.margin)}</Td>
+      <Td money className="font-bold text-slate-800">{won(payoutUnitOf(r))}</Td>
+      <Td money className="text-slate-700">{won(r.salesUnit)}</Td>
+      <Td money className="text-slate-700">{won(r.consUnit)}</Td>
 
       {/*
         기성은 차수마다 한 칸이다 — 트리거와 대당 금액을 같이 적는다. 금액만 두면
@@ -259,7 +259,7 @@ function Row({
           return (
             <Td
               key={i}
-              num
+              money
               className={i === 0 ? 'border-l border-slate-100' : ''}
             >
               {step ? (
@@ -275,7 +275,7 @@ function Row({
           );
         })
       )}
-      <Td num className="border-l border-slate-100">
+      <Td className="border-l border-slate-100">
         <div className="flex items-center justify-center gap-2">
           {r.active ? <Badge tone="ok">사용</Badge> : <Badge tone="hold">중지</Badge>}
           {/*

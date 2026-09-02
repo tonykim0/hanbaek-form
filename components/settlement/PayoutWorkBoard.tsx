@@ -334,7 +334,7 @@ export default function PayoutWorkBoard({
                 되풀이된다(2026-08-30). 위 필터가 같은 조건으로 이미 감춰져 있었다.
               */}
               {orgs.length > 1 && <Th rowSpan={2}>지급처</Th>}
-              <Th rowSpan={2} num>총 지급액</Th>
+              <Th rowSpan={2} money>총 지급액</Th>
               {/*
                 머리 두 줄에 무게를 준다 (2026-08-31) — 둘 다 같은 회색 tiny 라 「네 칸이
                 한 회차」라는 것이 안 읽혔다. 묶음 이름은 진하게, 칸 이름은 옅게.
@@ -354,7 +354,7 @@ export default function PayoutWorkBoard({
             <tr className="text-slate-400">
               {[1, 2].map((no) => (
                 <Fragment key={no}>
-                  <Th tight num className="border-l border-slate-200 pb-2 font-semibold">금액</Th>
+                  <Th tight money className="border-l border-slate-200 pb-2 font-semibold">금액</Th>
                   <Th tight className="pb-2 font-semibold">지급일</Th>
                   <Th tight className="pb-2 font-semibold">상태</Th>
                   {canConfirm && <Th tight className="w-px pb-2" />}
@@ -412,13 +412,13 @@ export default function PayoutWorkBoard({
                   * 같은 구분이라 열로 세우면 같은 값이 스무 번 되풀이된다(지급처 열을
                   * 하나뿐일 때 감추는 것과 같은 이유). 조정은 총액의 일이라 이 칸으로 왔다.
                   */}
-                <Td num>
+                <Td money>
                   <p className="font-black text-slate-900">
                     {p.due > 0 ? won(p.due) : <span className="text-slate-300">—</span>}
                   </p>
                   {/* 금액 자체가 안 서는 사정(단가 미지정 등)은 회차가 아니라 총액의 일이다 */}
                   {p.due <= 0 && p.blockers.map((reason) => (
-                    <p key={reason} className="mx-auto max-w-[11rem] whitespace-normal text-tiny font-bold text-amber-700">
+                    <p key={reason} className="ml-auto max-w-[11rem] whitespace-normal text-tiny font-bold text-amber-700">
                       {reason}
                     </p>
                   ))}
@@ -506,7 +506,7 @@ function StepCells({
         딴 데서 찾아야 했다. 됐으면 날짜(그날이 곧 증거다), 아직이면 「전」 —
         상태 열의 「대기」는 회차의 자리고, 이것은 트리거의 사실이라 겹치지 않는다.
       */}
-      <Td num className="whitespace-nowrap border-l border-slate-100">
+      <Td money className="whitespace-nowrap border-l border-slate-100">
         <p className={`font-black ${done ? 'text-slate-400' : 'text-slate-900'}`}>
           {won(amount)}
         </p>

@@ -614,8 +614,8 @@ function MoneyTable({ rows, revising }: { rows: MoneyRow[]; revising: boolean })
         <thead>
           <tr className="text-tiny font-bold tracking-[0.04em] text-slate-400">
             <th className="whitespace-nowrap" />
-            <th className="whitespace-nowrap pb-1.5 font-bold">기존</th>
-            <th className="whitespace-nowrap pb-1.5 pl-4 font-bold">새 값</th>
+            <th className="whitespace-nowrap pb-1.5 text-right font-bold">기존</th>
+            <th className="whitespace-nowrap pb-1.5 pl-4 text-right font-bold">새 값</th>
             <th className="whitespace-nowrap" />
           </tr>
         </thead>
@@ -628,12 +628,12 @@ function MoneyTable({ rows, revising }: { rows: MoneyRow[]; revising: boolean })
               {r.label}
             </th>
             {revising && (
-              <td className="w-28 py-2 text-small tabular-nums text-slate-400">
+              <td className="w-28 py-2 text-right text-small tabular-nums text-slate-400">
                 {r.prev === undefined ? '' : `${won(r.prev)}원`}
               </td>
             )}
             {/* 「기존」과 자릿수를 맞춘다 — 나란히 견주라고 둔 두 칸이다(화면 규칙 13) */}
-            <td className="w-44 py-2 pl-4">
+            <td className="w-44 py-2 pl-4 text-right">
               {r.derived ? (
                 <span className={`text-lead font-black tabular-nums ${r.bad ? 'text-red-600' : 'text-slate-900'}`}>{r.value}</span>
               ) : r.input}

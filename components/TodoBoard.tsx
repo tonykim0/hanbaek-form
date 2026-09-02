@@ -31,11 +31,25 @@
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { TODO_GROUPS, type TodoItem } from '@/lib/todo-types';
-import { Blank, FIELD, Tag } from '@/components/ui';
+import { BOARD_COLUMNS } from '@/lib/board';
+import { Blank, FIELD } from '@/components/ui';
 
 const ALL = '전체';
 /** 밀림의 문턱 — 7일 정체(카드가 빨개지는 자리)와 같은 잣대다 */
 const OVERDUE_AT = 7;
+
+/**
+ * 칸 안에서 종류를 세우는 차례.
+ *
+ * ★계약·시공은 흐름 순서다★ — 종류가 곧 보드의 칸이라(계약접수·계약검토·행위신고…)
+ * 그 순서를 그대로 쓴다. 급한 것부터로 세우면 같은 화면이 볼 때마다 다른 모양이 되어
+ * 「어디쯤 있나」를 못 외운다(칸을 거른 뒤에도 자리를 지키게 한 것과 같은 이유).
+ *
+ * 그 밖(지급·기성의 종류)은 흐름이 없다 — ★가장 급한 것을 위로★ 올린다. 목록을 여기
+ * 손으로 적지 않는 이유: 저쪽(lib/todos · lib/todo-receivables)에 종류가 하나 늘 때
+ * 여기만 옛말이 되고, 빠진 것은 조용히 맨 아래로 밀린다.
+ */
+const FLOW_RANK = new Map(BOARD_COLUMNS.map((c, i) => [c.key as string, i]));
 
 export default function TodoBoard({ items }: { items: TodoItem[] }) {
   const [group, setGroup] = useState<string>(ALL);
@@ -138,9 +152,27 @@ export default function TodoBoard({ items }: { items: TodoItem[] }) {
                   </header>
 
                   {/* 칸이 길어지면 칸 안에서만 스크롤 — 화면 높이의 3/4 까지 자란다 */}
-                  <div className="flex max-h-[75vh] flex-col gap-2 overflow-y-auto">
-                    {list.map((t) => (
-                      <TodoCard key={t.id} t={t} />
+                  <div className="flex max-h-[75vh] flex-col gap-3 overflow-y-auto">
+                    {/*
+                      ★칸 안을 종류로 또 쪼갠다★ (한백 지시 2026-09-02 「한 뭉치라 보기
+                      편하지 않다」). 계약 칸에 접수·검토·보완이 섞여 있고 시공 칸에는
+                      단계가 다 섞여 있었다 — 카드마다 꼬리표를 읽어 머릿속에서 갈라야 했다.
+                      소제목이 그 일을 대신하면 눈이 제목만 훑고 필요한 묶음으로 바로 간다.
+                    */}
+                    {subGroups(list).map(([sub, cards]) => (
+                      <div key={sub}>
+                        <p className="mb-1 flex items-baseline gap-1.5 px-1.5">
+                          <span className="text-tiny font-black tracking-[0.04em] text-slate-500">{sub}</span>
+                          <span className="text-tiny font-bold tabular-nums text-slate-400">
+                            {cards.length}
+                          </span>
+                        </p>
+                        <div className="flex flex-col gap-2">
+                          {cards.map((t) => (
+                            <TodoCard key={t.id} t={t} />
+                          ))}
+                        </div>
+                      </div>
                     ))}
                     {list.length === 0 && (
                       <p className="rounded-box border border-dashed border-slate-200 py-6 text-center text-tiny text-slate-300">
@@ -159,6 +191,30 @@ export default function TodoBoard({ items }: { items: TodoItem[] }) {
 }
 
 /**
+ * 칸 안을 종류로 나눈다 — [종류, 카드들] 차례대로.
+ *
+ * 흐름 순서를 아는 종류(보드의 칸)가 먼저 그 순서로 서고, 모르는 것은 가장 급한 것부터
+ * 그 뒤에 붙는다. 카드 안 순서는 건드리지 않는다 — 이미 급한 순으로 와 있다(lib/todos).
+ */
+function subGroups(list: TodoItem[]): Array<[string, TodoItem[]]> {
+  const by = new Map<string, TodoItem[]>();
+  for (const t of list) {
+    const got = by.get(t.kind);
+    if (got) got.push(t);
+    else by.set(t.kind, [t]);
+  }
+  return [...by.entries()].sort(([a, ca], [b, cb]) => {
+    const ra = FLOW_RANK.get(a);
+    const rb = FLOW_RANK.get(b);
+    if (ra !== undefined && rb !== undefined) return ra - rb;
+    /* 흐름을 아는 것이 먼저다 — 모르는 것은 그 뒤에서 급한 순으로 */
+    if (ra !== undefined) return -1;
+    if (rb !== undefined) return 1;
+    return (cb[0]?.urgency ?? 0) - (ca[0]?.urgency ?? 0);
+  });
+}
+
+/**
  * 카드 한 장 — 통째로 링크다. 보드 카드와 같은 겉모양.
  *
  * 칸이름 꼬리표가 위에 선다 — 국면이 칸이라 그 안에서 무슨 일인지는 카드가 말해야 한다
@@ -170,12 +226,16 @@ function TodoCard({ t }: { t: TodoItem }) {
       href={t.href}
       className="block rounded-box border border-slate-200 bg-white p-2.5 transition hover:border-brand-300 hover:bg-brand-50/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-300"
     >
-      <p className="mb-1 flex items-center gap-1.5">
-        <Tag tone="mute">{t.kind}</Tag>
+      {/*
+        ★종류 꼬리표는 걷었다★ (2026-09-02) — 카드가 그 소제목 밑에 있으므로 같은 말을
+        두 번 하는 자리가 됐다(화면 규칙 5). 남는 것은 밀림뿐이다.
+      */}
+      <p className="flex items-baseline gap-1.5">
+        <span className="min-w-0 flex-1 truncate text-small font-bold text-slate-900">{t.name}</span>
         {/* 밀림 — 7일 이상 정체 · 지급일 지남이 빨갛게 걸린다. 급한 것을 고르는 길은 위 필터다 */}
         {t.urgencyLabel && (
           <span
-            className={`ml-auto text-tiny font-bold tabular-nums ${
+            className={`shrink-0 text-tiny font-bold tabular-nums ${
               t.urgency >= OVERDUE_AT ? 'text-red-600' : 'text-slate-400'
             }`}
           >
@@ -183,7 +243,6 @@ function TodoCard({ t }: { t: TodoItem }) {
           </span>
         )}
       </p>
-      <p className="truncate text-small font-bold text-slate-900">{t.name}</p>
       <p className="mt-0.5 truncate text-tiny text-slate-500">{t.what}</p>
     </Link>
   );

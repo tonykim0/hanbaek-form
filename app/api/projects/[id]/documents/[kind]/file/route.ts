@@ -23,10 +23,9 @@ import { canAccessProject, canWrite } from '@/lib/roles';
 import { isKnownDocKind } from '@/lib/data/assemble';
 import { attachDocument } from '@/lib/attach-doc';
 import { dropBlob, pathnameOfBlobUrl } from '@/lib/intake-stage';
-import { DOC_FILE_TYPES, MAX_DOC_BYTES } from '@/types/project';
+import { MAX_DOC_BYTES } from '@/types/project';
 
 /** 받는 형식은 types/project.ts 한 곳에 있다 — 접수와 서류 칸이 같은 목록을 봐야 한다 */
-const ALLOWED_TYPES = [...DOC_FILE_TYPES];
 const MAX_BYTES = MAX_DOC_BYTES;
 
 
@@ -83,7 +82,15 @@ export async function POST(
         token: process.env.BLOB_READ_WRITE_TOKEN!,
         pathname: body.pathname,
         validUntil: Date.now() + 10 * 60 * 1000,
-        allowedContentTypes: ALLOWED_TYPES,
+        /*
+         * ★형식을 묻지 않는다★ (한백 지시 2026-09-02 「파일 종류에 대해 제한을 두지 마」).
+         *
+         * 허용 목록이 있는 한 목록 밖 MIME 은 Blob 이 「mismatch」로 튕긴다 — 한컴
+         * 엑셀(application/haansoftxlsx)이 실제로 그렇게 막혔고(2026-08-26), 확장자
+         * 매핑으로 메웠지만 오피스 변종은 계속 늘어난다. 보완요청을 받은 협력사가
+         * 다시 올리는 길이 형식 하나로 멈추면 계약이 멈춘다. 형식이 아니라 내용이
+         * 틀린 서류는 검수(반려)가 거른다. 크기 상한은 그대로다.
+         */
         maximumSizeInBytes: MAX_BYTES,
       });
       return NextResponse.json({ token });

@@ -16,10 +16,9 @@ import { getSessionUser } from '@/lib/auth/session';
 import { canWrite } from '@/lib/roles';
 import { isKnownDocKind } from '@/lib/data/assemble';
 import { stagePrefix } from '@/lib/intake-stage';
-import { DOC_FILE_TYPES, MAX_DOC_BYTES } from '@/types/project';
+import { MAX_DOC_BYTES } from '@/types/project';
 
 /** 받는 형식은 types/project.ts 한 곳에 있다 — 접수와 서류 칸이 같은 목록을 봐야 한다 */
-const ALLOWED_TYPES = [...DOC_FILE_TYPES];
 const MAX_BYTES = MAX_DOC_BYTES;
 /** 파일이름에서 확장자만 딴다. 나머지 글자는 경로에 쓰지 않는다 — 한글·공백이 섞인다. */
 const EXT_RE = /^[a-z0-9]{1,5}$/;
@@ -56,7 +55,7 @@ export async function POST(request: Request) {
       token: process.env.BLOB_READ_WRITE_TOKEN!,
       pathname,
       validUntil: Date.now() + 10 * 60 * 1000,
-      allowedContentTypes: ALLOWED_TYPES,
+      // 형식을 묻지 않는다 — 서류 칸 라우트(documents/[kind]/file)와 같은 판단(한백 지시 2026-09-02)
       maximumSizeInBytes: MAX_BYTES,
     });
     return NextResponse.json({ token, pathname });

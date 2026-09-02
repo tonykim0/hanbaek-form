@@ -3,8 +3,8 @@
 /**
  * 협력사 지급관리 — 전 현장의 지급현황을 한 표로 보고, 여기서 체크해 가확정한다.
  *
- *   영업비 1차 = 계약완료 · 2차 = 개통완료
- *   시공비 1차 = 설치완료 · 2차 = 개통완료
+ *   영업비 1차 = 계약서류 확인 완료 · 2차 = 준공완료
+ *   시공비 1차 = 설치완료 · 2차 = 준공완료
  *
  * ★두 단계 확정★ (한백 확인 2026-08-24 — 세금계산서와 맞물리는 실무 순서)
  *   가확정  이 표에서 지급 가능한 줄을 체크해 지급일 하나로 묶는다. 협력사의 할 일에
@@ -69,7 +69,7 @@ const dayLabel = (d: string) => `${Number(d.slice(5, 7))}월 ${Number(d.slice(8)
 const GROUPS: Array<{ key: WorkGroup; hint: string }> = [
   { key: '지급 가능', hint: '조건이 다 찼다' },
   { key: '보완 필요', hint: '서류·단가가 비거나 초과가 났다' },
-  { key: '공정 대기', hint: '설치·개통을 기다린다' },
+  { key: '공정 대기', hint: '설치·준공을 기다린다' },
   { key: '지급 완료', hint: '더 낼 것이 없다' },
   /*
    * 「전체」 타일은 없다 (한백 지시 2026-08-31 「전체는 필요없어」). 네 칸이 모든 줄을
@@ -345,10 +345,10 @@ export default function PayoutWorkBoard({
                 섞여 있을 때는 머리에 적을 수 없어 줄마다 금액 밑에 되풀이했다.
               */}
               <Th tight colSpan={canConfirm ? 4 : 3} className="border-l border-slate-200 pt-2 text-small font-black text-slate-700">
-                1차 · {kindNow === '영업비' ? '계약완료' : '설치완료'} 70%
+                1차 · {kindNow === '영업비' ? '계약서류 확인 완료' : '설치완료'} 시 70%
               </Th>
               <Th tight colSpan={canConfirm ? 4 : 3} className="border-l border-slate-200 pt-2 text-small font-black text-slate-700">
-                2차 · 개통완료 잔액
+                2차 · 준공완료 시 잔액
               </Th>
             </tr>
             <tr className="text-slate-400">

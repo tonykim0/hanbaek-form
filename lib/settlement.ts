@@ -323,7 +323,12 @@ export function payoutReleaseOf(
   kind: PayoutKind,
   no: 1 | 2,
   milestones: PayoutMilestones
-): { trigger: '계약완료' | '설치완료' | '준공완료'; metAt: string | null; met: boolean } {
+): { trigger: '계약서류 확인 완료' | '설치완료' | '준공완료'; metAt: string | null; met: boolean } {
+  /*
+   * ★1차의 이름은 「계약서류 확인 완료」다★ (한백 지시 2026-09-02). 값은 처음부터
+   * contractConfirmedAt(한백이 계약 서류를 확인한 날)이었는데 이름만 「계약완료」라,
+   * 보드의 계약완료 칸(공정 단계)과 같은 말로 읽혔다 — 다른 사실이다.
+   */
   /*
    * ★2차는 준공완료다★ (한백 지시 2026-08-31) — 개통완료였다. 개통은 됐어도 준공서류가
    * 안 끝난 현장에 잔금이 나갈 수 있었고, 실제로 우리가 운영사에게 받는 기성도 준공을
@@ -338,7 +343,7 @@ export function payoutReleaseOf(
   }
   if (kind === '영업비') {
     return {
-      trigger: '계약완료',
+      trigger: '계약서류 확인 완료',
       metAt: milestones.contractCompletedAt,
       met: milestones.contractCompletedAt !== null,
     };

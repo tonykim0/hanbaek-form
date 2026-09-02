@@ -86,7 +86,7 @@ export function CaseList({
             정책 조건 행에 축별로 이미 있었다 — 한 화면에 두 번 두면 갈린다(화면 규칙 5번).
             케이스 하나의 전문은 「수정」·「개정」 폼에 있다.
           */}
-          <table className="w-full min-w-[1760px] text-base">
+          <table className="text-center w-full min-w-[1760px] text-base">
             <thead className="border-b border-slate-200 bg-slate-50 text-tiny font-bold tracking-[0.06em] text-slate-500">
               <tr>
                 <Th tight className="pt-2.5" rowSpan={2}>케이스</Th>
@@ -276,7 +276,7 @@ function Row({
         })
       )}
       <Td num className="border-l border-slate-100">
-        <div className="flex items-center justify-end gap-2">
+        <div className="flex items-center justify-center gap-2">
           {r.active ? <Badge tone="ok">사용</Badge> : <Badge tone="hold">중지</Badge>}
           {/*
             * 참조 전에는 자리에서 고치고(수정), 참조 뒤에는 전 값을 실은 새 케이스로 연다(개정) —

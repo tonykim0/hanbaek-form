@@ -396,7 +396,7 @@ function ContractLines(
     <section>
       <h2 className="mb-2 text-h3 font-black text-slate-900">적용조건</h2>
       <div className="overflow-x-auto rounded-box border border-slate-200">
-        <table className="w-full min-w-[560px] text-base">
+        <table className="text-center w-full min-w-[560px] text-base">
           <thead className="bg-slate-50 text-tiny font-bold tracking-[0.08em] text-slate-500">
             <tr>
               <Th tight className="py-2">라인</Th>
@@ -715,7 +715,7 @@ function PaymentSection({
           : won(unit);
         return (
         <div className="overflow-x-auto rounded-box border border-slate-200">
-          <table className="w-full min-w-[680px] text-base">
+          <table className="text-center w-full min-w-[680px] text-base">
             <thead className="bg-slate-50 text-tiny font-bold tracking-[0.08em] text-slate-500">
               <tr>
                 <Th tight className="py-2">구분</Th>
@@ -967,7 +967,7 @@ function AdjustBox({
         <p className="px-3.5 pb-3 text-tiny text-slate-400">0건</p>
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[540px] text-small">
+          <table className="text-center w-full min-w-[540px] text-small">
             {/* 표 머리는 tiny 다 — 위 지급관리 표와 같은 눈금(2026-08-29 자료실과 같은 손질) */}
             <thead className="border-y border-slate-100 bg-slate-50/70 text-tiny font-bold tracking-[0.08em] text-slate-500">
               <tr>

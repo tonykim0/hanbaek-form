@@ -45,7 +45,7 @@ export function Frame({ min, children }: { min: string; children: React.ReactNod
     <div className="overflow-hidden rounded-panel border border-slate-200 bg-white">
       <div className="overflow-x-auto">
         {/* 활자는 콘솔 규격이다 — 여기만 text-sm(14px) 이라 돈 표만 글자가 한 단계 컸다 */}
-        <table className="w-full text-base" style={{ minWidth: min }}>
+        <table className="w-full text-center text-base" style={{ minWidth: min }}>
           {children}
         </table>
       </div>

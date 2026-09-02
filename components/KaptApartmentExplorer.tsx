@@ -312,14 +312,14 @@ export default function KaptApartmentExplorer({
                       </div>
 
                       <div className="hidden overflow-x-auto rounded-xl border border-slate-200 md:block">
-                        <table className="w-full min-w-[46rem] border-collapse text-tiny">
+                        <table className="text-center w-full min-w-[46rem] border-collapse text-tiny">
                           <thead>
-                            <tr className="bg-slate-50 text-left text-slate-500">
+                            <tr className="bg-slate-50 text-slate-500">
                               <th className="whitespace-nowrap px-3 py-3 font-bold">구분</th>
                               <th className="whitespace-nowrap px-3 py-3 font-bold">설치유형</th>
                               <th className="whitespace-nowrap px-3 py-3 font-bold">충전기타입</th>
                               <th className="whitespace-nowrap px-3 py-3 font-bold">충전속도</th>
-                              <th className="whitespace-nowrap px-3 py-3 text-right font-bold">설치대수</th>
+                              <th className="whitespace-nowrap px-3 py-3 font-bold">설치대수</th>
                               <th className="whitespace-nowrap px-3 py-3 font-bold">충전사업자</th>
                               <th className="whitespace-nowrap px-3 py-3 font-bold">연락처</th>
                             </tr>
@@ -331,7 +331,7 @@ export default function KaptApartmentExplorer({
                                 <td className="px-3 py-3">{charger.installationType}</td>
                                 <td className="px-3 py-3">{charger.chargerType}</td>
                                 <td className="px-3 py-3">{charger.speed}</td>
-                                <td className="whitespace-nowrap px-3 py-3 text-right tabular-nums font-black text-brand-700">
+                                <td className="whitespace-nowrap px-3 py-3 tabular-nums font-black text-brand-700">
                                   {charger.count === null
                                     ? '-'
                                     : `${charger.count.toLocaleString('ko-KR')}대`}

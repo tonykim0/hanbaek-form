@@ -287,16 +287,16 @@ function MonthTable({
 
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[520px] text-base tabular-nums">
+      <table className="text-center w-full min-w-[520px] text-base tabular-nums">
         <thead>
-          <tr className="border-b border-slate-200 text-left text-tiny font-black text-slate-400">
+          <tr className="border-b border-slate-200 text-tiny font-black text-slate-400">
             <th className="w-14 whitespace-nowrap py-2">달</th>
-            {isAdmin && <th className="whitespace-nowrap py-2 text-right">수금</th>}
-            <th className="whitespace-nowrap py-2 text-right">{isAdmin ? '지급' : '받은 돈'}</th>
-            {isAdmin && <th className="whitespace-nowrap py-2 text-right">차액</th>}
+            {isAdmin && <th className="whitespace-nowrap py-2">수금</th>}
+            <th className="whitespace-nowrap py-2">{isAdmin ? '지급' : '받은 돈'}</th>
+            {isAdmin && <th className="whitespace-nowrap py-2">차액</th>}
             <th className="w-40 whitespace-nowrap py-2 pl-4">크기</th>
-            <th className="whitespace-nowrap py-2 text-right">{isAdmin ? '누적 수금' : '누적'}</th>
-            {isAdmin && <th className="whitespace-nowrap py-2 text-right">누적 지급</th>}
+            <th className="whitespace-nowrap py-2">{isAdmin ? '누적 수금' : '누적'}</th>
+            {isAdmin && <th className="whitespace-nowrap py-2">누적 지급</th>}
           </tr>
         </thead>
         <tbody>
@@ -309,36 +309,36 @@ function MonthTable({
               >
                 <td className={`py-2 font-bold ${row.now ? 'text-brand-800' : ''}`}>{row.label}</td>
                 {isAdmin && (
-                  <td className="py-2 text-right font-semibold">
+                  <td className="py-2 font-semibold">
                     {row.income ? won(row.income) : <span className="text-slate-300">—</span>}
                   </td>
                 )}
-                <td className="py-2 text-right font-semibold">
+                <td className="py-2 font-semibold">
                   {row.outgo ? won(row.outgo) : <span className="text-slate-300">—</span>}
                 </td>
                 {isAdmin && (
-                  <td className={`py-2 text-right font-bold ${diff < 0 ? 'text-red-700' : diff > 0 ? 'text-brand-800' : ''}`}>
+                  <td className={`py-2 font-bold ${diff < 0 ? 'text-red-700' : diff > 0 ? 'text-brand-800' : ''}`}>
                     {row.income || row.outgo ? won(diff) : <span className="text-slate-300">—</span>}
                   </td>
                 )}
                 <td className="py-2 pl-4">
                   <Bars income={row.income} outgo={row.outgo} max={max} isAdmin={isAdmin} />
                 </td>
-                <td className="py-2 text-right font-semibold text-slate-500">
+                <td className="py-2 font-semibold text-slate-500">
                   {won(isAdmin ? row.accIn : row.accOut)}
                 </td>
                 {isAdmin && (
-                  <td className="py-2 text-right font-semibold text-slate-500">{won(row.accOut)}</td>
+                  <td className="py-2 font-semibold text-slate-500">{won(row.accOut)}</td>
                 )}
               </tr>
             );
           })}
           <tr className="text-base font-black">
             <td className="py-2.5">합계</td>
-            {isAdmin && <td className="py-2.5 text-right">{won(totals.income)}</td>}
-            <td className="py-2.5 text-right">{won(totals.outgo)}</td>
+            {isAdmin && <td className="py-2.5">{won(totals.income)}</td>}
+            <td className="py-2.5">{won(totals.outgo)}</td>
             {isAdmin && (
-              <td className="py-2.5 text-right">{won(totals.income - totals.outgo)}</td>
+              <td className="py-2.5">{won(totals.income - totals.outgo)}</td>
             )}
             <td />
             <td />

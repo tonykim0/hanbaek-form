@@ -418,7 +418,7 @@ export default function PayoutWorkBoard({
                   </p>
                   {/* 금액 자체가 안 서는 사정(단가 미지정 등)은 회차가 아니라 총액의 일이다 */}
                   {p.due <= 0 && p.blockers.map((reason) => (
-                    <p key={reason} className="ml-auto max-w-[11rem] whitespace-normal text-tiny font-bold text-amber-700">
+                    <p key={reason} className="mx-auto max-w-[11rem] whitespace-normal text-tiny font-bold text-amber-700">
                       {reason}
                     </p>
                   ))}

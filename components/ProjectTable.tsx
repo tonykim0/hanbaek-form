@@ -163,15 +163,15 @@ export default function ProjectTable({
   /** 정렬 단추. 필터가 함께 붙는 열은 attr 를 준다. */
   function head(
     label: string,
-    opts: { sort?: SortKey; attr?: AttrKey; align?: 'left' | 'right' } = {}
+    opts: { sort?: SortKey; attr?: AttrKey } = {}
   ) {
-    const { sort: key, attr, align = 'left' } = opts;
+    const { sort: key, attr } = opts;
     const on = key !== undefined && sort === key;
     return (
       <th
-        className={`whitespace-nowrap px-3 py-2 ${align === 'right' ? 'text-right' : 'text-left'}`}
+        className="whitespace-nowrap px-3 py-2"
       >
-        <div className={`inline-flex items-center gap-1 ${align === 'right' ? 'flex-row-reverse' : ''}`}>
+        <div className="inline-flex items-center gap-1">
           {key ? (
             <button
               type="button"
@@ -226,7 +226,7 @@ export default function ProjectTable({
       <div className="overflow-x-auto">
         {/* 최소 폭은 보이는 열 수에 따라간다 — 열이 적은데 가로 스크롤이 남으면 이상하다 */}
         <table
-          className="w-full text-base"
+          className="text-center w-full text-base"
           style={{ minWidth: 260 + (PICKABLE.length - hidden.size) * 92 }}
         >
           {/* 머리글은 붙여 둔다 — 138건을 훑으면서 어느 열인지 계속 알아야 한다 */}
@@ -234,7 +234,7 @@ export default function ProjectTable({
             <tr>
               {head('현장', { sort: 'name' })}
               {show('stage') && head('단계', { sort: 'stage', attr: 'col' })}
-              {show('qty') && head('대수', { sort: 'qty', align: 'right' })}
+              {show('qty') && head('대수', { sort: 'qty' })}
               {show('term') && head('계약연수', { sort: 'term', attr: 'term' })}
               {show('cpo') && head('운영사', { attr: 'cpo' })}
               {show('queue') && head('환경부 대기번호', { attr: 'queue' })}
@@ -285,7 +285,7 @@ export default function ProjectTable({
                     </td>
                   )}
                   {show('qty') && (
-                    <td className="px-3 py-2.5 text-right font-bold tabular-nums text-slate-700">
+                    <td className="px-3 py-2.5 font-bold tabular-nums text-slate-700">
                       {qtyOf(p)}
                       <span
                         className="ml-1 text-tiny font-normal text-slate-400"

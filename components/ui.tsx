@@ -29,7 +29,7 @@ const BADGE: Record<Tone, string> = {
   ok: 'bg-brand-100 text-brand-900',
   mute: 'bg-slate-100 text-slate-500',
   stage: 'bg-sky-100 text-sky-900',
-  /* 멈춤은 진한 회색이다 — 색이 아니라 무게로 말한다. 보류는 어느 단계도 아니기 때문이다 */
+  /* 멈춤은 진한 회색이다 — 색이 아니라 무게로 말한다. 멈춤은 어느 단계도 아니기 때문이다 */
   hold: 'bg-slate-800 text-white',
 };
 
@@ -444,17 +444,14 @@ export function HR({ className = '' }: { className?: string }) {
 }
 
 /* ── 표의 칸 ───────────────────────────────────────────────────────────────
- * ★정렬은 부품이 정한다★ (한백 지적 2026-08-31 「숫자랑 글자 정렬도 해야지. 왼쪽정렬,
- * 오른쪽 정렬 제각각이야」 / 「이런걸 왜 안따지는거야?」).
+ * ★정렬은 부품이 정한다★ (한백 지적 2026-08-31) — 표 열넷이 정렬 클래스를 168 자리에
+ * 손으로 적고 있어 같은 표 안에서도 갈렸다. 정하는 곳을 여기 하나로 모은다.
  *
- * 부품·색·활자에는 정본이 있는데 표에는 없었다. 세어 보니 표 열넷이 정렬 클래스를
- * 168 자리에 손으로 적고 있었다(right 96 · left 57 · center 15). 그래서 같은 표 안에서도
- * 금액은 오른쪽, 지급일은 오른쪽, 상태는 왼쪽으로 갈렸고, 머리와 몸이 서로 딴 쪽을 봤다.
- *
- * 규칙은 하나다 — **세는 것은 오른쪽, 그 밖은 왼쪽, 머리는 제 몸을 따른다.**
- * 오른쪽은 자릿수를 맞춰 위아래로 견주라는 뜻이다. 날짜·상태·이름은 세는 값이 아니라
- * 읽는 값이라 왼쪽에 선다 — 날짜를 오른쪽으로 밀면 왼쪽에 빈 띠가 생기고, 그 띠가
- * 옆 열과의 사이를 벌려 표가 성겨 보인다.
+ * ★칸은 전부 가운데다★ (한백 결정 2026-09-02). 처음에는 「세는 것은 오른쪽, 읽는 것은
+ * 왼쪽」으로 갈랐는데, 열마다 좌우가 다른 것 자체가 「통일이 안 되어 있다」로 읽혔다
+ * (「차라리 중앙정렬을 하던가 — 금액은 오른쪽, 지급일은 왼쪽, 지급처는 왼쪽. 통일이
+ * 안 되어 있다고 모든 표에서」). 자릿수 비교는 tabular-nums(num)가 감당한다 —
+ * 같은 열의 숫자는 폭이 같아 가운데서도 자리가 흐트러지지 않는다.
  *
  * ★머리는 줄바꿈하지 않는다★ — 「총 지급액」이 두 줄로 접히던 자리다. 표가 좁아지면
  * 브라우저는 가장 먼저 접히는 것을 접는데, 몸의 칸이 nowrap 이면 머리만 혼자 접힌다.
@@ -464,7 +461,7 @@ const CELL_X = 'px-3';
 const CELL_Y = 'py-2.5';
 
 type CellProps = {
-  /** 세는 값(금액·건수)이면 참 — 오른쪽 정렬 + 자릿수 고정 글꼴 */
+  /** 세는 값(금액·건수)이면 참 — 자릿수 고정 글꼴(폭이 같아 가운데서도 자리가 선다) */
   num?: boolean;
   /**
    * 머리가 두 줄일 때 참 — 세로 여백을 부르는 자리에서 준다(위 줄은 pt, 아래 줄은 pb).
@@ -482,7 +479,7 @@ export function Th({ num = false, tight = false, className = '', children, ...re
   return (
     <th
       {...rest}
-      className={`${CELL_X} ${tight ? '' : CELL_Y} whitespace-nowrap ${num ? 'text-right' : 'text-left'} ${className}`}
+      className={`${CELL_X} ${tight ? '' : CELL_Y} whitespace-nowrap text-center ${className}`}
     >
       {children}
     </th>
@@ -494,7 +491,7 @@ export function Td({ num = false, tight = false, className = '', children, ...re
   return (
     <td
       {...rest}
-      className={`${CELL_X} ${tight ? '' : CELL_Y} align-top ${num ? 'text-right tabular-nums' : 'text-left'} ${className}`}
+      className={`${CELL_X} ${tight ? '' : CELL_Y} align-top text-center ${num ? 'tabular-nums' : ''} ${className}`}
     >
       {children}
     </td>

@@ -237,7 +237,7 @@ export function Grid({
           끝에 떨어져 섰다 — 줄 이름과 값 사이가 멀어 눈이 한 줄을 못 좇는다. 값 열은 금액
           하나가 서는 폭(7rem)으로 못 박고, 표는 그 합만큼만 차지한다. 좁은 화면은 옆으로 흐른다.
         */}
-        <table className="w-max table-fixed text-small">
+        <table className="text-center w-max table-fixed text-small">
           <colgroup>
             <col className="w-52" />
             {gridTerms.flatMap((t) =>
@@ -253,9 +253,9 @@ export function Grid({
           */}
           <thead className="border-b-2 border-slate-300 bg-slate-100 text-tiny font-bold text-slate-700">
             <tr>
-              <th className="whitespace-nowrap px-3 py-2 text-left tracking-[0.06em] text-slate-500" rowSpan={2}>교체유형 · 수전</th>
+              <th className="whitespace-nowrap px-3 py-2 tracking-[0.06em] text-slate-500" rowSpan={2}>교체유형 · 수전</th>
               {gridTerms.map((t) => (
-                <th key={t} colSpan={2} className="whitespace-nowrap border-l border-slate-300 px-3 pt-2 text-center text-base font-black text-slate-900">{t}년</th>
+                <th key={t} colSpan={2} className="whitespace-nowrap border-l border-slate-300 px-3 pt-2 text-base font-black text-slate-900">{t}년</th>
               ))}
             </tr>
             <tr>
@@ -263,7 +263,7 @@ export function Grid({
                 BUILDING_TYPES.map((b) => (
                   <th
                     key={`${t}-${b}`}
-                    className={`whitespace-nowrap px-3 pb-2 text-right font-semibold ${b === '공동주택' ? 'border-l border-slate-300' : ''}`}
+                    className={`whitespace-nowrap px-3 pb-2 font-semibold ${b === '공동주택' ? 'border-l border-slate-300' : ''}`}
                   >
                     {/* 줄여 적지 않는다 — 운영사마다 경계가 다르다(BLDG_LABEL) */}
                     {bldgAxisLabel(cpo, b)}
@@ -292,7 +292,7 @@ export function Grid({
                     BUILDING_TYPES.map((bldg) => {
                       const { now, carried } = at(repl, power, term, bldg);
                       return (
-                        <td key={`${term}-${bldg}`} className={`px-1 py-1 text-right ${bldg === '공동주택' ? 'border-l border-slate-200' : ''}`}>
+                        <td key={`${term}-${bldg}`} className={`px-1 py-1 ${bldg === '공동주택' ? 'border-l border-slate-200' : ''}`}>
                           <button
                             type="button"
                             disabled={!canEdit}
@@ -314,7 +314,7 @@ export function Grid({
                                   : { cpo, replType: repl, powerType: power, terms: [term], bldgs: [bldg] },
                               })
                             }
-                            className="w-full rounded-ctl px-2 py-1.5 text-right tabular-nums transition enabled:hover:bg-brand-50 disabled:cursor-default"
+                            className="w-full rounded-ctl px-2 py-1.5 text-center tabular-nums transition enabled:hover:bg-brand-50 disabled:cursor-default"
                           >
                             {now ? (
                               /*
@@ -357,7 +357,7 @@ export function Grid({
                         key={i}
                         colSpan={c.span}
                         /* 위 단가 칸과 같은 열이다 — 세는 값은 오른쪽(화면 규칙 13). 가운데면 열을 훑을 때 어긋난다 */
-                        className={`whitespace-pre-line break-keep px-3 py-2 text-right text-small font-bold tabular-nums text-slate-800 ${i === 0 ? '' : 'border-l border-slate-200'}`}
+                        className={`whitespace-pre-line break-keep px-3 py-2 text-small font-bold tabular-nums text-slate-800 ${i === 0 ? '' : 'border-l border-slate-200'}`}
                       >
                         {c.value === null ? <Empty kind="wait" /> : c.value}
                       </td>
@@ -382,7 +382,7 @@ export function Grid({
                       {row.label}
                     </td>
                     {common.length > 0 ? (
-                      <td colSpan={cols} className="whitespace-pre-line break-keep px-3 py-2 text-left text-small text-slate-700">
+                      <td colSpan={cols} className="whitespace-pre-line break-keep px-3 py-2 text-small text-slate-700">
                         {common.join('\n')}
                       </td>
                     ) : hasDiff ? (
@@ -390,13 +390,13 @@ export function Grid({
                         <td
                           key={i}
                           colSpan={c.span}
-                          className={`whitespace-pre-line break-keep px-3 py-2 text-left text-small text-slate-700 ${i === 0 ? '' : 'border-l border-slate-200'}`}
+                          className={`whitespace-pre-line break-keep px-3 py-2 text-small text-slate-700 ${i === 0 ? '' : 'border-l border-slate-200'}`}
                         >
                           {c.value === null ? <Empty kind="wait" /> : c.value}
                         </td>
                       ))
                     ) : (
-                      <td colSpan={cols} className="px-3 py-2 text-left text-small"><Empty kind="wait" /></td>
+                      <td colSpan={cols} className="px-3 py-2 text-small"><Empty kind="wait" /></td>
                     )}
                   </tr>
                   {/* 축마다 갈리는 줄만 아래 칸별로 — 공통이 없으면 위 행이 이미 칸별이다 */}
@@ -406,7 +406,7 @@ export function Grid({
                         <td
                           key={i}
                           colSpan={c.span}
-                          className={`whitespace-pre-line break-keep px-3 pb-2 text-left text-small text-slate-700 ${i === 0 ? '' : 'border-l border-slate-200'}`}
+                          className={`whitespace-pre-line break-keep px-3 pb-2 text-small text-slate-700 ${i === 0 ? '' : 'border-l border-slate-200'}`}
                         >
                           {c.value === null ? <span className="text-slate-300">—</span> : c.value}
                         </td>

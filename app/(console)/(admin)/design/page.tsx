@@ -248,7 +248,7 @@ export default function DesignPage() {
         </div>
       </Section>
 
-      <Section title="표의 칸" note="세는 것은 오른쪽, 그 밖은 왼쪽. 머리는 제 몸을 따른다 (화면 규칙 13)">
+      <Section title="표의 칸" note="칸은 전부 가운데. 금액·건수에는 num — 자릿수 고정 글꼴 (화면 규칙 13)">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[520px] border-collapse text-base">
             <thead className="border-b border-slate-100 bg-slate-50 text-tiny font-bold tracking-[0.06em] text-slate-500">
@@ -275,7 +275,7 @@ export default function DesignPage() {
           </table>
         </div>
         <p className="pt-2 text-tiny text-slate-400">
-          날짜를 오른쪽으로 밀면 칸 왼쪽에 빈 띠가 생기고, 그 띠가 옆 열과의 사이를 벌린다.
+          좌우를 섞지 않는다 — 열마다 다르면 통일이 안 된 것으로 읽힌다(한백 결정 2026-09-02).
           머리는 접히지 않는다 — 좁으면 표가 가로로 밀린다.
         </p>
       </Section>

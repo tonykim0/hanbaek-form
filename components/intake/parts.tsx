@@ -162,13 +162,13 @@ export function QtyGrid<R extends string>({
      */
     <div className="overflow-hidden rounded-xl border border-slate-200">
      <div className="overflow-x-auto">
-      <table className="w-full text-sm">
+      <table className="text-center w-full text-sm">
         {cols.length > 1 && (
           <thead className="bg-slate-50 text-tiny font-bold text-slate-500">
             <tr>
-              <th className="whitespace-nowrap px-3 py-2 text-left" />
+              <th className="whitespace-nowrap px-3 py-2" />
               {cols.map((c) => (
-                <th key={c ?? '-'} className="whitespace-nowrap px-3 py-2 text-right">{c}</th>
+                <th key={c ?? '-'} className="whitespace-nowrap px-3 py-2">{c}</th>
               ))}
             </tr>
           </thead>
@@ -176,7 +176,7 @@ export function QtyGrid<R extends string>({
         <tbody className="divide-y divide-slate-100">
           {rows.map((r) => (
             <tr key={r}>
-              <th className="whitespace-nowrap w-[150px] px-3 py-2 text-left text-small font-bold text-slate-600">
+              <th className="whitespace-nowrap w-[150px] px-3 py-2 text-small font-bold text-slate-600">
                 {(rowLabel ? rowLabel(r) : r).replace('자체투자 ', '').replace(/[()]/g, '')}
               </th>
               {cols.map((c) => {
@@ -189,7 +189,7 @@ export function QtyGrid<R extends string>({
                         inputMode="numeric"
                         placeholder="0"
                         onChange={(e) => onChange(k, num(e))}
-                        className="w-[72px] rounded-lg border border-slate-200 px-2 py-1 text-right text-sm tabular-nums text-slate-900 placeholder:text-slate-300 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-100"
+                        className="w-[72px] rounded-lg border border-slate-200 px-2 py-1 text-center text-sm tabular-nums text-slate-900 placeholder:text-slate-300 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-100"
                       />
                       <span className="text-small text-slate-400">기</span>
                     </span>

@@ -151,7 +151,7 @@ export default function AccountAdmin({
 
         <div className={`overflow-hidden ${PANEL}`}>
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[880px] text-base">
+            <table className="text-center w-full min-w-[880px] text-base">
               <thead className="border-b border-slate-100 bg-slate-50 text-tiny font-bold tracking-[0.06em] text-slate-500">
                 <tr>
                   <Th>로그인 ID</Th>
@@ -170,7 +170,7 @@ export default function AccountAdmin({
                 {rows.length === 0 && (
                   <tr>
                     {/* 세었고 없다 — 「아직 없습니다」라고 적지 않는다(규칙 6·10번) */}
-                    <td colSpan={7} className="px-3 py-6 text-center text-small font-bold text-slate-400">
+                    <td colSpan={7} className="px-3 py-6 text-small font-bold text-slate-400">
                       0건
                     </td>
                   </tr>

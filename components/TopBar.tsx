@@ -14,11 +14,21 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { isHanbaek, type Role } from '@/lib/roles';
 
-const TOOLS: { href: string; label: string; adminOnly?: boolean }[] = [
+const TOOLS: { href: string; label: string; adminOnly?: boolean; blank?: boolean }[] = [
   { href: '/library', label: '운영사 자료실' },
   // 사이드바 관리 묶음에서 옮겼다 — 보는 자리(자료실) 바로 옆이 올리는 자리여야 찾는다
   { href: '/admin/materials', label: '자료실 관리', adminOnly: true },
   { href: '/lookup', label: '기설치 이력조회' },
+  /*
+   * 기설치 안내문 (한백 지시 2026-09-02) — 조회 바로 옆이다: 같은 일의 두 쪽이라
+   * (무엇을 내야 하는가 · 그 이력을 어떻게 찾는가) 떨어뜨리면 하나를 보고 다른 하나를
+   * 다시 찾는다. 포털 첫 화면에도 같은 글이 서 있다(app/(portal)/page.tsx 의 notices).
+   *
+   * ★새 탭이다★ — public/notices/ 의 정적 HTML 이라 콘솔 껍데기(사이드바·상단바) 밖이다.
+   * 같은 탭에서 열면 돌아오는 길이 브라우저 뒤로가기뿐이다. 콘솔·포털 두 주소가 한
+   * 배포라 이 경로는 양쪽에서 다 열린다(둘 다 200 확인, 2026-09-02).
+   */
+  { href: '/notices/legacy-charger-history.html', label: '기설치 제출 안내', blank: true },
   { href: '/apartments', label: 'K-APT 정보' },
 ];
 
@@ -94,21 +104,44 @@ export default function TopBar({ role, onMenu }: {
           </>
         )}
         {TOOLS.filter((t) => !t.adminOnly || role === 'admin').map((t) => (
-          <BarLink key={t.href} href={t.href} label={t.label} active={pathname.startsWith(t.href)} />
+          <BarLink
+            key={t.href}
+            href={t.href}
+            label={t.label}
+            blank={t.blank}
+            /* 새 탭으로 여는 것은 이 화면을 떠나지 않는다 — 켜진 표시를 하지 않는다 */
+            active={!t.blank && pathname.startsWith(t.href)}
+          />
         ))}
       </nav>
     </header>
   );
 }
 
-function BarLink({ href, label, active }: { href: string; label: string; active: boolean }) {
+function BarLink({ href, label, active, blank = false }: {
+  href: string;
+  label: string;
+  active: boolean;
+  /**
+   * 새 탭으로 여는가 — 콘솔 껍데기 밖의 것(정적 안내문)이 그렇다.
+   *
+   * next/link 로 열면 앱 안 이동으로 다루려다 통째로 새로 그린다. 정적 파일은 라우터가
+   * 아는 자리가 아니므로 보통 앵커로 연다.
+   */
+  blank?: boolean;
+}) {
+  const cls = `shrink-0 whitespace-nowrap rounded-ctl px-2.5 py-1.5 text-small font-bold transition ${
+    active ? 'bg-white/15 text-white' : 'text-white/75 hover:bg-white/10 hover:text-white'
+  }`;
+  if (blank) {
+    return (
+      <a href={href} target="_blank" rel="noopener noreferrer" className={cls}>
+        {label}
+      </a>
+    );
+  }
   return (
-    <Link
-      href={href}
-      className={`shrink-0 whitespace-nowrap rounded-ctl px-2.5 py-1.5 text-small font-bold transition ${
-        active ? 'bg-white/15 text-white' : 'text-white/75 hover:bg-white/10 hover:text-white'
-      }`}
-    >
+    <Link href={href} className={cls}>
       {label}
     </Link>
   );

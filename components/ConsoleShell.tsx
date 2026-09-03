@@ -23,6 +23,7 @@ import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import type { Role } from '@/lib/roles';
 import { canWrite, isHanbaek, ROLE_LABEL } from '@/lib/roles';
+import { TODO_GROUPS, type TodoGroup } from '@/lib/todo-types';
 import TopBar from '@/components/TopBar';
 
 const COLLAPSE_KEY = 'hb-console-sidebar-collapsed';
@@ -41,6 +42,8 @@ interface Item {
   adminOnly?: boolean;
   /** 쓰는 사람만 — 열람 전용에게만 안 보인다 */
   writerOnly?: boolean;
+  /** 이 화면에서 처리하는 할 일 업무 — 사이드바 오른쪽에 그 업무의 건수를 단다 */
+  todoGroup?: TodoGroup;
 }
 
 /**
@@ -127,8 +130,6 @@ const GROUPS: Group[] = [
   {
     label: '진행',
     items: [
-      // 내 차례인 것 전부 — 국면으로 묶인 작업대. 상단 바 드롭다운은 훑는 자리다 (2026-08-25)
-      { href: '/todos', label: '할 일', short: '할일' },
       // 수주 현황은 위 「현황」 묶음으로 옮겼다 (한백 지시 2026-08-27)
       /*
        * 계약과 시공을 페이지로 가른다 — 한 화면에 접으면 띠 높이가 반쪽이다 (한백 확인).
@@ -138,8 +139,8 @@ const GROUPS: Group[] = [
        * (보드의 칸·띠) 메뉴에 그대로 적으면 단계를 가리키는지 화면을 가리키는지 갈린다.
        * 좁은 사이드바에서 쓰는 짧은 이름(short)은 그대로 둔다 — 거기서는 자리가 없다.
        */
-      { href: '/projects', label: '계약관리', short: '계약' },
-      { href: '/construction', label: '시공관리', short: '시공' },
+      { href: '/projects', label: '계약관리', short: '계약', todoGroup: '계약' },
+      { href: '/construction', label: '시공관리', short: '시공', todoGroup: '시공' },
     ],
   },
   /*
@@ -168,8 +169,14 @@ const GROUPS: Group[] = [
        *
        * 배치를 만들고 보관하는 작업대다 — 협력사도 자기 배치(최종 확인분)를 여기서 본다.
        */
-      { href: '/statements', label: '협력사 거래명세서', short: '명세' },
-      { href: '/receivables', label: '운영사 기성관리', short: '기성', hanbaekOnly: true },
+      { href: '/statements', label: '협력사 거래명세서', short: '명세', todoGroup: '지급' },
+      {
+        href: '/receivables',
+        label: '운영사 기성관리',
+        short: '기성',
+        hanbaekOnly: true,
+        todoGroup: '기성',
+      },
     ],
   },
   {
@@ -249,18 +256,22 @@ export default function ConsoleShell({
   useEffect(() => setDrawer(false), [pathname]);
 
   /*
-   * 할 일 건수 배지 — 상단 바의 「할 일」 버튼에 있던 것을 사이드바 항목으로 옮겼다
-   * (한백 확인 2026-08-24). 대시보드(/todos)가 생기면서 드롭다운은 같은 것을 두 벌
-   * 보여주는 자리가 됐다 — 남긴 것은 배지(건수)뿐이다.
-   * 화면을 옮기면 다시 센다 — 방금 처리한 것이 배지에 남아 있으면 거짓말이다.
+   * 업무별 할 일 건수 — 별도 「할 일」 메뉴를 두지 않고 실제 처리 화면 옆에 바로 단다
+   * (한백 지시 2026-09-03). 계약은 계약관리, 시공은 시공관리, 지급은 거래명세서,
+   * 기성은 기성관리에서 처리한다. 화면을 옮기면 다시 세어 방금 처리한 일이 남지 않게 한다.
    */
-  const [todoCount, setTodoCount] = useState<number | null>(null);
+  const [todoCounts, setTodoCounts] = useState<Record<TodoGroup, number> | null>(null);
   useEffect(() => {
     let alive = true;
     void fetch('/api/todos')
-      .then((r) => (r.ok ? (r.json() as Promise<{ items: unknown[] }>) : null))
+      .then((r) => (r.ok ? (r.json() as Promise<{ items: Array<{ group: TodoGroup }> }>) : null))
       .then((d) => {
-        if (alive && d) setTodoCount(d.items.length);
+        if (!alive || !d) return;
+        const counts: Record<TodoGroup, number> = { 계약: 0, 시공: 0, 지급: 0, 기성: 0 };
+        for (const item of d.items) {
+          if (TODO_GROUPS.includes(item.group)) counts[item.group] += 1;
+        }
+        setTodoCounts(counts);
       })
       .catch(() => {
         /* 배지가 안 뜰 뿐 — 사이드바가 화면을 막으면 안 된다 */
@@ -328,6 +339,7 @@ export default function ConsoleShell({
               <ul className="flex flex-col gap-0.5">
                 {g.items.map((it) => {
                   const active = !it.external && pathname.startsWith(it.href) && it.href !== '/';
+                  const todoCount = it.todoGroup && todoCounts ? todoCounts[it.todoGroup] : null;
                   return (
                     <li key={it.href}>
                       <Link
@@ -346,8 +358,8 @@ export default function ConsoleShell({
                         {expanded ? (
                           <>
                             <span className="truncate">{it.label}</span>
-                            {/* 할 일 건수 — 상단 바 배지와 같은 말투(주황 = 있음, 회색 = 없음) */}
-                            {it.href === '/todos' && todoCount !== null && (
+                            {/* 실제 처리 화면별 할 일 건수 — 주황은 있음, 회색은 없음 */}
+                            {todoCount !== null && (
                               <span
                                 className={`ml-auto rounded-tag px-1.5 py-0.5 text-tiny font-bold tabular-nums ${
                                   todoCount > 0 ? 'bg-amber-500 text-white' : 'bg-slate-100 text-slate-400'
@@ -366,7 +378,7 @@ export default function ConsoleShell({
                           <span className="relative text-tiny font-bold">
                             {it.short}
                             {/* 접힌 채로도 있음은 보인다 — 숫자까지는 좁아서 못 싣는다 */}
-                            {it.href === '/todos' && (todoCount ?? 0) > 0 && (
+                            {(todoCount ?? 0) > 0 && (
                               <span
                                 aria-hidden
                                 className="absolute -right-2 -top-1 h-1.5 w-1.5 rounded-full bg-amber-500"

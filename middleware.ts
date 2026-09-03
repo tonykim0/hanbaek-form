@@ -44,6 +44,11 @@ const PORTAL_HOSTS = hostList(process.env.PORTAL_HOSTS, ['hanbaek-form.vercel.ap
  */
 const CONSOLE_PATHS = [
   '/todos',
+  /*
+   * /notices 화면은 콘솔이다. 정적 안내문(/notices/*.html)은 여기 안 걸린다 —
+   * matcher 가 점 붙은 경로(정적 파일)를 빼므로 포털 주소에서도 그대로 열린다.
+   */
+  '/notices',
   '/dashboard',
   '/projects',
   '/construction',

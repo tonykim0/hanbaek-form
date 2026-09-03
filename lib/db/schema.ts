@@ -22,6 +22,23 @@ export const users = pgTable('users', {
   passwordHash: text('password_hash').notNull(),
   active: boolean('active').notNull().default(true),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  /** 공지 화면을 마지막으로 연 시각 — 그보다 뒤의 공지가 「안 읽은 것」(상단바 배지) */
+  noticesReadAt: timestamp('notices_read_at', { withTimezone: true }),
+});
+
+/**
+ * 공지 — 한백이 협력사 전체에 알리는 글 (migrations/0051).
+ *
+ * 정적 HTML(public/notices/)로 한 장씩 만들던 것을 표로 받는다 — 파일은 쓸 때마다
+ * 배포가 필요하고 「읽었는가」를 셀 수 없다. 읽음은 users.notices_read_at 가 안다.
+ */
+export const notices = pgTable('notices', {
+  id: text('id').primaryKey(),
+  title: text('title').notNull(),
+  body: text('body').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  /** 고친 시각 — 배지는 보지 않는다(오타 수정이 전원을 다시 부르면 안 된다) */
+  updatedAt: timestamp('updated_at', { withTimezone: true }),
 });
 
 /**

@@ -15,7 +15,7 @@ import type {
   Court, DocStatus, HoldState, IntakeDraft, LineAxes, NewPayoutEntry, NewPricingRule, PayoutKind, PayoutRow, PreInstall, PricingRule,
   ChargerModel,
   PayoutPlanRow, ProcessInfo, ProcessStatus, ProjectDetail, ProjectSummary, Settlement, SettlementRule, SettlementSummary, BatchFinal, TaxInvoice,
-  ReviewEvent,
+  Notice, ReviewEvent,
 } from '@/types/project';
 import type { Actor, Viewer } from '@/lib/auth/types';
 
@@ -362,6 +362,24 @@ export interface ProjectRepository {
 
   /** 모델 등록 [한백 전용] — 이름이 겹치면 거절한다(오타로 같은 모델이 둘이 되는 것을 막는다) */
   addChargerModel(input: { name: string; maker?: string | null; note?: string | null }, actor: Actor): Promise<string>;
+
+  /** 공지 목록 — 최신이 위. 로그인한 누구나 본다(열람 전용 포함) */
+  listNotices(): Promise<Notice[]>;
+
+  /** 내가 아직 안 읽은 공지 수 — 공지 화면을 연 시각(notices_read_at)보다 뒤의 것 */
+  countUnreadNotices(userId: string): Promise<number>;
+
+  /**
+   * 공지를 읽었다고 표시한다 — 공지 화면을 열 때 부른다.
+   * ★열람 전용도 부른다★ — 사업 데이터가 아니라 제 읽음 시각 한 칸이다.
+   */
+  markNoticesRead(userId: string): Promise<void>;
+
+  /** 공지 작성·수정 [한백 전용] — id 가 있으면 수정(작성 시각은 그대로) */
+  saveNotice(input: { id?: string; title: string; body: string }, actor: Actor): Promise<string>;
+
+  /** 공지 삭제 [한백 전용] */
+  deleteNotice(id: string, actor: Actor): Promise<void>;
 
   /**
    * 케이스의 적용 시작·비고를 고친다. [한백 전용]

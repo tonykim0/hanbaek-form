@@ -46,6 +46,7 @@ import { processStore } from './store/process';
 import { docStore } from './store/docs';
 import { payoutStore } from './store/payouts';
 import { pricingStore } from './store/pricing';
+import { noticeStore } from './store/notices';
 import {
   accessWhere, assertAdmin, assertHanbaek, mergeDocs, PROCESS_DOC_KEYS, recordsOf,
   resolveSettlementRule, ruleMap, rowToRule, rowToSettle, settleMap, toCollected, toLine,
@@ -108,6 +109,8 @@ export const pgRepository: ProjectRepository = {
   ...contractStore,
   // 공정 마일스톤·단계 이동은 store/process.ts 에 있다
   ...processStore,
+  // 공지는 store/notices.ts 에 있다
+  ...noticeStore,
 
   async listProjects(viewer: Viewer): Promise<ProjectSummary[]> {
     if (!isHanbaek(viewer.role) && !viewer.org) return [];

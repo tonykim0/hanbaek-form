@@ -980,6 +980,22 @@ export interface ProjectSummary {
  *
  * 새로 적는 것이 아니다 — audit_log 에 이미 다 남아 있는데 읽는 코드가 없었다.
  */
+/**
+ * 공지 — 한백이 협력사 전체에 알리는 글.
+ *
+ * 읽음 여부는 여기 없다 — 그것은 공지의 것이 아니라 사람의 것이다
+ * (users.notices_read_at, 상단바 배지가 센다).
+ */
+export interface Notice {
+  id: string;
+  title: string;
+  body: string;
+  /** ISO 문자열 — 화면이 날짜로 접어 그린다 */
+  createdAt: string;
+  /** 고친 적 있으면 그 시각 — 배지는 보지 않는다 */
+  updatedAt: string | null;
+}
+
 export interface ReviewEvent {
   id: string;
   /** 누가 — 「에코일렉(ecoelec)」처럼 이름과 계정이 같이 적혀 있다 */

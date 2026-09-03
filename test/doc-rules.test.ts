@@ -5,7 +5,7 @@
  * 독촉할 곳을 못 찾는다(화면 규칙 10).
  */
 import { describe, expect, it } from 'vitest';
-import { PROCESS_DOCS, processDocsFor } from '@/lib/doc-rules';
+import { evaluateDocs, PROCESS_DOCS, processDocsFor, type DocContext } from '@/lib/doc-rules';
 
 const 준공서류 = ['completeConfirm', 'costSurvey', 'safety', 'safetyMgr', 'useInspect', 'asBuilt'] as const;
 
@@ -49,5 +49,25 @@ describe('PROCESS_DOCS — 종류 목록', () => {
 
   it('이름이 비어 있는 종류가 없다', () => {
     for (const d of PROCESS_DOCS) expect(d.name.trim(), d.key).not.toBe('');
+  });
+});
+
+describe('견적서 (SK) — SK일렉링크 전체 필수 (한백 지시 2026-09-03)', () => {
+  const ctx = (over: Partial<DocContext>): DocContext => ({
+    cpo: null, contractParty: null, bldgType: null,
+    hasMotherSeparation: false, preInstall: '없음', bizType: null,
+    ...over,
+  });
+  const quoteReq = (c: DocContext) => evaluateDocs(c).find((d) => d.key === 'quote')!.req;
+
+  it('SK 는 사업구분과 무관하게 필수다 — 자체투자만이던 것을 넓혔다', () => {
+    expect(quoteReq(ctx({ cpo: 'SK일렉링크', bizType: '자체투자' }))).toBe('m');
+    expect(quoteReq(ctx({ cpo: 'SK일렉링크', bizType: '환경부' }))).toBe('m');
+    expect(quoteReq(ctx({ cpo: 'SK일렉링크', bizType: null }))).toBe('m');
+  });
+
+  it('다른 운영사·미지정은 선택 — 모르는 운영사에게 SK 서류를 요구하지 않는다', () => {
+    expect(quoteReq(ctx({ cpo: '플러그링크' }))).toBe('o');
+    expect(quoteReq(ctx({ cpo: null, bizType: '자체투자' }))).toBe('o');
   });
 });

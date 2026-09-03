@@ -303,7 +303,8 @@ function Survey({ project }: { project: ProjectDetail['project'] }) {
   const loadCharger = useShardLoader<SiteRecord>(DATA_BASE);
   const loadSubsidy = useShardLoader<SubsidyRecord>(SUBSIDY_DATA_BASE);
   const [looking, setLooking] = useState(false);
-  const [draft, setDraft] = useState<{ state: PreInstallState; text: string } | null>(null);
+  /* 조회 결과 — 글자만 든다. 기설치 있음/없음 판정은 사람이 하므로 여기서 들 것이 없다 */
+  const [draft, setDraft] = useState<string | null>(null);
   const [lookErr, setLookErr] = useState<string | null>(null);
 
   async function firstLook() {
@@ -368,19 +369,16 @@ function Survey({ project }: { project: ProjectDetail['project'] }) {
           <Err>{lookErr}</Err>
         </div>
         {draft && (
+          /*
+            ★조회 결과는 읽기만 한다★ (한백 지시 2026-09-03 「조사내역 채우기 필요없어」).
+            결과를 조사 내역 칸에 옮겨 적어 주는 단추가 있었는데, 그러면 ★조회한 것이
+            조사한 것처럼★ 저장된다 — 이력은 원본 등록분이고 조사는 현장에서 확인한 것이라
+            같은 글일 수 없다(바로 아래 경고가 그 말이다). 옮겨 적는 편함보다 그 둘이
+            섞이지 않는 것이 낫다. 조사 내역은 사람이 「조사 내역 적기」에서 쓴다.
+          */
           <div className="max-w-2xl rounded-ctl bg-slate-50 px-3 py-2.5">
-            <p className="whitespace-pre-line break-keep text-tiny leading-snug text-slate-700">{draft.text}</p>
-            <div className="mt-2 flex flex-wrap items-center gap-2">
-              {/* 채우기가 곧 편집을 여는 자리다 — 조회만 하고 갈 사람은 이 단추를 안 누른다 */}
-              <Btn
-                size="sm"
-                kind="side"
-                onClick={() => { setState(draft.state); setNote(draft.text); setEditing(true); }}
-              >
-                조사 내역 채우기
-              </Btn>
-            </div>
-            {/* 채우기 전에 읽어야 하는 경고 — 이력은 원본 등록분일 뿐, 대수 확정은 현장이 한다 (한백 문구) */}
+            <p className="whitespace-pre-line break-keep text-tiny leading-snug text-slate-700">{draft}</p>
+            {/* 이력은 원본 등록분일 뿐, 대수 확정은 현장이 한다 (한백 문구) */}
             <p className="mt-2 text-tiny font-semibold leading-snug text-amber-700">
               현장별로 실제 기설치 대수 반드시 확인 필요 — 보조금 불가 시 추후 보조금 환수 및 패널티 적용 예정
             </p>
@@ -463,8 +461,9 @@ function Survey({ project }: { project: ProjectDetail['project'] }) {
 function draftOf(
   charger: LookupResult,
   subsidy: LookupResult<SubsidyRecord>
-): { state: PreInstallState; text: string } {
+): string {
   const lines: string[] = [];
+  /* 기설치가 있는가 — DB2 문구를 고르는 데만 쓴다(판정은 사람이 한다) */
   let found = false;
 
   /* DB1 — 충전소 이력. /lookup 과 같은 라벨을 쓴다: 두 화면이 같은 말을 해야 대조가 된다 */
@@ -509,8 +508,5 @@ function draftOf(
     );
   }
 
-  return {
-    state: found ? '있음' : '없음',
-    text: `[이력 조회 1차 — 현장 재확인 전]\n${lines.join('\n')}`,
-  };
+  return `[이력 조회 1차 — 현장 재확인 전]\n${lines.join('\n')}`;
 }

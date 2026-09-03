@@ -368,13 +368,34 @@ export default function ChargerHistoryLookup({
         )}
       </div>
 
-      {result && (
+      <LookupResults charger={result} subsidy={subsidy} meta={meta} subsidyMeta={subsidyMeta} />
+    </div>
+  );
+}
+
+/**
+ * 조회 결과 두 카드(DB1 · DB2) — /lookup 과 기설치 조사(PreInstall)가 같이 쓴다.
+ *
+ * ★두 화면이 같은 부품이어야 한다★ (한백 지적 2026-09-03 「기설치 조사의 조회 내용이
+ * /lookup 대비 너무 간소하다」). 기설치 조사 쪽은 결과를 글 몇 줄로 접어 적고 있었다 —
+ * 판정·충전소명·설치 이력 표·매칭 경고가 다 빠져서, 대조하려면 결국 /lookup 을 한 번
+ * 더 열어야 했다. 요약을 따로 만들면 언젠가 갈리므로 카드를 통째로 재사용한다.
+ */
+export function LookupResults({ charger, subsidy, meta, subsidyMeta }: {
+  charger: LookupResult | null;
+  subsidy: LookupResult<SubsidyRecord> | null;
+  meta: IndexMeta;
+  subsidyMeta: SubsidyMeta;
+}) {
+  return (
+    <>
+      {charger && (
         <section className="flex flex-col gap-2">
           <SourceHeading tag="DB1" className="bg-sky-100 text-sky-800" />
-          {result.status === '매칭' ? (
-            <MatchedResult result={result} />
+          {charger.status === '매칭' ? (
+            <MatchedResult result={charger} />
           ) : (
-            <EmptyResult result={result} />
+            <EmptyResult result={charger} />
           )}
           <p className="px-1 text-xs leading-5 text-slate-400">
             기준일 {meta.asOf} · 충전기 {meta.rows.toLocaleString('ko-KR')}기 ·{' '}
@@ -390,6 +411,6 @@ export default function ChargerHistoryLookup({
           <SubsidyHistoryResult result={subsidy} meta={subsidyMeta} />
         </section>
       )}
-    </div>
+    </>
   );
 }

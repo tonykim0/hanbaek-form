@@ -18,13 +18,15 @@ import { useAction } from '@/lib/use-action';
 import { Badge, Btn, Choice, Empty, Err, FIELD, Tag } from '@/components/ui';
 import { DocReview } from './DocReview';
 import { docState } from './parts';
-import { useShardLoader } from '@/components/ChargerHistoryLookup';
+import { LookupResults, useShardLoader } from '@/components/ChargerHistoryLookup';
 import {
-  DATA_BASE, isSubsidized, lookupChargerHistory, summarize, type LookupResult, type SiteRecord,
+  DATA_BASE, lookupChargerHistory, type IndexMeta, type LookupResult, type SiteRecord,
 } from '@/lib/charger-history';
 import {
-  lookupSubsidyHistory, SUBSIDY_DATA_BASE, summarizeSubsidy, type SubsidyRecord,
+  lookupSubsidyHistory, SUBSIDY_DATA_BASE, type SubsidyMeta, type SubsidyRecord,
 } from '@/lib/subsidy-history';
+import chargerMeta from '@/public/data/charger-history/meta.json';
+import subsidyMeta from '@/public/data/subsidy-history/meta.json';
 
 export function PreInstall({
   project, docs, byKind, siteName, canReview, canRemove = false, surveyText,
@@ -199,8 +201,17 @@ function Survey({ project }: { project: ProjectDetail['project'] }) {
   const loadCharger = useShardLoader<SiteRecord>(DATA_BASE);
   const loadSubsidy = useShardLoader<SubsidyRecord>(SUBSIDY_DATA_BASE);
   const [looking, setLooking] = useState(false);
-  /* 조회 결과 — 글자만 든다. 기설치 있음/없음 판정은 사람이 하므로 여기서 들 것이 없다 */
-  const [draft, setDraft] = useState<string | null>(null);
+  /*
+   * 조회 결과 — /lookup 이 그리는 카드 그대로 든다 (한백 지적 2026-09-03 「조회 내용이
+   * /lookup 대비 너무 간소하다」). 글 몇 줄로 접어 적었더니 판정·충전소명·설치 이력 표·
+   * 매칭 경고가 다 빠져서, 대조하려면 결국 /lookup 을 한 번 더 열어야 했다.
+   * 요약을 따로 만들면 언젠가 갈린다 — 부품(LookupResults)을 통째로 같이 쓴다.
+   * 기설치 있음/없음 판정은 여전히 사람이 한다.
+   */
+  const [found, setFound] = useState<{
+    charger: LookupResult;
+    subsidy: LookupResult<SubsidyRecord>;
+  } | null>(null);
   const [lookErr, setLookErr] = useState<string | null>(null);
 
   async function firstLook() {
@@ -213,7 +224,7 @@ function Survey({ project }: { project: ProjectDetail['project'] }) {
         lookupChargerHistory(input, loadCharger),
         lookupSubsidyHistory(input, loadSubsidy),
       ]);
-      setDraft(draftOf(charger, subsidy));
+      setFound({ charger, subsidy });
     } catch (e) {
       setLookErr((e as Error).message);
     } finally {
@@ -258,7 +269,7 @@ function Survey({ project }: { project: ProjectDetail['project'] }) {
           </Btn>
           <Err>{lookErr}</Err>
         </div>
-        {draft && (
+        {found && (
           /*
             ★조회 결과는 읽기만 한다★ (한백 지시 2026-09-03 「조사내역 채우기 필요없어」).
             결과를 조사 내역 칸에 옮겨 적어 주는 단추가 있었는데, 그러면 ★조회한 것이
@@ -266,10 +277,15 @@ function Survey({ project }: { project: ProjectDetail['project'] }) {
             같은 글일 수 없다(바로 아래 경고가 그 말이다). 옮겨 적는 편함보다 그 둘이
             섞이지 않는 것이 낫다. 조사 내역은 사람이 「조사 내역 적기」에서 쓴다.
           */
-          <div className="max-w-2xl rounded-ctl bg-slate-50 px-3 py-2.5">
-            <p className="whitespace-pre-line break-keep text-tiny leading-snug text-slate-700">{draft}</p>
+          <div className="flex max-w-3xl flex-col gap-2">
+            <LookupResults
+              charger={found.charger}
+              subsidy={found.subsidy}
+              meta={chargerMeta as IndexMeta}
+              subsidyMeta={subsidyMeta as SubsidyMeta}
+            />
             {/* 이력은 원본 등록분일 뿐, 대수 확정은 현장이 한다 (한백 문구) */}
-            <p className="mt-2 text-tiny font-semibold leading-snug text-amber-700">
+            <p className="px-1 text-tiny font-semibold leading-snug text-amber-700">
               현장별로 실제 기설치 대수 반드시 확인 필요 — 보조금 불가 시 추후 보조금 환수 및 패널티 적용 예정
             </p>
           </div>
@@ -339,64 +355,4 @@ function Survey({ project }: { project: ProjectDetail['project'] }) {
       )}
     </div>
   );
-}
-
-
-/*
- * 조회 결과를 조사 내역 초안으로 — /lookup 과 같은 두 자료(DB1 충전소 이력 · DB2 보조금
- * 신청 이력)를 같은 라벨로 각각 적는다(한 문장에 우겨넣으니 못 읽었다 — 한백 지적).
- * 보조금 이력이 있으면 ★사업연도·대기번호★를 줄마다 적고, 기설치가 있는데 이력이 없으면
- * ★미수령 증빙 필요★를 적는다. 무매칭도 적는다 — 「이력 없음」은 조사 결과다.
- */
-function draftOf(
-  charger: LookupResult,
-  subsidy: LookupResult<SubsidyRecord>
-): string {
-  const lines: string[] = [];
-  /* 기설치가 있는가 — DB2 문구를 고르는 데만 쓴다(판정은 사람이 한다) */
-  let found = false;
-
-  /* DB1 — 충전소 이력. /lookup 과 같은 라벨을 쓴다: 두 화면이 같은 말을 해야 대조가 된다 */
-  if (charger.status === '매칭') {
-    const sum = summarize(charger.record);
-    found = sum.slow + sum.fast > 0;
-    const ops = sum.operators.map((o) => `${o.name} ${o.qty}기`).join(' · ');
-    lines.push(`[DB1 충전소 이력] 완속 ${sum.slow}기 · 급속 ${sum.fast}기${ops ? ` — ${ops}` : ''}`);
-    if (sum.subsidized > 0 || sum.ownFunded > 0) {
-      // 보조금 설치분의 신청번호 — 신청 이력 자료(DB2)에 없는 현장에서도 번호가 남는 자리다
-      const applyNos = [...new Set(
-        charger.record.h.filter(([, , , code, no]) => isSubsidized(code) && no).map(([, , , , no]) => no)
-      )];
-      lines.push(
-        `  - 보조금 설치 ${sum.subsidized}기 · 자부담 ${sum.ownFunded}기`
-        + (applyNos.length ? ` — 신청번호 ${applyNos.join(' · ')}` : '')
-      );
-    }
-  } else if (charger.status === '시군구불일치') {
-    lines.push('[DB1 충전소 이력] 같은 주소가 다른 지역에 있음 — 주소 표기 확인 필요');
-  } else {
-    lines.push('[DB1 충전소 이력] 등록 이력 없음');
-  }
-
-  /* DB2 — 보조금 신청 이력. 사업연도·대기번호는 환경부 신청 때 그대로 옮겨 적는 값이라 줄마다 다 적는다 */
-  if (subsidy.status === '매칭' && subsidy.record.q > 0) {
-    found = true;
-    const sum = summarizeSubsidy(subsidy.record);
-    lines.push(`[DB2 보조금 신청 이력] ${sum.count}건 ${sum.units}기`);
-    for (const [year, waitNo, qty, type, doneAt] of sum.rows) {
-      lines.push(
-        `  - ${year || '연도 미상'}년 · 대기번호 ${waitNo || '미상'} · ${type ? `${type} ` : ''}${qty}기`
-        + (doneAt ? ` · 공사완료 ${doneAt}` : '')
-      );
-    }
-  } else {
-    // 기설치가 있는데 신청 이력이 없으면 미수령 증빙이 필요하다 — 그 서류가 이 구역의 증빙 칸이다
-    lines.push(
-      found
-        ? '[DB2 보조금 신청 이력] 없음 — 기설치분 보조금 미수령 증빙 필요'
-        : '[DB2 보조금 신청 이력] 없음'
-    );
-  }
-
-  return `[이력 조회 1차 — 현장 재확인 전]\n${lines.join('\n')}`;
 }

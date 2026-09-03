@@ -102,7 +102,12 @@ export function PreInstall({
         preinstall 을 거르지 않는다). 조사 내역만 부실한 경우는 이력 조회와 대조해
         판단한다(한백). 옮긴 자국은 migrations/0050 에 있다.
       */}
-      <div className="mt-3 grid gap-1.5 sm:grid-cols-2">
+      {/*
+        격자는 서류 구역과 같다 (한백 지시 2026-09-03 「서류 컴포넌트랑 맞춰줘. 너무 넓어」) —
+        칸이 둘뿐이라고 2열로 넓히면 같은 서류 카드가 두 구역에서 다른 폭이 된다.
+        오른쪽 빈 자리는 그 값을 치른 것이다.
+      */}
+      <div className="mt-3 grid gap-1.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {docs.map((d) => {
           const doc = byKind.get(d.key);
           const st = docState(doc, d.req);

@@ -50,6 +50,7 @@ export default function ProjectDetailView({
   processEdit,
   canSubmit,
   canEditDocs,
+  canFillEmpty = false,
 }: {
   detail: ProjectDetail;
   /** 세션에서 계산된 가시성. 화면에서 고를 수 있는 값이 아니다. */
@@ -81,6 +82,8 @@ export default function ProjectDetailView({
    * 접수하기(canSubmit)와 가르는 이유: 그 단추는 확인 전에만 서고, 이쪽은 낼 때까지 산다.
    */
   canEditDocs: boolean;
+  /** 빈 칸에는 올릴 수 있는가 — 잠긴 뒤의 예외(IntakeTab 의 같은 이름 주석 참조) */
+  canFillEmpty?: boolean;
 }) {
   /*
    * 주소에 탭이 없으면 국면이 정한다 — stage 를 그대로 쓰지 않는다.
@@ -285,6 +288,7 @@ export default function ProjectDetailView({
               canReview={canReview}
               canSubmit={canSubmit}
               canEditDocs={canEditDocs}
+              canFillEmpty={canFillEmpty}
               status={process.status}
             />
           )}

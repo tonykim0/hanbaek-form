@@ -232,7 +232,19 @@ export function canChangeContractDocs(
    *
    * 안 주면 확인된 것으로 본다 — 빠뜨렸을 때 열리는 쪽이 아니라 잠기는 쪽이어야 한다.
    */
-  contractConfirmed = true
+  contractConfirmed = true,
+  /**
+   * 그 칸이 비어 있는가(파일 0장). ★빈 칸은 잠근 뒤에도 채울 수 있다★ (한백 지시
+   * 2026-09-03 「행위신고로 넘어가서 계약서류에 파일업로드 안 된 곳에는 업로드하게」).
+   *
+   * 잠금의 근거는 「낸 서류가 정본이다」— 운영사가 들고 있는 것과 우리 화면이 갈리면
+   * 안 된다는 것이다. 빈 칸은 낸 것이 없어 그 근거가 미치지 않는다: 채우는 것은
+   * 정본을 바꾸는 게 아니라 없던 것을 더하는 것이다(선택·조건부 서류가 뒤늦게 온다).
+   * 한번 채우면 그 칸도 잠긴다 — 잘못 올린 것은 한백이 지운다.
+   *
+   * 안 주면 차 있는 것으로 본다 — 빠뜨렸을 때 잠기는 쪽이어야 한다(위와 같은 이유).
+   */
+  slotEmpty = false
 ): boolean {
   if (!canWrite(role)) return false;
   if (isHanbaek(role)) return true;
@@ -246,12 +258,13 @@ export function canChangeContractDocs(
    * 프로덕션 실측(2026-08-31): 그렇게 갇힌 현장이 2건이었다.
    */
   if (!contractConfirmed) return true;
+  if (slotEmpty) return true;
   return statusIndex(status) < statusIndex(CONTRACT_DOCS_LOCK_AT);
 }
 
 /** 못 바꾸는 이유 — 저장소와 화면이 같은 문장을 쓴다 */
 export const CONTRACT_DOCS_LOCKED_WHY =
-  '운영사에 계약서를 낸 뒤로는 계약 서류를 바꿀 수 없습니다 — 고칠 것이 있으면 진행현황에 남겨주세요.';
+  '운영사에 계약서를 낸 뒤로는 이미 낸 서류를 바꿀 수 없습니다 — 빈 칸에는 올릴 수 있고, 고칠 것이 있으면 진행현황에 남겨주세요.';
 
 /**
  * 지금 넘어갈 수 있는 상태들.

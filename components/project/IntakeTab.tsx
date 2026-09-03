@@ -126,7 +126,7 @@ function FactGroup({ title, rows }: { title: string; rows: Array<[string, string
 
 export function IntakeTab({
   project, evaluated, byKind, contract, projectId, siteName, canReview, canSubmit, canEditDocs,
-  knownOrgs, status,
+  canFillEmpty = false, knownOrgs, status,
 }: {
   knownOrgs: string[];
   project: ProjectDetail['project'];
@@ -145,6 +145,12 @@ export function IntakeTab({
    * 판정은 lib/process 의 canChangeContractDocs 한 곳이고 저장소도 같은 것을 본다.
    */
   canEditDocs: boolean;
+  /**
+   * 빈 칸에는 올릴 수 있는가 — 잠긴 뒤(canEditDocs=false)에도 파일 0장인 칸은 채운다
+   * (한백 지시 2026-09-03). 잠금의 근거가 「낸 서류가 정본」인데 빈 칸은 낸 것이 없다.
+   * 판정은 canChangeContractDocs(slotEmpty=true) — 저장소도 같은 것을 본다.
+   */
+  canFillEmpty?: boolean;
   /** 지금 서 있는 진행 단계 — 계약완료면 여기서 다음 걸음을 민다 */
   status: ProcessStatus;
 }) {
@@ -373,6 +379,7 @@ export function IntakeTab({
                     const doc = byKind.get(d.key);
                     const st = docState(doc, d.req);
                     const rejected = doc?.status === 'rejected';
+                    const slotEmpty = !doc || doc.files.length === 0;
                     return (
                       <div
                         key={d.key}
@@ -470,9 +477,10 @@ export function IntakeTab({
                           * 없었다). 필수 판정은 req 가 하므로 여기에 올려도 접수 게이트는
                           * 그대로다 — 올릴 수 있는 것과 내야 하는 것은 다른 말이다.
                           */}
-                        {(canEditDocs || (canReview && doc && doc.status !== 'none')) && (
+                        {(canEditDocs || (canFillEmpty && slotEmpty) || (canReview && doc && doc.status !== 'none')) && (
                         <div className="mt-auto flex flex-wrap items-center gap-x-2 gap-y-1 border-t border-slate-900/[0.07] pt-2">
-                          {canEditDocs && (
+                          {/* 잠긴 뒤에도 빈 칸은 채운다 — canFillEmpty 주석 참조. 찬 칸은 그대로 잠긴다 */}
+                          {(canEditDocs || (canFillEmpty && slotEmpty)) && (
                             <DocUpload
                               projectId={projectId}
                               kind={d.key}

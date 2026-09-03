@@ -277,6 +277,32 @@ describe('canChangeContractDocs — 운영사에 낸 뒤로 계약 서류는 잠
   it('안 주면 확인된 것으로 본다 — 빠뜨렸을 때 잠기는 쪽이어야 한다', () => {
     expect(canChangeContractDocs('sales', CONTRACT_DOCS_LOCK_AT)).toBe(false);
   });
+
+  /*
+   * ★빈 칸은 잠근 뒤에도 채운다★ (한백 지시 2026-09-03 「행위신고로 넘어가서
+   * 계약서류에 파일업로드 안 된 곳에는 업로드하게」 — 협력사 관점).
+   *
+   * 잠금의 근거는 「낸 서류가 정본」인데 빈 칸은 낸 것이 없다 — 선택·조건부 서류가
+   * 뒤늦게 오는 자리다. 채우면 그 칸도 잠긴다.
+   */
+  it('★빈 칸은 잠긴 뒤에도 협력사가 채울 수 있다★', () => {
+    for (const status of ['행위신고', '착공', '준공완료'] as const) {
+      expect(canChangeContractDocs('sales', status, true, true)).toBe(true);
+      expect(canChangeContractDocs('cons', status, true, true)).toBe(true);
+    }
+  });
+
+  it('찬 칸은 그대로 잠긴다 — 빈 칸 예외는 더하는 것만 연다', () => {
+    expect(canChangeContractDocs('sales', '행위신고', true, false)).toBe(false);
+  });
+
+  it('빈 칸 여부를 안 주면 차 있는 것으로 본다 — 빠뜨렸을 때 잠기는 쪽', () => {
+    expect(canChangeContractDocs('sales', '행위신고', true)).toBe(false);
+  });
+
+  it('빈 칸 예외도 열람 전용은 못 탄다', () => {
+    expect(canChangeContractDocs('viewer', '행위신고', true, true)).toBe(false);
+  });
 });
 
 /*

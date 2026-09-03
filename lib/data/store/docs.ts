@@ -352,8 +352,19 @@ async function assertContractDocsOpen(
     .from(projects)
     .where(eq(projects.id, projectId))
     .limit(1);
+  /*
+   * 빈 칸인가 — 잠긴 뒤에도 빈 칸은 채울 수 있다(한백 지시 2026-09-03, canChangeContractDocs
+   * 의 slotEmpty 주석 참조). 파일을 빼는 쪽(deleteDocumentFile)은 정의상 칸이 차 있어서
+   * 이 예외를 못 탄다 — 낸 서류는 그대로 잠긴다.
+   */
+  const [slot] = await tx
+    .select({ files: documents.files })
+    .from(documents)
+    .where(and(eq(documents.projectId, projectId), eq(documents.kind, kind)))
+    .limit(1);
+  const slotEmpty = !slot || (slot.files as unknown[]).length === 0;
   // 공정 행이 아직 없으면 계약완료 자리다 — asProcessStatus 가 그 기본값을 안다
-  if (!canChangeContractDocs(actor.role, asProcessStatus(proc?.status), proj?.confirmedAt !== null)) {
+  if (!canChangeContractDocs(actor.role, asProcessStatus(proc?.status), proj?.confirmedAt !== null, slotEmpty)) {
     throw new Error(CONTRACT_DOCS_LOCKED_WHY);
   }
 }

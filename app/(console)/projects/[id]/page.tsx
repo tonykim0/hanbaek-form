@@ -133,6 +133,13 @@ export default async function ProjectPage({
         detail.process.status,
         detail.project.contractConfirmedAt !== null
       )}
+      /* 빈 칸 예외 — 잠긴 뒤에도 파일 0장인 칸은 채운다(canChangeContractDocs slotEmpty 주석) */
+      canFillEmpty={canChangeContractDocs(
+        session.role,
+        detail.process.status,
+        detail.project.contractConfirmedAt !== null,
+        true
+      )}
     />
   );
 }

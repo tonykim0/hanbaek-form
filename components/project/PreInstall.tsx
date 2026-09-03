@@ -342,43 +342,61 @@ function Survey({ project }: { project: ProjectDetail['project'] }) {
         </p>
       )}
 
-      {editing ? (
-        <div className="flex max-w-2xl flex-col gap-4">
-          {/* ① 이력 조회 — 1차. 조회는 초안일 뿐이고 확정은 아래 ②에서 사람이 한다 */}
-          <div className="flex flex-col gap-2">
-            <span className="text-tiny font-bold tracking-[0.04em] text-slate-500">① 이력 조회 — 1차</span>
-            <div className="flex flex-wrap items-center gap-2">
+      {/*
+        ★이력 조회는 편집 밖에 있다★ (한백 지시 2026-09-03 「조사결과 작성하지 않아도
+        조회가능하게」). 그전에는 「조사 내역 적기」를 눌러 편집으로 들어가야만 조회 단추가
+        나왔다 — 그런데 조회는 ★읽는 일★이다: 이 현장에 기설치가 있나만 보고 끝낼 때가 많고,
+        그때마다 편집을 열었다 취소해야 했다. 편집을 열어 두면 실수로 저장할 자리도 생긴다.
+        (같은 조회가 상단바의 「기설치 이력조회」에도 있지만 거기서는 주소를 다시 쳐야 한다.)
+
+        조회는 그대로 초안일 뿐이다 — 「조사 내역 채우기」를 누르면 그때 편집이 열리고
+        칸이 채워진다. 저장은 여전히 사람이 재확인을 거쳐 누른다.
+      */}
+      <div className="flex flex-col gap-2">
+        <span className="text-tiny font-bold tracking-[0.04em] text-slate-500">이력 조회</span>
+        <div className="flex flex-wrap items-center gap-2">
+          <Btn
+            size="sm"
+            kind="side"
+            busy={looking}
+            busyLabel="조회 중…"
+            disabled={!project.addr}
+            onClick={() => void firstLook()}
+          >
+            {project.addr ? '주소로 이력 조회' : '주소 미지정 — 이력 조회 불가'}
+          </Btn>
+          <Err>{lookErr}</Err>
+        </div>
+        {draft && (
+          <div className="max-w-2xl rounded-ctl bg-slate-50 px-3 py-2.5">
+            <p className="whitespace-pre-line break-keep text-tiny leading-snug text-slate-700">{draft.text}</p>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              {/* 채우기가 곧 편집을 여는 자리다 — 조회만 하고 갈 사람은 이 단추를 안 누른다 */}
               <Btn
                 size="sm"
                 kind="side"
-                busy={looking}
-                busyLabel="조회 중…"
-                disabled={!project.addr}
-                onClick={() => void firstLook()}
+                onClick={() => { setState(draft.state); setNote(draft.text); setEditing(true); }}
               >
-                {project.addr ? '주소로 이력 조회' : '주소 미지정 — 이력 조회 불가'}
+                조사 내역 채우기
               </Btn>
-              <Err>{lookErr}</Err>
             </div>
-            {draft && (
-              <div className="rounded-ctl bg-slate-50 px-3 py-2.5">
-                <p className="whitespace-pre-line break-keep text-tiny leading-snug text-slate-700">{draft.text}</p>
-                <div className="mt-2 flex flex-wrap items-center gap-2">
-                  <Btn size="sm" kind="side" onClick={() => { setState(draft.state); setNote(draft.text); }}>
-                    조사 내역 채우기
-                  </Btn>
-                </div>
-                {/* 채우기 전에 읽어야 하는 경고 — 이력은 원본 등록분일 뿐, 대수 확정은 현장이 한다 (한백 문구) */}
-                <p className="mt-2 text-tiny font-semibold leading-snug text-amber-700">
-                  현장별로 실제 기설치 대수 반드시 확인 필요 — 보조금 불가 시 추후 보조금 환수 및 패널티 적용 예정
-                </p>
-              </div>
-            )}
+            {/* 채우기 전에 읽어야 하는 경고 — 이력은 원본 등록분일 뿐, 대수 확정은 현장이 한다 (한백 문구) */}
+            <p className="mt-2 text-tiny font-semibold leading-snug text-amber-700">
+              현장별로 실제 기설치 대수 반드시 확인 필요 — 보조금 불가 시 추후 보조금 환수 및 패널티 적용 예정
+            </p>
           </div>
+        )}
+      </div>
 
-          {/* ② 현장 확인 결과 — 여기 적힌 것이 확정이고, 저장이 「조사했다」가 된다 */}
+      {editing ? (
+        <div className="flex max-w-2xl flex-col gap-4">
+          {/*
+            현장 확인 결과 — 여기 적힌 것이 확정이고, 저장이 「조사했다」가 된다.
+            번호(①·②)는 걷었다: 조회가 편집 밖으로 나가면서 둘이 나란한 단계가 아니게 됐다 —
+            조회는 아무 때나 하는 읽기이고, 이것은 적을 때만 여는 자리다.
+          */}
           <div className="flex flex-col gap-2">
-            <span className="text-tiny font-bold tracking-[0.04em] text-slate-500">② 현장 확인 결과</span>
+            <span className="text-tiny font-bold tracking-[0.04em] text-slate-500">현장 확인 결과</span>
             <div className="flex flex-wrap items-center gap-1.5">
               <span className="mr-1 text-tiny font-bold text-slate-500">기설치</span>
               {(['없음', '있음'] as const).map((v) => (

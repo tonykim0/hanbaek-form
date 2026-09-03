@@ -228,7 +228,6 @@ export function IntakeTab({
         `${siteName} — 기설치 조사`,
         '',
         `기설치: ${project.preChecked ? project.preInstall : '미조사'}`,
-        ...(project.preRejectReason ? [`조사 반려: ${project.preRejectReason}`] : []),
         '',
         '조사 내역',
         project.preNote?.trim() || '(비어 있음)',
@@ -777,9 +776,8 @@ function ConfirmContract({
    * 「버튼은 눌리는데 저장이 거절되는」 일이 없다.
    */
   /*
-   * 기설치 조사 반려도 확인을 막는다(한백 지적 2026-08-26) — 서류와 같은 이치로 만든
-   * 자리인데 정작 막지 않아서, 반려해 두고도 확인이 눌렸다. 조사 반려만 있는 현장은
-   * rejected 가 1이라(lib/stage) 아래 첫 줄에서 「반려 1건」으로 잡힌다.
+   * 기설치 반려도 이 수에 든다 — 조사 반려라는 별도 문을 걷고 기설치 두 칸의
+   * 서류 반려로 합쳤다(2026-09-03, migrations/0050).
    */
   const reason = contract.rejected > 0
     ? `반려 ${contract.rejected}건`

@@ -158,7 +158,14 @@ export const projects = pgTable('projects', {
    * 환경부 사업은 현장마다 이 조사를 해야 해서, 안 한 현장을 골라내는 것이 실제 업무다.
    */
   preChecked: boolean('pre_checked').notNull().default(false),
-  /** 기설치 조사 반려 사유 — 한백이 되돌린 이유. 다시 조사하면 지워진다 */
+  /**
+   * ★죽은 칸★ — 코드가 읽지도 쓰지도 않는다 (2026-09-03).
+   *
+   * 기설치 조사 반려였는데, 기설치 두 칸(설치이력·증빙)의 서류 반려와 결과가 같은
+   * 세 번째 문이라 걷었다. 살아 있던 값은 그 칸의 반려로 옮겼다(migrations/0050).
+   * 칸을 지우지 않는 것은 되돌릴 길을 남기려는 것이다(화면 규칙 7) — 여기에 다시
+   * 값을 쓰지 않는다.
+   */
   preRejectReason: text('pre_reject_reason'),
   powerType: text('power_type'),
   replType: text('repl_type'),

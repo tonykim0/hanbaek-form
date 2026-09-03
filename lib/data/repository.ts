@@ -182,8 +182,8 @@ export interface ProjectRepository {
    *
    * preChecked 는 「봤다」는 표시다. preInstall 의 '없음' 과 「아직 안 봤음」을 가른다.
    *
-   * preRejectReason 은 조사 반려다 [한백 전용] — 사유를 적으면 조사 표시가 풀리고 공이
-   * 영업사로 넘어간다. 협력사가 조사를 다시 저장하면 사유가 지워진다(보완이 반려를 푼다).
+   * 반려는 여기 없다 — 「다시 조사해라」는 기설치 두 칸(설치이력·증빙)의 서류 반려로
+   * 한다(2026-09-03). 결과가 같은 문이 셋이었다: migrations/0050 참조.
    */
   setPreInstall(
     projectId: string,
@@ -191,7 +191,6 @@ export interface ProjectRepository {
       preInstall?: PreInstall;
       preNote?: string | null;
       preChecked?: boolean;
-      preRejectReason?: string | null;
     },
     actor: Actor
   ): Promise<void>;

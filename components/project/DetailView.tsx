@@ -201,7 +201,6 @@ export default function ProjectDetailView({
     status: process.status,
     holdState: project.holdState,
     rejectedDocs: contract.rejected,
-    preRejected: contract.preRejected,
     docsFilled: contract.docsFilled,
     submitted: project.contractSubmittedAt !== null,
     fixAsked: project.contractFixAskedAt !== null,

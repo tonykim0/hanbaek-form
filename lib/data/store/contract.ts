@@ -11,11 +11,11 @@
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import { getDb } from '@/lib/db/client';
 import { writeAudit } from '@/lib/db/audit';
-import { documents, processes, projects } from '@/lib/db/schema';
+import { documents, projects } from '@/lib/db/schema';
 import { today } from '@/lib/date';
 import { canAccessProject, canWrite } from '@/lib/roles';
 import { needsPreInstallCheck } from '@/lib/doc-rules';
-import { asProcessStatus, COURT_AFTER_STATUS, statusIndex } from '@/lib/process';
+import { COURT_AFTER_STATUS } from '@/lib/process';
 import { contractStateFor, missingRequiredDocs } from '../assemble';
 import type { PreInstall, Project } from '@/types/project';
 import type { Actor, ProjectRepository } from '../repository';
@@ -218,45 +218,33 @@ export const contractStore: Pick<
         .select({
           id: projects.id, salesOrg: projects.salesOrg, gcOrg: projects.gcOrg,
           preInstall: projects.preInstall, preNote: projects.preNote, preChecked: projects.preChecked,
-          preRejectReason: projects.preRejectReason,
           bizType: projects.bizType,
         })
         .from(projects)
         .where(eq(projects.id, projectId))
         .limit(1);
       if (!row) throw new Error('현장을 찾을 수 없습니다.');
-      checkPreInstallWrite(row, patch, actor);
-      const rejecting =
-        typeof patch.preRejectReason === 'string' && patch.preRejectReason.trim() !== '';
-      const fixing = patch.preInstall !== undefined || patch.preChecked === true;
+      checkPreInstallWrite(row, actor);
 
       const next = {
         preInstall: patch.preInstall ?? (row.preInstall as PreInstall),
         preNote: 'preNote' in patch ? (patch.preNote?.trim() || null) : row.preNote,
-        preChecked: rejecting ? false : (patch.preChecked ?? row.preChecked),
-        preRejectReason: rejecting
-          ? patch.preRejectReason!.trim()
-          : patch.preRejectReason === null || fixing
-            ? null
-            : row.preRejectReason,
+        preChecked: patch.preChecked ?? row.preChecked,
       };
       if (
         next.preInstall === row.preInstall
         && next.preNote === row.preNote
         && next.preChecked === row.preChecked
-        && next.preRejectReason === row.preRejectReason
       ) return;
 
-      await savePreInstall(tx, projectId, next, rejecting);
+      await savePreInstall(tx, projectId, next);
 
       await writeAudit(tx, {
         projectId, actor,
-        action: rejecting ? '기설치 조사 반려' : '기설치 조사',
+        action: '기설치 조사',
         field: 'preInstall',
         oldValue: `${row.preInstall}${row.preChecked ? ' (확인)' : ''}`,
-        newValue: rejecting
-          ? `반려 — ${next.preRejectReason}`
-          : `${next.preInstall}${next.preChecked ? ' (확인)' : ''}`,
+        newValue: `${next.preInstall}${next.preChecked ? ' (확인)' : ''}`,
       });
     });
   },
@@ -318,12 +306,12 @@ async function applyAskSideEffects(
  * 기설치 조사를 적을 수 있는가 — 아니면 던진다.
  *
  * 자체투자는 조사 자체를 하지 않는다 — 환경부 보조금이 기설치 여부로 갈리기 때문에 하는
- * 조사다. 조사는 현장에 가는 쪽(그 현장의 협력사·한백)이 하고, ★반려는 한백 관리자만★
- * 한다 — 「다시 조사해라」는 판정이라 조사하는 쪽이 스스로 걸 수 없다.
+ * 조사다. 조사는 현장에 가는 쪽(그 현장의 협력사·한백)이 한다.
+ *
+ * 반려는 여기 없다 — 「다시 조사해라」는 기설치 두 칸의 서류 반려로 한다(2026-09-03).
  */
 function checkPreInstallWrite(
   row: { salesOrg: string | null; gcOrg: string | null; bizType: string | null },
-  patch: { preRejectReason?: string | null },
   actor: Actor
 ): void {
   if (!needsPreInstallCheck(row.bizType as Project['bizType'])) {
@@ -332,50 +320,16 @@ function checkPreInstallWrite(
   if (!canAccessProject(actor.role, actor.org, row)) {
     throw new Error('이 현장의 기설치를 적을 권한이 없습니다.');
   }
-  if (patch.preRejectReason !== undefined && actor.role !== 'admin') {
-    throw new Error('기설치 조사 반려는 한백 관리자만 할 수 있습니다.');
-  }
 }
 
-/**
- * 조사 결과를 저장한다. 조사는 진척이라 정체일 기준을 갱신한다.
- *
- * ★반려는 서류 반려와 같은 뒷일을 한다★ (한백 지적 2026-08-26) — 담당이 영업사로 가고,
- * 앞서 한 계약 확인을 지우고, 보완요청이 있었다는 사실을 남긴다(첫 번째 것만). 안 지우면
- * 확인일이 남아 단계가 시공으로 유도되고(lib/stage), 보드의 계약 세 칸 판정을 안 타서
- * 반려해 놓고도 현장이 제자리에 선다 — 전주태평에스케이뷰가 그랬다.
- *
- * 착공 뒤에는 확인을 지우지 않는다 — 시작된 공사를 계약 칸으로 끌어내리지 않는다.
- */
+/** 조사 결과를 저장한다. 조사는 진척이라 정체일 기준을 갱신한다. */
 async function savePreInstall(
   tx: TxLike,
   projectId: string,
-  next: {
-    preInstall: PreInstall; preNote: string | null;
-    preChecked: boolean; preRejectReason: string | null;
-  },
-  rejecting: boolean
+  next: { preInstall: PreInstall; preNote: string | null; preChecked: boolean }
 ): Promise<void> {
-  const day = today();
-  const [proc] = await tx
-    .select({ status: processes.status })
-    .from(processes)
-    .where(eq(processes.projectId, projectId))
-    .limit(1);
-  const started = statusIndex(asProcessStatus(proc?.status)) >= statusIndex('착공');
-
   await tx
     .update(projects)
-    .set({
-      ...next,
-      lastProgressAt: day,
-      ...(rejecting
-        ? {
-            court: '영업사' as const,
-            ...(started ? {} : { contractConfirmedAt: null }),
-            contractFixAskedAt: sql`coalesce(${projects.contractFixAskedAt}, ${day})`,
-          }
-        : {}),
-    })
+    .set({ ...next, lastProgressAt: today() })
     .where(eq(projects.id, projectId));
 }

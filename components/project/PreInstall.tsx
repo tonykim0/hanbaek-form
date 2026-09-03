@@ -5,8 +5,7 @@
  *
  * 한때 조사 입력을 걷어내고 「파일이 곧 조사 결과」로 뒀는데, 파일만으로는 몇 대·몇 kW·
  * 어느 운영사인지가 화면에 남지 않아 조사 내역 입력을 되살렸다(한백 지시 2026-08-23).
- * 저장 경로는 원래 있던 것이다 — PATCH /preinstall 이 있음/없음·내역·조사 표시를 받고,
- * 조사를 다시 저장하면 한백의 조사 반려가 풀린다(저장소 규칙).
+ * 저장 경로는 원래 있던 것이다 — PATCH /preinstall 이 있음/없음·내역·조사 표시를 받는다.
  *
  * 서류 목록에서 빼내 자기 구역에 두는 것은 유지한다 — 현장마다 해야 하는 일이라
  * 증빙이 서류 열여섯 칸 사이에 섞여 있으면 조사가 됐는지 보이지 않는다.
@@ -73,9 +72,7 @@ export function PreInstall({
       */}
       <div className="mb-3 flex flex-wrap items-baseline gap-x-2.5 gap-y-1.5">
         <h2 className="text-h3 font-black text-slate-900">기설치 조사</h2>
-        {project.preRejectReason ? (
-          <Tag tone="warn">조사 반려</Tag>
-        ) : project.preChecked ? (
+        {project.preChecked ? (
           <Badge tone="ok">기설치 {project.preInstall}</Badge>
         ) : (
           <Tag tone="warn">조사 필요</Tag>
@@ -94,23 +91,18 @@ export function PreInstall({
       <Survey project={project} />
 
       {/*
-        * 조사도 보완이 필요하다(한백 지시 2026-08-24) — 서류와 같은 이치다. 조사 내역이
-        * 부실하면 「다시 조사해라」를 사유와 함께 돌려보낸다. 조사한 적이 없으면 되돌릴
-        * 것도 없으니 단추를 두지 않는다. 협력사가 조사를 다시 저장하면 반려가 풀린다.
-        */}
-      {/*
-        * 반려된 뒤에도 단추가 서 있어야 한다 — 반려가 preChecked 를 false 로 만들기 때문에
-        * preChecked 만 보면 반려한 순간 되돌릴 자리가 사라졌다(2026-08-26 발견, 화면 규칙 7).
-        */}
-      {canReview && (project.preChecked || project.preRejectReason !== null) && (
-        <SurveyReview
-          projectId={project.id}
-          rejected={project.preRejectReason !== null}
-          current={project.preRejectReason}
-        />
-      )}
+        ★조사 반려는 없다★ (한백 승인 2026-09-03). 기설치 두 칸을 돌려보내는 문이
+        셋이었는데 결과가 하나였다 — stage 가 반려 한 건으로 같이 세고(lib/stage.ts),
+        board 가 같은 칸(계약보완)으로 보냈다. 기본 사유부터 「기설치 이력엑셀 파일/
+        증빙자료 필요」였고, 푸는 조건도 설치이력 파일이었다(lib/data/store/docs.ts) —
+        서류로 풀리는 반려는 서류 반려다.
 
-      <div className="mt-3 grid gap-1.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        이제 문은 둘이다: ★파일이 있으면 그 칸의 「반려」, 없으면 계약 탭의
+        「누락 서류 N건 보완요청」★ (missingRequiredDocs 가 이 두 칸도 겨냥한다 —
+        preinstall 을 거르지 않는다). 조사 내역만 부실한 경우는 이력 조회와 대조해
+        판단한다(한백). 옮긴 자국은 migrations/0050 에 있다.
+      */}
+      <div className="mt-3 grid gap-1.5 sm:grid-cols-2">
         {docs.map((d) => {
           const doc = byKind.get(d.key);
           const st = docState(doc, d.req);
@@ -182,111 +174,10 @@ export function PreInstall({
 }
 
 
-/**
- * 조사 반려 — 한백 전용. 서류 반려(DocReview)와 같은 모양이다.
- *
- * 승인 단추는 없다 — 제출된 조사는 기본이 통과이고, 한백이 하는 일은 부실한 것을
- * 골라내는 것뿐이다(검수 규칙). 사유를 받는다: 사유 없이 되돌리면 협력사가 무엇을
- * 다시 조사해야 할지 알 수 없다. 서버도 같은 검사를 한다(preinstall 라우트).
- */
-/**
- * 조사 반려의 기본 사유 — 열면 이 문장이 적혀 있다 (한백 지시 2026-08-26).
- *
- * 열 번 중 아홉 번이 같은 말이라 매번 다시 치고 있었다. 빈 칸으로 두면 「보완해주세요」
- * 같은 한 마디만 가서 협력사가 무엇을 내야 하는지 모른다 — 기본값이 곧 그 답이다.
- * 고칠 수 있다: 다른 이유면 지우고 쓴다.
- */
-const DEFAULT_SURVEY_REJECT = '기설치 이력엑셀 파일/증빙자료 필요';
-
-function SurveyReview({
-  projectId, rejected, current,
-}: {
-  projectId: string;
-  rejected: boolean;
-  /** 지금 걸려 있는 반려 사유 — 「사유 수정」으로 열면 이것이 들어온다 */
-  current: string | null;
-}) {
-  const { busy, error, setError, run } = useAction();
-  const [open, setOpen] = useState(false);
-  const [reason, setReason] = useState('');
-
-  /*
-   * 여는 순간 칸을 채운다. 고칠 때는 지금 사유, 처음이면 기본 사유다 —
-   * 수정을 누르고 빈 칸이 나오면 원래 뭐라고 적었는지 보려고 화면을 다시 봐야 한다.
-   */
-  const openWith = () => {
-    setReason(current ?? DEFAULT_SURVEY_REJECT);
-    setOpen(true);
-  };
-
-  async function send(why: string | null) {
-    const ok = await run({
-      url: `/api/projects/${projectId}/preinstall`,
-      method: 'PATCH',
-      body: { preRejectReason: why },
-      fail: '처리에 실패했습니다.',
-    });
-    if (!ok) return;
-    setOpen(false);
-    setReason('');
-  }
-
-  if (open) {
-    return (
-      <div className="mt-2 flex max-w-xl flex-col gap-1.5">
-        <textarea
-          value={reason}
-          onChange={(e) => setReason(e.target.value)}
-          rows={2}
-          autoFocus
-          placeholder="보완 사유 — 협력사가 이 문장을 보고 다시 조사합니다"
-          className={`${FIELD} leading-snug`}
-        />
-        <div className="flex gap-1.5">
-          <Btn size="sm" kind="stop" disabled={!reason.trim()} busy={busy} onClick={() => void send(reason)}>
-            조사 반려 확정
-          </Btn>
-          <Btn size="sm" kind="side" disabled={busy} onClick={() => { setOpen(false); setReason(''); setError(null); }}>
-            취소
-          </Btn>
-        </div>
-        <Err>{error}</Err>
-      </div>
-    );
-  }
-
-  return (
-    <div className="mt-2 flex items-center gap-2">
-      {rejected ? (
-        <>
-          <Btn size="sm" busy={busy} onClick={() => void send(null)}>
-            반려 해제
-          </Btn>
-          <Btn size="sm" kind="undo" disabled={busy} onClick={openWith}>
-            사유 수정
-          </Btn>
-        </>
-      ) : (
-        /* 여는 자리는 글자만 — 확정만 빨강 배경이다(화면 규칙 12) */
-        <button
-          type="button"
-          disabled={busy}
-          onClick={openWith}
-          className="text-tiny font-bold text-red-700 underline decoration-red-300 transition hover:text-red-900 disabled:text-slate-300"
-        >
-          조사 반려
-        </button>
-      )}
-      <Err>{error}</Err>
-    </div>
-  );
-}
-
 /*
  * 조사 결과 — 있음/없음과 조사 내역(대수·kW·운영사·보조금 이력 등).
  * 평소엔 글자로 굳히고 「수정」을 눌러야 열린다(화면 규칙 4번). 저장에 preChecked 를
- * 같이 실어 「조사했다」가 되고, 반려 상태였다면 저장이 반려를 푼다(저장소 규칙).
- * 열람 전용의 쓰기는 서버(write-route)가 막는다.
+ * 같이 실어 「조사했다」가 된다. 열람 전용의 쓰기는 서버(write-route)가 막는다.
  */
 function Survey({ project }: { project: ProjectDetail['project'] }) {
   const { busy, error, run } = useAction();
@@ -337,12 +228,6 @@ function Survey({ project }: { project: ProjectDetail['project'] }) {
 
   return (
     <div className="flex flex-col gap-2">
-      {project.preRejectReason && (
-        <p className="max-w-xl rounded-ctl bg-red-50 px-3 py-2 text-tiny leading-snug text-red-800">
-          {project.preRejectReason}
-        </p>
-      )}
-
       {/*
         ★이력 조회는 편집 밖에 있다★ (한백 지시 2026-09-03 「조사결과 작성하지 않아도
         조회가능하게」). 그전에는 「조사 내역 적기」를 눌러 편집으로 들어가야만 조회 단추가

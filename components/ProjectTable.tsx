@@ -281,8 +281,6 @@ export default function ProjectTable({
                     <div className="mt-0.5 flex flex-wrap items-center gap-1">
                       {p.addr && <span className="text-tiny text-slate-400">{p.addr}</span>}
                       {p.rejectedDocs > 0 && <Tag tone="stop">반려 {p.rejectedDocs}</Tag>}
-                      {/* 보드 카드와 같은 말을 쓴다 — 같은 사실을 두 화면이 다르게 부르지 않는다 */}
-                      {p.preRejected && <Tag tone="stop">기설치</Tag>}
                       {!p.priced && <Tag>단가 미지정</Tag>}
                     </div>
                   </td>

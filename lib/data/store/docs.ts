@@ -496,31 +496,23 @@ async function putContractDoc(
      * ★단, 아직 되돌려진 것이 남아 있으면 안 넘긴다★ (한백 지시 2026-08-26).
      * 서류를 두 칸 반려했는데 한 칸만 다시 올리면, 예전에는 그 한 장으로 담당이
      * 한백에 넘어갔다 — 한백 할 일에 「반려 N건 보완」(협력사가 할 일)이 뜨고 정작
-     * 고쳐야 할 협력사 목록에서는 그 현장이 사라졌다. 기설치 조사 반려도 같다:
-     * 조사를 다시 하라고 돌려보냈는데 엉뚱한 서류 한 장에 담당이 넘어왔다
-     * (실제로 3건 — 학동모아엘가·이천 수림1차·신정이펜하우스3단지).
+     * 고쳐야 할 협력사 목록에서는 그 현장이 사라졌다.
      *
      * 설치이력 파일이 곧 기설치 조사다(한백 확인) — 조사 여부를 따로 묻지 않는다.
-     * 그 파일이 올라오면 조사 반려도 함께 풀린다(보완이 반려를 푸는 규칙).
+     * 그 파일이 올라오면 「조사했다」가 된다. 조사 반려를 같이 풀던 줄은 걷었다
+     * (2026-09-03) — 그 반려가 이제 이 칸의 반려라 위 count 가 이미 세고 있다.
      */
-    const clearsPreReject = input.kind === 'legacylog';
     const [left] = await tx
       .select({ n: sql<number>`count(*)::int` })
       .from(documents)
       .where(and(eq(documents.projectId, input.projectId), eq(documents.status, 'rejected')));
-    const [proj] = await tx
-      .select({ preRejectReason: projects.preRejectReason })
-      .from(projects)
-      .where(eq(projects.id, input.projectId))
-      .limit(1);
-    const stillOpen = (left?.n ?? 0) > 0 || (!clearsPreReject && proj?.preRejectReason !== null);
 
     await tx
       .update(projects)
       .set({
-        ...(stillOpen ? {} : { court: '한백' as const }),
+        ...((left?.n ?? 0) > 0 ? {} : { court: '한백' as const }),
         lastProgressAt: day,
-        ...(clearsPreReject ? { preChecked: true, preRejectReason: null } : {}),
+        ...(input.kind === 'legacylog' ? { preChecked: true } : {}),
       })
       .where(eq(projects.id, input.projectId));
 

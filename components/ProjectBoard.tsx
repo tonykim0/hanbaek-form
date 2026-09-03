@@ -273,13 +273,7 @@ function Card({
           <Tag tone="stop">반려 {p.rejectedDocs}</Tag>
         )}
         {/*
-          * 무엇이 반려됐는지 — 「반려 1」 옆에 「기설치」로 붙는다(한백 지시 2026-08-26).
-          * 숫자만으로는 열어봐야 안다. 조사 반려는 그 숫자에 이미 한 건으로 들어 있고
-          * (lib/stage), 이 꼬리표는 그중 하나가 기설치라는 말이다.
           */}
-        {p.preRejected && (
-          <Tag tone="stop">기설치</Tag>
-        )}
         {!p.priced && (
           <Tag>단가 미지정</Tag>
         )}

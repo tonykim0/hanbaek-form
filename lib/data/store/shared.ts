@@ -162,7 +162,6 @@ export function toProject(r: ProjectRow): Project {
     preInstall: r.preInstall as PreInstall,
     preNote: r.preNote,
     preChecked: r.preChecked,
-    preRejectReason: r.preRejectReason,
     powerType: r.powerType as PowerType | null,
     replType: r.replType as ReplType | null,
     bizType: r.bizType as BizType | null,

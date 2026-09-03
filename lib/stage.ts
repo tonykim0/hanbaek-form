@@ -51,13 +51,6 @@ export function contractStateOf(input: {
    * 그대로 보여야 무엇이 콘솔에 없는지 알 수 있다.
    */
   docsExempt?: boolean;
-  /**
-   * 기설치 조사 반려 — 서류 반려와 같이 확인을 막는다(한백 지적 2026-08-26).
-   *
-   * 「조사도 보완이 필요하다 — 서류와 같은 이치다」로 만든 자리인데(2026-08-24),
-   * 정작 막지도 옮기지도 않았다. 반려해 두고 확인을 누를 수 있으면 반려가 아니다.
-   */
-  preRejected?: boolean;
 }): ContractState {
   const evaluated = evaluateDocs(input.docCtx);
   const byKind = new Map(input.documents.map((d) => [d.kind, d]));
@@ -81,21 +74,14 @@ export function contractStateOf(input: {
   const allPriced = input.lines.length > 0 && input.lines.every((l) => l.pricingRuleId);
 
   const docsExempt = input.docsExempt === true;
-  const preRejected = input.preRejected === true;
   /*
-   * ★조사 반려도 한 건으로 센다★ (한백 지시 2026-08-26).
-   *
-   * 처음에는 서류 칸의 수만 셌다 — 조사는 서류가 아니니 숫자를 부풀리지 않으려고.
-   * 그런데 그러면 기설치만 반려한 현장이 계약보완에 「반려 0」으로 서고, 세는 것과
-   * 막는 것이 갈린다. 반려는 건수가 아니라 ★막힌 항목의 수★다 — 조사도 그중 하나다.
-   *
-   * 무엇이 반려됐는지는 화면이 꼬리표로 말한다(보드·표의 「기설치」).
+   * 반려는 건수가 아니라 ★막힌 칸의 수★다. 기설치 조사 반려를 따로 세던 자리가
+   * 있었는데(2026-08-26), 그 문을 걷고 기설치 두 칸의 반려로 합쳤다(2026-09-03) —
+   * 이제 전부 documents 에 있어서 한 줄로 센다.
    */
-  const rejected =
-    input.documents.filter((d) => d.status === 'rejected').length + (preRejected ? 1 : 0);
+  const rejected = input.documents.filter((d) => d.status === 'rejected').length;
 
   return {
-    preRejected,
     requiredTotal: required.length,
     satisfied,
     filesMissing,
@@ -103,7 +89,7 @@ export function contractStateOf(input: {
     rejected,
     allPriced,
     docsExempt,
-    ready: rejected === 0 && !preRejected && (docsExempt || satisfied === required.length) && allPriced,
+    ready: rejected === 0 && (docsExempt || satisfied === required.length) && allPriced,
     /*
      * ★지급조건은 「모든 필수 서류」다★ (한백 정정 2026-08-31 「사전현장컨설팅
      * 결과서·실사보고서 뿐만 아니라 모든 필수서류가 올라오지 않으면 지급조건이 안 돼」).

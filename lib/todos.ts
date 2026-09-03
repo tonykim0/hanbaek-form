@@ -171,14 +171,9 @@ function labelUntil(day: string): string {
 /** 그 현장에서 지금 할 일 — 보드 칸 판정을 그대로 쓴다(부르는 쪽이 한 번 계산해 넘긴다) */
 function whatOf(column: ReturnType<typeof boardColumnOf>, p: {
   rejectedDocs: number;
-  preRejected: boolean;
   docsFilled: boolean;
 }): string {
-  /*
-   * 계약보완은 서류 반려와 기설치 조사 반려 둘 다로 선다 — 조사도 rejectedDocs 에
-   * 한 건으로 세어지므로(lib/stage) 여기서 나눌 것이 없다. 무엇이 반려됐는지는
-   * 보드·표의 꼬리표가 말한다.
-   */
+  /* 기설치 조사 반려도 이 수에 든다 — 그 문을 걷고 서류 칸 반려로 합쳤다(2026-09-03) */
   if (column === '계약보완') return `반려 ${p.rejectedDocs}건 보완`;
   if (column === '계약접수') return '필수 서류 제출';
   if (column === '계약검토') return '검수 · 계약 확인';

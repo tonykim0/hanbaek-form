@@ -187,11 +187,6 @@ export interface Project {
    * 안 한 현장을 골라내는 것이 그 업무의 절반이다.
    */
   preChecked: boolean;
-  /**
-   * 기설치 조사 반려 사유 — 한백이 「다시 조사해라」를 되돌린 이유. null 이면 반려 아님.
-   * 협력사가 조사를 다시 저장하면 지워진다(보완이 반려를 푼다 — 서류 반려와 같은 규칙).
-   */
-  preRejectReason: string | null;
   powerType: PowerType | null;
   /**
    * 현장 대표 교체유형 — 계약 라인이 전부 같을 때만 채운다.
@@ -922,19 +917,8 @@ export interface ProjectSummary {
   /** 마지막 진척 후 경과일. 노션엔 없는 지표. */
   stalledDays: number;
   priced: boolean;
-  /**
-   * 반려 건수 — 협력사가 목록에서 바로 알아야 한다.
-   * 서류 칸의 수 + 기설치 조사 반려(있으면 1). 무엇이 반려됐는지는 꼬리표가 말한다.
-   */
+  /** 반려된 서류 칸의 수 — 협력사가 목록에서 바로 알아야 한다(기설치 두 칸도 든다) */
   rejectedDocs: number;
-  /**
-   * 기설치 조사가 반려됐는가 (project.preRejectReason).
-   *
-   * 서류 반려와 같은 뜻이다 — 「이 계약은 아직 아니다」. rejectedDocs 에 한 건으로
-   * 같이 세고(그래야 계약보완에 「반려 0」으로 서지 않는다), 이 값은 그 한 건이
-   * 무엇이었는지를 말한다 — 카드에 「기설치」로 붙는다.
-   */
-  preRejected: boolean;
   /**
    * 필수 서류 칸이 다 찼는가 (반려 여부는 별개).
    * 계약접수(아직 모으는 중)와 계약검토(다 찼으니 한백 차례)를 가르는 값이다.
@@ -1255,11 +1239,6 @@ export interface ContractState {
    * 이 값을 봐야 한다 — 안 보면 「눌리는데 이름은 계약 확인 불가」가 된다.
    */
   docsExempt: boolean;
-  /**
-   * 기설치 조사가 반려된 상태인가 — 서류 반려와 같이 계약 확인을 막는다.
-   * 반려 「건수」에는 넣지 않는다(그 수는 서류 칸의 수다) — 막는 사실만 따로 쥔다.
-   */
-  preRejected: boolean;
   /** 이 현장에 필요한 필수 서류 칸 수 */
   requiredTotal: number;
   /** 그중 통과한 것 (제출됐고 반려 안 됨) */

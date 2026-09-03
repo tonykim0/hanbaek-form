@@ -477,7 +477,7 @@ export function IntakeTab({
                           * 없었다). 필수 판정은 req 가 하므로 여기에 올려도 접수 게이트는
                           * 그대로다 — 올릴 수 있는 것과 내야 하는 것은 다른 말이다.
                           */}
-                        {(canEditDocs || (canFillEmpty && slotEmpty) || (canReview && doc && doc.status !== 'none')) && (
+                        {(canEditDocs || (canFillEmpty && slotEmpty) || canReview) && (
                         <div className="mt-auto flex flex-wrap items-center gap-x-2 gap-y-1 border-t border-slate-900/[0.07] pt-2">
                           {/* 잠긴 뒤에도 빈 칸은 채운다 — canFillEmpty 주석 참조. 찬 칸은 그대로 잠긴다 */}
                           {(canEditDocs || (canFillEmpty && slotEmpty)) && (
@@ -490,12 +490,17 @@ export function IntakeTab({
                           )}
                           {/* 남는 자리를 밀어 반려·삭제를 반대쪽 끝으로 보낸다 */}
                           <span className="flex-1" />
-                          {canReview && doc && doc.status !== 'none' && (
+                          {/*
+                            * ★안 낸 서류도 칸마다 반려한다★ (한백 지시 2026-09-03) — 검토 중에
+                            * 특정 칸 하나를 짚어 돌려보내는 길이 묶음(누락 서류 N건 보완요청)
+                            * 뿐이었다. 빈 칸의 반려는 「반려 취소」로 미제출로 돌아간다.
+                            */}
+                          {canReview && (
                             <DocReview
                               projectId={projectId}
                               kind={d.key}
-                              status={doc.status}
-                              hasFile={doc.files.length > 0}
+                              status={doc?.status ?? 'none'}
+                              hasFile={(doc?.files.length ?? 0) > 0}
                             />
                           )}
                           {/*

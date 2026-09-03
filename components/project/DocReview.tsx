@@ -38,11 +38,12 @@ export function DocReview({
    */
   onRejected?: () => void;
   /**
-   * 이 칸에 파일이 있는가.
+   * 이 칸에 파일이 있는가 — 반려를 푸는 길이 갈린다.
    *
-   * 파일 없이 반려로 서 있는 칸이 있다 — 「누락 서류 보완요청」(askMissingDocs)이 세운
-   * 자리다. 거기서 반려를 풀면 파일 한 장 없는 칸이 통과 상태가 되므로 그 단추를 두지
-   * 않는다(저장소도 거절한다). 되돌리는 자리는 서류 구역 맨 위의 보완요청 취소다.
+   * 파일이 있으면 「반려 해제」(uploaded — 통과로). 파일이 없으면(누락 보완요청·미제출
+   * 반려) 통과로 풀 수 없다 — 풀리는 순간 파일 한 장 없는 칸이 통과로 세어진다. 그래서
+   * ★「반려 취소」(none — 미제출로)★다 (한백 지시 2026-09-03: 안 낸 서류도 칸마다
+   * 반려·취소한다. 그전에는 묶음 보완요청 취소뿐이었다).
    */
   hasFile?: boolean;
 }) {
@@ -50,7 +51,7 @@ export function DocReview({
   const [rejecting, setRejecting] = useState(false);
   const [reason, setReason] = useState('');
 
-  async function send(next: 'approved' | 'rejected' | 'uploaded', why?: string) {
+  async function send(next: 'approved' | 'rejected' | 'uploaded' | 'none', why?: string) {
     const ok = await run({
       url: `/api/projects/${projectId}/documents/${kind}`,
       method: 'PATCH',
@@ -105,9 +106,14 @@ export function DocReview({
         */}
         {status === 'rejected' ? (
           <>
-            {hasFile && (
+            {hasFile ? (
               <Btn size="sm" busy={busy} onClick={() => send('uploaded')}>
                 반려 해제
+              </Btn>
+            ) : (
+              /* 파일 없는 반려는 통과가 아니라 미제출로 돌아간다 — 위 hasFile 주석 */
+              <Btn size="sm" busy={busy} onClick={() => send('none')}>
+                반려 취소
               </Btn>
             )}
             {/* 곁다리 동작은 고스트 칩이다 — 밑줄은 링크로 읽힌다(화면 규칙 4) */}

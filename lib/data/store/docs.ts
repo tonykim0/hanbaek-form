@@ -120,14 +120,25 @@ export const docStore: Pick<
 
       if (!checkReviewable(row, input)) return; // 같은 값이면 로그를 남기지 않는다
 
-      await tx
-        .update(table)
-        .set({
-          status: input.status,
-          // 반려가 아니면 사유를 지운다 — 남겨두면 통과 상태인데 반려사유가 함께 뜬다
-          rejectReason: input.status === 'rejected' ? input.reason!.trim() : null,
-        })
-        .where(and(eq(table.projectId, input.projectId), eq(table.kind, input.kind)));
+      if (!row) {
+        // 미제출 칸의 반려 — 행이 없으면 만든다 (askMissingDocs 가 세우는 것과 같은 모양)
+        await tx.insert(table).values({
+          projectId: input.projectId,
+          kind: input.kind,
+          status: 'rejected',
+          rejectReason: input.reason!.trim(),
+          files: [],
+        });
+      } else {
+        await tx
+          .update(table)
+          .set({
+            status: input.status,
+            // 반려가 아니면 사유를 지운다 — 남겨두면 통과 상태인데 반려사유가 함께 뜬다
+            rejectReason: input.status === 'rejected' ? input.reason!.trim() : null,
+          })
+          .where(and(eq(table.projectId, input.projectId), eq(table.kind, input.kind)));
+      }
 
       /*
        * 검수는 진척이다 — 정체일 계산의 기준을 갱신한다.
@@ -163,9 +174,10 @@ export const docStore: Pick<
         action:
           input.status === 'rejected' ? '서류 반려'
           : input.status === 'approved' ? '서류 확인'
+          : input.status === 'none' ? '반려 취소'
           : '반려 해제',
         field: input.kind,
-        oldValue: row.status,
+        oldValue: row?.status ?? 'none',
         newValue: input.status === 'rejected' ? `rejected: ${input.reason!.trim()}` : input.status,
       });
     });
@@ -537,19 +549,28 @@ async function putContractDoc(
 /**
  * 검수할 수 있는 칸인가 — 아니면 던지고, 바뀐 것이 없으면 false 를 돌려준다.
  *
- * 올라오지 않은 서류는 검수 대상이 아니다. 조회 화면은 15칸을 모두 그리지만(mergeDocs)
- * 행이 없는 칸은 「미제출」이라, 여기서 막지 않으면 없는 서류가 승인된 것으로 남는다.
+ * ★안 낸 서류도 칸마다 반려할 수 있다★ (한백 지시 2026-09-03). 그전에는 미제출 칸의
+ * 반려 길이 「누락 서류 N건 보완요청」(askMissingDocs — 필수 전부 한 번에)뿐이라,
+ * 검토 중에 특정 칸 하나를 짚어 돌려보낼 수 없었다. 미제출 칸에 허락되는 판정은
+ * ★반려 하나★다 — 통과·승인은 여전히 막는다: 통과가 되면 satisfied 가 그 칸을 세어
+ * 파일 한 장 없는 계약이 확인 가능해진다.
  *
- * 파일 없이 반려로 서 있는 칸(누락 서류 보완요청, askMissingDocs)도 통과시킬 수 없다 —
- * 통과 상태가 되면 satisfied 가 그 칸을 세어 파일 한 장 없는 계약이 확인 가능해진다.
- * 되돌리는 길은 보완요청 취소다(askMissingDocs ask=false).
+ * 파일 없는 반려의 되돌림은 「미제출(none)」이다 — 통과(uploaded)로 풀면 위와 같은
+ * 구멍이 열린다. 파일이 있는 칸은 none 이 될 수 없다(파일 있는 「미제출」은 거짓말이다).
  */
 function checkReviewable(
   row: { status: string; blobUrl: string | null; rejectReason: string | null } | undefined,
   input: { status: DocStatus; reason?: string | null }
 ): boolean {
   if (!row || row.status === 'none') {
-    throw new Error('제출되지 않은 서류는 검수할 수 없습니다.');
+    if (input.status !== 'rejected') {
+      throw new Error('제출되지 않은 서류는 반려만 할 수 있습니다.');
+    }
+    return true; // 행이 없어도 반려는 선다 — setDocumentStatus 가 행을 만든다
+  }
+  if (input.status === 'none') {
+    if (row.blobUrl) throw new Error('파일이 있는 칸은 미제출로 되돌릴 수 없습니다.');
+    return row.status !== 'none';
   }
   if (input.status !== 'rejected' && !row.blobUrl) {
     throw new Error('파일이 없는 칸은 통과시킬 수 없습니다 — 제출을 기다리는 자리입니다.');

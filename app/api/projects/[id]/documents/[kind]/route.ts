@@ -11,8 +11,12 @@ import { dropBlob, pathnameOfBlobUrl } from '@/lib/intake-stage';
 
 type Params = { id: string; kind: string };
 
-/** uploaded = 반려 해제 (통과 상태로 되돌린다). 승인 단추는 없다 — 제출된 것이 기본 통과다. */
-const ALLOWED = ['rejected', 'uploaded', 'approved'] as const;
+/**
+ * uploaded = 반려 해제 (통과 상태로 되돌린다). 승인 단추는 없다 — 제출된 것이 기본 통과다.
+ * none = 파일 없는 반려의 취소(미제출로 되돌림) — 미제출 칸도 반려할 수 있게 되면서
+ * (한백 지시 2026-09-03) 그 되돌림이 필요해졌다. 파일 있는 칸의 none 은 저장소가 거절한다.
+ */
+const ALLOWED = ['rejected', 'uploaded', 'approved', 'none'] as const;
 type Allowed = (typeof ALLOWED)[number];
 
 export const PATCH = adminWrite<Params, { status?: string; reason?: string | null }>(

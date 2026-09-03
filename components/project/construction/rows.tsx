@@ -283,8 +283,9 @@ export function DocRow({
         )}
         <DocUpload projectId={projectId} kind={spec.key} rejected={rejected} hasFile={Boolean(doc?.blobUrl)} />
         {/*
-          반려는 올라온 파일에 대한 판정이다 — 파일 없는 칸에는 세우지 않는다
-          (저장소도 거절한다). 되돌리는 자리는 같은 부품의 「반려 해제」다.
+          시공 서류는 파일 있는 칸만 반려한다 — 공정 서류의 미제출은 단계(준공서류 제출)가
+          이미 막고 있어 칸마다 돌려보낼 일이 없다. 미제출 반려는 계약 탭의 일이다
+          (한백 지시 2026-09-03 — 저장소는 양쪽 다 허락하고, 세울지는 화면이 정한다).
         */}
         {canReview && doc?.blobUrl && (
           <DocReview

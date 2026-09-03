@@ -97,12 +97,16 @@ export interface ProjectRepository {
    * 'approved'는 「내가 직접 확인했다」는 표시로 남겨 둔다 — 통과 판정에는 영향이 없다.
    *
    * 반려는 사유가 필수다. 사유 없는 반려는 협력사가 무엇을 고쳐야 할지 알 수 없다.
+   *
+   * ★미제출 칸도 반려할 수 있다★ (한백 지시 2026-09-03) — 행이 없으면 만든다.
+   * 'none' 은 그 반려의 취소다(파일 없는 반려 → 미제출로 되돌림). 파일이 있는 칸은
+   * none 이 될 수 없다.
    */
   setDocumentStatus(
     input: {
       projectId: string;
       kind: string;
-      status: Extract<DocStatus, 'approved' | 'rejected' | 'uploaded'>;
+      status: DocStatus;
       reason?: string | null;
     },
     actor: Actor

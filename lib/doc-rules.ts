@@ -299,7 +299,12 @@ export const PROCESS_DOCS = [
   { key: 'completeConfirm', name: '설치완료확인서 (환경부)' },
   { key: 'costSurvey', name: '원가조사서 (환경부)' },
   // 대관서류 — 관공서에 내는 넷. 이름은 실제 파일 이름과 같게 적는다
-  { key: 'safety', name: '안전점검필증 (사용전점검필증)' },
+  /*
+   * 이름은 한 낱말이다 — 「안전점검필증 (사용전점검필증)」이었는데 서류 칸이 네 줄로
+   * 늘어서면 괄호가 둘째 줄로 넘어갔다(한백 지적 2026-09-04). 둘은 같은 서류의 두 이름이라
+   * 하나만 쓴다: 준공 단계에서 받는 것은 ★사용전점검★의 필증이다(정기 안전점검이 아니다).
+   */
+  { key: 'safety', name: '사용전점검필증' },
   /*
    * 전기안전관리자 선임신고증명서 — ★한전불입 현장만★ (한백 2026-08-27).
    * 모자분리는 세대 계량이라 선임 대상이 아니다. 혼용도 한전불입을 쓰므로 포함한다.
@@ -310,7 +315,7 @@ export const PROCESS_DOCS = [
     only: (c: ProcessDocCtx) => Boolean(c.powerType?.includes('한전불입')),
   },
   { key: 'useInspect', name: '사용검사 필증' },
-  { key: 'asBuilt', name: '준공도' },
+  { key: 'asBuilt', name: '준공도면' },
   { key: 'photoDone', name: '설치완료사진' },
   { key: 'comm', name: '통신확인' },
 ] as const;

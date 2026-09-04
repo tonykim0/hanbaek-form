@@ -155,7 +155,7 @@ describe('준공서류 제출 완료 — 세부 칸으로 본다 (2026-08-29 흐
   it('안 온 서류를 이름으로 말한다', () => {
     const p = P({ status: '준공서류 접수/검토', docs: [doc('completeConfirm'), doc('costSurvey')] });
     expect(advanceBlockers('준공완료', 'completionSubmitAt', p, ENV))
-      .toEqual(['안전점검필증 (사용전점검필증)', '사용검사 필증', '준공도']);
+      .toEqual(['사용전점검필증', '사용검사 필증', '준공도면']);
   });
 
   /* 한전불입은 전기안전관리자 선임신고증명서를 더 받는다 — 모자분리는 선임 대상이 아니다 */

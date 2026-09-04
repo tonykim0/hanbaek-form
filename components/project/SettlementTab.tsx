@@ -686,12 +686,15 @@ function PaymentSection({
           return uniq.length === 1 ? uniq[0] : ('mixed' as const);
         };
         const rows = sides.map((side) => {
-          const { adjust, paid } = payoutSideOf(entries, side.kind);
-          const steps = payoutStepsOf(side.plan, adjust, paid);
+          const sideSum = payoutSideOf(entries, side.kind);
+          const { adjust, paid } = sideSum;
+          const steps = payoutStepsOf(side.plan, sideSum);
           return {
             ...side,
             unit: unitOf((r) => (side.kind === '영업비' ? r.salesUnit : r.consUnit)),
             adjust, steps, paid,
+            /** 회차에 붙은 조정 — [미귀속, 1차분, 2차분]. 회차 칸이 「왜 계획이 움직였나」를 적는다 */
+            adjustBy: sideSum.adjustBy,
             /*
              * ★계획보다 더 나간 돈.★ 표가 계획(계획+조정)과 회차 금액만 보여 줘서, 실제로
              * 얼마가 나갔는지는 어디에도 없었다 — 단가를 잘못 알고 더 준 현장이 「1차
@@ -707,6 +710,9 @@ function PaymentSection({
              */
             stepPaid: (cat: '1차' | '2차') =>
               entries.find((e) => e.kind === side.kind && e.category === cat)?.amount ?? null,
+            /* 같은 날 적힌 조정의 앞뒤를 가르는 데 쓴다 — 날짜만으로는 순서를 모른다 */
+            stepCreatedAt: (cat: '1차' | '2차') =>
+              entries.find((e) => e.kind === side.kind && e.category === cat)?.createdAt ?? null,
           };
         });
         const unitCell = (unit: number | 'mixed' | null) =>
@@ -765,16 +771,50 @@ function PaymentSection({
                     const paidHere = r.stepPaid(`${no}차`);
                     // 나간 돈이 있으면 그것이 이 칸의 값이다 — 계획은 다를 때만 밑에 남긴다
                     const amount = paidHere ?? planned;
-                    const gap = paidHere !== null && paidHere !== planned;
+                    /* 이 회차에 붙은 조정 — 아래 「N차분 조정」이 적는 값이다 */
+                    const stepAdj = r.adjustBy[no];
+                    /*
+                     * ★되돌릴 것은 「지급 뒤에 붙은 조정」뿐이다★ (검토에서 잡힌 자리다).
+                     *
+                     * 초과·부족은 「그때 나갔어야 할 돈」과 실제 나간 돈을 견주는 말이다.
+                     * ★지급 전에 붙은 차감은 이미 나간 금액에 들어 있다★ — 확정이 그때의
+                     * 기준액을 그대로 원장에 박기 때문이다(writePayoutStep). 그것까지 되돌려
+                     * 견주면, 시킨 대로 깎아서 정확히 나간 1차에 매번 빨간 「부족」이 뜬다.
+                     * 한백이 쓰려는 흐름(먼저 깎고 그 금액으로 지급)이 바로 그 경우다.
+                     *
+                     * 뒤에 붙은 것만 되돌리면 셋이 다 맞는다 —
+                     *   지급 전 차감 : 되돌릴 것 0 → 기준 = 원장 → 조용하다
+                     *   지급 후 차감 : 그만큼 되돌림 → 기준 = 원장 → 조용하고, 「2차에서 상계」를 적는다
+                     *   진짜 초과지급: 조정이 없으니 기준 = 계획 → 「초과」가 그대로 뜬다
+                     */
+                    const adjAfter = at === null ? 0 : entries
+                      .filter((e) => e.kind === r.kind
+                        && entryTypeOf(e.category) === '조정'
+                        && (e.step ?? null) === no
+                        /* 같은 날 것은 적은 순서로 가른다 — 날짜만으로는 앞뒤를 모른다 */
+                        && (e.at > at || (e.at === at && e.createdAt > (r.stepCreatedAt(`${no}차`) ?? ''))))
+                      .reduce((n, e) => n + e.amount, 0);
+                    const base = planned - adjAfter;
+                    const gap = paidHere !== null && paidHere !== base;
                     return (
                       <Fragment key={no}>
                         <Td money className="whitespace-nowrap border-l border-slate-100">
                           <span className={`font-bold ${done ? 'text-slate-900' : 'text-slate-500'}`}>
                             {won(amount)}
                           </span>
+                          {stepAdj !== 0 && (
+                            <span className="block text-tiny font-semibold text-slate-500">
+                              {no}차분 조정 {stepAdj > 0 ? '+' : '−'}{won(Math.abs(stepAdj))}
+                              {/*
+                                뒤늦게 붙은 몫만 다음 회차로 흘러간다 — 지급 전에 붙은 것은
+                                이 회차에서 이미 빠졌으므로 상계할 것이 없다.
+                              */}
+                              {adjAfter !== 0 && no === 1 && <span className="text-slate-400"> · 2차에서 상계</span>}
+                            </span>
+                          )}
                           {gap && (
                             <span className="block text-tiny font-semibold text-red-700">
-                              계획 {won(planned)} · {paidHere! > planned ? '초과' : '부족'} {won(Math.abs(paidHere! - planned))}
+                              계획 {won(base)} · {paidHere! > base ? '초과' : '부족'} {won(Math.abs(paidHere! - base))}
                             </span>
                           )}
                         </Td>
@@ -794,7 +834,12 @@ function PaymentSection({
                               초과라고 적힌다(개발 시험에서 실제로 그랬다).
                             */
                             <span className="rounded-tag bg-slate-100 px-1.5 py-0.5 text-tiny font-bold text-slate-600">
-                              {r.over > 0 ? '초과 충당' : '다른 명목으로 지급'}
+                              {/*
+                                ★셋째가 또 필요해졌다★ — 이 회차 몫을 차감이 통째로 먹으면
+                                기준액이 0 이라 「다 나갔다」로 잡힌다. 나간 돈은 0 인데
+                                「다른 명목으로 지급」이라 적으면 없는 지급을 지어내는 것이다.
+                              */}
+                              {r.over > 0 ? '초과 충당' : planned === 0 ? '차감으로 없음' : '다른 명목으로 지급'}
                             </span>
                           ) : done ? (
                             <span className="inline-flex flex-col items-start gap-0.5">
@@ -895,6 +940,11 @@ function AdjustBox({
   const [bears, setBears] = useState<'영업비' | '한백'>('영업비');
   /** 재정산의 방향 — 깎기인가 더 주기인가 */
   const [minus, setMinus] = useState(true);
+  /**
+   * ★어느 회차 몫인가★ (한백 지시 2026-09-04 「영업비 1,2차 시공비 1차,2차 각각 영역에서
+   * 차감」). 기본은 총액(null) — 안 고르면 예전 그대로라, 이 칸을 몰라도 하던 대로 된다.
+   */
+  const [step, setStep] = useState<1 | 2 | null>(null);
   const [amount, setAmount] = useState('');
   const [at, setAt] = useState<string>(today());
   const [note, setNote] = useState('');
@@ -916,16 +966,19 @@ function AdjustBox({
       amount: parsed,
       at,
       note: note.trim() || null,
+      step,
       minus,
       hanbaekBears: extra && bears === '한백',
     })
     : [];
+  /* 「영업비 1차에서 …」 — 어느 회차에서 빠지는지 단추가 말한다 */
+  const where = (k: PayoutKind) => (step === null ? k : `${k} ${step}차`);
   const label = !valid ? '금액을 적으세요'
     : planned.length > 1
-      ? `${planned[0].kind}에서 ${won(parsed)}원 빼서 ${planned[1].kind}로`
+      ? `${where(planned[0].kind)}에서 ${won(parsed)}원 빼서 ${where(planned[1].kind)}로`
       : planned[0].amount < 0
-        ? `${planned[0].kind}에서 ${won(parsed)}원 빼기`
-        : `${planned[0].kind}에 ${won(parsed)}원 더하기`;
+        ? `${where(planned[0].kind)}에서 ${won(parsed)}원 빼기`
+        : `${where(planned[0].kind)}에 ${won(parsed)}원 더하기`;
 
   const save = async () => {
     const ok = await run({
@@ -936,7 +989,7 @@ function AdjustBox({
       body: planned,
       fail: '조정을 적지 못했습니다.',
     });
-    if (ok) { setOpen(false); setAmount(''); setNote(''); }
+    if (ok) { setOpen(false); setAmount(''); setNote(''); setStep(null); }
   };
 
   const remove = async (entryId: string) => {
@@ -973,6 +1026,7 @@ function AdjustBox({
               <tr>
                 <Th tight className="py-1.5">구분</Th>
                 <Th tight className="py-1.5">명목</Th>
+                <Th tight className="py-1.5">회차</Th>
                 <Th tight money className="py-1.5">금액</Th>
                 <Th tight className="py-1.5">반영일</Th>
                 <Th tight className="py-1.5">사유</Th>
@@ -984,6 +1038,10 @@ function AdjustBox({
                 <tr key={e.id}>
                   <Td tight className="whitespace-nowrap py-2 font-bold text-slate-700">{e.kind}</Td>
                   <Td tight className="whitespace-nowrap py-2 text-slate-600">{e.category}</Td>
+                  {/* 회차를 안 정한 옛 줄은 「총액」이다 — 빈칸으로 두면 안 적힌 것과 구별이 안 된다 */}
+                  <Td tight className="whitespace-nowrap py-2 text-slate-600">
+                    {e.step === null ? <span className="text-slate-400">총액</span> : `${e.step}차`}
+                  </Td>
                   {/* 나가는 돈과 빼는 돈이 한눈에 갈려야 한다 — 부호와 색이 같이 말한다 */}
                   <Td tight money className={`whitespace-nowrap py-2 font-black ${
                     e.amount < 0 ? 'text-red-700' : 'text-slate-900'
@@ -1060,6 +1118,24 @@ function AdjustBox({
                   </span>
                 </Cell>
               )}
+
+              {/*
+                * ★어느 회차에서 빼는가★ (한백 지시 2026-09-04). 예전에는 조정이 총액에만
+                * 붙어 70/30 으로 갈라졌다 — 「1차에서만 126만」이 1차 88만·2차 38만이 되어
+                * 사람이 말한 것과 화면이 하는 일이 달랐다.
+                *
+                * 기본은 「총액」이다 — 안 고르면 예전 그대로라 이 칸을 몰라도 하던 대로 된다.
+                * 이미 나간 회차를 고르면 그 몫은 다음 회차에서 상계된다(줄 목록이 그렇게 적는다).
+                */}
+              <Cell label="귀속 회차">
+                <span className="flex gap-1">
+                  {([null, 1, 2] as const).map((v) => (
+                    <Choice key={v ?? 'all'} on={step === v} disabled={busy} onClick={() => setStep(v)}>
+                      {v === null ? '총액' : `${v}차`}
+                    </Choice>
+                  ))}
+                </span>
+              </Cell>
 
               <Cell label="금액">
                 <input

@@ -404,7 +404,7 @@ const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
  * 수기로 못 적는다: 지급 확정(runPayoutBatch)이 계산해 넣는다.
  */
 export function checkPayoutEntry(input: {
-  kind: unknown; category: unknown; amount: unknown; at: unknown; note?: unknown;
+  kind: unknown; category: unknown; amount: unknown; at: unknown; note?: unknown; step?: unknown;
 }, opts: { manualOnly?: boolean } = {}): string | null {
   if (!PAYOUT_KINDS.includes(input.kind as PayoutKind)) return '구분(영업비/시공비)이 올바르지 않습니다.';
   const cat = CATEGORY_BY_KEY.get(input.category as PayoutCategory);
@@ -417,6 +417,10 @@ export function checkPayoutEntry(input: {
   }
   if (cat.sign > 0 && input.amount < 0) return `${cat.key}은(는) 나가는 돈이라 양수여야 합니다.`;
   if (cat.sign < 0 && input.amount > 0) return `${cat.key}은(는) 빼는 돈이라 음수여야 합니다.`;
+  /* 회차는 1·2 아니면 안 정한 것(null) 뿐이다 — 조정에서 사람이 고른다 */
+  if (input.step !== undefined && input.step !== null && input.step !== 1 && input.step !== 2) {
+    return '귀속 회차는 1차·2차 중 하나이거나 미지정이어야 합니다.';
+  }
   if (typeof input.at !== 'string' || !DATE_RE.test(input.at)) return '날짜는 YYYY-MM-DD 형식이어야 합니다.';
   if (input.note !== undefined && input.note !== null && typeof input.note !== 'string') {
     return '메모가 올바르지 않습니다.';
@@ -427,30 +431,65 @@ export function checkPayoutEntry(input: {
 /**
  * 회차 진행 — 금액은 정해져 있고 사람은 「언제 줬는가」만 정한다.
  *
- * 지급할 총액 = 계획(단가×대수) + 조정. 1차 = 그 70%(끝수 포함), 2차 = 잔액.
- * covered(지급 합)가 1차 기준액을 넘으면 1차가 끝난 것이고, 총액을 넘으면 다 나간 것이다 —
- * 원장 전의 기록(선금·차액)이 있어도 문턱으로 세므로 이중 지급이 안 생긴다.
+ * 지급할 총액 = 계획(단가×대수) + 조정. 그 총액을 1차 70% · 2차 잔액으로 가른다.
+ *
+ * ★조정에 회차가 붙으면 그 회차에 통째로 얹는다★ (한백 지시 2026-09-04 「영업비 1,2차
+ * 시공비 1차,2차 각각 영역에서 차감」). 예전에는 조정이 총액에만 붙어 70/30 으로
+ * 갈라졌다 — 「1차에서만 126만 빼기」가 1차 88만·2차 38만이 되어, 사람이 말한 것과
+ * 화면이 하는 일이 달랐다. 그래서 비례로 나누는 대상을 ★계획 + 회차를 안 정한 조정★
+ * 으로 좁히고, 회차가 붙은 조정은 그 회차 기준액에 그대로 더한다.
+ *   base = 계획 + 미귀속 조정 → 70/30 으로 가른다
+ *   1차 = base 의 70% + 1차분 조정 · 2차 = 총액 − 1차   ★합은 언제나 총액이다★
+ * 회차를 아무도 안 골랐으면 base 가 곧 총액이라 ★옛 식과 한 자리도 다르지 않다★.
+ *
+ * ★나간 회차는 원장이 정본이다★ — 원장에 그 회차 지급 줄이 있으면 뒤늦게 조정이 붙어도
+ * 다시 열리지 않는다. 예전에는 문턱(paid ≥ 기준액)만 봐서, 증액 조정 하나에 확정된 1차가
+ * 「지급 가능」으로 되살아나고 누르면 중복 회차로 그날 배치가 통째로 섰다.
+ * 나머지 문턱 판정은 그대로 둔다 — 원장 전의 기록(선금·차액)이 섞여도 이중 지급이 안 난다.
  */
-export function payoutStepsOf(plan: number, adjust: number, paid: number): {
-  /** 지급할 총액 = 계획 + 조정 */
+export function payoutStepsOf(plan: number, side: {
+  adjust: number;
+  adjustBy: readonly [number, number, number];
+  paid: number;
+  ledger: readonly [number | null, number | null];
+}): {
+  /** 지급할 총액 = 계획 + 조정 (뜻은 예전과 같다) */
   due: number;
-  /** [1차, 2차] 기준액 — due 의 70/30, 끝수는 1차 */
+  /** [1차, 2차] 기준액 — 합은 언제나 총액이다 */
   parts: [number, number];
   /** 지금 지급할 회차. null 이면 다 나갔거나(잔액 0·음수) 지급할 것이 없다. */
   open: { no: 1 | 2; amount: number } | null;
   step1Done: boolean;
   step2Done: boolean;
 } {
-  const due = plan + adjust;
-  const [a, b] = due > 0 ? payInstallments(due) : [0, 0];
-  const step1Done = due > 0 && paid >= a;
-  const step2Done = due > 0 && paid >= due;
+  const [adj0, adj1, adj2] = side.adjustBy;
+  const { paid, ledger } = side;
+  const base = plan + adj0;
+  const [b1] = base > 0 ? payInstallments(base) : [0, 0];
+  const due = plan + side.adjust;
+  /*
+   * 1차를 [0, 총액] 으로 자른다 — 1차분 차감이 1차 기준액보다 크면 넘친 몫이 2차로 흐르고,
+   * 그래도 ★1차 + 2차 = 총액★ 은 안 깨진다. 이 불변식이 깨지면 보드의 초과 판정과
+   * 정산 현황의 잔액이 서로 다른 말을 한다.
+   */
+  const cap = Math.max(due, 0);
+  const a1 = Math.min(Math.max(b1 + adj1, 0), cap);
+  const a2 = cap - a1;
+  const has1 = ledger[0] !== null;
+  const has2 = ledger[1] !== null;
+  const step1Done = has1 || (due > 0 && paid >= a1);
+  const step2Done = has2 || (due > 0 && paid >= due);
   let open: { no: 1 | 2; amount: number } | null = null;
   if (due > 0) {
-    if (!step1Done) open = { no: 1, amount: a - paid };
+    if (!step1Done) open = { no: 1, amount: a1 - paid };
     else if (!step2Done) open = { no: 2, amount: due - paid };
   }
-  return { due, parts: [a, b], open, step1Done, step2Done };
+  /*
+   * 「뒤늦게 붙은 몫」은 여기서 내지 않는다 — 기준액 − 원장은 조정이 아닌 이유로 벌어진
+   * 차이(진짜 초과 지급)까지 조정 몫으로 세어 버린다. 그 판정은 조정 줄의 날짜를 보는
+   * 화면의 일이다(components/project/SettlementTab.tsx 의 adjAfter).
+   */
+  return { due, parts: [a1, a2], open, step1Done, step2Done };
 }
 
 /**
@@ -475,38 +514,59 @@ export function adjustEntriesOf(input: {
   amount: number;
   at: string;
   note: string | null;
+  /** 어느 회차 몫인가 — 안 고르면 예전처럼 총액에 붙는다 */
+  step?: 1 | 2 | null;
   /** 방향 없는 명목(재정산)에서 빼는 것인가 */
   minus?: boolean;
   /** 추가공사비를 한백이 안고 가나 — 그러면 빼는 줄이 없다 */
   hanbaekBears?: boolean;
 }): NewPayoutEntry[] {
   const { category, kind, amount, at, note } = input;
+  /* 회차는 두 줄에 같이 실린다 — 한 사실이 갈라진 것이라 서로 다른 회차일 수 없다 */
+  const step = input.step ?? null;
   if (category === '추가공사비') {
-    const paid: NewPayoutEntry = { kind: '시공비', category: '추가공사비', amount, at, note };
+    const paid: NewPayoutEntry = { kind: '시공비', category: '추가공사비', amount, at, note, step };
     // 시공비에서 빼서 시공비로 줄 수는 없다 — 그때도 한백이 안는 것과 같다
     if (input.hanbaekBears || kind === '시공비') return [paid];
     return [
       /* 명목은 「차감」이고 사유가 그 까닭을 말한다 — 추가공사비는 나가는 돈이라 음수가 못 된다 */
-      { kind, category: '차감', amount: -amount, at, note: note ? `추가공사비 · ${note}` : '추가공사비' },
+      { kind, category: '차감', amount: -amount, at, note: note ? `추가공사비 · ${note}` : '추가공사비', step },
       paid,
     ];
   }
   const cat = CATEGORY_BY_KEY.get(category)!;
   const sign = cat.sign !== 0 ? cat.sign : input.minus ? -1 : 1;
-  return [{ kind, category, amount: sign * amount, at, note }];
+  return [{ kind, category, amount: sign * amount, at, note, step }];
 }
 
-/** 한쪽(영업비/시공비)의 원장 합 — 잔액 = 계획 + adjust − paid */
+/**
+ * 한쪽(영업비/시공비)의 원장 합 — 잔액 = 계획 + adjust − paid.
+ *
+ * 조정을 회차로도 갈라 낸다(adjustBy) — 회차 기준액을 만드는 재료다(payoutStepsOf).
+ * 원장의 회차 지급액(ledger)도 같이 낸다 — 나간 회차를 다시 열지 않는 근거다.
+ */
 export function payoutSideOf(entries: PayoutEntry[], kind: PayoutKind): {
   adjust: number;
+  /** [미귀속, 1차분, 2차분] — 합은 adjust 와 같다 */
+  adjustBy: [number, number, number];
   paid: number;
+  /** 원장에 박힌 회차 지급액 [1차, 2차] — null 이면 아직 안 나갔다 */
+  ledger: [number | null, number | null];
   lastPaidAt: string | null;
 } {
   const mine = entries.filter((e) => e.kind === kind);
   const paidRows = mine.filter((e) => entryTypeOf(e.category) === '지급');
+  const adjRows = mine.filter((e) => entryTypeOf(e.category) === '조정');
+  /* 한 회차에 조정이 여러 줄일 수 있다 — 합쳐서 센다 */
+  const adjOf = (step: 1 | 2 | null) =>
+    adjRows.filter((e) => (e.step ?? null) === step).reduce((n, e) => n + e.amount, 0);
+  const ledgerOf = (category: '1차' | '2차') =>
+    paidRows.find((e) => e.category === category)?.amount ?? null;
   return {
-    adjust: mine.filter((e) => entryTypeOf(e.category) === '조정').reduce((n, e) => n + e.amount, 0),
+    adjust: adjRows.reduce((n, e) => n + e.amount, 0),
+    adjustBy: [adjOf(null), adjOf(1), adjOf(2)],
     paid: paidRows.reduce((n, e) => n + e.amount, 0),
+    ledger: [ledgerOf('1차'), ledgerOf('2차')],
     lastPaidAt: paidRows.reduce<string | null>((last, e) => (!last || e.at > last ? e.at : last), null),
   };
 }

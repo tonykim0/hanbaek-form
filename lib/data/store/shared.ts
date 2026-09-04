@@ -280,6 +280,8 @@ export function toPayoutEntry(r: typeof payoutEntries.$inferSelect): PayoutEntry
     projectId: r.projectId,
     kind: r.kind as PayoutKind,
     category: r.category as PayoutCategory,
+    /* 1·2 아닌 값은 없다(0054 마이그레이션·checkPayoutEntry) — 그래도 좁혀서 넘긴다 */
+    step: r.step === 1 || r.step === 2 ? r.step : null,
     amount: r.amount,
     at: r.at,
     note: r.note ?? null,

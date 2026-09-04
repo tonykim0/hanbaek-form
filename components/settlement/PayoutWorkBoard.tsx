@@ -430,6 +430,16 @@ export default function PayoutWorkBoard({
                   {p.adjust !== 0 && (
                     <p className="whitespace-nowrap text-tiny font-semibold text-slate-400">
                       조정 {p.adjust > 0 ? '+' : ''}{won(p.adjust)} 포함
+                      {/* 회차에 붙은 몫은 어느 회차인지 적는다 — 총액만으로는 어디서 빠지는지 모른다 */}
+                      {(p.adjustBy[1] !== 0 || p.adjustBy[2] !== 0) && (
+                        <span className="text-slate-400">
+                          {' ('}
+                          {[1, 2].filter((n) => p.adjustBy[n] !== 0)
+                            .map((n) => `${n}차 ${p.adjustBy[n] > 0 ? '+' : '-'}${won(Math.abs(p.adjustBy[n]))}`)
+                            .join(' · ')}
+                          {')'}
+                        </span>
+                      )}
                     </p>
                   )}
                   {p.confirmed > p.plan + p.adjust && (
@@ -491,7 +501,16 @@ function StepCells({
   const covered = done && entryId === null && at === null;
   // 초과로 채워진 것과 딴 명목(선금·차액)으로 나간 것을 가른다 — 뭉뚱그리면 거짓말이 된다
   const overflow = p.confirmed > p.plan + p.adjust;
-  const amount = p.open?.no === no ? p.open.amount : no === 1 ? p.step1Amount : p.step2Amount;
+  /*
+   * ★나간 회차는 원장 금액을 적는다★ (한백 지시 2026-09-04). 예전에는 끝난 회차에도
+   * 다시 계산한 기준액을 적어서, 조정을 하나 넣으면 세금계산서까지 나간 1차가 이 표에서만
+   * 조용히 줄었다 — 거래명세서와 다른 숫자를 말하는 화면이 됐다. 현장 상세의 같은 표는
+   * 이미 원장을 먼저 적는다(components/project/SettlementTab.tsx) — 둘을 맞춘다.
+   */
+  const ledgerHere = p.ledger[no - 1];
+  const amount = p.open?.no === no
+    ? p.open.amount
+    : ledgerHere ?? (no === 1 ? p.step1Amount : p.step2Amount);
   const openHere = p.open?.no === no;
   const release = payoutReleaseOf(p.kind, no, p.milestones);
   const finalized = at !== null && finalizedBatches.has(batchKey(at, p.org, p.kind));
@@ -549,8 +568,11 @@ function StepCells({
         그 밖의 사정(수수료 미정 등)은 상태가 아니라 이유라 배지 밑에 글로 남는다.
       */}
       <Td className="max-w-[13rem]">
+        {/* 차감이 이 회차 몫을 통째로 먹으면 나간 돈이 0 이다 — 없는 지급을 지어내지 않는다 */}
         {covered ? (
-          <Badge tone="mute">{overflow ? '초과 충당' : '다른 명목으로 지급'}</Badge>
+          <Badge tone="mute">
+            {overflow ? '초과 충당' : amount === 0 ? '차감으로 없음' : '다른 명목으로 지급'}
+          </Badge>
         ) : done && state ? (
           <Badge tone={
             state === '확정' ? 'ok'

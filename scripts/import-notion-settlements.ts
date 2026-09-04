@@ -316,10 +316,16 @@ async function main() {
   for (const m of target) {
     await db.insert(payoutEntries).values({
       id: idOf(m), projectId: m.projectId, kind: m.kind, category: m.category,
-      amount: m.amount, at: m.at, note: `노션 정산관리 ${m.no}`, createdAt: now,
+      /* 회차는 명목과 짝이다 — 노션에서 온 줄도 1차·2차뿐이다 */
+      amount: m.amount, step: m.category === '1차' ? 1 : m.category === '2차' ? 2 : null,
+      at: m.at, note: `노션 정산관리 ${m.no}`, createdAt: now,
     }).onConflictDoUpdate({
       target: payoutEntries.id,
-      set: { projectId: m.projectId, kind: m.kind, category: m.category, amount: m.amount, at: m.at },
+      /* ★set 에도 step 을 넣는다★ — 빠뜨리면 다시 돌릴 때 조용히 null 이 남아 회차가 되열린다 */
+      set: {
+        projectId: m.projectId, kind: m.kind, category: m.category, amount: m.amount, at: m.at,
+        step: m.category === '1차' ? 1 : m.category === '2차' ? 2 : null,
+      },
     });
     wrote++;
   }

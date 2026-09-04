@@ -10,7 +10,7 @@
  */
 import {
   boolean, index, integer, jsonb, pgTable, primaryKey,
-  text, timestamp, uniqueIndex,
+  smallint, text, timestamp, uniqueIndex,
 } from 'drizzle-orm/pg-core';
 
 // ── 계정 ────────────────────────────────────────────────────────
@@ -403,6 +403,15 @@ export const payoutEntries = pgTable('payout_entries', {
   kind: text('kind').notNull(),
   category: text('category').notNull(),
   amount: integer('amount').notNull(),
+  /**
+   * 어느 회차 몫인가 — 1·2, null 이면 회차를 안 정한 총액 조정
+   * (types/project.ts PayoutEntry.step 이 뜻의 정본이다).
+   *
+   * ★null 을 허용해야 한다★ — 프로덕션에 이미 있는 조정 줄은 어느 차수 몫인지 사실이
+   * 원장에 없다. 기본값을 박으면 없는 사실을 지어내는 것이고, 그 값으로 회차 기준액이
+   * 움직인다. 값 검사는 lib/settlement.ts checkPayoutEntry 한 곳이다(저장소 관례).
+   */
+  step: smallint('step'),
   /** 지급일(지급) 또는 발생일(조정), YYYY-MM-DD */
   at: text('at').notNull(),
   note: text('note'),

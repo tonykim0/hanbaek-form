@@ -193,8 +193,8 @@ describe('초과 지급은 완료가 아니다 — 되받거나 잔금에서 뺄
 describe('workOf — 계약중단 현장은 지급하지 않는다', () => {
   const row = (over: Partial<PayoutRowInput> = {}): PayoutRowInput => ({
     key: 'p|영업비', projectId: 'p', projectName: '시험현장', cpo: '플러그링크',
-    kind: '영업비', org: '엘앤에스', plan: 4_000_000, adjust: 0, confirmed: 0,
-    unpriced: 0, holdState: null,
+    kind: '영업비', org: '엘앤에스', plan: 4_000_000, adjust: 0, adjustBy: [0, 0, 0], confirmed: 0,
+    ledger: [null, null], unpriced: 0, holdState: null,
     milestones: { contractCompletedAt: '2026-07-01', installCompletedAt: null, completedAt: null },
     payoutDocsMissing: [],
     step1At: null, step2At: null, step1EntryId: null, step2EntryId: null,

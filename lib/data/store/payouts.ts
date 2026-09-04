@@ -378,7 +378,8 @@ export const payoutStore: Pick<
         await tx.insert(payoutEntries).values({
           id, projectId,
           kind: input.kind, category: input.category,
-          amount: input.amount, at: input.at, note,
+          /* 사람이 고른 회차 — 안 고르면 null 이라 예전처럼 총액에 붙는다 */
+          amount: input.amount, step: input.step ?? null, at: input.at, note,
           createdAt: stamp,
         });
         /*
@@ -393,7 +394,8 @@ export const payoutStore: Pick<
         }
         await writeAudit(tx, {
           projectId, actor, action: '지급 기록 추가',
-          field: `${input.kind} ${input.category}`,
+          /* 회차가 회차 기준액을 통째로 움직인다 — 로그에 없으면 되짚을 수 없다 */
+          field: `${input.kind} ${input.category}${input.step ? ` ${input.step}차분` : ''}`,
           oldValue: null, newValue: `${input.amount}원 · ${input.at}${note ? ` · ${note}` : ''}`,
         });
       }
@@ -445,7 +447,8 @@ export const payoutStore: Pick<
       // 지운 값을 로그에 통째로 남긴다 — 고치기가 없는 대신 무엇이 지워졌는지는 남아야 한다
       await writeAudit(tx, {
         projectId, actor, action: '지급 기록 삭제',
-        field: `${row.kind} ${row.category}`,
+        /* 지운 값을 통째로 남긴다 — 회차도 그 값의 일부다(고치는 길이 지우고 다시 적기다) */
+        field: `${row.kind} ${row.category}${row.step ? ` ${row.step}차분` : ''}`,
         oldValue: `${row.amount}원 · ${row.at}${row.note ? ` · ${row.note}` : ''}`, newValue: null,
       });
     });
@@ -489,8 +492,7 @@ function openStepFor(
     const unit = kind === '영업비' ? rule?.salesUnit : rule?.consUnit;
     return n + (unit ?? 0) * l.qty;
   }, 0);
-  const { adjust, paid } = payoutSideOf(r.payoutEntries ?? [], kind);
-  const { open } = payoutStepsOf(plan, adjust, paid);
+  const { open } = payoutStepsOf(plan, payoutSideOf(r.payoutEntries ?? [], kind));
   if (!open) throw new Error(`${name} ${kind} — 확정할 회차가 없습니다 (잔액 0 이거나 이미 확정됐습니다).`);
 
   const release = payoutReleaseOf(kind, open.no, payoutMilestonesFor(r));
@@ -554,7 +556,8 @@ async function writePayoutStep(
   const category = `${open.no}차`;
   await tx.insert(payoutEntries).values({
     id: crypto.randomUUID(), projectId,
-    kind, category, amount: open.amount, at, note: null,
+    /* 지급 줄에서 회차는 명목과 짝이다 — 서버가 채운다(사람이 고르는 것은 조정뿐) */
+    kind, category, amount: open.amount, step: open.no, at, note: null,
     createdAt: stampOf(new Date()),
   });
   await tx.update(projects).set({ lastProgressAt: today() }).where(eq(projects.id, projectId));

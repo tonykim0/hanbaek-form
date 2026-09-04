@@ -51,7 +51,9 @@ export function payoutsOfDetail(d: ProjectDetail, vis: Visibility): PayoutRowInp
       org: kind === '영업비' ? d.project.salesOrg : d.project.gcOrg,
       plan: d.lines.reduce((n, l) => n + (unit(l) ?? 0) * l.qty, 0),
       adjust: side.adjust,
+      adjustBy: side.adjustBy,
       confirmed: side.paid,
+      ledger: side.ledger,
       // 자기 쪽 단가가 안 붙은 라인 — 요약의 unpricedLines 와 같은 말을 자기 쪽만 센다
       unpriced: d.lines.filter((l) => unit(l) === null).length,
       holdState: d.project.holdState,
@@ -150,7 +152,9 @@ export const isPayoutSubject = (p: { due: number; confirmed: number; unpriced: n
   p.due > 0 || p.confirmed !== 0 || p.unpriced > 0;
 
 export function workOf(p: PayoutRowInput): PayoutWork {
-  const steps = payoutStepsOf(p.plan, p.adjust, p.confirmed);
+  const steps = payoutStepsOf(p.plan, {
+    adjust: p.adjust, adjustBy: p.adjustBy, paid: p.confirmed, ledger: p.ledger,
+  });
   const prerequisites = payoutPrerequisiteBlockersOf({
     kind: p.kind, org: p.org, unpriced: p.unpriced, payoutDocsMissing: p.payoutDocsMissing,
   });

@@ -85,8 +85,23 @@ describe('payInstallments · payoutStepsOf — 협력사 지급 회차 (70/30)',
     expect(payInstallments(1_000_001)).toEqual([700_001, 300_000]);
   });
 
+  /**
+   * 원장 요약 만들기 — 회차를 안 정한 조정(adj0)만 주면 옛 호출과 같은 뜻이다.
+   * 이 도우미가 곧 「무엇이 안 바뀌었나」의 선이다.
+   */
+  const side = (
+    adjust: number,
+    paid: number,
+    opts: { by?: [number, number, number]; ledger?: [number | null, number | null] } = {}
+  ) => ({
+    adjust,
+    adjustBy: opts.by ?? ([adjust, 0, 0] as [number, number, number]),
+    paid,
+    ledger: opts.ledger ?? ([null, null] as [number | null, number | null]),
+  });
+
   it('아무것도 안 준 상태면 1차가 열린다', () => {
-    const s = payoutStepsOf(1_000_000, 0, 0);
+    const s = payoutStepsOf(1_000_000, side(0, 0));
     expect(s.due).toBe(1_000_000);
     expect(s.parts).toEqual([700_000, 300_000]);
     expect(s.open).toEqual({ no: 1, amount: 700_000 });
@@ -94,19 +109,93 @@ describe('payInstallments · payoutStepsOf — 협력사 지급 회차 (70/30)',
   });
 
   it('1차를 다 주면 2차가 열린다', () => {
-    const s = payoutStepsOf(1_000_000, 0, 700_000);
+    const s = payoutStepsOf(1_000_000, side(0, 700_000));
     expect(s.step1Done).toBe(true);
     expect(s.open).toEqual({ no: 2, amount: 300_000 });
   });
 
   it('★원장에 선금·차액으로 나뉘어 있어도 문턱으로 센다★ — 이중 지급이 안 생긴다', () => {
-    const s = payoutStepsOf(1_000_000, 0, 1_000_000);
+    const s = payoutStepsOf(1_000_000, side(0, 1_000_000));
     expect(s.step2Done).toBe(true);
     expect(s.open).toBeNull();
   });
 
   it('조정(감액)이 총액을 0 이하로 만들면 열리는 회차가 없다', () => {
-    expect(payoutStepsOf(1_000_000, -1_000_000, 0).open).toBeNull();
+    expect(payoutStepsOf(1_000_000, side(-1_000_000, 0)).open).toBeNull();
+  });
+
+  /*
+   * ★회차별 조정★ (한백 지시 2026-09-04 「영업비 1,2차 시공비 1차,2차 각각 영역에서 차감」).
+   * 회차를 안 고르면 옛 식과 한 자리도 다르지 않아야 한다 — 그것이 이관의 안전선이다.
+   */
+  it('회차를 안 고른 조정은 예전처럼 70/30 으로 갈라진다', () => {
+    const s = payoutStepsOf(10_000_000, side(-1_260_000, 0));
+    expect(s.due).toBe(8_740_000);
+    expect(s.parts).toEqual([6_118_000, 2_622_000]);
+    expect(s.open).toEqual({ no: 1, amount: 6_118_000 });
+  });
+
+  it('★1차분 차감은 1차에서만 빠진다★ — 2차 기준액이 안 흔들린다', () => {
+    const s = payoutStepsOf(10_000_000, side(-1_260_000, 0, { by: [0, -1_260_000, 0] }));
+    expect(s.due).toBe(8_740_000);
+    expect(s.parts).toEqual([5_740_000, 3_000_000]);
+    expect(s.open).toEqual({ no: 1, amount: 5_740_000 });
+  });
+
+  it('2차분 차감은 1차를 그대로 두고 2차에서만 빠진다', () => {
+    const s = payoutStepsOf(10_000_000, side(-1_260_000, 0, { by: [0, 0, -1_260_000] }));
+    expect(s.parts).toEqual([7_000_000, 1_740_000]);
+    expect(s.open).toEqual({ no: 1, amount: 7_000_000 });
+  });
+
+  it('회차 기준액의 합은 언제나 총액이다 — 1차분 차감이 1차보다 커도', () => {
+    const s = payoutStepsOf(10_000_000, side(-8_000_000, 0, { by: [0, -8_000_000, 0] }));
+    expect(s.parts).toEqual([0, 2_000_000]);
+    expect(s.parts[0] + s.parts[1]).toBe(s.due);
+  });
+
+  it('★나간 회차는 원장이 정본이다★ — 증액 조정에 1차가 되열리지 않는다', () => {
+    const s = payoutStepsOf(10_000_000, side(2_000_000, 7_000_000, {
+      by: [0, 2_000_000, 0], ledger: [7_000_000, null],
+    }));
+    expect(s.step1Done).toBe(true);
+    expect(s.open).toEqual({ no: 2, amount: 5_000_000 });
+    // 확정 뒤에 붙은 몫은 2차 잔액에 그대로 들어간다 — 계획 30% 300만이 아니라 500만이다
+    expect(s.parts).toEqual([9_000_000, 3_000_000]);
+  });
+
+  it('1차가 나간 뒤의 1차분 차감은 2차에서 상계된다 — 금액은 총액이 정한다', () => {
+    const s = payoutStepsOf(10_000_000, side(-1_260_000, 7_000_000, {
+      by: [0, -1_260_000, 0], ledger: [7_000_000, null],
+    }));
+    expect(s.open).toEqual({ no: 2, amount: 1_740_000 });
+    // 1차 기준액은 574만으로 내려갔지만 원장 700만은 그대로다 — 차액은 2차에서 상계된다
+    expect(s.parts).toEqual([5_740_000, 3_000_000]);
+  });
+
+  it('★지급 전에 깎으면 그 금액이 그대로 1차로 나간다★ — 화면이 「부족」이라 할 일이 없다', () => {
+    const before = payoutStepsOf(7_500_000, side(-600_000, 0, { by: [0, -600_000, 0] }));
+    expect(before.open).toEqual({ no: 1, amount: 4_650_000 });
+    // 그 금액으로 확정하면 원장 = 기준액이라 어긋남이 없다
+    const after = payoutStepsOf(7_500_000, side(-600_000, 4_650_000, {
+      by: [0, -600_000, 0], ledger: [4_650_000, null],
+    }));
+    expect(after.parts[0]).toBe(4_650_000);
+    expect(after.open).toEqual({ no: 2, amount: 2_250_000 });
+  });
+
+  it('1차분 차감이 1차를 다 먹으면 전액이 2차로 밀린다', () => {
+    const s = payoutStepsOf(10_000_000, side(-7_000_000, 0, { by: [0, -7_000_000, 0] }));
+    expect(s.parts).toEqual([0, 3_000_000]);
+    expect(s.step1Done).toBe(true);
+    expect(s.open).toEqual({ no: 2, amount: 3_000_000 });
+  });
+
+  it('열린 회차 금액은 언제나 양수다 — 음수 지급이 확정될 길이 없다', () => {
+    for (const [adjust, paid] of [[-9_000_000, 0], [-5_000_000, 7_000_000], [0, 999_999]] as const) {
+      const s = payoutStepsOf(10_000_000, side(adjust, paid));
+      if (s.open) expect(s.open.amount).toBeGreaterThan(0);
+    }
   });
 });
 
@@ -139,7 +228,7 @@ describe('adjustEntriesOf — 조정 한 건이 원장에 남기는 줄', () => 
 
   it('차감은 한 줄, 음수 — 사람은 양수만 적는다', () => {
     expect(adjustEntriesOf({ ...base, category: '차감', kind: '영업비' })).toEqual([
-      { kind: '영업비', category: '차감', amount: -300_000, at: '2026-08-29', note: '전기 인입 추가' },
+      { kind: '영업비', category: '차감', amount: -300_000, at: '2026-08-29', note: '전기 인입 추가', step: null },
     ]);
   });
 
@@ -151,8 +240,8 @@ describe('adjustEntriesOf — 조정 한 건이 원장에 남기는 줄', () => 
   it('★추가공사비는 영업비에서 빼서 시공비로 넘긴다★ — 한 사실이 두 줄', () => {
     const rows = adjustEntriesOf({ ...base, category: '추가공사비', kind: '영업비' });
     expect(rows).toEqual([
-      { kind: '영업비', category: '차감', amount: -300_000, at: '2026-08-29', note: '추가공사비 · 전기 인입 추가' },
-      { kind: '시공비', category: '추가공사비', amount: 300_000, at: '2026-08-29', note: '전기 인입 추가' },
+      { kind: '영업비', category: '차감', amount: -300_000, at: '2026-08-29', note: '추가공사비 · 전기 인입 추가', step: null },
+      { kind: '시공비', category: '추가공사비', amount: 300_000, at: '2026-08-29', note: '전기 인입 추가', step: null },
     ]);
   });
 
@@ -169,8 +258,18 @@ describe('adjustEntriesOf — 조정 한 건이 원장에 남기는 줄', () => 
   it('한백이 안으면 빼는 줄이 없다 — 시공비 한 줄(마진이 그만큼 줄어든다)', () => {
     expect(adjustEntriesOf({ ...base, category: '추가공사비', kind: '영업비', hanbaekBears: true }))
       .toEqual([
-        { kind: '시공비', category: '추가공사비', amount: 300_000, at: '2026-08-29', note: '전기 인입 추가' },
+        { kind: '시공비', category: '추가공사비', amount: 300_000, at: '2026-08-29', note: '전기 인입 추가', step: null },
       ]);
+  });
+
+  it('★고른 회차는 갈라진 두 줄에 같이 실린다★ — 한 사실이라 서로 다른 회차일 수 없다', () => {
+    const rows = adjustEntriesOf({ ...base, category: '추가공사비', kind: '영업비', step: 2 });
+    expect(rows.map((e) => e.step)).toEqual([2, 2]);
+  });
+
+  it('회차를 안 고르면 null 이다 — 예전처럼 총액에 붙는다', () => {
+    const [e] = adjustEntriesOf({ ...base, category: '차감', kind: '영업비' });
+    expect(e.step).toBeNull();
   });
 
   it('시공비에서 빼서 시공비로 줄 수는 없다 — 한백이 안는 것과 같다', () => {

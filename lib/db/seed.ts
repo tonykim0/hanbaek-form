@@ -220,7 +220,7 @@ async function seedProjects() {
         await tx.insert(payoutEntries).values(
           r.payoutEntries.map((e) => ({
             id: e.id, projectId: p.id, kind: e.kind, category: e.category,
-            amount: e.amount, at: e.at, note: e.note, createdAt: e.createdAt,
+            amount: e.amount, step: e.step, at: e.at, note: e.note, createdAt: e.createdAt,
           }))
         );
       }

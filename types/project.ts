@@ -847,7 +847,20 @@ export interface PayoutPlanRow {
   org: string | null;
   plan: number;
   adjust: number;
+  /**
+   * 조정을 회차로 가른 것 — [미귀속, 1차분, 2차분]. 합은 adjust 와 같다.
+   * 회차 기준액을 여기서 만든다(lib/settlement.ts payoutStepsOf).
+   */
+  adjustBy: [number, number, number];
   confirmed: number;
+  /**
+   * 원장에 박힌 회차 지급액 — [1차, 2차]. null 이면 아직 안 나갔다.
+   *
+   * ★나간 회차는 원장이 정본이다★ — 뒤늦게 조정이 붙어도 그 회차는 다시 열리지 않는다.
+   * 없으면 증액 조정 하나에 확정된 1차가 「지급 가능」으로 되살아나고, 누르면 중복 회차로
+   * 그날 배치가 통째로 선다(lib/data/store/payouts.ts 의 중복 검사).
+   */
+  ledger: [number | null, number | null];
   /** 자기 쪽 단가가 안 붙은 라인 수 — 계획 금액이 그만큼 비어 있다 */
   unpriced: number;
   /**
@@ -926,6 +939,16 @@ export interface PayoutEntry {
   category: PayoutCategory;
   /** 원 단위 정수. 부호가 있다 — 회수·차감은 음수. */
   amount: number;
+  /**
+   * ★어느 회차 몫인가★ — 1 · 2, null 이면 회차를 안 정한 총액 조정이다
+   * (한백 지시 2026-09-04 「영업비 1,2차 시공비 1차,2차 각각 영역에서 차감」).
+   *
+   * 지급 줄에서는 명목과 짝이다 — 「1차」 줄은 1, 「2차」 줄은 2. 저장소가 채운다.
+   * ★사람이 고르는 것은 조정 줄에서다.★ 고르면 그 회차 기준액에서 통째로 빼거나 더하고,
+   * 안 고르면 예전처럼 총액에 붙어 70/30 으로 갈라진다 — 옛 줄이 null 인 이유이자,
+   * 그 줄들의 계산이 한 자리도 안 바뀌는 까닭이다(lib/settlement.ts payoutStepsOf).
+   */
+  step: 1 | 2 | null;
   /** 지급일(지급) 또는 발생일(조정), YYYY-MM-DD */
   at: string;
   note: string | null;

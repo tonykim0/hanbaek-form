@@ -1210,7 +1210,15 @@ export function docContentType(filename: string, browserType = ''): string {
  * 「올려 보고 나서야 튕기는」 일이 안 생긴다. 사진대지 엑셀은 사진이 박혀 있어 이 선을
  * 넘는 일이 잦다 — 넘으면 화면이 크기를 적어 준다.
  */
-export const MAX_DOC_BYTES = 30 * 1024 * 1024;
+export const MAX_DOC_BYTES = 100 * 1024 * 1024;
+
+/**
+ * 이보다 크면 ★줄여서 올린다★ (한백 지시 2026-09-04 「100메가 넘어가면 그렇게 해줘」).
+ * 넘긴 파일은 막지 않고 그 자리에서 사진을 다시 구워 올린다(lib/shrink) — 실측으로
+ * 실사보고서 PDF 159MB 가 3.7MB, 사진대지 엑셀 16MB 가 3.9MB 가 된다. 덩치의 96% 이상이
+ * 줄이지 않은 휴대폰 원본 사진이기 때문이다.
+ */
+export const SHRINK_OVER_BYTES = MAX_DOC_BYTES;
 
 /**
  * 세금계산서 첨부로 받는 형식 — 서버 검사(tax-invoice 라우트)와 화면의 input accept 가

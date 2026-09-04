@@ -25,7 +25,8 @@ import { useRouter } from 'next/navigation';
 import type {
   BizType, BuildingType, ContractParty, CpoName, IntakeDraft, PowerType, PreInstall, ReplType,
 } from '@/types/project';
-import { replLabel, SPLITS_SELF_REPL } from '@/types/project';
+import { MAX_DOC_BYTES, replLabel, SPLITS_SELF_REPL } from '@/types/project';
+import { canShrink, shrink } from '@/lib/shrink';
 import { uploadIntakeFile, uploadIntakeZip } from '@/lib/intake-upload';
 import { buildDocContext, evaluateDocs } from '@/lib/doc-rules';
 import { checkDraft } from '@/lib/intake-validate';
@@ -279,10 +280,23 @@ export default function IntakeForm({ org, isAdmin = false, knownOrgs = [] }: {
    * 접수 버튼을 누른 뒤에 올리면, 접수가 스캔본 업로드를 기다리는 단계가 된다.
    * 고른 시점부터 접수까지는 어차피 화면을 채우는 시간이 있으니 그 사이에 올려둔다.
    */
-  async function pick(kind: string, file: File) {
+  async function pick(kind: string, picked: File) {
     setError(null);
     setPicking((p) => ({ ...p, [kind]: 0 }));
     try {
+      /*
+       * ★큰 파일은 그 자리에서 줄인다★ (한백 지시 2026-09-04) — 현장 상세의 서류 칸과
+       * 같은 규칙이다(components/DocFiles 의 upload 주석). 100MB 를 넘는 실사보고서·
+       * 사진대지는 줄이지 않은 휴대폰 원본 사진 묶음이라 수십 분의 일이 된다.
+       */
+      let file = picked;
+      if (file.size > MAX_DOC_BYTES && canShrink(file)) {
+        const small = await shrink(file);
+        if (small) file = small.file;
+      }
+      if (file.size > MAX_DOC_BYTES) {
+        throw new Error(`${Math.round(file.size / 1024 / 1024)}MB — 최대 ${Math.round(MAX_DOC_BYTES / 1024 / 1024)}MB까지입니다. 나눠서 올려 주세요.`);
+      }
       const up = await uploadIntakeFile(kind, file, (pct) => setPicking((p) => ({ ...p, [kind]: pct })));
       /* 갈아치우지 않고 쌓는다 — 현장 상세의 서류 칸과 같은 규칙이다(2026-08-25) */
       setStaged((st) => ({ ...st, [kind]: [...(st[kind] ?? []), up] }));

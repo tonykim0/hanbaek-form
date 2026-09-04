@@ -15,6 +15,7 @@ import { useAction } from '@/lib/use-action';
 import { Btn, Confirm, Err } from '@/components/ui';
 import JSZip from 'jszip';
 import { docContentType, MAX_DOC_BYTES, type DocFile, type ProjectDocument } from '@/types/project';
+import { canShrink, shrink } from '@/lib/shrink';
 import { downloadBlob } from '@/lib/download';
 
 /** 파일 이름에 쓸 수 없는 문자를 지운다 */
@@ -632,6 +633,10 @@ export function DocUpload({
   const [pct, setPct] = useState(0);
   /** 여러 장을 올리는 중이면 몇 장째인가 — 단추가 그것을 말한다 */
   const [queue, setQueue] = useState<{ done: number; total: number } | null>(null);
+  /** 사진을 다시 굽는 중 — 100MB 를 넘긴 파일에서만 선다(lib/shrink). 쪽·장 진행을 적는다 */
+  const [shrinking, setShrinking] = useState<{ done: number; total: number } | null>(null);
+  /** 줄여서 올렸다는 사실 — 올린 뒤에도 남는다. 원본과 다른 것을 올렸으면 말해야 한다 */
+  const [shrunk, setShrunk] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const filesInFlight = useFileDragging();
   /** 이 칸 위에 있는가 — 창 전체의 드래그와 달리 놓을 자리를 가리킨다 */
@@ -676,27 +681,41 @@ export function DocUpload({
     setQueue(null);
   }
 
-  async function upload(file: File): Promise<boolean> {
+  async function upload(picked: File): Promise<boolean> {
     setBusy(true);
     setError(null);
+    setShrunk(null);
     setPct(0);
-    const ext = (file.name.split('.').pop() ?? 'pdf').toLowerCase();
+    let file = picked;
+
     /*
-     * 왜 안 되는지를 여기서 적는다 — 크기·형식은 Blob 이 올리는 도중에 거절하고,
-     * 그 실패는 아래 catch 에서 「오류가 났습니다」 한 줄로 뭉개졌다. 30MB 를 넘는
-     * 사진대지 엑셀이 실제로 그렇게 튕겼고, 화면만 봐서는 형식 탓인지 알 수 없었다.
-     * 엑셀은 사진 하나에서 압축 창을 열되 「이 그림에만 적용」을 해제하면 전부 한꺼번에
-     * 줄어든다 — 사용자에게 사진마다 반복하라고 읽히지 않게 그 절차를 그대로 적는다.
+     * ★큰 파일은 막지 않고 그 자리에서 줄인다★ (한백 지시 2026-09-04 「100메가 넘어가면
+     * 그렇게 해줘」). 100MB 를 넘는 서류는 사실상 줄이지 않은 휴대폰 원본 사진 묶음이다 —
+     * 실사보고서 PDF 159MB 가 3.7MB, 사진대지 엑셀 16MB 가 3.9MB 가 된다(2026-09-04 실측).
+     * 예전에는 「엑셀에서 그림 압축을 하세요」라고 절차를 적어 돌려보냈는데, 그 절차를
+     * 브라우저가 대신 한다. 원본 파일은 안 건드린다 — 올라가는 것만 새로 굽는다.
      */
     if (file.size > MAX_DOC_BYTES) {
-      const size = `${mb(file.size)}MB · 최대 ${mb(MAX_DOC_BYTES)}MB까지 업로드할 수 있습니다.`;
-      const isExcel = /^xls[xmb]?$/.test(ext);
-      setError(isExcel
-        ? `${size}\n엑셀에서 사진 하나를 선택한 뒤 「그림 서식 → 그림 압축」에서 「이 그림에만 적용」을 해제하고 150ppi로 다시 저장해 주세요. 파일 안의 모든 사진이 한 번에 압축됩니다.`
-        : `${size} 파일을 줄이거나 나눠서 올려 주세요.`);
-      setBusy(false);
-      return false;
+      if (!canShrink(file)) {
+        setError(`${mb(file.size)}MB · 최대 ${mb(MAX_DOC_BYTES)}MB까지입니다. 파일을 줄이거나 나눠서 올려 주세요.`);
+        setBusy(false);
+        return false;
+      }
+      setShrinking({ done: 0, total: 1 });
+      const small = await shrink(file, (done, total) => setShrinking({ done, total }));
+      setShrinking(null);
+      if (!small || small.after > MAX_DOC_BYTES) {
+        setError(small
+          ? `${mb(file.size)}MB 를 ${mb(small.after)}MB 로 줄였지만 아직 ${mb(MAX_DOC_BYTES)}MB 를 넘습니다 — 나눠서 올려 주세요.`
+          : `${mb(file.size)}MB · 최대 ${mb(MAX_DOC_BYTES)}MB까지입니다. 자동으로 줄이지 못했습니다 — 나눠서 올려 주세요.`);
+        setBusy(false);
+        return false;
+      }
+      file = small.file;
+      setShrunk(`${mb(small.before)}MB → ${mb(small.after)}MB 로 줄여서 올립니다`);
     }
+
+    const ext = (file.name.split('.').pop() ?? 'pdf').toLowerCase();
     try {
       // 경로는 서버가 검사한다. 시각을 붙여 이전 파일을 덮지 않게 한다.
       const pathname = `projects/${projectId}/${kind}-${Date.now()}.${ext}`;
@@ -803,7 +822,10 @@ export function DocUpload({
         } ${busy ? 'pointer-events-none opacity-60' : ''}`}
       >
         {busy
-          ? `${queue && queue.total > 1 ? `${queue.done + 1}/${queue.total} · ` : ''}업로드 중 ${pct}%`
+          /* 굽는 중에는 그것을 말한다 — 큰 PDF 는 쪽마다 시간이 걸려 「업로드 0%」로 멈춰 보인다 */
+          ? shrinking
+            ? `사진 줄이는 중 ${shrinking.total > 1 ? `${shrinking.done}/${shrinking.total}` : ''}`
+            : `${queue && queue.total > 1 ? `${queue.done + 1}/${queue.total} · ` : ''}업로드 중 ${pct}%`
           /*
             * 이미 파일이 있으면 「추가」다 — 예전에는 「바꾸기」였고 실제로 갈아치웠다.
             * 지금은 쌓이므로(migrations/0021) 바꾸기라고 적으면 앞 파일이 사라진다고 읽힌다.
@@ -812,6 +834,10 @@ export function DocUpload({
         <input type="file" multiple className="hidden" onChange={onPick} disabled={busy} />
       </label>
       <Err className="mt-1 block whitespace-pre-line">{error}</Err>
+      {/* 원본과 다른 것을 올렸으면 말한다 — 조용히 바꿔치우지 않는다 */}
+      {shrunk && !error && (
+        <span className="mt-1 block text-tiny font-bold text-amber-700">{shrunk}</span>
+      )}
     </div>
   );
 }

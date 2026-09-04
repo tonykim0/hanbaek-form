@@ -280,6 +280,34 @@ export default function ConsoleShell({
       alive = false;
     };
   }, [pathname]);
+  /*
+   * 안 읽은 공지 수 — ★사이드바 맨 위★ (한백 지시 2026-09-04 「공지를 왼쪽 사이드바 맨
+   * 위로 빼줘. 안 읽었으면 1 표시」). 상단바에 있었는데 조회 도구들 사이에 섞여 있어
+   * 「먼저 읽을 것」으로 안 읽혔다 — 사이드바 맨 위가 화면을 열 때 눈이 처음 닿는 자리다.
+   *
+   * 공지 화면에 서 있으면 그 화면이 읽음을 찍는 중이므로 0 으로 접는다 — 읽고 있는데
+   * 배지가 남아 있으면 거짓말이다(찍기와 세기의 경주를 화면 판정으로 끊는다).
+   */
+  const [unread, setUnread] = useState(0);
+  useEffect(() => {
+    if (pathname.startsWith('/notices')) {
+      setUnread(0);
+      return;
+    }
+    let alive = true;
+    void fetch('/api/notices/unread')
+      .then((r) => (r.ok ? (r.json() as Promise<{ count: number }>) : null))
+      .then((d) => {
+        if (alive && d) setUnread(d.count);
+      })
+      .catch(() => {
+        /* 배지가 안 뜰 뿐 — 사이드바가 화면을 막으면 안 된다 */
+      });
+    return () => {
+      alive = false;
+    };
+  }, [pathname]);
+
   useEffect(() => {
     if (ready) localStorage.setItem(COLLAPSE_KEY, open ? '0' : '1');
   }, [open, ready]);
@@ -327,6 +355,47 @@ export default function ConsoleShell({
         </div>
 
         <nav aria-label="콘솔 메뉴" className="flex-1 overflow-y-auto px-2 py-2">
+          {/*
+            ★공지는 묶음 밖, 맨 위다★ (한백 지시 2026-09-04). 업무 묶음(현황·진행·정산…)
+            중 어디에도 안 속한다 — 일이 아니라 먼저 읽을 것이다. 묶음 제목 없이 한 줄로
+            세우고 아래 묶음들과 얇은 선으로 가른다(상자를 겹치지 않는다 — 화면 규칙 1).
+          */}
+          <div className="mb-3 border-b border-slate-100 pb-3">
+            <Link
+              href="/notices"
+              title={expanded ? undefined : `공지${unread > 0 ? ` — 안 읽음 ${unread}` : ''}`}
+              className={`flex items-center rounded-ctl font-semibold transition ${
+                expanded ? 'gap-2 px-2 py-1.5' : 'justify-center py-2'
+              } ${
+                pathname.startsWith('/notices')
+                  ? 'bg-brand-50 text-brand-800'
+                  : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+              }`}
+            >
+              {expanded ? (
+                <>
+                  <span className="truncate">공지</span>
+                  {/* 안 읽은 것만 배지를 단다 — 0 을 적으면 할 일 배지(늘 서 있다)와 헷갈린다 */}
+                  {unread > 0 && (
+                    <span className="ml-auto rounded-tag bg-amber-500 px-1.5 py-0.5 text-tiny font-bold tabular-nums text-white">
+                      {unread}
+                    </span>
+                  )}
+                </>
+              ) : (
+                <span className="relative text-tiny font-bold">
+                  공지
+                  {unread > 0 && (
+                    <span
+                      aria-hidden
+                      className="absolute -right-2 -top-1 h-1.5 w-1.5 rounded-full bg-amber-500"
+                    />
+                  )}
+                </span>
+              )}
+            </Link>
+          </div>
+
           {groups.map((g) => (
             <div key={g.label} className="mb-3">
               {expanded ? (

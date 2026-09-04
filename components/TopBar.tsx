@@ -12,7 +12,6 @@
  */
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useEffect, useState } from 'react';
 import { isHanbaek, type Role } from '@/lib/roles';
 
 const TOOLS: { href: string; label: string; adminOnly?: boolean; blank?: boolean }[] = [
@@ -66,32 +65,6 @@ export default function TopBar({ role, onMenu }: {
 }) {
   const pathname = usePathname();
 
-  /*
-   * 안 읽은 공지 수 — ★확인 전에는 배지가 서 있어야 한다★ (한백 지시 2026-09-03).
-   * 사이드바의 업무별 할 일 배지(/api/todos)와 같은 방식으로 화면을 옮길 때마다 다시 센다.
-   * 공지 화면에 서 있으면 그 화면이 읽음을 찍는 중이므로 0 으로 접는다 — 읽고 있는데
-   * 배지가 남아 있으면 거짓말이다(찍기와 세기의 경주를 화면 판정으로 끊는다).
-   */
-  const [unread, setUnread] = useState(0);
-  useEffect(() => {
-    if (pathname.startsWith('/notices')) {
-      setUnread(0);
-      return;
-    }
-    let alive = true;
-    void fetch('/api/notices/unread')
-      .then((r) => (r.ok ? (r.json() as Promise<{ count: number }>) : null))
-      .then((d) => {
-        if (alive && d) setUnread(d.count);
-      })
-      .catch(() => {
-        /* 배지가 안 뜰 뿐 — 상단바가 화면을 막으면 안 된다 */
-      });
-    return () => {
-      alive = false;
-    };
-  }, [pathname]);
-
   return (
     /*
      * 로고 그린 배경 · 흰 글자 — 크롬(바)과 내용(흰 카드)을 색으로 가른다.
@@ -118,8 +91,12 @@ export default function TopBar({ role, onMenu }: {
         aria-label="바로가기"
         className="flex min-w-0 items-center gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
-        {/* 공지가 맨 앞이다 — 안 읽은 것이 있으면 배지가 서고, 어느 화면에서든 먼저 눈에 들어와야 한다 */}
-        <BarLink href="/notices" label="공지" active={pathname.startsWith('/notices')} badge={unread} />
+        {/*
+          공지는 여기 없다 — ★사이드바 맨 위로 옮겼다★ (한백 지시 2026-09-04).
+          상단바는 조회·서류 도구의 자리고, 공지는 일이 아니라 먼저 읽을 것이라
+          화면을 열 때 눈이 처음 닿는 자리에 선다(ConsoleShell). 같은 것을 두 곳에
+          두지 않는다(화면 규칙 5).
+        */}
         {role === 'admin' && ADMIN_INTAKE.map((t) => (
           <BarLink key={t.href} href={t.href} label={t.label} active={pathname.startsWith(t.href)} />
         ))}
@@ -147,7 +124,7 @@ export default function TopBar({ role, onMenu }: {
   );
 }
 
-function BarLink({ href, label, active, blank = false, badge = 0 }: {
+function BarLink({ href, label, active, blank = false }: {
   href: string;
   label: string;
   active: boolean;
@@ -158,18 +135,10 @@ function BarLink({ href, label, active, blank = false, badge = 0 }: {
    * 아는 자리가 아니므로 보통 앵커로 연다.
    */
   blank?: boolean;
-  /** 안 읽은 수 — 0 이면 안 그린다(늘 서 있는 0 은 초록 바에서 소음이다) */
-  badge?: number;
 }) {
   const cls = `shrink-0 whitespace-nowrap rounded-ctl px-2.5 py-1.5 text-small font-bold transition ${
     active ? 'bg-white/15 text-white' : 'text-white/75 hover:bg-white/10 hover:text-white'
   }`;
-  /* 사이드바의 할 일 배지와 같은 말투 — 주황이 「있음」이다 */
-  const chip = badge > 0 && (
-    <span className="ml-1.5 inline-flex min-w-[18px] items-center justify-center rounded-full bg-amber-500 px-1 text-micro font-black tabular-nums text-white">
-      {badge}
-    </span>
-  );
   if (blank) {
     return (
       <a href={href} target="_blank" rel="noopener noreferrer" className={cls}>
@@ -180,7 +149,6 @@ function BarLink({ href, label, active, blank = false, badge = 0 }: {
   return (
     <Link href={href} className={cls}>
       {label}
-      {chip}
     </Link>
   );
 }

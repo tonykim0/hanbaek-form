@@ -139,7 +139,7 @@ export default function IntakeForm({ org, isAdmin = false, knownOrgs = [] }: {
    * 고른 파일은 들고 있지 않는다 — 고르는 순간 임시 자리에 올려 staged 에 넣는다.
    * 여기 남는 것은 「지금 올라가는 중인 칸」의 진행률뿐이다.
    */
-  const [picking, setPicking] = useState<Record<string, number>>({});
+  const [picking, setPicking] = useState<Record<string, { pct: number; done: number; total: number }>>({});
 
   /**
    * ZIP 에서 나온 파일 — 이미 Blob 에 있어서 다시 올리지 않는다.
@@ -275,14 +275,32 @@ export default function IntakeForm({ org, isAdmin = false, knownOrgs = [] }: {
   })();
 
   /**
-   * 파일을 고르면 그 자리에서 임시 자리에 올린다.
+   * 고른 것을 그 자리에서 임시 자리에 올린다 — ★한 번에 여러 장을 고른다★
+   * (한백 지시 2026-09-04).
    *
    * 접수 버튼을 누른 뒤에 올리면, 접수가 스캔본 업로드를 기다리는 단계가 된다.
    * 고른 시점부터 접수까지는 어차피 화면을 채우는 시간이 있으니 그 사이에 올려둔다.
+   *
+   * ★겹쳐 올리지 않는다★ — 칸의 목록에 한 장을 더해 다시 담으므로(setStaged) 두 개가
+   * 같이 들어오면 나중 것이 앞의 것을 덮는다. 현장 상세의 서류 칸과 같은 이유·같은
+   * 방식이다(components/DocFiles 의 uploadAll).
    */
-  async function pick(kind: string, picked: File) {
+  async function pick(kind: string, files: File[]) {
     setError(null);
-    setPicking((p) => ({ ...p, [kind]: 0 }));
+    for (const [i, file] of files.entries()) {
+      // 한 장이 막히면 멈춘다 — 왜 막혔는지(용량·형식) 다음 장에도 똑같이 걸린다
+      if (!(await pickOne(kind, file, i, files.length))) break;
+    }
+    setPicking((p) => {
+      const next = { ...p };
+      delete next[kind];
+      return next;
+    });
+  }
+
+  /** 한 장을 올린다 — 올렸으면 true. 막힌 이유는 화면에 남긴다 */
+  async function pickOne(kind: string, picked: File, done: number, total: number): Promise<boolean> {
+    setPicking((p) => ({ ...p, [kind]: { pct: 0, done, total } }));
     try {
       /*
        * ★큰 파일은 그 자리에서 줄인다★ (한백 지시 2026-09-04) — 현장 상세의 서류 칸과
@@ -297,17 +315,13 @@ export default function IntakeForm({ org, isAdmin = false, knownOrgs = [] }: {
       if (file.size > MAX_DOC_BYTES) {
         throw new Error(`${Math.round(file.size / 1024 / 1024)}MB — 최대 ${Math.round(MAX_DOC_BYTES / 1024 / 1024)}MB까지입니다. 나눠서 올려 주세요.`);
       }
-      const up = await uploadIntakeFile(kind, file, (pct) => setPicking((p) => ({ ...p, [kind]: pct })));
+      const up = await uploadIntakeFile(kind, file, (pct) => setPicking((p) => ({ ...p, [kind]: { pct, done, total } })));
       /* 갈아치우지 않고 쌓는다 — 현장 상세의 서류 칸과 같은 규칙이다(2026-08-25) */
       setStaged((st) => ({ ...st, [kind]: [...(st[kind] ?? []), up] }));
+      return true;
     } catch (err) {
       setError(`${labelOf(kind)}: ${(err as Error).message}`);
-    } finally {
-      setPicking((p) => {
-        const next = { ...p };
-        delete next[kind];
-        return next;
-      });
+      return false;
     }
   }
 

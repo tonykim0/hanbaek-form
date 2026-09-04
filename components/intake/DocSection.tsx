@@ -33,8 +33,9 @@ export function DocSection({
   review: DocReview | null;
   /** 칸마다 올라간 파일들 — ★한 칸에 여러 장이 붙는다★ (2026-08-31) */
   staged: Record<string, StagedFile[]>;
-  picking: Record<string, number>;
-  onPick: (kind: string, file: File) => void;
+  /** 올리는 중인 칸 — 몇 장째인지까지 들고 있다(여러 장을 한 번에 고를 수 있다) */
+  picking: Record<string, { pct: number; done: number; total: number }>;
+  onPick: (kind: string, files: File[]) => void;
   /** 장 단위로 뺀다 — 두 장 중 하나만 잘못 온 경우가 있다 */
   onRemove: (kind: string, index: number) => void;
 }) {
@@ -151,11 +152,12 @@ export function DocSection({
                           <div className="h-1 overflow-hidden rounded-full bg-slate-100">
                             <div
                               className="h-full rounded-full bg-brand-500 transition-[width]"
-                              style={{ width: `${uploading}%` }}
+                              style={{ width: `${uploading.pct}%` }}
                             />
                           </div>
                           <p className="mt-1 text-tiny font-bold text-brand-700">
-                            올리는 중 {uploading}%
+                            {/* 여러 장이면 몇 장째인지 적는다 — 한 장만 올라간 줄 알고 나가는 자리였다 */}
+                            올리는 중 {uploading.total > 1 ? `${uploading.done + 1}/${uploading.total} · ` : ''}{uploading.pct}%
                           </p>
                         </div>
                       ) : files.length > 0 ? (
@@ -227,13 +229,19 @@ export function DocSection({
                         */}
                         <label className="inline-flex cursor-pointer items-center rounded-ctl border border-slate-300 bg-white px-2 py-1 text-tiny font-bold text-slate-700 transition hover:border-brand-400 hover:text-brand-800">
                           {filled ? '파일 추가' : '고르기'}
+                          {/*
+                            ★한 번에 여러 장을 고른다★ (한백 지시 2026-09-04). 칸이 파일을
+                            쌓는 자리인데 고르기는 한 장씩이라, 세 장짜리 사진대지를 세 번
+                            눌러 올려야 했다 — 현장 상세의 서류 칸과 같게 맞춘다.
+                          */}
                           <input
                             type="file"
+                            multiple
                             className="hidden"
                             onChange={(e) => {
-                              const f = e.target.files?.[0];
+                              const picked = [...(e.target.files ?? [])];
                               e.target.value = ''; // 같은 파일을 다시 고를 수 있게 비운다
-                              if (f) onPick(d.key, f);
+                              if (picked.length > 0) onPick(d.key, picked);
                             }}
                           />
                         </label>

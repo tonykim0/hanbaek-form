@@ -44,7 +44,7 @@ export const bldgAxisLabel = (cpo: CpoName, b: BuildingType) =>
 
 export const TERMS = [5, 7, 10] as const;
 
-/** 폼으로 넘기는 값 — 채워진 것만 프리필된다. 그리드 칸·막힌 라인은 축만, 수정·개정은 전부 싣는다 */
+/** 폼으로 넘기는 값 — 채워진 것만 프리필된다. 그리드 칸·막힌 라인은 축만, 수정은 전부 싣는다 */
 export interface Prefill {
   cpo?: CpoName;
   replType?: ReplType;
@@ -71,10 +71,9 @@ export interface Prefill {
    * 개정일 때 원 케이스의 startKey — 새 시작이 이보다 늦어야 저장된다.
    * 이르거나 같으면 매트릭스가 옛 케이스를 최신으로 집어 개정이 안 보이는 상태가 된다.
    */
-  after?: string;
 }
 
-/** 케이스 → 프리필 — 수정·개정이 같은 값을 들고 폼을 연다. 옛 저장값 '시공만' 은 '시공' 으로 읽는다 */
+/** 케이스 → 프리필 — 수정이 이 값을 들고 폼을 연다. 옛 저장값 '시공만' 은 '시공' 으로 읽는다 */
 export function prefillOf(r: PricingRule, settle: SettlementRule | null): Prefill {
   return {
     cpo: r.cpo, replType: r.replType, powerType: r.powerType,
@@ -107,7 +106,7 @@ export const receiveUnitOf = (r: PricingRule) => r.salesUnit + r.consUnit + r.ma
 /** 지급 단가 — 마진을 뗀 뒤 협력사에 내려주는 총액 = 영업비 + 시공비 */
 export const payoutUnitOf = (r: PricingRule) => r.salesUnit + r.consUnit;
 
-/** 폼이 열리는 방식 — editId 가 있으면 그 케이스를 자리에서 고치고, 없으면 새 케이스(개정 포함)다 */
+/** 폼이 열리는 방식 — editId 가 있으면 그 케이스를 자리에서 고치고, 없으면 새 케이스다 */
 export interface FormOpen {
   prefill: Prefill;
   editId?: string;

@@ -51,35 +51,20 @@ export function CaseForm({
     ? startKey({ startDate: prefill.startDate, bizYear: prefill.bizYear ?? 0 }).split('-').map(Number)
     : null;
   const opened = new Date();
-  const todayIso = `${opened.getFullYear()}-${String(opened.getMonth() + 1).padStart(2, '0')}-${String(opened.getDate()).padStart(2, '0')}`;
   /*
-   * ★개정의 기본 시작은 오늘이다★ (한백 지적 2026-09-04 「왜 자꾸 2027 상반기 케이스가
-   * 생기는 거야? 난 나이스 2026 하반기를 개정하고 있는데」).
-   *
-   * 8/29 에는 「다음 반기」를 기본으로 했다 — 오늘 기준이면 기존(7/21)보다 이른 값이 실려
-   * 열리자마자 막혔기 때문이다. 그런데 하반기 케이스의 다음 반기는 ★내년 상반기★라,
-   * 시기 칸을 안 만지고 저장하면 2027 케이스가 생겼다 — 실제로 두 건이 그렇게 만들어져
-   * 현장에 지정까지 됐다(9/3). 정책 개정은 대부분 반기 중간에 오늘 언저리 날짜로 오므로
-   * (PL 9/1 이 그렇다), 오늘이 기존 시작보다 늦으면 ★오늘(날짜 모드)★로 연다 — 유효하고,
-   * 해가 튀지 않는다. 오늘이 더 이르면(미래 시작 케이스의 개정) 다음 반기로 연다.
+   * ★개정 모드는 걷어냈다★ (한백 지시 2026-09-04 「개정이 아니라 기존에 있던 걸 수정하는
+   * 게 맞는 거야. 개정이란 없어 — 내가 새 표를 주지 않는 이상」). 새 정책표가 오면 새
+   * 케이스를 세우고(파이프라인·새 케이스), 그 밖의 손질은 전부 기존 케이스의 ★수정★이다.
+   * 「다음 반기」 기본값이 2027 케이스를 만들던 사고(9/3)도 이 모드의 것이었다.
    */
-  const reviseToday = Boolean(prefill.after) && todayIso > prefill.after!;
-  const nextHalf = (() => {
-    if (!prefill.after || reviseToday) return null;
-    const [y, m] = prefill.after.split('-').map(Number);
-    return m <= 6 ? { year: y, half: '하' as const } : { year: y + 1, half: '상' as const };
-  })();
-  const [year, setYear] = useState(nextHalf?.year ?? prefill.bizYear ?? opened.getFullYear());
+  const [year, setYear] = useState(prefill.bizYear ?? opened.getFullYear());
   const [half, setHalf] = useState<'상' | '하'>(
-    nextHalf?.half ?? (seed ? (seed[1] >= 7 ? '하' : '상') : opened.getMonth() + 1 >= 7 ? '하' : '상')
+    seed ? (seed[1] >= 7 ? '하' : '상') : opened.getMonth() + 1 >= 7 ? '하' : '상'
   );
-  /* 개정은 새 날짜를 사람이 적는다 — 원 케이스의 날짜를 실으면 그대로 저장돼 막힌다 */
   const [startDay, setStartDay] = useState(
-    reviseToday
-      ? todayIso
-      : !prefill.after && seed && seed[1] > 0 && seed[2] > 0
-        ? `${seed[0]}-${String(seed[1]).padStart(2, '0')}-${String(seed[2]).padStart(2, '0')}`
-        : ''
+    seed && seed[1] > 0 && seed[2] > 0
+      ? `${seed[0]}-${String(seed[1]).padStart(2, '0')}-${String(seed[2]).padStart(2, '0')}`
+      : ''
   );
   /*
    * ★적용 시작을 적는 방법은 둘이고, 둘은 서로를 배제한다★ (한백 2026-08-29 「MECE 하게」).
@@ -138,15 +123,15 @@ export function CaseForm({
    * 셋 다 「새 케이스」로 떠서 케이스를 눌렀는데 왜 새 케이스냐는 혼란이 실제로 있었다
    * (2026-08-23 한백 지적).
    */
-  const mode: '수정' | '개정' | '새 케이스' = editId ? '수정' : prefill.after ? '개정' : '새 케이스';
-  const [showRates, setShowRates] = useState(!prefill.after);
-  const [showTerms, setShowTerms] = useState(!prefill.after);
+  const mode: '수정' | '새 케이스' = editId ? '수정' : '새 케이스';
+  const [showRates, setShowRates] = useState(true);
+  const [showTerms, setShowTerms] = useState(true);
   /*
    * ★개정은 축이 바뀌는 일이 아니다★ (2026-08-29) — 같은 축의 다음 시기 단가다. 그런데 축 여섯
    * 칸이 폼 맨 위를 차지해서, 개정에서 실제로 적는 것(시작일·금액)은 한 화면 아래에 있었다.
    * 개정은 축을 접어 머리의 꼬리표로만 보이고, 축까지 바꿔야 하면 펼친다.
    */
-  const [showAxis, setShowAxis] = useState(mode !== '개정');
+  const [showAxis, setShowAxis] = useState(true);
   /*
    * ★기성 모양은 케이스별 설정이 아니다★ (한백 확인 2026-08-23) — 한 운영사의 기성은
    * 트리거 모양이 동일하고, 차수 금액만 케이스마다 다르다. 그래서 모양(트리거·방식·
@@ -248,9 +233,7 @@ export function CaseForm({
               : stepBad.length > 0 ? '기성 단계 확인 필요'
                 : year < 2020 || year > 2100 ? '연도 확인 필요'
                   // 개정이 원 케이스보다 이르거나 같으면 매트릭스가 옛 것을 최신으로 집는다
-                  : prefill.after && startKey({ startDate, bizYear: year }) <= prefill.after
-                    ? '개정 시기가 기존 적용 시작보다 늦어야 함'
-                    : null;
+                  : null;
 
   async function save() {
     const ok = await run({
@@ -303,14 +286,6 @@ export function CaseForm({
     });
   }
 
-  /** 개정의 기존 시작 — after 는 startKey(YYYY-MM-DD, 반기만 알면 일이 00)라 사람 말로 되돌린다 */
-  const afterLabel = (() => {
-    if (!prefill.after) return null;
-    const [y, m, d] = prefill.after.split('-').map(Number);
-    if (!m) return `${y}년`;
-    return d ? `${y}년 ${m}월 ${d}일` : `${y}년 ${m >= 7 ? '하' : '상'}반기`;
-  })();
-
   /* 접힌 구획이 보이는 「지금 값」 — 값이 없으면 미지정이라고 적는다(빈 값도 자리를 지킨다) */
   const ratesSummary = [
     chargeRate.trim() ? `충전요금 ${won(num(chargeRate))}원` : '충전요금 미지정',
@@ -353,7 +328,7 @@ export function CaseForm({
       <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <h2 className="text-h3 font-black text-slate-900" title={editId}>
-            {mode === '수정' ? '케이스 수정' : mode === '개정' ? '케이스 개정' : '새 케이스'}
+            {mode === '수정' ? '케이스 수정' : '새 케이스'}
           </h2>
           {/*
             머리는 ★어느 케이스인가★만 말한다 — 축과 기존 적용 시작. 새 시작은 아래
@@ -361,7 +336,6 @@ export function CaseForm({
           */}
           <div className="mt-2 flex flex-wrap items-center gap-1.5">
             {axisTags}
-            {afterLabel && <Tag tone="stage">{afterLabel}부터</Tag>}
           </div>
         </div>
         <Btn kind="quiet" size="sm" disabled={busy} onClick={onDone}>← 단가표로</Btn>
@@ -372,7 +346,7 @@ export function CaseForm({
         first
         title="계약 축"
         collapsed={!showAxis}
-        onToggle={mode === '개정' ? () => setShowAxis((v) => !v) : undefined}
+        onToggle={undefined}
       >
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <Field label="운영사">
@@ -501,7 +475,7 @@ export function CaseForm({
       */}
       <FormSection title="대당 단가">
         <MoneyTable
-          revising={mode === '개정' && prefill.salesUnit !== undefined}
+          revising={false}
           rows={([
             { label: '받는 단가', prev: prevReceive, input: <Money value={receiveUnit} onChange={setReceiveUnit} /> },
             { label: '마진', op: '−', prev: prefill.margin, input: <Money value={margin} onChange={setMargin} /> },
@@ -589,7 +563,7 @@ export function CaseForm({
           >
             {blocked
               ? `${blocked} — ${mode === '수정' ? '고칠' : '넣을'} 수 없음`
-              : mode === '수정' ? '케이스 고치기' : mode === '개정' ? '개정으로 넣기' : '케이스 넣기'}
+              : mode === '수정' ? '케이스 고치기' : '케이스 넣기'}
           </Btn>
           <Btn kind="quiet" disabled={busy} onClick={onDone}>취소</Btn>
           <Err>{error}</Err>

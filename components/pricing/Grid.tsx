@@ -302,17 +302,19 @@ export function Grid({
                                   ? `${now.startDate}부터 적용`
                                   : '케이스 없음'
                                 : now
-                                ? carried
-                                  ? `${now.startDate} 단가가 계속 적용 — 이 시기 개정 없음. 누르면 개정 폼이 열린다`
-                                  : `${now.startDate}부터 적용 — 누르면 전 값을 실은 개정 폼이 열린다`
+                                ? `${now.startDate}부터 적용 — 누르면 수정 폼이 열린다`
                                 : '누르면 이 축으로 케이스를 넣는다'
                             }
                             onClick={() =>
-                              onOpen({
-                                prefill: now
-                                  ? { ...prefillOf(now, settleById.get(now.defaultSettlementRuleId) ?? null), after: startKey(now) }
-                                  : { cpo, replType: repl, powerType: power, terms: [term], bldgs: [bldg] },
-                              })
+                              onOpen(
+                                /* 개정은 없다(한백 2026-09-04) — 칸 클릭은 그 케이스의 수정이다 */
+                                now
+                                  ? {
+                                      prefill: { ...prefillOf(now, settleById.get(now.defaultSettlementRuleId) ?? null), startDate: now.startDate },
+                                      editId: now.id,
+                                    }
+                                  : { prefill: { cpo, replType: repl, powerType: power, terms: [term], bldgs: [bldg] } }
+                              )
                             }
                             className="w-full rounded-ctl px-2 py-1.5 text-right tabular-nums transition enabled:hover:bg-brand-50 disabled:cursor-default"
                           >

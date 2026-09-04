@@ -7,7 +7,7 @@
  * ★케이스는 참조되면 불변이다★ — 고치는 것은 개정(새 행)과 중지뿐이고, 여기 있는
  * 수정 메서드도 참조 전에만 통한다. 그 판정은 lib/pricing-match 가 한다.
  */
-import { eq } from 'drizzle-orm';
+import { and, eq, isNotNull } from 'drizzle-orm';
 import { getDb } from '@/lib/db/client';
 import { writeAudit } from '@/lib/db/audit';
 import { chargerModels, contractLines, pricingRules, projects, settlementRules } from '@/lib/db/schema';
@@ -175,21 +175,40 @@ export const pricingStore: Pick<
       const me = all.find((r) => r.id === id);
       if (!me) throw new Error('없는 단가 케이스입니다.');
 
-      // 참조가 하나라도 있으면 수정은 소급 변경이다 — 개정(새 케이스)으로 돌려보낸다
-      const [ref] = await tx
-        .select({ id: contractLines.id })
+      /*
+       * ★참조돼 있어도 고친다 — 개정은 없다★ (한백 지시 2026-09-04 「기존에 있던 걸
+       * 수정하는 게 맞는 거야. 개정이란 없어 — 내가 새 표를 주지 않는 이상」).
+       *
+       * 그전에는 참조 하나만 있어도 「개정으로 새 케이스」로 돌려보냈다 — 그 강요가
+       * 2027 케이스 사고(9/3)를 만들었다. 라인은 케이스를 참조만 하므로 수정은 그
+       * 현장들의 계획에 그대로 반영된다 — 그것이 곧 의도다(마진 분해를 고치면 전 현장이
+       * 따라온다). 새 정책표가 오면 그때만 새 케이스를 세운다(시작일로 갈린다).
+       *
+       * ★잠긴 현장이 참조 중이면 거절한다.★ 지급조건 확정(= 돈이 나갔거나 한백이 굳힌
+       * 현장)은 단가 변경이 금지다 — 케이스를 고치는 것은 그 금지를 뒷문으로 여는 것이라
+       * 같은 자물쇠가 걸려야 한다. 해제(관리자)가 먼저다.
+       */
+      const lockedRefs = await tx
+        .select({ name: projects.name })
         .from(contractLines)
-        .where(eq(contractLines.pricingRuleId, id))
-        .limit(1);
-      if (ref) {
-        throw new Error('이미 계약 라인이 참조하는 케이스입니다 — 고치면 그 현장의 금액이 소급해서 바뀝니다. 개정으로 새 케이스를 만들고 이것을 중지하세요.');
+        .innerJoin(projects, eq(contractLines.projectId, projects.id))
+        .where(and(
+          eq(contractLines.pricingRuleId, id),
+          isNotNull(projects.payoutTermsConfirmedAt)
+        ));
+      if (lockedRefs.length > 0) {
+        const names = [...new Set(lockedRefs.map((r) => r.name))];
+        const head = names.slice(0, 3).join(' · ');
+        throw new Error(
+          `지급조건이 확정된 현장 ${names.length}곳이 이 케이스를 참조합니다(${head}${names.length > 3 ? ' 외' : ''}) — 고치려면 그 현장의 확정을 먼저 해제하세요.`
+        );
       }
 
       // 축·시작을 옮기면 다른 케이스와 같은 칸·같은 시작이 될 수 있다 (setPricingRuleMeta 와 같은 판정)
       if (me.active) {
         const dup = duplicateOf(rule, all.filter((r) => r.id !== id));
         if (dup) {
-          throw new Error(`같은 조건을 덮는 케이스가 이미 있습니다 — ${dup.caseName}. 개정이라면 적용 시작을 다르게 적어주세요.`);
+          throw new Error(`같은 조건을 덮는 케이스가 이미 있습니다 — ${dup.caseName}. 다른 시기의 표라면 적용 시작을 다르게 적어주세요.`);
         }
       }
 
@@ -209,9 +228,15 @@ export const pricingStore: Pick<
         supervisionBearer: rule.supervisionBearer, safetyFeeBearer: rule.safetyFeeBearer,
         note: rule.note,
       }).where(eq(pricingRules.id, id));
+      /* 몇 현장의 계획이 따라 바뀌었는지를 로그에 남긴다 — 소급 반영이 이 수정의 뜻이다 */
+      const refs = await tx
+        .select({ id: contractLines.id })
+        .from(contractLines)
+        .where(eq(contractLines.pricingRuleId, id));
       await writeAudit(tx, {
         projectId: null, actor, action: '단가 케이스 수정',
-        field: id, oldValue: me.caseName, newValue: rule.caseName,
+        field: id, oldValue: me.caseName,
+        newValue: refs.length > 0 ? `${rule.caseName} (참조 라인 ${refs.length}건에 반영)` : rule.caseName,
       });
     });
   },

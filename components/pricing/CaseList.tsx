@@ -84,7 +84,7 @@ export function CaseList({
 
             정책 조건 열은 걷어냈다(한백 요청 2026-08-23). 같은 값이 매트릭스 아래
             정책 조건 행에 축별로 이미 있었다 — 한 화면에 두 번 두면 갈린다(화면 규칙 5번).
-            케이스 하나의 전문은 「수정」·「개정」 폼에 있다.
+            케이스 하나의 전문은 「수정」 폼에 있다.
           */}
           <table className="text-center w-full min-w-[1760px] text-base">
             <thead className="border-b border-slate-200 bg-slate-50 text-tiny font-bold tracking-[0.06em] text-slate-500">
@@ -144,7 +144,7 @@ export function CaseList({
  * 정책 조건(충전요금·프로모션·연장차감·지급자재·설치조건·기타지원) 칸은 걷어냈다
  * (한백 요청 2026-08-23). 같은 값이 매트릭스 아래 정책 조건 행에 축별로 이미 있고,
  * 여기서는 여섯 값을 폭 256px 한 칸에 접어 넣느라 긴 글은 두 줄로 자르고 있었다 —
- * 자른 글은 견줄 수도 없다. 케이스 하나의 전문은 「수정」·「개정」 폼이 정본이다.
+ * 자른 글은 견줄 수도 없다. 케이스 하나의 전문은 「수정」 폼이 정본이다.
  */
 function Row({
   r, settle, refs, stepCols, onOpen,
@@ -284,26 +284,24 @@ function Row({
             * 참조 전에는 자리에서 고치고(수정), 참조 뒤에는 전 값을 실은 새 케이스로 연다(개정) —
             * 참조된 케이스의 금액을 고치면 그 현장의 지급액이 소급해서 바뀌기 때문이다.
             */}
-          {canEdit &&
-            (refs > 0 ? (
-              <Btn
-                size="sm"
-                kind="quiet"
-                onClick={() => onOpen({ prefill: { ...prefillOf(r, settle), after: startKey(r) } })}
-              >
-                개정
-              </Btn>
-            ) : (
-              <Btn
-                size="sm"
-                kind="quiet"
-                onClick={() =>
-                  onOpen({ prefill: { ...prefillOf(r, settle), startDate: r.startDate }, editId: r.id })
-                }
-              >
-                수정
-              </Btn>
-            ))}
+          {/*
+            * ★개정은 없다 — 수정 하나다★ (한백 지시 2026-09-04 「기존에 있던 걸 수정하는
+            * 게 맞는 거야. 개정이란 없어 — 내가 새 표를 주지 않는 이상」). 새 정책표가
+            * 오면 새 케이스를 세우고, 그 밖의 손질(분해·조건·오타)은 참조돼 있어도 그
+            * 케이스를 고친다 — 참조 라인의 계획이 따라 바뀌는 것이 곧 의도다.
+            * 지급조건이 확정된(잠긴) 현장이 참조 중이면 저장소가 거절한다(해제가 먼저다).
+            */}
+          {canEdit && (
+            <Btn
+              size="sm"
+              kind="quiet"
+              onClick={() =>
+                onOpen({ prefill: { ...prefillOf(r, settle), startDate: r.startDate }, editId: r.id })
+              }
+            >
+              수정
+            </Btn>
+          )}
           {/* 중지는 되돌릴 수 있다 — 넣는 자리를 만들면 되돌리는 자리도 만든다 */}
           {canEdit && (
             <Btn
@@ -334,7 +332,7 @@ function Row({
             * 안 보인다. 못 하는 이유(참조 N건)를 그 자리에 적는다.
             */}
           {canEdit && (refs > 0 ? (
-            <Btn size="sm" kind="undo" disabled title="참조된 케이스는 개정·중지로 다룹니다 — 지우면 그 현장의 지급액을 계산할 수 없습니다">
+            <Btn size="sm" kind="undo" disabled title="참조된 케이스는 수정·중지로 다룹니다 — 지우면 그 현장의 지급액을 계산할 수 없습니다">
               참조 {refs}건 — 삭제 불가
             </Btn>
           ) : (

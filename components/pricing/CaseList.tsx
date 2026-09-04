@@ -25,11 +25,11 @@ import {
 
 /* ── 케이스 목록 ──────────────────────────────────────────────────────── */
 export function CaseList({
-  rules, settleById, referenced, onOpen,
+  rules, settleById, refCounts, onOpen,
 }: {
   rules: PricingRule[];
   settleById: Map<string, SettlementRule>;
-  referenced: Set<string>;
+  refCounts: Record<string, number>;
   onOpen: (f: FormOpen) => void;
 }) {
   const [cpo, setCpo] = useState<CpoName | '전체'>('전체');
@@ -125,7 +125,7 @@ export function CaseList({
                   key={r.id}
                   r={r}
                   settle={settleById.get(r.defaultSettlementRuleId) ?? null}
-                  referenced={referenced.has(r.id)}
+                  refs={refCounts[r.id] ?? 0}
                   stepCols={stepCols}
                   onOpen={onOpen}
                 />
@@ -147,11 +147,12 @@ export function CaseList({
  * 자른 글은 견줄 수도 없다. 케이스 하나의 전문은 「수정」·「개정」 폼이 정본이다.
  */
 function Row({
-  r, settle, referenced, stepCols, onOpen,
+  r, settle, refs, stepCols, onOpen,
 }: {
   r: PricingRule;
   settle: SettlementRule | null;
-  referenced: boolean;
+  /** 이 케이스를 참조하는 계약 라인 수 — 0 이면 지울 수 있다 */
+  refs: number;
   /** 표 전체가 쓰는 기성 열 수 — 이 케이스의 차수가 그보다 적으면 남는 칸은 「—」다 */
   stepCols: number;
   onOpen: (f: FormOpen) => void;
@@ -212,7 +213,7 @@ function Row({
         ) : (
           <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-tiny text-slate-400">
             <code className="text-micro">{r.id}</code>
-            {canEdit && referenced && (
+            {canEdit && refs > 0 && (
               <Btn size="sm" kind="quiet" onClick={() => setEditing(true)}>적용 시작 수정</Btn>
             )}
           </p>
@@ -284,7 +285,7 @@ function Row({
             * 참조된 케이스의 금액을 고치면 그 현장의 지급액이 소급해서 바뀌기 때문이다.
             */}
           {canEdit &&
-            (referenced ? (
+            (refs > 0 ? (
               <Btn
                 size="sm"
                 kind="quiet"
@@ -326,11 +327,21 @@ function Row({
             * 걷을 길이 없었다). 참조된 케이스에는 단추 자체가 없다: 그 길은 개정·중지다
             * (저장소도 참조를 다시 세어 거절한다). 삭제는 되돌릴 수 없어 Confirm 을 거친다.
             */}
-          {canEdit && !referenced && (
+          {/*
+            * ★참조된 케이스에도 단추가 선다 — 이름에 이유를 적고 눌리지 않는다★
+            * (화면 규칙 3 · 한백 지적 2026-09-04 「항목별로 삭제하는 건 없네」).
+            * 어제는 참조되면 단추를 통째로 숨겼다 — 그러면 삭제라는 길이 있는지조차
+            * 안 보인다. 못 하는 이유(참조 N건)를 그 자리에 적는다.
+            */}
+          {canEdit && (refs > 0 ? (
+            <Btn size="sm" kind="undo" disabled title="참조된 케이스는 개정·중지로 다룹니다 — 지우면 그 현장의 지급액을 계산할 수 없습니다">
+              참조 {refs}건 — 삭제 불가
+            </Btn>
+          ) : (
             <Btn size="sm" kind="undo" disabled={busy} onClick={() => setKilling(true)}>
               삭제
             </Btn>
-          )}
+          ))}
         </div>
         <Confirm
           open={killing}

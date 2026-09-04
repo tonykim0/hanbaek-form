@@ -41,7 +41,7 @@ import {
 } from './pricing/shared';
 
 export default function PricingMatrix({
-  rules, settlementRules, blockedLines, referencedIds, canEdit,
+  rules, settlementRules, blockedLines, refCounts, canEdit,
 }: {
   rules: PricingRule[];
   /** 정산 규칙 표 — 케이스의 기성 단계를 그리는 데 쓴다. 케이스가 단계를 정의하면 저장소에 쌓인다 */
@@ -49,7 +49,7 @@ export default function PricingMatrix({
   /** 활성 케이스가 하나도 안 맞는 실제 라인 — 서버(page)가 판정해서 넘긴다 */
   blockedLines: LineAxes[];
   /** 계약 라인이 참조하는 케이스 id — 「수정」(자리 고침)과 「개정」(새 케이스)을 가른다 */
-  referencedIds: string[];
+  refCounts: Record<string, number>;
   /** 고칠 수 있는가 — 열람 전용은 표만 본다 */
   canEdit: boolean;
 }) {
@@ -69,7 +69,7 @@ export default function PricingMatrix({
     () => new Map(settlementRules.map((s) => [s.id, s])),
     [settlementRules]
   );
-  const referenced = useMemo(() => new Set(referencedIds), [referencedIds]);
+  const referenced = useMemo(() => new Set(Object.keys(refCounts)), [refCounts]);
 
   const live = rules.filter((r) => r.active);
 
@@ -140,7 +140,7 @@ export default function PricingMatrix({
           <CaseList
             rules={rules}
             settleById={settleById}
-            referenced={referenced}
+            refCounts={refCounts}
             onOpen={setForm}
           />
         </>

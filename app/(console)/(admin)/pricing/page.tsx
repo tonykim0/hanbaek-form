@@ -54,14 +54,18 @@ export default async function PricingPage() {
    * 참조된 케이스를 고치면 소급 변경이라, 그 행은 전 값을 프리필한 개정으로만 연다.
    * 판정의 정본은 저장소다(updatePricingRule 이 다시 본다) — 여기 값은 버튼을 가를 뿐이다.
    */
-  const referencedIds = [...new Set(axes.map((l) => l.pricingRuleId).filter((x): x is string => Boolean(x)))];
+  /* 몇 건이 참조하는지까지 센다 — 삭제 못 하는 이유를 버튼 이름에 적는다(화면 규칙 3) */
+  const refCounts: Record<string, number> = {};
+  for (const l of axes) {
+    if (l.pricingRuleId) refCounts[l.pricingRuleId] = (refCounts[l.pricingRuleId] ?? 0) + 1;
+  }
 
   return (
     <PricingMatrix
       rules={rules}
       settlementRules={settlementRules}
       blockedLines={blockedLines}
-      referencedIds={referencedIds}
+      refCounts={refCounts}
       canEdit={canEdit}
     />
   );

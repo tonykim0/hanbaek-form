@@ -17,7 +17,7 @@ import {
   stepUnits,
 } from '@/lib/settlement';
 import {
-  Badge, Blank, Btn, Empty, Err, FIELD, FIELD_CELL, PANEL, Tag, Td, Th,
+  Badge, Blank, Btn, Confirm, Empty, Err, FIELD, FIELD_CELL, PANEL, Tag, Td, Th,
 } from '@/components/ui';
 import {
   CanEdit, bldgAxisLabel, payoutUnitOf, prefillOf, receiveUnitOf, type FormOpen,
@@ -159,6 +159,7 @@ function Row({
   const canEdit = useContext(CanEdit);
   const { busy, error, run } = useAction();
   const [editing, setEditing] = useState(false);
+  const [killing, setKilling] = useState(false);
   const [startDraft, setStartDraft] = useState(r.startDate);
   // 기성 차수별 대당 금액 — 이 케이스의 받는 단가에 규칙을 적용한 값
   const stepAmount = settle ? stepUnits(settle.steps, receiveUnitOf(r)) : [];
@@ -320,7 +321,35 @@ function Row({
               {r.active ? '중지' : '다시 사용'}
             </Btn>
           )}
+          {/*
+            * ★참조 없는 케이스만 지운다★ (한백 지시 2026-09-04 — 잘못 만든 2027 케이스를
+            * 걷을 길이 없었다). 참조된 케이스에는 단추 자체가 없다: 그 길은 개정·중지다
+            * (저장소도 참조를 다시 세어 거절한다). 삭제는 되돌릴 수 없어 Confirm 을 거친다.
+            */}
+          {canEdit && !referenced && (
+            <Btn size="sm" kind="undo" disabled={busy} onClick={() => setKilling(true)}>
+              삭제
+            </Btn>
+          )}
         </div>
+        <Confirm
+          open={killing}
+          title="단가 케이스 삭제"
+          detail={`${r.caseName} — 지우면 되돌릴 수 없습니다.`}
+          confirmLabel="삭제 확정"
+          busy={busy}
+          busyLabel="지우는 중…"
+          error={error}
+          onCancel={() => setKilling(false)}
+          onConfirm={() =>
+            void run({
+              url: '/api/pricing',
+              method: 'DELETE',
+              body: { id: r.id },
+              fail: '지우지 못했습니다.',
+            }).then((ok) => { if (ok) setKilling(false); })
+          }
+        />
         {/* 실패 문구는 누른 단추 옆 — 첫 칸에 두면 좁은 창에서 스크롤 밖이다(규칙 9) */}
         <Err className="mt-1 block text-right">{error}</Err>
       </Td>

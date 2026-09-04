@@ -23,7 +23,7 @@ export const pricingStore: Pick<
   ProjectRepository,
   'listLineAxes' | 'listPricingRules' | 'listChargerModels' | 'addChargerModel'
   | 'listSettlementRules' | 'addPricingRule' | 'updatePricingRule'
-  | 'setPricingRuleMeta' | 'setPricingRuleActive'
+  | 'setPricingRuleMeta' | 'setPricingRuleActive' | 'deletePricingRule'
 > = {
   async listLineAxes(actor): Promise<LineAxes[]> {
     assertHanbaek(actor, '단가 판정 축 조회');
@@ -256,6 +256,36 @@ export const pricingStore: Pick<
           field: id, oldValue: me.note, newValue: next.note,
         });
       }
+    });
+  },
+
+  async deletePricingRule(id, actor): Promise<void> {
+    assertAdmin(actor, '단가 케이스 삭제');
+    const db = getDb();
+    await db.transaction(async (tx) => {
+      const [row] = await tx
+        .select({ caseName: pricingRules.caseName })
+        .from(pricingRules)
+        .where(eq(pricingRules.id, id))
+        .limit(1);
+      if (!row) throw new Error('없는 단가 케이스입니다.');
+      /*
+       * ★참조가 하나라도 있으면 못 지운다★ — 지우면 그 라인의 지급액·기성이 계산 불능이
+       * 된다. 화면은 참조된 케이스에 삭제 단추를 안 주지만(개정·중지가 그 길), 표시가
+       * 낡았을 수 있어 여기서 다시 센다. 건수를 문구에 적는다(화면 규칙 3).
+       */
+      const refs = await tx
+        .select({ id: contractLines.id })
+        .from(contractLines)
+        .where(eq(contractLines.pricingRuleId, id));
+      if (refs.length > 0) {
+        throw new Error(`현장 라인 ${refs.length}건이 이 케이스를 참조합니다 — 지울 수 없습니다. 개정·중지를 쓰세요.`);
+      }
+      await tx.delete(pricingRules).where(eq(pricingRules.id, id));
+      await writeAudit(tx, {
+        projectId: null, actor, action: '단가 케이스 삭제',
+        field: id, oldValue: row.caseName, newValue: null,
+      });
     });
   },
 

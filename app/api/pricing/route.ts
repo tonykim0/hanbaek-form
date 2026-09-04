@@ -58,3 +58,17 @@ export const PATCH = adminWrite<
   if (Object.keys(patch).length === 0) throw new BadRequest('바꿀 값이 없습니다.');
   await getRepository().setPricingRuleMeta(body.id, patch, actor);
 });
+
+/**
+ * DELETE /api/pricing — 단가 케이스 삭제 [한백 전용]
+ *
+ * 참조가 하나라도 있으면 저장소가 거절한다(422) — 그 길은 개정·중지다.
+ * 잘못 만든 케이스를 걷는 자리다(한백 지시 2026-09-04).
+ */
+export const DELETE = adminWrite<Params, { id?: string }>(
+  '한백 관리자만 지울 수 있습니다.',
+  async ({ body, actor }) => {
+    if (!body?.id) throw new BadRequest('id 가 필요합니다.');
+    await getRepository().deletePricingRule(body.id, actor);
+  }
+);

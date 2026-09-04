@@ -407,6 +407,13 @@ export interface ProjectRepository {
    */
   setPricingRuleActive(id: string, active: boolean, actor: Actor): Promise<void>;
 
+  /**
+   * 케이스를 지운다. [한백 전용] ★참조가 하나라도 있으면 거절한다★ — 지우면 그 현장의
+   * 지급액을 계산할 수 없게 된다. 참조된 케이스의 길은 개정·중지다.
+   * 잘못 만든 케이스를 걷는 자리다 (한백 지시 2026-09-04 — 2027 시험 입력이 그랬다).
+   */
+  deletePricingRule(id: string, actor: Actor): Promise<void>;
+
   /** 지급 비고 저장. [한백 전용] 넘긴 필드만 바뀐다. */
   setPayment(projectId: string, patch: PaymentPatch, actor: Actor): Promise<void>;
 

@@ -119,12 +119,21 @@ for (const t of targets) {
 where id = '${t.id}' and default_settlement_rule_id is distinct from '${settlementRuleIdOf(t.steps)}';\n`);
 }
 
+/*
+ * 현장 한 줄에 그 현장의 라인 사정을 모은다.
+ *   h2    하반기 케이스를 쓰는 라인 수 · other 그 밖의 케이스를 쓰는 라인 수
+ *   rule  하반기 케이스들이 제안하는 규칙 (kinds = 1 일 때만 뜻이 있다)
+ * 3단계는 고정액이 턴키에 묶여 있어 턴키가 다른 라인이 섞이면 규칙 하나로 담을 수 없다 —
+ * 그래서 「전 라인이 하반기이고 제안이 하나로 모이는 현장」만 고친다.
+ */
+const H2 = `p.cpo = '플러그링크' and p.start_date = '2026년 7월 1일'`;
 const SUBQ = `    select cl.project_id,
-           min(p.default_settlement_rule_id) as rule,
-           count(distinct p.default_settlement_rule_id) as kinds
+           count(*) filter (where ${H2}) as h2,
+           count(*) filter (where not (${H2})) as other,
+           min(p.default_settlement_rule_id) filter (where ${H2}) as rule,
+           count(distinct p.default_settlement_rule_id) filter (where ${H2}) as kinds
       from contract_lines cl
       join pricing_rules p on p.id = cl.pricing_rule_id
-     where p.cpo = '플러그링크' and p.start_date = '2026년 7월 1일'
      group by cl.project_id`;
 
 console.log(`-- ── 3. 그 케이스를 쓰는 현장의 정산 규칙을 맞춘다 (한백 지시 2026-09-04) ──
@@ -136,9 +145,10 @@ console.log(`-- ── 3. 그 케이스를 쓰는 현장의 정산 규칙을 맞
 -- 확정(payout_terms_confirmed_at)은 그대로 둔다 — 잠금을 푸는 것이 아니라 조건을 고치는 것이다.
 -- 저장소를 지나지 않으므로 audit_log 는 남지 않는다 — 이 파일이 기록이다.
 --
--- 라인이 여럿이고 케이스가 서로 다른 규칙을 제안하면 건드리지 않는다(kinds = 1) —
--- 어느 쪽이 현장의 규칙인지 사람이 정할 일이다. 3단계는 고정액이 턴키에 묶여 있어
--- 턴키가 다른 라인이 섞이면 규칙 하나로는 배분이 정책과 어긋난다.
+-- ★겨냥을 조건에 적는다 — 「규칙이 없거나 옛 2단계인 현장」★. 한백 지시의 내용이 그것이고,
+-- 그렇게 적으면 원장 없는 DB 에 이 파일이 다시 돌아도(러너 주석의 그 상황) 그 사이 사람이
+-- 화면에서 고른 값을 조용히 되돌리지 않는다. 앱 쪽(applySuggestedSettlement)도 규칙이
+-- 비었을 때만 채운다 — 값이 있으면 사람이 정한 것으로 본다.
 update projects j
    set settlement_rule_id = s.rule,
        settlement_applied_at = ${q(APPLIED)}
@@ -146,40 +156,78 @@ update projects j
 ${SUBQ}
   ) s
  where s.project_id = j.id
+   and s.h2 > 0
+   and s.other = 0
    and s.kinds = 1
    and s.rule is not null
+   and (j.settlement_rule_id is null or j.settlement_rule_id = 'pl-2step')
    and j.settlement_rule_id is distinct from s.rule;
 
 -- ── 4. 검산 — 조용한 실패를 막는다 ──
 --
--- ★현장 쪽을 「규칙이 null 인가」로 검사하지 않는다★ — 섞인 현장(kinds > 1)은 일부러
--- 손대지 않으므로, null 을 예외로 삼으면 무고한 상태가 프로덕션 배포를 통째로 막는다
--- (러너는 실패하면 빌드를 죽인다). 검사하는 것은 3번이 세운 불변식 자체다:
--- 제안값이 하나로 정해지는 현장은 그 값을 갖고 있다.
+-- ★검사는 이 파일이 쓴 것에만 겨눈다.★ 「하반기 케이스 전부에 기성이 있는가」로 세면,
+-- 뒤에 사람이 화면에서 만든 기성 미정 케이스 하나가(빈 단계는 정상이다 — 근거 없는 조항을
+-- 지어내지 않기로 한 자리다) 프로덕션 배포를 통째로 막는다. 러너는 실패하면 빌드를 죽인다.
 do $$
-declare no_settle int; mismatched int; mixed int;
+declare bad int; left_over text;
 begin
-  select count(*) into no_settle from pricing_rules
-   where cpo = '플러그링크' and start_date = '2026년 7월 1일' and default_settlement_rule_id is null;
-  if no_settle > 0 then
-    raise exception '플러그링크 하반기 케이스 %건에 기성이 안 붙었습니다', no_settle;
+  -- 4-1. 열 개가 정한 규칙을 물었나 — update 가 0행을 고치고도 성공하는 조용한 실패를 잡는다
+  select count(*) into bad
+    from (values
+${targets.map((t) => `      ('${t.id}', '${settlementRuleIdOf(t.steps)}')`).join(',\n')}
+    ) as want(id, rule)
+    join pricing_rules p on p.id = want.id
+   where p.default_settlement_rule_id is distinct from want.rule;
+  if bad > 0 then
+    raise exception '하반기 케이스 %건이 이 파일이 정한 기성을 물지 않았습니다', bad;
   end if;
 
-  select count(*) into mismatched
+  -- 4-2. 규칙 다섯의 단계가 넣으려던 것과 같은가.
+  --      id 는 단계의 해시라 보통 같다. 겹치는 순간 insert 가 조용히 건너뛰고 남의 단계를
+  --      든 규칙이 케이스에 걸리는데, 그때 틀리는 것은 화면에도 로그에도 안 나오는 돈이다.
+  select count(*) into bad
+    from (values
+${[...rules].map(([id, steps]) => `      ('${id}', '${JSON.stringify(steps)}'::jsonb)`).join(',\n')}
+    ) as want(id, steps)
+    join settlement_rules r on r.id = want.id
+   where r.steps <> want.steps;
+  if bad > 0 then
+    raise exception '정산 규칙 %건의 단계가 이 파일과 다릅니다 — 해시가 겹쳤을 수 있습니다', bad;
+  end if;
+
+  -- 4-3. 고정 차수의 합이 받는 단가를 넘으면 잔액이 0 으로 깎여 계획이 턴키를 넘는다.
+  --      3단계의 가운데 금액은 정의 파일에 손으로 적은 턴키에서 나온 값이라, DB 의 금액이
+  --      바뀌면 여기서 어긋난다 — 마지막이 잔액이라 합 검사는 그것을 못 잡는다.
+  select count(*) into bad
+    from (values
+${targets.map((t) => `      ('${t.id}')`).join(',\n')}
+    ) as want(id)
+    join pricing_rules p on p.id = want.id
+    join settlement_rules r on r.id = p.default_settlement_rule_id
+   where (select coalesce(sum((e->'basis'->>'unit')::bigint), 0)
+            from jsonb_array_elements(r.steps) e
+           where e->'basis'->>'kind' = '고정')
+         > p.sales_unit + p.cons_unit + p.margin;
+  if bad > 0 then
+    raise exception '고정 차수의 합이 받는 단가를 넘는 케이스 %건 — 금액이 바뀌었습니다', bad;
+  end if;
+
+  -- 4-4. 남은 현장은 ★id 를 찍어★ 알린다. 건수만 남기면 빌드 로그를 봐도 누구인지 못 찾는다.
+  --      (NOTICE 는 러너가 삼키므로 WARNING 이다 — scripts/migrate.ts 의 onnotice)
+  select string_agg(j.id || '(' || coalesce(j.settlement_rule_id, '규칙없음') || ')', ', ')
+    into left_over
     from (
 ${SUBQ}
     ) s
     join projects j on j.id = s.project_id
-   where s.kinds = 1 and s.rule is not null and j.settlement_rule_id is distinct from s.rule;
-  if mismatched > 0 then
-    raise exception '하반기 케이스를 쓰는 현장 %건이 케이스 제안값과 다른 정산 규칙을 갖고 있습니다', mismatched;
-  end if;
-
-  -- 섞인 현장은 남는다 — 조용히 두지 않고 빌드 로그에 남긴다(NOTICE 는 러너가 삼킨다)
-  select count(*) into mixed from (
-${SUBQ}
-  ) s where s.kinds > 1;
-  if mixed > 0 then
-    raise warning '하반기 케이스가 섞인 현장 %건은 정산 규칙을 사람이 골라야 합니다 — 현장 상세 기성 탭', mixed;
+   where s.h2 > 0
+     and (s.other > 0 or s.kinds <> 1 or j.settlement_rule_id is distinct from s.rule);
+  if left_over is not null then
+    raise warning '하반기 케이스를 쓰는 현장의 정산 규칙을 사람이 골라야 합니다 — %', left_over;
   end if;
 end $$;`);
+
+console.error(`검산(찍힌 SQL 밖): 케이스 ${targets.length}개 · 새 규칙 ${rules.size}개`);
+console.error(`  자투 id ${invIds.join(', ')}`);
+console.error(`  연동 id ${linkIds.join(', ')}`);
+for (const [id, steps] of rules) console.error(`  ${id}  ${settlementRuleNameOf(steps)}`);

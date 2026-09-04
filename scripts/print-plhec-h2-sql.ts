@@ -7,6 +7,12 @@
  * 적용됐다 — 적용된 파일은 고치지 않으므로, 이 스크립트는 그것을 되돌리고 배포본
  * 260629 기준으로 다시 넣는 SQL 을 만든다. 값·근거는 lib/pricing-policy-plhec-h2.ts.
  * HEC(rev4)는 처음부터 맞는 문서 기준이라 여기서 다시 만들지 않는다.
+ *
+ * ★기성('pl-2step')은 여기 박힌 채로 둔다★ — 이 생성기는 이미 적용된 0007 을 재현하는
+ * 것이고, 적용된 파일은 고치지 않는다(CLAUDE.md). 하반기 기성은 그 뒤 한백이 다시 정해
+ * ★migrations/0053 이 정본★ 이다(보조 3단계 · 자투·연동 2단계). 정의 파일의
+ * settlementSteps 를 보고 이 파일을 다시 돌리면 0053 과 어긋난 SQL 이 나온다 —
+ * 새 조항을 반영할 때는 scripts/print-pl-h2-settlement-sql.ts 쪽에 더한다.
  */
 import {
   HEC_KEEP_IDS, HEC_KEEP_POLICY,

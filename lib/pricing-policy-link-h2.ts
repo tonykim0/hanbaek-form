@@ -15,8 +15,11 @@
  * 지급 단계에서 다룬다.
  *
  * 기성: SK 는 부속합의서 4조(완료·개통 준공 후 지급, 세금계산서 확인 후 익월 25일)대로
- * 준공 일시금(lump-100). PL 은 근거 문서가 없어(금액만 한백이 확정) ★기성 미정★.
+ * 준공 일시금(lump-100). ★PL 연동은 자체투자와 같은 2단계다★ — 20만 먼저, 나머지는
+ * 준공 이후(「연동도 자투에 포함돼」, 한백 지시 2026-09-04). 단계 정의는
+ * lib/pricing-policy-plhec-h2.ts 의 PL_INV_STEPS 한 곳이고, 반영은 migrations/0053 이다.
  */
+import { PL_INV_STEPS } from '@/lib/pricing-policy-plhec-h2';
 import type { NewPricingRule } from '@/types/project';
 
 const MARGIN = 200_000;
@@ -30,10 +33,12 @@ const SK_LINK_INSTALL =
  */
 const SK_LINK_MISC = '· 급속충전기 연동에 대한 수수료는 제외';
 
-const PL_LINK_MISC = [
-  '· 연동 대상 기기·세부 조건은 운영사 확인 필요(코스텔·PNE 한정으로 안내된 바 있음)',
-  '· 정산 방식이 확정 문서에 없어 기성 미정 — 확인되면 채운다',
-].join('\n');
+/*
+ * 기성 줄은 안 적는다 — 정산 규칙 행이 단계를 그대로 보여준다(중복은 갈린다).
+ * 「정산 방식이 확정 문서에 없어 기성 미정」이라 적어 두었던 줄은 걷었다 —
+ * 자투와 같은 2단계로 정해졌다(한백 2026-09-04).
+ */
+const PL_LINK_MISC = '· 연동 대상 기기·세부 조건은 운영사 확인 필요(코스텔·PNE 한정으로 안내된 바 있음)';
 
 const BASE = {
   cpo: undefined as never,
@@ -73,6 +78,12 @@ export function linkRules(): NewPricingRule[] {
       ...BASE,
       caseName: '플러그링크 (2026년 하반기) | 공동주택 | 7년 연동 | 모자분리',
       cpo: '플러그링크',
+      /*
+       * ★DB 의 시작일은 '2026년 7월 1일' 이다★ — 0037 이 플러그링크의 「2026년 하반기」를
+       * 계약일과 견줄 수 있는 날짜로 통일했다(케이스 이름도 같이 바꿨다). 이 파일은 0010 을
+       * 재현하는 값이라 그대로 두지만, 시작일로 케이스를 골라내는 SQL 을 쓸 때는 DB 값을 본다
+       * (migrations/0053 이 그렇게 골랐다) — 이 문자열로 고르면 연동 두 건이 조용히 빠진다.
+       */
       termYears: [7],
       bldgTypes: ['공동주택'],
       startDate: '2026년 하반기',
@@ -81,7 +92,7 @@ export function linkRules(): NewPricingRule[] {
       // 충전요금은 운영사의 것이라 연동 케이스에도 같다 (한백 확정 2026-08-23) — SK 는 아직 미지정
       chargeRate: 292,
       miscTerms: PL_LINK_MISC,
-      settlementSteps: [],
+      settlementSteps: PL_INV_STEPS,
     },
     {
       ...BASE,
@@ -95,7 +106,7 @@ export function linkRules(): NewPricingRule[] {
       // 충전요금은 운영사의 것이라 연동 케이스에도 같다 (한백 확정 2026-08-23) — SK 는 아직 미지정
       chargeRate: 292,
       miscTerms: PL_LINK_MISC,
-      settlementSteps: [],
+      settlementSteps: PL_INV_STEPS,
     },
   ];
 }

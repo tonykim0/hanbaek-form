@@ -69,7 +69,7 @@ export const SETTLEMENT_RULES: SettlementRule[] = [
       { trigger: '착공', basis: { kind: '고정', unit: 800_000 } },
       { trigger: '준공마감', basis: { kind: '고정', unit: 1_200_000 } },
     ],
-    note: '현대엔지니어링(상반기). 유일한 3단계.',
+    note: '현대엔지니어링(상반기).',
     active: true,
   },
   {

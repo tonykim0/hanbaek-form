@@ -19,11 +19,18 @@
  * 분해는 같은 프레임(마진 20 · 시공 100 고정, 나머지 영업). 자투 상업 120만은 영업비가
  * 0 이 된다 — 문서가 명시한 금액이라 그대로 둔다.
  *
- * ★기성은 pl-2step(환경부 승인 20만 → 준공마감 잔액) 그대로다★ — 문서의 대금 조항
- * (영업비 20만 계약 승인 후 · 공사비 선금 50% 보조금 선금 수령 익월 「비율 미확정」 ·
- * 잔금 50% 준공 승인 후)은 비율이 미확정이라 단계로 못 박지 않고, 노션 실측으로 굳은
- * 기존 규칙을 유지한다. 문서 문구는 기타 칸에 남긴다. 자체투자는 대금 조항이 보조금
- * 흐름뿐이라 ★기성 미정★으로 둔다 — 없는 근거로 단계를 지어내지 않는다.
+ * ★기성 — 문서의 대금 조항을 그대로 담는다 (한백 지시 2026-09-04)★
+ *   문서: 영업비 20만 계약 승인 후 익월 말일 · 공사비 선금 50% 보조금 선금 수령 익월
+ *         말일(비율 미확정) · 공사비 잔금 50% 준공 승인 후 익월 말일.
+ *   보조금 5케이스 = 3단계(plSubSteps). 콘솔 트리거가 환경부 승인·착공·준공마감 셋뿐이라
+ *   없는 시점 둘을 가진 칸에 얹는다: 「계약 승인」→환경부 승인 · 「보조금 선금 수령」→착공
+ *   (0005 의 「선급의 실제 트리거는 PL 승인, 시스템은 착공으로 둠」과 같은 방식).
+ *   ★자체투자·연동 5케이스 = 2단계 — 20만 먼저, 나머지는 준공 이후★ (한백 지시. 연동도
+ *   자투에 포함된다). 자투에는 환경부 승인이 없어 첫 차수를 착공에 물린다 — 그 칸은
+ *   시공사가 실착공일을 넣으면 스스로 열리고, 환경부 승인 칸은 자투 현장에서 빈 채로 남는다.
+ *   비율 50% 는 문서가 확정하지 않은 값이다 — 정해지면 새 마이그레이션으로 고친다.
+ *   ★그전까지는 「미정이라 단계를 지어내지 않는다」였다★ — 그동안 자투 현장은 정산 규칙이
+ *   없어 지급조건 확정 자체가 막혀 있었다(율량동 현대아파트, 2026-09-04 에 드러났다).
  *
  * 프로모션(계약기간 기준): 7년 149원 180일 · 10년 149원 180일 + 249원 180일.
  * 자체투자는 문서에 프로모션 언급이 없어 미지정으로 둔다.
@@ -48,6 +55,35 @@ const MARGIN = 200_000;
  * 110만이다(HEC_PAYOUT_CONS). 상반기 케이스(2026년 1월 20일)는 90만 그대로 둔다.
  */
 const PL_PAYOUT_CONS = 950_000;
+
+/**
+ * 하반기 대금 조항 → 기성 단계 (한백 지시 2026-09-04). 위 머리 주석이 근거다.
+ *
+ * 보조금 3단계: 20만(계약 승인) → 공사비 선금 50% → 잔금. 「나머지」의 기준은
+ * ★받는 단가 − 20만★ 이고, 마지막을 잔액으로 두면 합이 언제나 턴키와 맞는다
+ * (lib/settlement.ts checkSettlementSteps 가 그것을 검사한다).
+ * 반올림하지 않는다 — 원 단위가 갈리면 어느 차수에서 깎였는지 화면에 안 보인다.
+ */
+export function plSubSteps(turnkey: number): SettlementStepRule[] {
+  const half = (turnkey - 200_000) / 2;
+  if (!Number.isInteger(half)) {
+    throw new Error(`턴키 ${turnkey} 는 20만을 뺀 나머지가 반으로 안 갈립니다 — 비율을 다시 정해야 합니다.`);
+  }
+  return [
+    { trigger: '환경부 승인', basis: { kind: '고정', unit: 200_000 } },
+    { trigger: '착공', basis: { kind: '고정', unit: half } },
+    { trigger: '준공마감', basis: { kind: '잔액' } },
+  ];
+}
+
+/**
+ * 자체투자·연동 2단계 — 20만 먼저, 나머지는 준공 이후 (한백 지시 2026-09-04).
+ * 턴키와 무관하게 한 벌이다: 뒤가 잔액이라 금액이 달라도 같은 규칙을 같이 쓴다.
+ */
+export const PL_INV_STEPS: SettlementStepRule[] = [
+  { trigger: '착공', basis: { kind: '고정', unit: 200_000 } },
+  { trigger: '준공마감', basis: { kind: '잔액' } },
+];
 
 /* ── 플러그링크 (배포본 260629) ────────────────────────────────────────── */
 
@@ -165,11 +201,11 @@ export function plPolicy(
 }
 
 /** 기존 유지 — 조건만 갱신하고 기성은 pl-2step 으로 되돌린다 */
-export const PL_KEEP: { id: string; term: number; bldgs: string[] }[] = [
-  { id: 'pl-h2-y7-mother-new-apt', term: 7, bldgs: ['공동주택'] },
-  { id: 'pl-h2-y10-mother-new-apt', term: 10, bldgs: ['공동주택'] },
+export const PL_KEEP: { id: string; term: number; bldgs: string[]; turnkey: number }[] = [
+  { id: 'pl-h2-y7-mother-new-apt', term: 7, bldgs: ['공동주택'], turnkey: 2_400_000 },
+  { id: 'pl-h2-y10-mother-new-apt', term: 10, bldgs: ['공동주택'], turnkey: 2_600_000 },
   // 상업 10년(240만) — v1.1 때 넣었지만 260629 의 상업 보조 신규 10년과 금액이 같아 남긴다
-  { id: 'pl-y10-mother-new-biz-2026', term: 10, bldgs: ['상업시설'] },
+  { id: 'pl-y10-mother-new-biz-2026', term: 10, bldgs: ['상업시설'], turnkey: 2_400_000 },
 ];
 
 /** v1.1 기준으로 넣었던 것 — 걷어낸다 (참조 가드) */
@@ -192,7 +228,7 @@ export const PL_RESTORE: (NewPricingRule & { id: string })[] = [
     supervisionBearer: '영업비 차감', safetyFeeBearer: '한백 부담',
     note: null,
     ...plPolicy(true, 7),
-    settlementSteps: [],
+    settlementSteps: plSubSteps(2_000_000),
   },
   {
     id: 'pl-h2-y10-kepco-new-apt',
@@ -205,7 +241,7 @@ export const PL_RESTORE: (NewPricingRule & { id: string })[] = [
     supervisionBearer: '영업비 차감', safetyFeeBearer: '한백 부담',
     note: null,
     ...plPolicy(true, 10),
-    settlementSteps: [],
+    settlementSteps: plSubSteps(2_200_000),
   },
 ];
 
@@ -236,7 +272,7 @@ export function plNewRules(): NewPricingRule[] {
     safetyFeeBearer: null,
     note: null,
     ...plPolicy(false, null, [row.bldg]),
-    settlementSteps: [],
+    settlementSteps: PL_INV_STEPS,
   }));
 }
 

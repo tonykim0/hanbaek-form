@@ -51,14 +51,21 @@ export function CaseForm({
     ? startKey({ startDate: prefill.startDate, bizYear: prefill.bizYear ?? 0 }).split('-').map(Number)
     : null;
   const opened = new Date();
+  const todayIso = `${opened.getFullYear()}-${String(opened.getMonth() + 1).padStart(2, '0')}-${String(opened.getDate()).padStart(2, '0')}`;
   /*
-   * ★개정은 다음 반기로 열린다★ (2026-08-29). 그전에는 오늘 기준(올해·이번 반기)으로 열려,
-   * 7월 21일 케이스를 개정하려고 누르면 「2026년 하반기」(= 7월 1일)가 기본값이 됐다 —
-   * 기존보다 이른 시기라 폼이 열리자마자 「개정 시기가 기존보다 늦어야 함」으로 막혀 있었다.
-   * 무엇을 고르든 사람이 다시 정할 값이지만, 기본값은 유효한 쪽이어야 한다.
+   * ★개정의 기본 시작은 오늘이다★ (한백 지적 2026-09-04 「왜 자꾸 2027 상반기 케이스가
+   * 생기는 거야? 난 나이스 2026 하반기를 개정하고 있는데」).
+   *
+   * 8/29 에는 「다음 반기」를 기본으로 했다 — 오늘 기준이면 기존(7/21)보다 이른 값이 실려
+   * 열리자마자 막혔기 때문이다. 그런데 하반기 케이스의 다음 반기는 ★내년 상반기★라,
+   * 시기 칸을 안 만지고 저장하면 2027 케이스가 생겼다 — 실제로 두 건이 그렇게 만들어져
+   * 현장에 지정까지 됐다(9/3). 정책 개정은 대부분 반기 중간에 오늘 언저리 날짜로 오므로
+   * (PL 9/1 이 그렇다), 오늘이 기존 시작보다 늦으면 ★오늘(날짜 모드)★로 연다 — 유효하고,
+   * 해가 튀지 않는다. 오늘이 더 이르면(미래 시작 케이스의 개정) 다음 반기로 연다.
    */
+  const reviseToday = Boolean(prefill.after) && todayIso > prefill.after!;
   const nextHalf = (() => {
-    if (!prefill.after) return null;
+    if (!prefill.after || reviseToday) return null;
     const [y, m] = prefill.after.split('-').map(Number);
     return m <= 6 ? { year: y, half: '하' as const } : { year: y + 1, half: '상' as const };
   })();
@@ -68,9 +75,11 @@ export function CaseForm({
   );
   /* 개정은 새 날짜를 사람이 적는다 — 원 케이스의 날짜를 실으면 그대로 저장돼 막힌다 */
   const [startDay, setStartDay] = useState(
-    !prefill.after && seed && seed[1] > 0 && seed[2] > 0
-      ? `${seed[0]}-${String(seed[1]).padStart(2, '0')}-${String(seed[2]).padStart(2, '0')}`
-      : ''
+    reviseToday
+      ? todayIso
+      : !prefill.after && seed && seed[1] > 0 && seed[2] > 0
+        ? `${seed[0]}-${String(seed[1]).padStart(2, '0')}-${String(seed[2]).padStart(2, '0')}`
+        : ''
   );
   /*
    * ★적용 시작을 적는 방법은 둘이고, 둘은 서로를 배제한다★ (한백 2026-08-29 「MECE 하게」).

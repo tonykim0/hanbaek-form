@@ -19,7 +19,7 @@ import { NextResponse } from 'next/server';
 import { getSessionUser } from '@/lib/auth/session';
 import { canWrite } from '@/lib/roles';
 import { autoIntakeFromZip } from '@/lib/intake-auto';
-import { stagePrefix, sweepStaleStaging } from '@/lib/intake-stage';
+import { stagedPathnameOf, stagePrefix, sweepStaleStaging } from '@/lib/intake-stage';
 
 /** 분류·판독까지 도는 경로라 길다. 포털의 판독 라우트와 같은 예산. */
 export const maxDuration = 300;
@@ -108,6 +108,21 @@ export async function POST(request: Request) {
     if (u.protocol !== 'https:' || !BLOB_HOST_RE.test(u.hostname)) throw new Error();
   } catch {
     return NextResponse.json({ error: '파일 주소가 올바르지 않습니다.' }, { status: 400 });
+  }
+  /*
+   * ★내가 올린 것만 읽고 지운다★ (감사 2026-09-04 H7).
+   *
+   * 검증이 「우리 호스트인가」뿐이었다. 그런데 이 라우트는 끝나면 그 주소를 반드시
+   * 지운다(아래 finally 의 del) — 그래서 쓰기 권한만 있으면 우리 스토어의 임의 주소를
+   * 넣어 ★현장 서류 원본을 지울 수 있었다★. 판독 비용도 남의 파일에 쓰였다.
+   * 임시 자리는 계정별로 갈려 있고 그 판정이 이미 있다(stagedPathnameOf) —
+   * 없던 것은 판정이 아니라 부르는 자리였다.
+   */
+  if (!stagedPathnameOf(blobUrl, session.id)) {
+    return NextResponse.json(
+      { error: '내가 올린 파일이 아닙니다 — 다시 올려주세요.' },
+      { status: 403 }
+    );
   }
 
   /*

@@ -12,6 +12,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { del } from '@vercel/blob';
 import { extractFormFromPdf, FormImportError } from '@/lib/claude-import';
 import { getSessionUser } from '@/lib/auth/session';
+import { stagedPathnameOf } from '@/lib/intake-stage';
 
 // 스캔본 판독은 페이지 수에 비례해 오래 걸립니다 (60페이지 상한 기준 여유 확보)
 export const maxDuration = 300;
@@ -78,6 +79,24 @@ export async function POST(request: NextRequest) {
       }
       if (!isAllowedBlobUrl(url)) {
         return errorResponse('업로드 URL이 올바르지 않습니다.', 'INVALID_BLOB_URL', 400);
+      }
+      /*
+       * ★내가 올린 것만 판독하고 지운다★ (감사 2026-09-04 H9).
+       *
+       * 검증이 「우리 호스트인가」뿐이었다. 그런데 이 라우트는 끝나면 그 주소를 반드시
+       * 지운다(아래 finally) — 그래서 로그인한 아무 계정이나 우리 스토어의 임의 주소를
+       * 넣으면 ★현장 서류 원본이 지워졌다★. 판독 비용도 남의 파일에 쓰였다.
+       *
+       * 임시 자리는 계정별로 갈려 있고(intake-stage/{계정}/), 그 판정이 이미 있다 —
+       * stagedPathnameOf 가 남의 자리를 null 로 돌려준다. 없던 것은 판정이 아니라
+       * 부르는 자리였다.
+       */
+      if (!stagedPathnameOf(url, session.id)) {
+        return errorResponse(
+          '내가 올린 파일이 아닙니다 — 다시 올려주세요.',
+          'NOT_MY_UPLOAD',
+          403
+        );
       }
       blobUrl = url;
       pdf = await downloadBlob(url);

@@ -61,16 +61,20 @@ async function uploadPdf(
   file: File,
   onProgress: (percentage: number) => void
 ): Promise<string> {
-  const pathname = `form-import-${Date.now()}.pdf`;
+  /*
+   * ★경로는 서버가 정한다★ (감사 2026-09-04 H9) — 여기서 지어 보내면 그 주소에 계정이
+   * 없어서, 판독 라우트가 「내가 올린 것인가」를 물을 수 없다. 토큰과 함께 받는다.
+   */
   const tokenRes = await fetch('/api/upload', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ pathname }),
+    body: JSON.stringify({}),
   });
-  const tokenData = await readJsonSafely<{ token?: string; error?: string }>(tokenRes);
-  if (!tokenRes.ok || !tokenData?.token) {
+  const tokenData = await readJsonSafely<{ token?: string; pathname?: string; error?: string }>(tokenRes);
+  if (!tokenRes.ok || !tokenData?.token || !tokenData.pathname) {
     throw new Error(tokenData?.error ?? '업로드 토큰 발급에 실패했습니다.');
   }
+  const pathname = tokenData.pathname;
 
   const { put } = await import('@vercel/blob/client');
   const blob = await put(pathname, file, {

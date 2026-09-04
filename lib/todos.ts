@@ -12,7 +12,7 @@
  * 열람 전용은 넣을 칸이 없다. 돈의 두 방향은 칸이 갈린다: 지급(→협력사) · 기성(운영사→).
  */
 import { getRepository } from '@/lib/data';
-import { bandOfColumn, boardColumnOf } from '@/lib/board';
+import { bandOfColumn, boardColumnOf, courtOfColumn } from '@/lib/board';
 import { batchesOf, batchKey, batchStateOf } from '@/lib/payout-board';
 import { actorOf, viewerOf } from '@/lib/auth/session';
 import { isHanbaek } from '@/lib/roles';
@@ -53,8 +53,18 @@ export async function todosOf(session: SessionPayload): Promise<TodoItem[]> {
 
   const items: TodoItem[] = projects
     // 멈춘 현장은 누구 차례도 아니다 — 계약중단 칸과 같은 판정
-    .filter((p) => !p.holdState && mine.includes(p.court))
+    .filter((p) => !p.holdState)
     .map((p) => ({ p, column: boardColumnOf(p) }))
+    /*
+     * ★차례는 칸이 정한다 — 저장된 담당(court)을 믿지 않는다★ (한백 지적 2026-09-04
+     * 「할 일 29개가 맞나? 계약검토랑 계약완료만 내 할 일인데」).
+     *
+     * court 는 여기저기서 따로 찍히는 저장값이라 칸과 어긋났다 — 실측 29건 중 10건이
+     * 그랬다(계약이 끝난 뒤 서류를 올려 담당이 한백으로 온 6건 · 반려가 남았는데 접수
+     * 선언으로 한백이 된 3건). 칸은 이미 「지금 무엇이 막고 있나」를 알고 있으므로
+     * 그 답에서 차례를 유도한다(lib/board courtOfColumn).
+     */
+    .filter(({ column }) => mine.includes(courtOfColumn(column)))
     /*
      * ★준공한 현장은 여기서 뺀다★ (2026-08-29 흐름 워크스루).
      *

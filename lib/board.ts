@@ -15,7 +15,8 @@
  * 정산은 칸이 아니다. 기성은 공정과 나란히 도는 축이라(환경부 승인·착공에서 열린다)
  * 이 줄에 끼워 넣으면 한 현장이 두 칸에 있어야 한다.
  */
-import type { HoldState, ProcessStatus, Stage } from '@/types/project';
+import type { Court, HoldState, ProcessStatus, Stage } from '@/types/project';
+import { COURT_AFTER_STATUS } from '@/lib/process';
 import { PROCESS_STATUSES } from '@/types/project';
 
 /** 공정에 들어가기 전(계약)과 흐름에서 빠진 것(계약중단)은 공정 상태로 표현할 수 없어 따로 둔다 */
@@ -164,6 +165,31 @@ export const BOARD_COLUMNS: BoardColumnDef[] = [
 /** 그 칸이 어느 띠에 속하는가 (계약 · 시공 · 멈춤) */
 export function bandOfColumn(key: BoardColumn): BoardBand {
   return BOARD_COLUMNS.find((c) => c.key === key)?.band ?? '계약';
+}
+
+/**
+ * 이 칸은 누구 차례인가 — ★칸이 담당을 정한다★ (한백 지적 2026-09-04 「할 일 29개가
+ * 맞나? 계약검토랑 계약완료만 내가 할 일인데」).
+ *
+ * ★왜 유도하는가★ 담당(projects.court)은 저장값이고, 여기저기서 따로 찍혔다 —
+ * 서류를 올리면 한백, 반려하면 영업사, 접수 선언하면 한백, 단계를 옮기면
+ * COURT_AFTER_STATUS. 그러다 보니 ★칸과 담당이 서로 다른 말★을 했다. 프로덕션에서
+ * 계약 할 일 29건 중 10건이 그랬다(2026-09-04 실측):
+ *   · 운영사 계약서 제출 6건 — 계약이 끝난 뒤 견적서·실사보고서를 올렸더니 담당이
+ *     한백으로 넘어왔다. 그 칸은 운영사·환경부를 기다리는 자리다.
+ *   · 계약보완 3건 — 반려가 남았는데 협력사가 접수 선언을 눌러 담당만 한백이 됐다.
+ *
+ * 단계(stage)를 저장하지 않고 서류·단가에서 유도하는 것과 같은 판단이다(CLAUDE.md).
+ * 칸은 이미 「지금 무엇이 막고 있나」를 알고 있으므로, 담당은 그 답에서 나온다.
+ * 저장된 court 는 그대로 두되(고치는 API 가 따로 있다) 할 일은 이것을 본다.
+ */
+export function courtOfColumn(key: BoardColumn): Court {
+  /* 계약 칸 셋은 ProcessStatus 가 아니라 서류에서 유도된 자리다 */
+  if (key === '계약검토') return '한백'; // 낸 것을 볼 차례
+  if (key === '계약접수') return '영업사'; // 아직 모으는 중
+  if (key === '계약보완') return '영업사'; // 반려를 고칠 차례
+  if (key === '계약중단') return '한백'; // 멈춘 현장 — 할 일에서는 이미 걸러진다
+  return COURT_AFTER_STATUS[key];
 }
 
 /**

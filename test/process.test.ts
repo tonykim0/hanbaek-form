@@ -171,6 +171,35 @@ describe('준공서류 제출 완료 — 세부 칸으로 본다 (2026-08-29 흐
     const p = P({ status: '준공서류 접수/검토', docs: [doc('completion')] });
     expect(advanceBlockers('준공완료', 'completionSubmitAt', p, ENV)).toEqual([]);
   });
+
+  /*
+   * ★상태 이동으로도 준공서류를 건너뛸 수 없다★ (감사 2026-09-04).
+   *
+   * 서류를 세는 자리가 「제출 완료」 선언 하나뿐이었는데, 보드의 넘기기·표의 단계
+   * 고르기·스테퍼는 그 선언을 안 지나고 canEnter 만 본다. 개통완료 칸을 걷으면서
+   * (0048) 준공서류 0장으로 준공완료까지 가는 길이 뚫렸고, 그 순간 completeDoneAt 이
+   * 찍혀 2차 지급(30%)이 열렸다. 게이트가 같은 서류를 지키게 해서 두 길을 하나로 만든다.
+   */
+  it('★준공서류 0장이면 상태 이동으로도 준공완료에 못 들어간다★', () => {
+    const r = canEnter('준공완료', P({ status: '준공서류 접수/검토', commDoneDate: 'd', openDoneAt: 'd' }), ENV);
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.blockedBy).toMatch(/설치완료확인서|준공/);
+  });
+
+  it('준공보완에서도 같다 — 반려를 푼다고 서류가 온 것은 아니다', () => {
+    const p = P({ status: '준공보완', commDoneDate: 'd', openDoneAt: 'd', docs: [doc('completeConfirm')] });
+    expect(canEnter('준공완료', p, ENV).ok).toBe(false);
+  });
+
+  it('서류가 다 오면 선언 없이도 열린다 — 선언은 들어오는 길이지 나가는 조건이 아니다', () => {
+    const p = P({ status: '준공서류 접수/검토', commDoneDate: 'd', openDoneAt: 'd', docs: ALL.map(doc) });
+    expect(canEnter('준공완료', p, ENV)).toEqual({ ok: true });
+  });
+
+  it('이관 현장은 옛 한 칸으로 게이트도 통과한다', () => {
+    const p = P({ status: '준공서류 접수/검토', commDoneDate: 'd', openDoneAt: 'd', docs: [doc('completion')] });
+    expect(canEnter('준공완료', p, ENV)).toEqual({ ok: true });
+  });
 });
 
 describe('차례 (COURT_AFTER_STATUS)', () => {

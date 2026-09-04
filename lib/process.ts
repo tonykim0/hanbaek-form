@@ -187,7 +187,22 @@ export const STATUS_GATES: Record<ProcessStatus, StatusGate | null> = {
     !p.commDoneDate && { key: 'commDoneDate', label: '통신완료일' },
     !p.openDoneAt && { key: 'openDoneAt', label: '개통 완료 선언' },
   ]),
-  '준공완료': null,   // 보완이 해소되었다는 판단
+  /*
+   * ★준공서류가 다 와야 준공한다★ (한백 지시 2026-09-04, 감사에서 나온 구멍).
+   *
+   * 여기가 null 이었다. 준공서류를 세는 자리는 「준공서류 제출 완료」 선언 하나뿐인데
+   * (CHECK_REQUIRES.completionSubmitAt), ★상태를 직접 옮기는 길은 그 선언을 안 지난다★ —
+   * 보드의 「넘기기」, 표의 단계 고르기, 스테퍼가 전부 canEnter 만 본다. 개통완료 칸이
+   * 있던 동안은 그 칸이 중간에서 막았는데 걷어내면서(0048) 길이 뚫렸다: 준공서류
+   * 0장인 현장을 두 번 눌러 준공완료로 보낼 수 있었고, 그 순간 completeDoneAt 이
+   * 찍혀 ★영업비·시공비 2차 지급(30%)이 열렸다★(lib/settlement payoutReleaseOf).
+   *
+   * 선언(completionSubmitAt)은 요구하지 않는다 — 그것은 접수/검토로 ★들어오는★ 길이고
+   * 여기서 지킬 것은 서류 그 자체다. 선언까지 걸면 시공사가 안 누른 채 서류만 다 온
+   * 현장을 한백이 못 넘긴다. 이관 현장은 옛 한 칸으로 갈음된다(missingCompletionDocs).
+   */
+  '준공완료': (p, ctx) =>
+    missing(missingCompletionDocs(p, ctx).map((name) => ({ key: 'completionDocs', label: name }))),
 };
 
 /**

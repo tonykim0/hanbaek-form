@@ -5,7 +5,10 @@
  * 「가확정」은 지급일 전에만 뜻이 있는 신호다.
  */
 import { describe, expect, it } from 'vitest';
-import { batchKey, batchStateOf, canAttachInvoice, isPayoutSubject, payDateChoices, workGroupOf } from '@/lib/payout-board';
+import {
+  batchKey, batchStateOf, canAttachInvoice, isPayoutSubject, payDateChoices, workGroupOf, workOf,
+  type PayoutRowInput,
+} from '@/lib/payout-board';
 
 describe('batchKey — 지급처 × 구분 × 지급일', () => {
   it('세 축이 같으면 같은 배치다', () => {
@@ -176,5 +179,47 @@ describe('초과 지급은 완료가 아니다 — 되받거나 잔금에서 뺄
 
   it('딱 맞게 다 나간 줄만 지급 완료다', () => {
     expect(workGroupOf({ state: '지급 완료', blockers: [] })).toBe('지급 완료');
+  });
+});
+
+/*
+ * ★멈춘 계약에는 돈이 나가지 않는다★ (한백 지시 2026-09-04, 감사 H3).
+ *
+ * 지급 판정이 보던 것은 단가·서류·트리거 셋뿐이라 「이 계약이 살아 있나」를 아무도
+ * 안 봤다 — 계약파기로 중단한 현장(인천 에코메트로 타워 A동)의 영업비 1차가
+ * 「지급 가능」으로 서 있었고, 체크해 가확정하면 서버도 안 막았다. 프로덕션에서
+ * 그렇게 나간 280만원이 회수 대상이 됐다.
+ */
+describe('workOf — 계약중단 현장은 지급하지 않는다', () => {
+  const row = (over: Partial<PayoutRowInput> = {}): PayoutRowInput => ({
+    key: 'p|영업비', projectId: 'p', projectName: '시험현장', cpo: '플러그링크',
+    kind: '영업비', org: '엘앤에스', plan: 4_000_000, adjust: 0, confirmed: 0,
+    unpriced: 0, holdState: null,
+    milestones: { contractCompletedAt: '2026-07-01', installCompletedAt: null, completedAt: null },
+    payoutDocsMissing: [],
+    step1At: null, step2At: null, step1EntryId: null, step2EntryId: null,
+    ...over,
+  });
+
+  it('조건이 다 찬 줄은 지급 가능이다 — 비교 기준', () => {
+    expect(workOf(row()).state).toBe('지급 가능');
+  });
+
+  it('★계약중단이면 조건이 다 차도 막힌다★', () => {
+    const w = workOf(row({ holdState: '계약중단' }));
+    expect(w.state).toBe('조건 대기');
+    expect(w.open).toBeNull();
+    expect(w.blockers).toEqual(['계약중단 — 지급 불가']);
+  });
+
+  it('막는 이유를 그 자리에 적는다 — 단가·서류가 아니라 중단이라고 말한다', () => {
+    const w = workOf(row({ holdState: '계약중단', unpriced: 2 }));
+    expect(w.blockers).toEqual(['계약중단 — 지급 불가']);
+  });
+
+  it('이미 나간 지급은 그대로 둔다 — 원장은 사실의 기록이고, 되받는 것은 「회수」다', () => {
+    const w = workOf(row({ holdState: '계약중단', confirmed: 2_800_000 }));
+    expect(w.confirmed).toBe(2_800_000);
+    expect(w.state).toBe('조건 대기');
   });
 });

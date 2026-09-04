@@ -54,6 +54,7 @@ export function payoutsOfDetail(d: ProjectDetail, vis: Visibility): PayoutRowInp
       confirmed: side.paid,
       // 자기 쪽 단가가 안 붙은 라인 — 요약의 unpricedLines 와 같은 말을 자기 쪽만 센다
       unpriced: d.lines.filter((l) => unit(l) === null).length,
+      holdState: d.project.holdState,
       milestones,
       payoutDocsMissing: kind === '영업비' ? d.contract.payoutDocsMissing : [],
       step1At: stepEntry(kind, '1차')?.at ?? null,
@@ -160,6 +161,25 @@ export function workOf(p: PayoutRowInput): PayoutWork {
     step1Done: steps.step1Done,
     step2Done: steps.step2Done,
   };
+
+  /*
+   * ★멈춘 계약에는 돈이 나가지 않는다★ (한백 지시 2026-09-04, 감사 H3).
+   *
+   * 판정이 보던 것은 단가·서류·트리거 셋뿐이라 「이 계약이 살아 있나」를 아무도 안 봤다.
+   * 계약파기로 중단한 현장의 영업비 1차가 「지급 가능」으로 서 있었고, 체크해서
+   * 가확정하면 서버도 안 막아 원장에 그대로 기록됐다. 같은 저장소의 할 일(lib/todos)과
+   * 보드(lib/board)는 이미 멈춘 현장을 빼고 있었다 — 지급 화면만 몰랐다.
+   *
+   * ★맨 앞에서 막는다★ — 단가·서류가 다 차 있어도 멈춘 계약이면 그것이 답이다.
+   * 이미 나간 것은 이 판정이 되돌리지 않는다(원장은 사실의 기록이다). 되받는 것은
+   * 「회수」 명목으로 사람이 적는다(PAYOUT_CATEGORIES 의 sign -1).
+   */
+  if (p.holdState) {
+    return {
+      ...p, ...stepFields, state: '조건 대기', open: null,
+      blockers: [`${p.holdState} — 지급 불가`],
+    };
+  }
 
   if (p.unpriced > 0) {
     return { ...p, ...stepFields, state: '조건 대기', blockers: prerequisites, open: null };

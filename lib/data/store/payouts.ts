@@ -464,6 +464,17 @@ function openStepFor(
   rules: RuleMap
 ): { no: 1 | 2; amount: number } {
   const name = r.project.name;
+
+  /*
+   * ★멈춘 계약에는 돈이 나가지 않는다★ (한백 지시 2026-09-04, 감사 H3).
+   * 화면(lib/payout-board workOf)이 「계약중단 — 지급 불가」로 막지만 화면만 막으면
+   * 주소를 두드리는 길이 남는다. 이미 나간 것은 여기서 되돌리지 않는다 — 되받는 것은
+   * 「회수」 명목으로 사람이 적는다.
+   */
+  if (r.project.holdState) {
+    throw new Error(`${name} — ${r.project.holdState} 상태라 지급할 수 없습니다.`);
+  }
+
   const org = kind === '영업비' ? r.project.salesOrg : r.project.gcOrg;
   const prerequisites = payoutPrerequisiteBlockersOf({
     kind,

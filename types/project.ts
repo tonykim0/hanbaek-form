@@ -822,6 +822,14 @@ export interface PayoutPlanRow {
   confirmed: number;
   /** 자기 쪽 단가가 안 붙은 라인 수 — 계획 금액이 그만큼 비어 있다 */
   unpriced: number;
+  /**
+   * 멈춘 현장인가 — 계약중단이면 그 값, 아니면 null.
+   *
+   * ★멈춘 계약에는 돈이 나가지 않는다★ (한백 지시 2026-09-04). 지급 판정이 보던 것은
+   * 단가·서류·트리거 셋뿐이라 「이 계약이 살아 있나」를 아무도 안 봤다 — 계약파기로
+   * 중단한 현장의 영업비 1차가 「지급 가능」으로 서 있었다(감사 H3).
+   */
+  holdState: HoldState | null;
   milestones: PayoutMilestones;
   /** 지급을 막는 미제출 필수 서류 (이관 현장은 면제라 빈 배열) */
   payoutDocsMissing: string[];

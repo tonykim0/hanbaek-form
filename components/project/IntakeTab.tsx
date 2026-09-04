@@ -536,7 +536,23 @@ export function IntakeTab({
           * 계약이 확인된 뒤에는 접수 단추를 두지 않는다(끝난 일을 되돌리는 자리는 확인 취소다).
           * 이미 끝낸 것은 단추를 두지 않는다 — 그 상태와 되돌리는 자리는 맨 위에 있다.
           */}
-        {canSubmit && !project.contractConfirmedAt && !project.contractSubmittedAt && (
+        {canSubmit
+          && !project.contractConfirmedAt
+          && !project.contractSubmittedAt
+          /*
+           * ★재검토 요청은 협력사만 누른다★ (한백 지시 2026-09-04 — 「나한테도 버튼이
+           * 계약재검토 요청하기로 뜬다」).
+           *
+           * 보완요청을 한 것이 한백인데 그 화면에 「계약 재검토 요청하기」가 서면, 자기가
+           * 돌려보낸 것을 자기에게 다시 봐 달라고 하는 단추가 된다. 보완 뒤 한백의 자리는
+           * 둘뿐이다 — 계약 확인, 아니면 다시 반려(한백이 적은 흐름 그대로다).
+           * 누른다 해도 바뀌는 것이 없다: 보완요청을 받은 계약은 접수 선언 없이도 이미
+           * 계약검토 칸에 서 있다(lib/board 의 submitted || fixAsked).
+           *
+           * ★처음 모으는 중인 계약은 그대로 둔다★ — 거기서는 한백도 대신 낸다(위
+           * SubmitContract 머리말, 이관 현장이 그것이다). 걷는 것은 재검토 쪽뿐이다.
+           */
+          && !(canReview && project.contractFixAskedAt !== null) && (
           <SubmitContract
             projectId={projectId}
             contract={contract}
@@ -694,6 +710,9 @@ function NiceSubmitInfo({
 
 /**
  * 계약서 접수 — 내는 쪽이 누른다(그 현장의 협력사 · 한백).
+ *
+ * ★보완요청을 받은 뒤의 「재검토 요청」은 협력사만 누른다★ (한백 지시 2026-09-04) —
+ * 세우고 감추는 판정은 부르는 쪽에 있다(위 canReview && contractFixAskedAt 주석).
  *
  * ★이 단추가 계약검토로 넘긴다★ (한백 지시 2026-08-24). 예전에는 필수 서류 칸이 차는
  * 순간 저절로 넘어갔는데, 그러면 협력사가 아직 고치는 중인 것이 한백의 검토 칸에 서고

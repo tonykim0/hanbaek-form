@@ -17,7 +17,7 @@ import { useAction } from '@/lib/use-action';
 import { DocReview } from './DocReview';
 import { ReviewHistory } from './ReviewHistory';
 import { PreInstall } from './PreInstall';
-import { docState } from './parts';
+import { docCardTone, docState, RejectReason } from './parts';
 import { Btn, Err, FIELD, Note, Tag } from '@/components/ui';
 
 // ── 계약 탭 ─────────────────────────────────────────────────────
@@ -240,7 +240,7 @@ export function IntakeTab({
       ].join('\n')
     : null;
 
-  /* 반려된 것은 사유까지 보여줘야 해서 목록으로 따로 모은다 — 개수는 contract.rejected 다 */
+  /* 띠가 세는 것 — 사유는 카드가 적는다(RejectReason). 여기서는 건수와 이름만 쓴다 */
   const rejected = evaluated
     .map((d) => ({ key: d.key, label: d.label, doc: byKind.get(d.key) }))
     .filter((x) => x.doc?.status === 'rejected')
@@ -318,29 +318,34 @@ export function IntakeTab({
           </Note>
         )}
 
+        {/*
+          * ★반려는 한 색이다 — 주황★ (한백 지시 2026-09-04 「반려 사유 UXUI 를 일원화」).
+          * 이 띠만 stop(빨강)이고 카드는 amber 라, 같은 반려를 화면이 두 색으로 말했다.
+          * 빨강 배경은 되돌릴 수 없는 것을 확정할 때만이다(화면 규칙 12) — 반려는
+          * 되돌릴 수 있고 사람이 봐야 하는 것이라 노랑이 맞다.
+          *
+          * 띠는 ★요약과 되돌리는 자리★만 맡는다 — 사유 목록은 걷었다. 같은 문장이 띠와
+          * 카드에 두 번 적혀 있었고(화면 규칙 5), 칸 이름만 있는 목록은 그 칸을 찾아
+          * 내려가게 할 뿐이다. 무엇이 반려됐는지는 카드가 주황으로 스스로 말한다.
+          */}
         {rejected.length > 0 && (
-          <Note tone="stop" className="mb-3">
+          <Note tone="warn" className="mb-3">
             <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
               <p className="font-black">
-                반려된 서류 {rejected.length}건{canReview ? '' : ' — 다시 올려주세요'}
+                반려 {rejected.length}건{canReview ? '' : ' — 사유를 보고 다시 올려주세요'}
               </p>
+              <p className="text-small text-amber-800">{rejected.map((d) => d.label).join(' · ')}</p>
               {/*
                 * 보완요청을 되돌리는 자리 — 그 상태가 적힌 자리 옆, 반대쪽 끝이다
                 * (화면 규칙 7·8). 파일이 올라온 반려는 칸마다 「반려 해제」가 있고,
                 * 파일 없이 세운 칸은 여기서 한 번에 되돌린다.
                 */}
               {canReview && asked.length > 0 && (
-                <AskMissingDocs projectId={projectId} labels={[]} standing={asked.length} />
+                <span className="ml-auto">
+                  <AskMissingDocs projectId={projectId} labels={[]} standing={asked.length} />
+                </span>
               )}
             </div>
-            <ul className="mt-1.5 flex flex-col gap-1">
-              {rejected.map((d) => (
-                <li key={d.key} className="text-small leading-relaxed">
-                  <b className="font-bold">{d.label}</b>
-                  {d.reason ? ` — ${d.reason}` : ''}
-                </li>
-              ))}
-            </ul>
           </Note>
         )}
 
@@ -398,15 +403,7 @@ export function IntakeTab({
                          * 그 짙은 빨강을 쓴다. 톤은 components/ui.tsx 의 stop·warn·ok 와 같다.
                          */
                         /* relative — 끌어다 놓는 덮개가 이 칸을 덮는다(DocFiles 의 DocUpload) */
-                        className={`relative flex flex-col rounded-box border p-2.5 ${
-                          rejected
-                            ? 'border-amber-300 bg-amber-50'
-                            : doc?.blobUrl || doc?.status === 'uploaded' || doc?.status === 'approved'
-                              ? 'border-brand-200 bg-brand-50'
-                              : d.req === 'm'
-                                ? 'border-red-200 bg-red-50'
-                                : 'border-dashed border-slate-200 bg-white'
-                        }`}
+                        className={`relative flex flex-col rounded-box border p-2.5 ${docCardTone(doc, d.req)}`}
                       >
                         <div className="flex items-start justify-between gap-2">
                           <p className="break-keep text-small font-bold leading-snug text-slate-800">
@@ -430,12 +427,7 @@ export function IntakeTab({
                           <p className="mt-1 text-tiny text-slate-400">{doc.uploadedAt}</p>
                         )}
 
-                        {/* 주황 카드 위에서는 red-50 이 묻힌다 — 흰 바탕에 붉은 글씨로 띄운다 */}
-                        {doc?.rejectReason && (
-                          <p className="mt-2 rounded-ctl bg-white px-2 py-1.5 text-tiny leading-snug text-red-800">
-                            {doc.rejectReason}
-                          </p>
-                        )}
+                        {doc?.rejectReason && <RejectReason>{doc.rejectReason}</RejectReason>}
 
                         {/*
                           * ★카드를 세 구역으로 나눈다★ (한백 지시 2026-08-25 — 조작 UI 가 엉망이었다).

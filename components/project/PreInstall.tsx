@@ -17,7 +17,7 @@ import { DocDelete, DocFileActions, DocUpload, DownloadAll } from '@/components/
 import { useAction } from '@/lib/use-action';
 import { Badge, Btn, Choice, Empty, Err, FIELD, Tag } from '@/components/ui';
 import { DocReview } from './DocReview';
-import { docState } from './parts';
+import { docCardTone, docState, RejectReason } from './parts';
 import { LookupResults, useShardLoader } from '@/components/ChargerHistoryLookup';
 import {
   DATA_BASE, lookupChargerHistory, type IndexMeta, type LookupResult, type SiteRecord,
@@ -114,8 +114,12 @@ export function PreInstall({
           const doc = byKind.get(d.key);
           const st = docState(doc, d.req);
           return (
-            /* relative — 끌어다 놓는 덮개가 이 칸을 덮는다(DocFiles 의 DocUpload) */
-            <div key={d.key} className="relative flex flex-col rounded-box border border-slate-200 p-2.5">
+            /*
+              relative — 끌어다 놓는 덮개가 이 칸을 덮는다(DocFiles 의 DocUpload).
+              바탕은 서류 카드와 같은 규칙이다(docCardTone) — 그전에는 이 카드만 늘
+              흰 바탕이라, 같은 반려가 계약 서류에서는 주황이고 여기서는 색이 없었다.
+            */
+            <div key={d.key} className={`relative flex flex-col rounded-box border p-2.5 ${docCardTone(doc, d.req)}`}>
               <div className="flex items-start justify-between gap-2">
                 <p className="break-keep text-small font-bold leading-snug text-slate-800">
                   {d.label}
@@ -124,11 +128,7 @@ export function PreInstall({
                 <span className={`shrink-0 text-micro font-black ${st.tone}`}>{st.label}</span>
               </div>
               {doc?.uploadedAt && <p className="mt-1 text-tiny text-slate-400">{doc.uploadedAt}</p>}
-              {doc?.rejectReason && (
-                <p className="mt-2 rounded-ctl bg-red-50 px-2 py-1.5 text-tiny leading-snug text-red-800">
-                  {doc.rejectReason}
-                </p>
-              )}
+              {doc?.rejectReason && <RejectReason>{doc.rejectReason}</RejectReason>}
 
               {/*
                 * 서류 칸과 같은 세 구역이다 — 사실 · 파일 목록 · 조작 (IntakeTab 의 카드 주석 참조).

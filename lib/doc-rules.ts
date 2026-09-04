@@ -225,6 +225,19 @@ export interface EvaluatedDoc {
   preinstall: boolean;
 }
 
+/**
+ * 계약 서류 종류 이름 — ★정의(SPECS)에서 뽑는다★ (감사 2026-09-04 H6).
+ *
+ * 같은 목록을 lib/data/assemble 에 손으로 한 벌 더 적고 있었다(ALL_DOC_KEYS). 그래서
+ * 설치승낙서를 여기 더했을 때 그쪽이 안 따라왔고, ★그 서류는 아예 못 올라갔다★ —
+ * 칸은 화면에 서는데(이 목록이 그린다) 올리기·빼기가 전부 「서류 종류가 올바르지
+ * 않습니다」로 막혔다(isKnownDocKind). 프로덕션에 그 종류의 행이 0개였던 이유다.
+ *
+ * 두 벌이면 언제고 또 갈린다 — 서류를 더하는 자리는 SPECS 하나이므로 여기서 뽑는다.
+ * 순서도 그대로 따라간다(화면이 그리는 순서다).
+ */
+export const DOC_KEYS: readonly string[] = SPECS.map((s) => s.key);
+
 /** 현장 조건에 따라 서류 15칸의 필수 여부를 확정한다 */
 export function evaluateDocs(ctx: DocContext): EvaluatedDoc[] {
   return SPECS.map((s) => ({

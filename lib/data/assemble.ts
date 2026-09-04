@@ -28,7 +28,7 @@ import type {
   SettlementSummary,
 } from '@/types/project';
 import { bizTypeOfRepl } from '@/types/project';
-import { buildDocContext, evaluateDocs, PROCESS_DOCS } from '@/lib/doc-rules';
+import { buildDocContext, DOC_KEYS, evaluateDocs, PROCESS_DOCS } from '@/lib/doc-rules';
 import { entryTypeOf, payoutSideOf, settlementForProject } from '@/lib/settlement';
 import { contractStateOf, deriveStage, docsOutsideConsole, stalledDaysSince } from '@/lib/stage';
 import { canEnter, entryOkOf, gateContextOf, type GateContext } from '@/lib/process';
@@ -60,14 +60,17 @@ export type RuleMap = Map<string, PricingRule>;
 export type SettleMap = Map<string, SettlementRule>;
 
 /**
- * 접수 서류 17종 (INTAKE_SPEC §3 + 설치승인서 + SK 자체투자 견적서). 번호가 아니라 종류로 다룬다.
- * 순서는 화면에 그려지는 순서이므로 lib/doc-rules.ts 의 SPECS 와 맞춰 둔다.
+ * 계약 서류 종류 — ★정의에서 뽑는다★ (감사 2026-09-04 H6).
+ *
+ * 여기 손으로 한 벌 더 적고 있었고 「SPECS 와 맞춰 둔다」고 주석까지 달아 두었는데,
+ * 실제로는 맞춰지지 않았다: 설치승낙서(installConsent)를 SPECS 에 더했을 때 이 목록이
+ * 안 따라왔다. 그래서 칸은 화면에 서는데(SPECS 가 그린다) 올리기·빼기가 전부
+ * 「서류 종류가 올바르지 않습니다」로 막혔고(isKnownDocKind), 설령 행이 있었어도
+ * mergeDocs 가 이 목록만 훑어 화면에서 사라졌다 — 프로덕션에 그 종류의 행이 0개였다.
+ *
+ * 「맞춰 둔다」는 주석은 지키지 못한다. 뽑아 쓰면 갈릴 수가 없다.
  */
-export const ALL_DOC_KEYS = [
-  'contract', 'agreement', 'sealuse', 'privacy', 'apply', 'consult',
-  'minutes', 'kepcobill', 'bldgreg', 'bizreg', 'survey', 'legacylog', 'legacyev',
-  'etc', 'checklist2', 'approval', 'quote',
-];
+export const ALL_DOC_KEYS = DOC_KEYS;
 
 /** 공정 서류 종류 (PROCESS_DOCS 의 key) */
 export const PROCESS_DOC_KEYS: string[] = PROCESS_DOCS.map((d) => d.key);

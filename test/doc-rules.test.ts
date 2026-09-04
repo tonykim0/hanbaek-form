@@ -6,6 +6,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { evaluateDocs, PROCESS_DOCS, processDocsFor, type DocContext } from '@/lib/doc-rules';
+import { ALL_DOC_KEYS, isKnownDocKind } from '@/lib/data/assemble';
 
 const 준공서류 = ['completeConfirm', 'costSurvey', 'safety', 'safetyMgr', 'useInspect', 'asBuilt'] as const;
 
@@ -69,5 +70,48 @@ describe('견적서 (SK) — SK일렉링크 전체 필수 (한백 지시 2026-09
   it('다른 운영사·미지정은 선택 — 모르는 운영사에게 SK 서류를 요구하지 않는다', () => {
     expect(quoteReq(ctx({ cpo: '플러그링크' }))).toBe('o');
     expect(quoteReq(ctx({ cpo: null, bizType: '자체투자' }))).toBe('o');
+  });
+});
+
+/*
+ * ★서류 종류 목록은 한 벌이다★ (감사 2026-09-04 H6).
+ *
+ * 같은 목록이 두 곳에 있었다 — 정의(SPECS)와 lib/data/assemble 의 손으로 적은 ALL_DOC_KEYS.
+ * 「SPECS 와 맞춰 둔다」는 주석이 달려 있었지만 실제로는 안 맞았다: 설치승낙서를 정의에
+ * 더했을 때 그쪽이 안 따라왔고, 그 서류는 ★칸은 서는데 올릴 수가 없었다★ — 올리기·빼기가
+ * 전부 「서류 종류가 올바르지 않습니다」로 막혔다(isKnownDocKind). 프로덕션에 그 종류의
+ * 행이 0개였던 이유다. 이제 뽑아 쓰지만, 누가 다시 손으로 적으면 여기서 걸린다.
+ */
+describe('서류 종류 목록 — 정의와 저장소가 같은 것을 본다', () => {
+  const ctx: DocContext = {
+    cpo: null, contractParty: null, bldgType: null,
+    hasMotherSeparation: false, preInstall: '없음', bizType: null,
+  };
+
+  it('★화면에 서는 칸은 전부 올릴 수 있다★', () => {
+    for (const d of evaluateDocs(ctx)) {
+      expect(isKnownDocKind(d.key), `${d.key} 를 올릴 수 없다`).toBe(true);
+    }
+  });
+
+  it('설치승낙서가 그 목록에 있다 — 빠져 있던 자리다', () => {
+    expect(ALL_DOC_KEYS).toContain('installConsent');
+    expect(isKnownDocKind('installConsent')).toBe(true);
+  });
+
+  it('공정 서류도 아는 이름이다 — 두 표가 갈려 있어도 문은 하나다', () => {
+    for (const d of PROCESS_DOCS) {
+      expect(isKnownDocKind(d.key), d.key).toBe(true);
+    }
+  });
+
+  it('모르는 이름은 막는다 — 경로 조작을 여기서 거른다', () => {
+    expect(isKnownDocKind('../../etc/passwd')).toBe(false);
+    expect(isKnownDocKind('')).toBe(false);
+  });
+
+  it('목록에 빈 이름이나 중복이 없다', () => {
+    expect(ALL_DOC_KEYS.filter((k) => !k.trim())).toEqual([]);
+    expect(new Set(ALL_DOC_KEYS).size).toBe(ALL_DOC_KEYS.length);
   });
 });

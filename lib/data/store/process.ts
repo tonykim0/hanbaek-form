@@ -11,17 +11,17 @@
 import { and, eq, sql } from 'drizzle-orm';
 import { getDb } from '@/lib/db/client';
 import { writeAudit } from '@/lib/db/audit';
-import { processes, projects } from '@/lib/db/schema';
+import { processDocuments, processes, projects } from '@/lib/db/schema';
 import { today } from '@/lib/date';
 import {
   asProcessStatus, assertProcessWrite, canEnter, CHECK_ADVANCES, COURT_AFTER_STATUS,
-  gateContextOf, statusIndex,
+  declarationBlockers, gateContextOf, statusIndex,
 } from '@/lib/process';
 import { PROCESS_STATUSES } from '@/types/project';
 import type { ProcessStatus } from '@/types/project';
 import type { Actor, ProcessPatch, ProjectRepository } from '../repository';
 import { toDetail } from '../assemble';
-import { assertAdmin, recordsOf, ruleMap, settleMap } from './shared';
+import { assertAdmin, recordsOf, ruleMap, settleMap, toProcess, type TxLike } from './shared';
 
 /** pgRepository 가 펼쳐 담는 조각 — 이름과 시그니처는 인터페이스가 정한다 */
 export const processStore: Pick<
@@ -37,7 +37,11 @@ export const processStore: Pick<
     const db = getDb();
     await db.transaction(async (tx) => {
       const [project] = await tx
-        .select({ id: projects.id, gcOrg: projects.gcOrg })
+        .select({
+          id: projects.id, gcOrg: projects.gcOrg,
+          // 선언 선행조건 판정에 쓴다 — 준공서류가 현장 사정으로 갈린다(gateContextOf)
+          bizType: projects.bizType, powerType: projects.powerType,
+        })
         .from(projects)
         .where(eq(projects.id, projectId))
         .limit(1);
@@ -54,6 +58,7 @@ export const processStore: Pick<
 
       unchecked = uncheckedField(fields, patch, before);
       checkStepWindow(fields, patch, before, unchecked);
+      await checkDeclarations(tx, projectId, project, fields, patch, before);
 
       // 공정 행이 없는 현장이 있다 — update 는 0행을 조용히 지나가므로 없으면 만들어 넣는다
       if (before) {
@@ -294,6 +299,45 @@ function uncheckedField(
  * 체크하면 ★착공도 안 한 현장의 지급이 전액 열렸다★. 이미 지난 구간의 체크는 막지 않는다 —
  * 되돌려 고치는 길이다(화면 규칙 7).
  */
+/**
+ * 완료 선언의 선행조건 — ★서버도 본다★ (감사 2026-09-04 H2).
+ *
+ * 그전에는 화면만 봤다(advanceBlockers → CHECK_REQUIRES). 단추는 막혀 있어도 라우트를
+ * 직접 부르면 그대로 찍혔고, 설치완료 선언은 ★시공비 1차 지급 트리거★라 그 현장의
+ * 시공사가 사진도 착공일도 없이 지급 조건을 열 수 있었다.
+ *
+ * ★같은 요청에 실려 온 값도 인정한다★ — 지금 화면은 선언만 따로 보내지만(saveCheck),
+ * 조건과 선언을 한 번에 보내는 것을 틀렸다고 할 이유가 없다. before 에 patch 를 덮어
+ * 「이 요청이 끝난 뒤의 모습」으로 판정한다.
+ *
+ * 푸는 것(null)은 검사하지 않는다 — 되돌리는 길은 열려 있어야 한다(화면 규칙 7).
+ */
+async function checkDeclarations(
+  tx: TxLike,
+  projectId: string,
+  project: { bizType: string | null; powerType: string | null },
+  fields: Array<keyof ProcessPatch>,
+  patch: ProcessPatch,
+  before: ProcRowLike | undefined
+): Promise<void> {
+  const declaring = fields.filter((f) => f in CHECK_ADVANCES && patch[f] != null);
+  if (declaring.length === 0) return;
+
+  const docs = await tx
+    .select()
+    .from(processDocuments)
+    .where(eq(processDocuments.projectId, projectId));
+  const merged = toProcess(projectId, { ...(before ?? {}), ...patch } as never, docs);
+  const ctx = gateContextOf(project as never);
+
+  for (const f of declaring) {
+    const lack = declarationBlockers(f as string, merged, ctx);
+    if (lack.length > 0) {
+      throw new Error(`${lack.join(' · ')} 이(가) 아직입니다.`);
+    }
+  }
+}
+
 function checkStepWindow(
   fields: Array<keyof ProcessPatch>,
   patch: ProcessPatch,

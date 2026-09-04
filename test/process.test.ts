@@ -8,7 +8,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   advanceBlockers, asProcessStatus, assertProcessWrite, canEnter, CHECK_ADVANCES,
-  COURT_AFTER_STATUS, isHanbaekOnlyProcessField, statusIndex,
+  COURT_AFTER_STATUS, declarationBlockers, isHanbaekOnlyProcessField, statusIndex,
   canChangeContractDocs, CONTRACT_DOCS_LOCK_AT,
 } from '@/lib/process';
 import type { GateContext } from '@/lib/process';
@@ -141,6 +141,44 @@ describe('완료 선언이 여는 칸 (CHECK_ADVANCES)', () => {
     expect(CHECK_ADVANCES.installConfirmedAt).toBe('설치완료');
     /* 「개통완료」 칸을 걷었다 — 개통 선언이 곧바로 준공서류 칸을 연다(2026-08-31) */
     expect(CHECK_ADVANCES.openDoneAt).toBe('준공서류 접수/검토');
+  });
+});
+
+/*
+ * ★선언의 선행조건은 서버도 본다★ (감사 2026-09-04 H2).
+ *
+ * CHECK_REQUIRES 가 화면(advanceBlockers)에만 걸려 있어서, 단추가 막혀도 라우트를 직접
+ * 두드리면 그대로 찍혔다 — 설치완료 선언은 시공비 1차 지급 트리거이고 그 현장의 시공사가
+ * 쓸 수 있는 칸이다. 저장소가 이 함수를 부른다(store/process 의 checkDeclarations).
+ */
+describe('declarationBlockers — 그 선언을 지금 찍을 수 있나', () => {
+  it('설치완료: 사진도 완료일도 없으면 둘 다 막는다', () => {
+    expect(declarationBlockers('installConfirmedAt', P(), ENV))
+      .toEqual(['설치완료일', '설치완료 사진']);
+  });
+
+  it('설치완료: 둘 다 있으면 열린다', () => {
+    const p = P({ installDoneDate: 'd', docs: [doc('photoDone')] });
+    expect(declarationBlockers('installConfirmedAt', p, ENV)).toEqual([]);
+  });
+
+  it('수령: 수량 두 칸을 묻는다 — 0 은 적은 것이다', () => {
+    expect(declarationBlockers('chargerDoneAt', P({ chargerRecvDate: 'd' }), ENV))
+      .toEqual(['충전기 수령 수량', '모뎀 수령 수량']);
+    const done = P({ chargerRecvDate: 'd', chargerQty: 0, modemQty: 0 });
+    expect(declarationBlockers('chargerDoneAt', done, ENV)).toEqual([]);
+  });
+
+  it('화면과 같은 판정이다 — advanceBlockers 의 선언 몫이 이것이다', () => {
+    const p = P({ installDoneDate: 'd' });
+    const mine = declarationBlockers('installConfirmedAt', p, ENV);
+    expect(advanceBlockers('설치완료', 'installConfirmedAt', p, ENV)).toEqual(
+      expect.arrayContaining(mine)
+    );
+  });
+
+  it('선언 칸이 아니면 막을 것이 없다 — 날짜 칸은 그냥 적는다', () => {
+    expect(declarationBlockers('installDoneDate', P(), ENV)).toEqual([]);
   });
 });
 

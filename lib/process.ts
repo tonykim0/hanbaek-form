@@ -440,6 +440,25 @@ export function missingCompletionDocs(p: ProcessInfo, ctx: GateContext): string[
 }
 
 /**
+ * 완료 선언 하나를 지금 찍을 수 있나 — 없는 것만 돌려준다. ★서버가 부른다.★
+ *
+ * CHECK_REQUIRES 는 화면(advanceBlockers)만 보고 있었다. 그래서 단추는 막혀도 라우트를
+ * 직접 두드리면 그대로 찍혔다 — 설치완료 선언은 ★시공비 1차 지급 트리거★이고
+ * (lib/settlement payoutReleaseOf), 그 현장의 시공사가 쓸 수 있는 칸이다. 사진도 착공일도
+ * 없이 지급 조건이 열렸다(감사 2026-09-04 H2).
+ *
+ * 게이트(canEnter)와 짝이다: 게이트는 「선언이 있는가」를, 이쪽은 「그 선언을 할 수
+ * 있는가」를 본다. 판정은 CHECK_REQUIRES 한 곳이라 화면과 서버가 갈릴 수 없다.
+ */
+export function declarationBlockers(
+  field: string,
+  process: ProcessInfo,
+  ctx: GateContext
+): string[] {
+  return CHECK_REQUIRES[field]?.(process, ctx) ?? [];
+}
+
+/**
  * 화면의 「다음 단계로 진행」 단추를 막는 것들 — 없으면 빈 배열이고, 그때 단추가 열린다.
  *
  * ★화면은 판정하지 않는다★ — 조건을 화면에도 적으면 두 벌이 되고 어긋난다(2026-08-26 에

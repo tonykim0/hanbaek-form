@@ -249,30 +249,87 @@ export function DocRow({
 }) {
   const done = doc?.status === 'uploaded' || doc?.status === 'approved';
   const rejected = doc?.status === 'rejected';
+  const files = doc?.files.length ?? 0;
   return (
     /*
-     * 이름·상태·버튼이 붙어 앉는다 — 예전엔 버튼을 오른쪽 끝으로 밀어서(ml-auto)
-     * 넓은 화면에서 이름과 버튼이 양쪽 끝에 떨어져 있었다(한백 지적). 되돌리기 어려운
-     * 삭제만 끝으로 민다(화면 규칙 8).
+     * ★줄을 세 구역으로 쌓는다★ (한백 지적 2026-09-04 「서류 업로드하면 UI 가 틀어진다」).
+     *
+     *   사실   칸 이름 · 상태 · 날짜 · 조작 단추
+     *   ─────  파일 목록 (한 장에 한 줄: 미리보기 판 · 이름 · 받기 · 빼기)
+     *   ─────  반려 사유
+     *
+     * 전에는 파일 목록이 이름·단추와 ★같은 flex 줄★에 있었다. DocFileActions 는 파일을
+     * 세로로 쌓는 flex-col 이고 미리보기 판이 h-24(96px)라, 한 장만 올라와도 그 줄이
+     * 96px 로 커지고 items-center 가 칸 이름·상태·날짜·단추를 그 가운데로 끌어내렸다 —
+     * 여러 장이면 더 내려간다. 오른쪽 끝으로 미는 빈 칸(flex-1)도 wrap 줄에서 혼자
+     * 한 줄을 차지해 삭제 단추를 엉뚱한 자리로 보냈다.
+     *
+     * ★계약 탭이 2026-08-25 에 같은 증상으로 이미 세 구역으로 갈랐다★
+     * (IntakeTab 의 「카드를 세 구역으로 나눈다」) — 시공 탭만 그 고침을 못 받고 있었다.
+     * 구역은 얇은 선으로만 가른다(화면 규칙 1). 파일이 없으면 선도 안 그린다 — 빈 줄에
+     * 선만 그으면 칸마다 쓸모없는 층이 하나 늘어난다.
      */
     /* relative — 끌어다 놓는 덮개가 이 줄을 덮는다(DocFiles 의 DocUpload) */
-    <div className="relative flex flex-wrap items-center gap-x-3 gap-y-1 px-3.5 py-2 text-base">
-      <span className="w-32 shrink-0 text-slate-500">{spec.name}</span>
-      <span className={`text-tiny font-black ${
-        rejected ? 'text-red-700' : done ? 'text-brand-700' : 'text-slate-400'
-      }`}>
-        {rejected ? '반려' : done ? '제출됨' : '대기'}
-      </span>
-      {doc?.uploadedAt && <span className="text-tiny tabular-nums text-slate-400">{doc.uploadedAt}</span>}
-      {/* 파일 실체가 없는 기록 — 옛 데이터에 있다. 제출됨으로만 보이면 볼 수도 없는 서류를 믿게 된다 */}
-      {done && !doc?.blobUrl && (
-        <span className="text-tiny font-bold text-amber-700" title="기록만 있고 파일이 없습니다 — 다시 올려주세요">
-          파일 없음
+    <div className="relative flex flex-col gap-1.5 px-3.5 py-2 text-base">
+      {/*
+        * 이름·상태·버튼이 붙어 앉는다 — 예전엔 버튼을 오른쪽 끝으로 밀어서(ml-auto)
+        * 넓은 화면에서 이름과 버튼이 양쪽 끝에 떨어져 있었다(한백 지적). 되돌리기 어려운
+        * 삭제만 끝으로 민다(화면 규칙 8).
+        *
+        * ★칸 이름은 폭을 못 박는다★ — 줄이 여럿 늘어선 자리라 이름이 제각각 너비면
+        * 상태·날짜가 줄마다 다른 자리에 선다. w-52(208px)는 가장 긴 이름
+        * 「전기안전관리자 선임신고증명서」(13px × 15자)가 한 줄에 들어가는 폭이다 —
+        * w-32 였을 때는 그 이름이 세 줄로 접혔다. 더 긴 이름이 생기면 낱말에서
+        * 접히게 break-keep 을 준다(글자 중간에서 끊지 않는다).
+        */}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        <span className="w-52 shrink-0 break-keep leading-snug text-slate-500">{spec.name}</span>
+        <span className={`text-tiny font-black ${
+          rejected ? 'text-red-700' : done ? 'text-brand-700' : 'text-slate-400'
+        }`}>
+          {rejected ? '반려' : done ? '제출됨' : '대기'}
         </span>
-      )}
-      {/* 부품은 자기 여백을 갖지 않는다 — 자리는 이 줄이 정한다(gap) */}
-      <span className="flex flex-wrap items-center gap-1.5">
-        {doc && (
+        {doc?.uploadedAt && <span className="text-tiny tabular-nums text-slate-400">{doc.uploadedAt}</span>}
+        {/* 파일 실체가 없는 기록 — 옛 데이터에 있다. 제출됨으로만 보이면 볼 수도 없는 서류를 믿게 된다 */}
+        {done && !doc?.blobUrl && (
+          <span className="text-tiny font-bold text-amber-700" title="기록만 있고 파일이 없습니다 — 다시 올려주세요">
+            파일 없음
+          </span>
+        )}
+        {/* 부품은 자기 여백을 갖지 않는다 — 자리는 이 줄이 정한다(gap) */}
+        <span className="flex flex-wrap items-center gap-1.5">
+          <DocUpload projectId={projectId} kind={spec.key} rejected={rejected} fileCount={files} />
+          {/*
+            시공 서류는 파일 있는 칸만 반려한다 — 공정 서류의 미제출은 단계(준공서류 제출)가
+            이미 막고 있어 칸마다 돌려보낼 일이 없다. 미제출 반려는 계약 탭의 일이다
+            (한백 지시 2026-09-03 — 저장소는 양쪽 다 허락하고, 세울지는 화면이 정한다).
+          */}
+          {canReview && doc?.blobUrl && (
+            <DocReview
+              projectId={projectId}
+              kind={spec.key}
+              status={doc.status}
+              onRejected={onReject}
+            />
+          )}
+        </span>
+        {/* 지우기는 한백만 — 협력사는 다시 올리는 것으로 고친다(덮어쓴다) */}
+        {canDelete && doc && doc.status !== 'none' && (
+          <span className="ml-auto">
+            <DocDelete
+              projectId={projectId}
+              kind={spec.key}
+              label={spec.name}
+              filename={doc.filename}
+              count={doc.files.length}
+            />
+          </span>
+        )}
+      </div>
+
+      {/* 파일 목록 — 이름·단추와 같은 줄에 두지 않는다(위 머리말) */}
+      {doc && files > 0 && (
+        <div className="border-t border-slate-900/[0.07] pt-1.5">
           <DocFileActions
             doc={doc}
             siteName={siteName}
@@ -280,40 +337,14 @@ export function DocRow({
             projectId={projectId}
             canRemove={canRemove}
           />
-        )}
-        <DocUpload projectId={projectId} kind={spec.key} rejected={rejected} fileCount={doc?.files.length ?? 0} />
-        {/*
-          시공 서류는 파일 있는 칸만 반려한다 — 공정 서류의 미제출은 단계(준공서류 제출)가
-          이미 막고 있어 칸마다 돌려보낼 일이 없다. 미제출 반려는 계약 탭의 일이다
-          (한백 지시 2026-09-03 — 저장소는 양쪽 다 허락하고, 세울지는 화면이 정한다).
-        */}
-        {canReview && doc?.blobUrl && (
-          <DocReview
-            projectId={projectId}
-            kind={spec.key}
-            status={doc.status}
-            onRejected={onReject}
-          />
-        )}
-      </span>
-      <span className="flex-1" />
+        </div>
+      )}
+
       {/* 왜 돌려보냈는지 — 사유가 없으면 시공사는 무엇을 고칠지 알 수 없다 */}
       {rejected && doc?.rejectReason && (
-        <p className="w-full rounded-ctl bg-red-50 px-2.5 py-1.5 text-tiny leading-snug text-red-800">
+        <p className="rounded-ctl bg-red-50 px-2.5 py-1.5 text-tiny leading-snug text-red-800">
           {doc.rejectReason}
         </p>
-      )}
-      {/* 지우기는 한백만 — 협력사는 다시 올리는 것으로 고친다(덮어쓴다) */}
-      {canDelete && doc && doc.status !== 'none' && (
-        <span>
-          <DocDelete
-            projectId={projectId}
-            kind={spec.key}
-            label={spec.name}
-            filename={doc.filename}
-            count={doc.files.length}
-          />
-        </span>
       )}
     </div>
   );

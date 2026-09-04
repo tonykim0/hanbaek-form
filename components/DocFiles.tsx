@@ -273,6 +273,13 @@ function FileRow({
             근거는 파일이 스스로 적어 둔 사실이라 그 자리에서 검산된다(lib/photo-check).
             막지 않는다 — 이 줄을 보고 한백이 그 칸을 반려한다.
           */}
+          {/* 열람용 건축물대장 — 제출용이 아니다(한백 2026-09-04). 사진 표와 같은 자리·같은 말투 */}
+          {file.stamp === '열람용' ? (
+            <span className="truncate text-micro font-bold text-amber-700" title="제출용은 발급용이어야 합니다">
+              열람용
+              <span className="ml-1 font-normal text-amber-800/70">제출용은 발급용</span>
+            </span>
+          ) : null}
           {file.photo?.length ? (
             <span className="truncate text-micro font-bold text-amber-700" title={file.photo.join(' · ')}>
               휴대폰 사진으로 보임

@@ -53,6 +53,11 @@ export interface AutoDoc {
    * 판정이 아니라 파일이 들고 있던 사실이다(lib/photo-check).
    */
   photo?: string[] | null;
+  /**
+   * 건축물대장에 인쇄된 용도 — 「열람용」 · 「발급용」 · null(안 보임).
+   * 판정이 아니라 ★읽은 것 그대로★다(title 과 같은 성격).
+   */
+  stamp?: string | null;
 }
 
 /** 서류 한 장의 검수 결과 */

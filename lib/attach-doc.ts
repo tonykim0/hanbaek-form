@@ -36,6 +36,8 @@ export async function attachDocument(input: {
   title?: string | null;
   /** 휴대폰 사진으로 보이는 근거 — 접수 때 결정적으로 가린 값(lib/photo-check) */
   photo?: string[] | null;
+  /** 건축물대장의 용도 — 「열람용」이면 제출용이 아니다(판독이 표제부에서 읽는다) */
+  stamp?: string | null;
   /**
    * 그 칸에 이미 우리 파일이 있는가.
    *
@@ -124,7 +126,7 @@ export async function attachDocument(input: {
 
   try {
     await getRepository().uploadDocument(
-      { projectId, kind, filename, blobUrl, title: input.title, photo: input.photo },
+      { projectId, kind, filename, blobUrl, title: input.title, photo: input.photo, stamp: input.stamp },
       actorOf(session)
     );
   } catch (err) {

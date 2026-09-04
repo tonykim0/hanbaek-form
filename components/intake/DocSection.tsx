@@ -99,7 +99,9 @@ export function DocSection({
                   const uploading = picking[d.key];
                   const finding = review?.findings.find((f) => f.kind === d.key);
                   const flagged = (finding !== undefined && !finding.ok)
-                    || Boolean(filled?.photo?.length);
+                    || Boolean(filled?.photo?.length)
+                    /* 열람용 건축물대장도 짚은 것이다 — 제출용이 아니라 다시 받아야 한다 */
+                    || files.some((f) => f.stamp === '열람용');
                   const missing = !filled && d.req === 'm';
 
                   return (
@@ -114,7 +116,7 @@ export function DocSection({
                        *
                        *   초록 — 냈다
                        *   빨강 — 필수인데 안 냈다  (접수를 막는다)
-                       *   주황 — 짚은 것이 있다    (판독 지적 · 휴대폰 사진)
+                       *   주황 — 짚은 것이 있다    (판독 지적 · 휴대폰 사진 · 열람용 대장)
                        *   무색 — 조건부·선택
                        */
                       className={`relative flex flex-col rounded-box border p-2.5 ${
@@ -190,6 +192,18 @@ export function DocSection({
                                   휴대폰 사진으로 보임
                                   <span className="ml-1 font-normal text-amber-800/70">
                                     {f.photo.join(' · ')}
+                                  </span>
+                                </span>
+                              ) : null}
+                              {/*
+                                열람용 건축물대장 — 표제부에 찍힌 글자를 판독이 옮긴 것이다.
+                                제출용이 아니라 발급용을 다시 받아야 한다(한백 2026-09-04).
+                              */}
+                              {f.stamp === '열람용' ? (
+                                <span className="block text-tiny font-bold text-amber-700">
+                                  열람용
+                                  <span className="ml-1 font-normal text-amber-800/70">
+                                    제출용은 발급용이어야 합니다
                                   </span>
                                 </span>
                               ) : null}

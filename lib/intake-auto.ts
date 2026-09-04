@@ -98,6 +98,7 @@ export async function autoIntakeFromZip(
     );
   }
 
+
   onProgress({ phase: 'orient', message: '스캔 방향을 보는 중' });
   files = await uprightPdfFiles(files, 'intake');
 
@@ -130,6 +131,19 @@ export async function autoIntakeFromZip(
       console.warn('[intake-auto] 분류 실패:', err);
       warnings.push('자동 분류에 실패했습니다. 서류 칸을 직접 골라주세요.');
     }
+  }
+
+  /*
+   * ★건축물대장 열람용★ (한백 지시 2026-09-04 「열람용(워터마크) 있으면 계약접수 단계에서
+   * 경고」). 열람용은 참고용이라 운영사·환경부 제출에 못 쓴다 — 발급용을 다시 받아야 한다.
+   * 판독이 표제부에 인쇄된 글자를 옮겨 온 것이라(stamp) 판정이 아니라 사실이다.
+   * 막지 않는다 — 접수는 되고 경고와 꼬리표만 붙는다(휴대폰 사진과 같은 방식).
+   */
+  const viewOnly = (metadata?.files ?? []).filter(
+    (f) => f.category === '건축물대장' && f.stamp === '열람용'
+  );
+  if (viewOnly.length > 0) {
+    warnings.push('건축물대장이 ★열람용★입니다 — 제출용은 발급용이어야 합니다. 정부24에서 발급용으로 다시 받아주세요.');
   }
 
   // ── 분할·병합 (노션 호출 없는 순수 함수) ─────────────────────
@@ -199,6 +213,7 @@ export async function autoIntakeFromZip(
       kind, category: item.category, filename: item.standardName, blobUrl: blob.url,
       title: item.title ?? null,
       photo: photoBy.get(item.originalName.normalize('NFC')) ?? null,
+      stamp: item.stamp ?? null,
     });
     }
   }

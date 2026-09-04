@@ -631,6 +631,8 @@ export interface ProjectRepository {
       title?: string | null;
       /** 휴대폰 사진으로 보이는 근거 — 없으면 스캔본으로 본다 (DocFile.photo) */
       photo?: string[] | null;
+      /** 건축물대장의 용도 — 「열람용」이면 제출용이 아니다 (DocFile.stamp) */
+      stamp?: string | null;
     },
     actor: Actor
   ): Promise<void>;

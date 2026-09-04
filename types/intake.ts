@@ -66,6 +66,12 @@ export interface ClassifiedFileInfo {
    * 판독이 실패했거나 이름 규칙만으로 분류된 파일에는 없다.
    */
   title?: string | null;
+  /**
+   * 건축물대장에 인쇄된 용도 — 「열람용」 · 「발급용」 · null(안 보임).
+   * ★열람용은 운영사·환경부에 못 낸다★ (한백 2026-09-04) — 접수에서 짚어 준다.
+   * title 과 같은 성격이다: 판정이 아니라 표제부에 찍힌 글자를 옮긴 것.
+   */
+  stamp?: string | null;
 }
 
 // Claude가 반환하는 전체 추출 결과

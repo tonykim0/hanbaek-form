@@ -179,6 +179,8 @@ export interface UploadItem {
    * (DocFile.title). 「기타」는 파일명에도 들어가지만, 나머지 칸에서는 이 값만이 그 자리를 말한다.
    */
   title?: string | null;
+  /** 건축물대장의 용도 표시 — 「열람용」이면 접수가 짚는다(types/intake ClassifiedFileInfo.stamp) */
+  stamp?: string | null;
   buffer: Buffer;
   /** 첨부 시 content-type (미지정 시 application/pdf) */
   contentType?: string;
@@ -260,6 +262,7 @@ export async function buildUploadItems(
               matchedInfos[0]?.title ?? stemOf(normalName))
           : file.name,
         title: matchedInfos[0]?.title ?? stemOf(normalName),
+        stamp: matchedInfos[0]?.stamp ?? null,
         buffer: file.buffer,
       });
     } else {
@@ -286,6 +289,7 @@ export async function buildUploadItems(
             ? buildStandardName(metadata.현장명, info.category, 'pdf', info.title)
             : file.name,
           title: info.title ?? null,
+          stamp: info.stamp ?? null,
           buffer,
         });
       }

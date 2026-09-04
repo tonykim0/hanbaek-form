@@ -65,6 +65,8 @@ export interface StagedFile {
   title?: string | null;
   /** 휴대폰 사진으로 보이는 근거 — lib/photo-check */
   photo?: string[] | null;
+  /** 건축물대장에 인쇄된 용도 — 「열람용」이면 제출용이 아니다(types/intake ClassifiedFileInfo.stamp) */
+  stamp?: string | null;
 }
 
 export default function IntakeForm({ org, isAdmin = false, knownOrgs = [] }: {
@@ -248,7 +250,7 @@ export default function IntakeForm({ org, isAdmin = false, knownOrgs = [] }: {
       const byKind: Record<string, StagedFile[]> = {};
       for (const d of data.docs) {
         (byKind[d.kind] ??= []).push({
-          filename: d.filename, blobUrl: d.blobUrl, title: d.title, photo: d.photo,
+          filename: d.filename, blobUrl: d.blobUrl, title: d.title, photo: d.photo, stamp: d.stamp,
         });
       }
       setStaged(byKind);

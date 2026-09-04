@@ -479,7 +479,7 @@ export function IntakeTab({
                               projectId={projectId}
                               kind={d.key}
                               rejected={rejected}
-                              hasFile={doc ? doc.files.length > 0 : false}
+                              fileCount={doc?.files.length ?? 0}
                             />
                           )}
                           {/* 남는 자리를 밀어 반려·삭제를 반대쪽 끝으로 보낸다 */}

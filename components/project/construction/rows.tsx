@@ -281,7 +281,7 @@ export function DocRow({
             canRemove={canRemove}
           />
         )}
-        <DocUpload projectId={projectId} kind={spec.key} rejected={rejected} hasFile={Boolean(doc?.blobUrl)} />
+        <DocUpload projectId={projectId} kind={spec.key} rejected={rejected} fileCount={doc?.files.length ?? 0} />
         {/*
           시공 서류는 파일 있는 칸만 반려한다 — 공정 서류의 미제출은 단계(준공서류 제출)가
           이미 막고 있어 칸마다 돌려보낼 일이 없다. 미제출 반려는 계약 탭의 일이다

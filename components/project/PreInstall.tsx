@@ -151,7 +151,7 @@ export function PreInstall({
                   projectId={project.id}
                   kind={d.key}
                   rejected={doc?.status === 'rejected'}
-                  hasFile={doc ? doc.files.length > 0 : false}
+                  fileCount={doc?.files.length ?? 0}
                 />
                 <span className="flex-1" />
                 {canReview && doc && doc.status !== 'none' && (

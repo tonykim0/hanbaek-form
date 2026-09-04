@@ -620,14 +620,18 @@ function Peek({ file, className, children }: {
 }
 
 export function DocUpload({
-  projectId, kind, rejected, hasFile = false,
+  projectId, kind, rejected, fileCount = 0,
 }: {
   projectId: string;
   kind: string;
   rejected: boolean;
-  /** 이 칸에 이미 파일이 있는가 — 버튼 이름이 갈린다 */
-  hasFile?: boolean;
+  /**
+   * 이 칸에 붙어 있는 파일이 몇 장인가 — 단추 이름이 갈리고(있나/없나),
+   * 「줄여서 올렸다」는 말이 언제 걷힐지도 이 수가 정한다(아래 useEffect).
+   */
+  fileCount?: number;
 }) {
+  const hasFile = fileCount > 0;
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [pct, setPct] = useState(0);
@@ -635,8 +639,11 @@ export function DocUpload({
   const [queue, setQueue] = useState<{ done: number; total: number } | null>(null);
   /** 사진을 다시 굽는 중 — 100MB 를 넘긴 파일에서만 선다(lib/shrink). 쪽·장 진행을 적는다 */
   const [shrinking, setShrinking] = useState<{ done: number; total: number } | null>(null);
-  /** 줄여서 올렸다는 사실 — 올린 뒤에도 남는다. 원본과 다른 것을 올렸으면 말해야 한다 */
-  const [shrunk, setShrunk] = useState<string | null>(null);
+  /**
+   * 줄여서 올렸다는 사실 — 올린 뒤에도 남는다. 원본과 다른 것을 올렸으면 말해야 한다.
+   * ★장마다 한 줄이다★ — 한 번에 여러 장을 고르면 줄어든 것이 둘 이상일 수 있다.
+   */
+  const [shrunk, setShrunk] = useState<Array<{ name: string; text: string }>>([]);
   const [error, setError] = useState<string | null>(null);
   const filesInFlight = useFileDragging();
   /** 이 칸 위에 있는가 — 창 전체의 드래그와 달리 놓을 자리를 가리킨다 */
@@ -649,6 +656,21 @@ export function DocUpload({
    * 칸이 여럿이어도 확인창은 한 번이다(lib/use-leave-guard 가 창에 한 벌로 센다).
    */
   useLeaveGuard(busy, '서류를 올리는 중입니다. 지금 나가면 올리던 것이 중단됩니다 — 나가시겠습니까?');
+
+  /*
+   * ★「줄여서 올립니다」는 그 파일이 칸에 있는 동안만 참이다★ (한백 2026-09-04 —
+   * 「해당 파일을 삭제한 뒤에도 남아있어」). 이 말은 올린 뒤에도 남기려고 일부러 세워
+   * 둔 것인데(원본과 다른 것을 올렸으면 말해야 한다), 걷을 자리가 없어서 파일을 빼고
+   * 나서도 서 있었다 — 없는 파일을 두고 하는 말이 화면에 남는다.
+   *
+   * 파일이 줄어든 순간에 걷는다. 삭제는 다른 부품(DocFileRow)이 하고 그 뒤 화면을 다시
+   * 그리므로(lib/use-action 의 router.refresh), 이 칸이 아는 것은 「몇 장이 되었나」뿐이다.
+   */
+  const seenCount = useRef(fileCount);
+  useEffect(() => {
+    if (fileCount < seenCount.current) setShrunk([]);
+    seenCount.current = fileCount;
+  }, [fileCount]);
 
   async function onPick(e: React.ChangeEvent<HTMLInputElement>) {
     const picked = Array.from(e.target.files ?? []);
@@ -671,6 +693,8 @@ export function DocUpload({
    * 몇 장째인지 단추에 적는다 — 스캔본 다섯 장이면 한참 걸린다.
    */
   async function uploadAll(files: File[]) {
+    /* 비우는 것은 여기다 — upload 안에서 장마다 비우면 앞 장이 줄어든 사실이 지워진다 */
+    setShrunk([]);
     setQueue({ done: 0, total: files.length });
     for (const [i, file] of files.entries()) {
       setQueue({ done: i, total: files.length });
@@ -684,9 +708,10 @@ export function DocUpload({
   async function upload(picked: File): Promise<boolean> {
     setBusy(true);
     setError(null);
-    setShrunk(null);
     setPct(0);
     let file = picked;
+    /** 줄였으면 그 말 — 올리기까지 끝난 뒤에 화면에 올린다(실패한 것을 말하지 않는다) */
+    let note: string | null = null;
 
     /*
      * ★큰 파일은 막지 않고 그 자리에서 줄인다★ (한백 지시 2026-09-04 「100메가 넘어가면
@@ -712,7 +737,7 @@ export function DocUpload({
         return false;
       }
       file = small.file;
-      setShrunk(`${mb(small.before)}MB → ${mb(small.after)}MB 로 줄여서 올립니다`);
+      note = `${mb(small.before)}MB → ${mb(small.after)}MB 로 줄여서 올립니다`;
     }
 
     const ext = (file.name.split('.').pop() ?? 'pdf').toLowerCase();
@@ -762,6 +787,9 @@ export function DocUpload({
        * 열리는 증상이 이것이었다(한백 확인). refresh 는 서버 데이터만 다시 그린다.
        */
       router.refresh();
+      /* 다 올라간 뒤에 말한다 — 막힌 파일을 두고 「줄여서 올립니다」라고 하면 거짓이다 */
+      const said = note;
+      if (said) setShrunk((list) => [...list, { name: picked.name, text: said }]);
       return true;
     } catch (err) {
       // 삼키지 않는다 — Blob 이 거절한 이유(크기·형식)가 여기에만 남는다
@@ -835,8 +863,19 @@ export function DocUpload({
       </label>
       <Err className="mt-1 block whitespace-pre-line">{error}</Err>
       {/* 원본과 다른 것을 올렸으면 말한다 — 조용히 바꿔치우지 않는다 */}
-      {shrunk && !error && (
-        <span className="mt-1 block text-tiny font-bold text-amber-700">{shrunk}</span>
+      {shrunk.length > 0 && !error && (
+        <span className="mt-1 block text-tiny font-bold text-amber-700">
+          {shrunk.map((s, i) => (
+            /* 여러 장이면 어느 파일인지 앞에 적는다 — 줄만 늘면 무엇이 줄었는지 모른다 */
+            /* 이름이 같은 두 장을 한 번에 고를 수 있다 — 열쇠는 자리로 준다 */
+            <span key={`${i}-${s.name}`} className="block">
+              {shrunk.length > 1 && (
+                <span className="font-normal text-amber-800/70">{s.name} · </span>
+              )}
+              {s.text}
+            </span>
+          ))}
+        </span>
       )}
     </div>
   );

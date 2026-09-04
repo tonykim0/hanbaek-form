@@ -15,7 +15,8 @@ import { auditLog, documents, processDocuments, processes, projects } from '@/li
 import { today } from '@/lib/date';
 import { canAccessProject, canWrite, isHanbaek } from '@/lib/roles';
 import {
-  asProcessStatus, canChangeContractDocs, CONTRACT_DOCS_LOCKED_WHY, statusIndex,
+  asProcessStatus, canChangeContractDocs, CONTRACT_DOCS_LOCKED_WHY, COURT_AFTER_STATUS,
+  statusIndex,
 } from '@/lib/process';
 import { isProcessDocKind } from '../assemble';
 import { PROCESS_DOCS } from '@/lib/doc-rules';
@@ -467,15 +468,66 @@ async function putProcessDoc(
         }
       }
 
+      /*
+       * ★준공보완을 끝내면 검토 차례로 돌아온다★ (한백 지적 2026-09-04, 감사 발견).
+       *
+       * 한백이 준공서류 한 칸을 반려하면 단계가 「준공보완」으로 내려가고 담당이
+       * 시공사로 간다(DocRow 의 onReject). 시공사가 고쳐 다시 올리면 그 칸의 반려는
+       * 위에서 풀리는데, ★단계와 담당은 그대로였다★ — 「준공보완」은 묶음 정의가 없어
+       * (groupsByStatus) 그 구간에 서면 되돌아올 길이 아무 데도 없었다. 보완을 다 끝낸
+       * 현장이 시공사 차례에 영영 남고, 한백은 고쳐진 것을 모른다.
+       *
+       * 계약 서류가 하는 것과 같은 규칙이다(putContractDoc) — 다시 올리면 반려가 풀리고,
+       * ★남은 반려가 없으면★ 담당이 한백으로 넘어간다. 한 칸만 고쳤을 때 넘기지 않는
+       * 것도 같다: 아직 고칠 것이 남은 현장을 검토 차례로 올리면 한백 할 일에 시공사가
+       * 할 일이 뜬다.
+       *
+       * 되돌아가는 자리는 「준공서류 접수/검토」다 — 반려가 그 칸에서 내려온 것이고,
+       * 담당은 COURT_AFTER_STATUS 가 정한다(한백). 정체일은 위에서 이미 찍었다.
+       */
+      const [pending] = await tx
+        .select({ n: sql<number>`count(*)::int` })
+        .from(processDocuments)
+        .where(and(
+          eq(processDocuments.projectId, input.projectId),
+          eq(processDocuments.status, 'rejected')
+        ));
+
+      const [cur] = await tx
+        .select({ status: processes.status })
+        .from(processes)
+        .where(eq(processes.projectId, input.projectId))
+        .limit(1);
+      const backFromFix = (pending?.n ?? 0) === 0
+        && asProcessStatus(cur?.status) === '준공보완';
+
+      if (backFromFix) {
+        await tx
+          .update(processes)
+          .set({ status: '준공서류 접수/검토' })
+          .where(eq(processes.projectId, input.projectId));
+      }
+
       await tx
         .update(projects)
-        .set({ lastProgressAt: day })
+        .set({
+          lastProgressAt: day,
+          ...(backFromFix ? { court: COURT_AFTER_STATUS['준공서류 접수/검토'] } : {}),
+        })
         .where(eq(projects.id, input.projectId));
       await writeAudit(tx, {
         projectId: input.projectId, actor,
         action: '공정 서류 올림', field: `process.${input.kind}`,
         oldValue: before?.filename ?? null, newValue: input.filename,
       });
+      /* 단계를 되돌린 것은 따로 남긴다 — 서류 한 장의 기록에 묻히면 왜 올라왔는지 모른다 */
+      if (backFromFix) {
+        await writeAudit(tx, {
+          projectId: input.projectId, actor,
+          action: '준공보완 해소 (반려 전부 고쳐짐)', field: 'process.status',
+          oldValue: '준공보완', newValue: '준공서류 접수/검토',
+        });
+      }
 }
 
 /**

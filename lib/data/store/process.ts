@@ -239,6 +239,27 @@ async function retreatAfterUncheck(
 
   const cur = record.process.status;
   if (statusIndex(cur) !== statusIndex(opened)) return;  // 그 단계에 서 있을 때만 물러난다
+
+  /*
+   * ★그 체크가 이 칸을 여는 조건일 때만 물러난다★ (한백 지적 2026-09-04, 감사 발견).
+   *
+   * CHECK_ADVANCES 는 한 칸을 두 체크가 가리킬 수 있다 — 「준공서류 접수/검토」가
+   * openDoneAt(개통 완료 선언)과 completionSubmitAt(준공서류 제출 완료) 둘의 목표다.
+   * 그 칸을 실제로 여는 것은 openDoneAt 하나고(STATUS_GATES 가 그것을 묻는다),
+   * completionSubmitAt 은 ★그 칸에 서서 하는 선언★이다 — 나갈 때 필요한 것이다.
+   *
+   * 그래서 advanceAfterCheck 는 completionSubmitAt 으로 아무것도 안 움직인다
+   * (target === cur 이라 「바로 다음 한 걸음」이 아니다). 그런데 retreat 는 「그 칸에
+   * 서 있으면」만 봐서, 그 체크를 풀면 열지도 않았던 걸음을 물러났다 —
+   * 준공서류 제출 완료를 되돌리면 단계가 「개통 및 통신확인」으로 후퇴했다.
+   *
+   * 이 시점의 record 는 체크가 이미 풀린 뒤다(트랜잭션이 커밋된 뒤에 부른다).
+   * 그래도 이 칸에 들어올 수 있으면 그 체크는 이 칸을 연 것이 아니다 — 물러날 이유가
+   * 없다. 판정을 CHECK_ADVANCES 가 아니라 게이트에서 끌어오므로, 체크가 늘어도
+   * 여기 손댈 일이 없다.
+   */
+  if (canEnter(cur, record.process, gateContextOf(record.project)).ok) return;
+
   const back = PROCESS_STATUSES[statusIndex(opened) - 1];
   if (!back) return;
   await moveStatus(projectId, cur, back, actor, '진행 단계 되돌림 (체크 해제)', { progress: false });

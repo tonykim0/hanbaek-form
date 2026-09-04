@@ -398,3 +398,62 @@ describe('준공서류 반려 — 제출 완료 선언을 기다리지 않는다
       .not.toEqual([]);
   });
 });
+
+/**
+ * 체크를 풀면 물러나야 하는가 — ★store 의 retreatAfterUncheck 가 이 판정을 쓴다.★
+ *
+ * CHECK_ADVANCES 는 한 칸을 두 체크가 가리킬 수 있다. 그중 그 칸을 ★실제로 여는★ 것만
+ * 풀렸을 때 물러나야 한다: 그 칸에 서서 하는 선언(나갈 때 필요한 것)을 되돌렸다고
+ * 단계가 후퇴하면, 열지도 않았던 걸음을 물러난다(2026-09-04 실버그 — 「준공서류 제출
+ * 완료」를 되돌리면 「개통 및 통신확인」으로 떨어졌다).
+ *
+ * 판정을 지도(CHECK_ADVANCES)가 아니라 게이트에서 끌어오므로, 여기서 그 게이트를 못 박는다.
+ */
+describe('체크를 풀면 그 칸에서 물러나는가 — 게이트가 그 체크를 묻는가로 가른다', () => {
+  /** 그 칸의 조건을 다 채운 공정 — 검사할 체크만 빼고 */
+  const full = (o: Record<string, unknown>) => P({
+    notifyRequiredAt: '2026-09-01', notifyDoneAt: '2026-09-01',
+    envApprovalDate: '2026-08-01',
+    chargerOrderDate: '2026-09-01', chargerShipDate: '2026-09-01', chargerModelId: 'm',
+    chargerOrderQty: 2, modemOrderQty: 2, chargerDoneAt: '2026-09-01',
+    startActualDate: '2026-09-02', installConfirmedAt: '2026-09-02',
+    commDoneDate: '2026-09-03', openDoneAt: '2026-09-03',
+    docs: [doc('photoDone')],
+    ...o,
+  });
+
+  /* 이 넷은 자기 칸의 조건이다 — 풀면 그 칸에 못 들어가니 물러난다 */
+  it.each([
+    ['notifyDoneAt', '충전기 발주'],
+    ['chargerDoneAt', '착공'],
+    ['installConfirmedAt', '개통 및 통신확인'],
+    ['openDoneAt', '준공서류 접수/검토'],
+  ] as const)('%s 를 풀면 「%s」에 못 들어간다 → 물러난다', (field, target) => {
+    expect(CHECK_ADVANCES[field]).toBe(target);
+    expect(canEnter(target, full({}), ENV).ok).toBe(true);
+    /* 행위신고는 「불필요」 쪽도 같은 칸을 여니 둘 다 비워야 막힌다 */
+    const cleared = field === 'notifyDoneAt'
+      ? full({ notifyDoneAt: null, notifySkippedAt: null })
+      : full({ [field]: null });
+    expect(canEnter(target, cleared, ENV).ok).toBe(false);
+  });
+
+  /*
+   * ★completionSubmitAt 은 다르다★ — 「준공서류 접수/검토」를 여는 것은 openDoneAt 이고,
+   * 이 선언은 그 칸에 서서 하는 것이다(나가는 조건 — CHECK_REQUIRES). 풀어도 그 칸에는
+   * 그대로 들어올 수 있으니 물러나서는 안 된다.
+   */
+  it('★completionSubmitAt 을 풀어도 「준공서류 접수/검토」에 들어올 수 있다 → 물러나지 않는다★', () => {
+    expect(CHECK_ADVANCES.completionSubmitAt).toBe('준공서류 접수/검토');
+    expect(canEnter('준공서류 접수/검토', full({ completionSubmitAt: null }), ENV).ok).toBe(true);
+  });
+
+  it('그 칸을 두 체크가 가리키는 자리는 여기 둘뿐이다 — 늘면 위 판정을 다시 본다', () => {
+    const byTarget = new Map<string, string[]>();
+    for (const [f, t] of Object.entries(CHECK_ADVANCES)) {
+      byTarget.set(t, [...(byTarget.get(t) ?? []), f]);
+    }
+    expect([...byTarget].filter(([, fs]) => fs.length > 1).map(([t]) => t).sort())
+      .toEqual(['준공서류 접수/검토', '충전기 발주']);
+  });
+});

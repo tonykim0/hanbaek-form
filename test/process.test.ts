@@ -61,11 +61,11 @@ describe('advanceBlockers — 진행 단추를 막는 것들', () => {
 
   it('설치: 선언 조건이 먼저 오고, 게이트의 착공일이 뒤에 온다', () => {
     const p = P({ installDoneDate: 'd' });
-    expect(advanceBlockers('설치완료', 'installConfirmedAt', p, ENV)).toEqual(['설치완료 사진', '착공일']);
+    expect(advanceBlockers('개통 및 통신확인', 'installConfirmedAt', p, ENV)).toEqual(['설치완료 사진', '착공일']);
   });
 
   it('★같은 말을 두 번 하지 않는다★ — 선언 조건과 게이트가 겹치면 한 번만', () => {
-    const blockers = advanceBlockers('설치완료', 'installConfirmedAt', P(), ENV);
+    const blockers = advanceBlockers('개통 및 통신확인', 'installConfirmedAt', P(), ENV);
     expect(blockers.filter((b) => b === '설치완료 사진')).toHaveLength(1);
   });
 
@@ -138,7 +138,7 @@ describe('완료 선언이 여는 칸 (CHECK_ADVANCES)', () => {
   it('선언마다 여는 칸이 하나씩 있다', () => {
     expect(CHECK_ADVANCES.notifyDoneAt).toBe('충전기 발주');
     expect(CHECK_ADVANCES.chargerDoneAt).toBe('착공');
-    expect(CHECK_ADVANCES.installConfirmedAt).toBe('설치완료');
+    expect(CHECK_ADVANCES.installConfirmedAt).toBe('개통 및 통신확인');
     /* 「개통완료」 칸을 걷었다 — 개통 선언이 곧바로 준공서류 칸을 연다(2026-08-31) */
     expect(CHECK_ADVANCES.openDoneAt).toBe('준공서류 접수/검토');
   });
@@ -172,7 +172,7 @@ describe('declarationBlockers — 그 선언을 지금 찍을 수 있나', () =>
   it('화면과 같은 판정이다 — advanceBlockers 의 선언 몫이 이것이다', () => {
     const p = P({ installDoneDate: 'd' });
     const mine = declarationBlockers('installConfirmedAt', p, ENV);
-    expect(advanceBlockers('설치완료', 'installConfirmedAt', p, ENV)).toEqual(
+    expect(advanceBlockers('개통 및 통신확인', 'installConfirmedAt', p, ENV)).toEqual(
       expect.arrayContaining(mine)
     );
   });
@@ -307,7 +307,7 @@ describe('canChangeContractDocs — 운영사에 낸 뒤로 계약 서류는 잠
   });
 
   it('★그 뒤 단계에서도 잠겨 있다★ — 낸 자리 한 칸만 막으면 다음 칸에서 다시 열린다', () => {
-    for (const status of ['행위신고', '충전기 발주', '착공', '설치완료', '준공완료'] as const) {
+    for (const status of ['행위신고', '충전기 발주', '착공', '개통 및 통신확인', '준공완료'] as const) {
       expect(canChangeContractDocs('sales', status)).toBe(false);
     }
   });
@@ -388,7 +388,7 @@ describe('준공서류 반려 — 제출 완료 선언을 기다리지 않는다
 
   /* 개통 조건까지 걷지는 않는다 — 개통도 안 한 현장을 준공보완에 세울 이유가 없다 */
   it('개통이 안 끝났으면 준공보완도 막는다', () => {
-    const before = canEnter('준공보완', P({ status: '설치완료' }), ENV);
+    const before = canEnter('준공보완', P({ status: '개통 및 통신확인' }), ENV);
     expect(before).toEqual({ ok: false, blockedBy: '통신완료일 · 개통 완료 선언' });
   });
 

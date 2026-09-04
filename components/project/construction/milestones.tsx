@@ -214,11 +214,11 @@ export function groupsByStatus(
          */
         /* installNotice(충전시설 설치 신고서)는 발주 상자로 옮겼다 (2026-08-31) */
         docs: ['photoDone', 'installReport', 'elecapply'],
-        advance: { label: '다음 단계로 진행', target: '설치완료', field: 'installConfirmedAt' },
+        advance: { label: '다음 단계로 진행', target: '개통 및 통신확인', field: 'installConfirmedAt' },
       },
     ],
-    // 개통 절차 — 통신·개통까지 끝나고 완료 체크가 되면 「개통완료」가 열린다
-    '설치완료': [
+    // 통신·개통을 마치면 준공서류 칸이 열린다 — 칸 이름이 곧 이 상자다
+    '개통 및 통신확인': [
       {
         title: '개통',
         opensNext: true,

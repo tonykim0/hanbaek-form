@@ -122,7 +122,7 @@ describe('준공마감일 지정 — 마지막 기성이 열리지 않는 자리
   });
 
   it('★준공 전에는 안 세운다★ — 통보가 올 때가 아니고, 띄우면 준공까지 내내 걸려 있다', () => {
-    expect(receivableTodos([row({ status: '설치완료', steps: 잔액대기 })], 오늘)).toHaveLength(0);
+    expect(receivableTodos([row({ status: '개통 및 통신확인', steps: 잔액대기 })], 오늘)).toHaveLength(0);
   });
 
   it('준공마감일이 들어오면 그 차수는 열린다 — 그때는 수금 카드다', () => {

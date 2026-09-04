@@ -152,7 +152,7 @@ export const STATUS_GATES: Record<ProcessStatus, StatusGate | null> = {
     !p.chargerDoneAt && { key: 'chargerDoneAt', label: '충전기 수령 완료' },
   ]),
   // 공사가 돌았다 — 착공일은 착공 칸에서 적고, 설치 사진과 완료 선언이 이 칸을 연다
-  '설치완료': (p) => missing([
+  '개통 및 통신확인': (p) => missing([
     !p.startActualDate && { key: 'startActualDate', label: '착공일' },
     !docApproved(p, 'photoDone') && { key: 'photoDone', label: '설치완료 사진' },
     !p.installConfirmedAt && { key: 'installConfirmedAt', label: '설치 완료 선언' },
@@ -380,7 +380,7 @@ export const CHECK_ADVANCES = {
   notifySkippedAt: '충전기 발주',
   // 수령 완료는 「착공」을 연다 — 수령 칸에 서서 수령을 확인하고 넘어간다
   chargerDoneAt: '착공',
-  installConfirmedAt: '설치완료',
+  installConfirmedAt: '개통 및 통신확인',
   /* 개통 상자가 곧바로 준공서류 칸을 연다 — 「개통완료」 칸을 걷었다(2026-08-31) */
   openDoneAt: '준공서류 접수/검토',
   completionSubmitAt: '준공서류 접수/검토',
@@ -495,7 +495,7 @@ export const COURT_AFTER_STATUS: Record<ProcessStatus, Court> = {
   '충전기 발주': '한백',          // 발주·출고·모델·발주 수량은 한백이 적는다
   '충전기 수령': '시공사',        // 충전기를 받고 수량을 세는 것은 현장이다
   '착공': '시공사',               // 공사 중
-  '설치완료': '시공사',           // 개통 절차 진행
+  '개통 및 통신확인': '시공사',     // 통신·개통을 현장이 확인한다
   '준공서류 접수/검토': '한백',
   '준공보완': '시공사',
   '준공완료': '한백',             // 준공마감·정산 처리

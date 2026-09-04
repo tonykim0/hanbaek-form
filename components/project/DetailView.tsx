@@ -290,6 +290,7 @@ export default function ProjectDetailView({
               canEditDocs={canEditDocs}
               canFillEmpty={canFillEmpty}
               status={process.status}
+              lines={lines}
             />
           )}
           {tab === 'construction' && <ConstructionTab detail={detail} edit={processEdit} />}

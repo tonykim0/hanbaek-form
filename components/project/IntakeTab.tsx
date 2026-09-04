@@ -18,7 +18,7 @@ import { DocReview } from './DocReview';
 import { ReviewHistory } from './ReviewHistory';
 import { PreInstall } from './PreInstall';
 import { docCardTone, docState, RejectReason } from './parts';
-import { Btn, Err, FIELD, Note, Tag } from '@/components/ui';
+import { Btn, Err, FIELD, Note, PANEL, Saved, Tag } from '@/components/ui';
 
 // ── 계약 탭 ─────────────────────────────────────────────────────
 /**
@@ -126,7 +126,7 @@ function FactGroup({ title, rows }: { title: string; rows: Array<[string, string
 
 export function IntakeTab({
   project, evaluated, byKind, contract, projectId, siteName, canReview, canSubmit, canEditDocs,
-  canFillEmpty = false, knownOrgs, status,
+  canFillEmpty = false, knownOrgs, status, lines,
 }: {
   knownOrgs: string[];
   project: ProjectDetail['project'];
@@ -153,6 +153,8 @@ export function IntakeTab({
   canFillEmpty?: boolean;
   /** 지금 서 있는 진행 단계 — 계약완료면 여기서 다음 걸음을 민다 */
   status: ProcessStatus;
+  /** 설치 기수를 센다 — 나이스 제출 정보(NiceSubmitInfo)가 쓴다 */
+  lines: ProjectDetail['lines'];
 }) {
   /*
    * 「서류」 옆에 붙는 필수 수 — ★화면에 보이는 카드로 센다.★
@@ -603,6 +605,16 @@ export function IntakeTab({
         기설치 구역에 따로 두지 않는다: 기설치 조사·조사 반려도 이 한 목록에 들어간다
         (REVIEW_ACTIONS) — 왕복은 하나인데 목록이 둘이면 어느 것이 전부인지 알 수 없다.
       */}
+      {/*
+        ★나이스인프라에 낼 현장 정보★ (한백 지시 2026-09-04). 나이스는 계약서류와 별개로
+        이 여덟 줄을 따로 받는다 — 그동안 사람이 화면 여기저기(현장정보·기설치·라인)에서
+        긁어 손으로 옮겨 적었다. 콘솔이 아는 것은 채워 두고, 모르는 둘(설치위치·기타)만
+        비워 둔다: 없는 값을 지어내면 그대로 복사돼 나간다.
+      */}
+      {project.cpo === '나이스인프라' && (
+        <NiceSubmitInfo project={project} lines={lines} />
+      )}
+
       <section>
         <ReviewHistory
           projectId={project.id}
@@ -611,6 +623,72 @@ export function IntakeTab({
       </section>
 
     </div>
+  );
+}
+
+/**
+ * 나이스인프라 제출용 현장 정보 — ★복사해서 그대로 보내는 글이다★ (한백 지시 2026-09-04).
+ *
+ * 화면이 아니라 ★붙여 넣을 글★이라 규칙이 다르다:
+ *   · 빈 값에 「미지정」을 적지 않는다 — 그대로 복사돼 나간다. 비워 두고 사람이 채운다.
+ *   · 콘솔에 없는 값은 둘이다: ★설치위치(옥내/옥외)★ 와 ★기타★. 받는 자리를 새로
+ *     만들지 않았다 — 현장마다 한 번 적고 마는 값이라 여기서 손으로 채우는 편이 짧다.
+ *   · 설치유형은 우리 낱말(환경부·자체투자)이 아니라 ★나이스가 쓰는 말(보조·투자)★로 적는다.
+ *
+ * 나이스 현장에서만 선다. 다른 운영사는 이 양식을 안 받는다.
+ */
+function NiceSubmitInfo({
+  project, lines,
+}: {
+  project: ProjectDetail['project'];
+  lines: ProjectDetail['lines'];
+}) {
+  const [copied, setCopied] = useState(false);
+  const qty = lines.reduce((n, l) => n + l.qty, 0);
+  const bizLabel = project.bizType === '자체투자' ? '투자' : project.bizType === '환경부' ? '보조' : '';
+  /* 기설치는 「있음」일 때만 내용이 있다 — 조사해서 없는 것은 「없음」이 답이다 */
+  const pre = project.preInstall === '있음' ? (project.preNote ?? '') : '없음';
+
+  const text = [
+    `1. 장소명 : ${project.name}`,
+    `2. 주소 : ${project.addr ?? ''}`,
+    `3. 주차면수 : ${project.parkTotal ? `${project.parkTotal}면` : ''}`,
+    `4. 설치기수 : ${qty > 0 ? `${qty}기` : ''}`,
+    '5. 설치위치 : 옥내/옥외',
+    `6. 설치유형 : ${bizLabel}`,
+    `7. 기설치 현황 : ${pre}`,
+    '8. 기타 : ',
+  ].join('\n');
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setCopied(false); // 권한이 없으면 글이 그대로 보이니 손으로 긁으면 된다
+    }
+  }
+
+  return (
+    <section>
+      <div className="mb-3 flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
+        <h2 className="text-h3 font-black text-slate-900">나이스인프라 제출 정보</h2>
+        <Btn size="sm" kind="quiet" onClick={() => void copy()}>복사</Btn>
+        {copied && <Saved>복사됨</Saved>}
+      </div>
+      {/*
+        읽는 글이 아니라 옮길 글이라 고정폭으로 둔다 — 줄 번호가 세로로 서야 빠진 줄이 보인다.
+        고를 수 있게 두 곳(단추·긁기) 다 열어 둔다.
+      */}
+      <pre className={`${PANEL} overflow-x-auto whitespace-pre-wrap break-all p-4 font-mono text-small leading-relaxed text-slate-800`}>
+        {text}
+      </pre>
+      {/* 비어 있는 줄은 여기서 말한다 — 글 안에 「미지정」을 적으면 그대로 나간다 */}
+      <p className="mt-1.5 text-tiny text-slate-400">
+        5번(옥내/옥외)과 8번(기타)은 콘솔에 없는 값입니다 — 복사한 뒤 채워 보내세요.
+      </p>
+    </section>
   );
 }
 

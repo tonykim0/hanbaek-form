@@ -673,18 +673,24 @@ export function DocUpload({
     setBusy(true);
     setError(null);
     setPct(0);
+    const ext = (file.name.split('.').pop() ?? 'pdf').toLowerCase();
     /*
      * 왜 안 되는지를 여기서 적는다 — 크기·형식은 Blob 이 올리는 도중에 거절하고,
      * 그 실패는 아래 catch 에서 「오류가 났습니다」 한 줄로 뭉개졌다. 30MB 를 넘는
      * 사진대지 엑셀이 실제로 그렇게 튕겼고, 화면만 봐서는 형식 탓인지 알 수 없었다.
+     * 엑셀은 사진 하나에서 압축 창을 열되 「이 그림에만 적용」을 해제하면 전부 한꺼번에
+     * 줄어든다 — 사용자에게 사진마다 반복하라고 읽히지 않게 그 절차를 그대로 적는다.
      */
     if (file.size > MAX_DOC_BYTES) {
-      setError(`${mb(file.size)}MB — 한 파일은 ${mb(MAX_DOC_BYTES)}MB 까지입니다. 사진을 줄이거나 나눠서 올려 주세요.`);
+      const size = `${mb(file.size)}MB · 최대 ${mb(MAX_DOC_BYTES)}MB까지 업로드할 수 있습니다.`;
+      const isExcel = /^xls[xmb]?$/.test(ext);
+      setError(isExcel
+        ? `${size}\n엑셀에서 사진 하나를 선택한 뒤 「그림 서식 → 그림 압축」에서 「이 그림에만 적용」을 해제하고 150ppi로 다시 저장해 주세요. 파일 안의 모든 사진이 한 번에 압축됩니다.`
+        : `${size} 파일을 줄이거나 나눠서 올려 주세요.`);
       setBusy(false);
       return false;
     }
     try {
-      const ext = (file.name.split('.').pop() ?? 'pdf').toLowerCase();
       // 경로는 서버가 검사한다. 시각을 붙여 이전 파일을 덮지 않게 한다.
       const pathname = `projects/${projectId}/${kind}-${Date.now()}.${ext}`;
 
@@ -798,7 +804,7 @@ export function DocUpload({
           : rejected && hasFile ? '다시 업로드' : hasFile ? '파일 추가' : '파일 업로드'}
         <input type="file" multiple className="hidden" onChange={onPick} disabled={busy} />
       </label>
-      <Err className="mt-1 block">{error}</Err>
+      <Err className="mt-1 block whitespace-pre-line">{error}</Err>
     </div>
   );
 }

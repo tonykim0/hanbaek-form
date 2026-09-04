@@ -530,14 +530,19 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
                 && !selGroups.some((g) => g.advance) && (
                 nextEntry.ok ? (
                   edit === 'all' ? (
-                    <button
-                      type="button"
-                      disabled={busyKey === 'status'}
+                    /*
+                      * ★단추는 부품으로 그린다★ (한백 지적 2026-09-04 「오와열이 전혀 맞지
+                      * 않는다」) — 여기만 <button> 에 클래스를 손으로 적어(brand-50 바탕·
+                      * text-small), 같은 「다음으로」 걸음이 묶음이 있는 구간(AdvanceRow 의
+                      * Btn)과 다른 모양이었다. 묶음이 없는 구간(환경부 승인 대기)이 이 자리다.
+                      */
+                    <Btn
+                      busy={busyKey === 'status'}
+                      busyLabel="넘기는 중…"
                       onClick={() => moveStatus(nextStatus)}
-                      className="w-fit rounded-ctl border border-brand-300 bg-brand-50 px-3 py-1.5 text-small font-bold text-brand-800 transition hover:bg-brand-100 disabled:opacity-50"
                     >
                       다음 — {nextStatus} 로 넘기기 →
-                    </button>
+                    </Btn>
                   ) : (
                     /*
                      * ★「준비됨」은 안 적는다(한백 지시 2026-08-26).★ 보드 카드에서 지운
@@ -554,13 +559,9 @@ export function ConstructionTab({ detail, edit }: { detail: ProjectDetail; edit:
                    * 무엇이 없는지 적으면 그 줄만 보고 남은 일을 안다. 글자만 두면 「넘기는
                    * 자리가 어디였나」를 다시 찾아야 한다.
                    */
-                  <button
-                    type="button"
-                    disabled
-                    className="w-fit cursor-not-allowed rounded-ctl border border-slate-200 bg-slate-50 px-3 py-1.5 text-small font-bold text-slate-400"
-                  >
+                  <Btn disabled>
                     다음 — {nextStatus} · {(nextEntry as { blockedBy: string }).blockedBy} 필요
-                  </button>
+                  </Btn>
                 ) : (
                   <p className="text-small font-semibold text-amber-700">
                     다음: {nextStatus} — {(nextEntry as { blockedBy: string }).blockedBy} 필요

@@ -16,6 +16,8 @@ import { DatePicker } from '@/components/DatePicker';
 
 import { Badge, Btn, Empty, Err, FIELD_CELL } from '@/components/ui';
 
+import { DATE_CELL, ROW, ROW_STACK, RowLabel } from './shell';
+
 /**
  * 충전기 모델 — 등록된 목록에서 고른다 (한백 지시 2026-08-26).
  *
@@ -79,8 +81,8 @@ export function ModelRow({
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-3 px-3.5 py-2 text-base">
-      <span className="w-32 shrink-0 text-slate-500">충전기 모델</span>
+    <div className={ROW}>
+      <RowLabel>충전기 모델</RowLabel>
       {!canEdit ? (
         chosen ? <span className="font-semibold text-slate-800">{chosen.name}</span> : <Empty kind="miss" />
       ) : adding ? (
@@ -142,8 +144,8 @@ export function CountsRow({
 }) {
   const any = items.some((c) => c.value !== null);
   return (
-    <div className="flex flex-wrap items-center gap-3 px-3.5 py-2 text-base">
-      <span className="w-32 shrink-0 text-slate-500">{label}</span>
+    <div className={ROW}>
+      <RowLabel>{label}</RowLabel>
       {canEdit ? (
         <span className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
           {items.map((c) => (
@@ -175,9 +177,9 @@ export function CountsRow({
             : '비어 있음'}
         </span>
       )}
-      <span className="flex-1" />
+      {/* 비교 기준은 끝으로 — 빈 칸(flex-1)으로 밀면 wrap 줄에서 혼자 한 줄을 차지한다 */}
       {compare && (
-        <span className={`text-tiny font-semibold ${compare.mismatch ? 'text-amber-700' : 'text-slate-400'}`}>
+        <span className={`ml-auto text-tiny font-semibold ${compare.mismatch ? 'text-amber-700' : 'text-slate-400'}`}>
           {compare.label}
         </span>
       )}
@@ -197,8 +199,8 @@ export function DateRow({
   onSave: (field: DateField, value: string) => void;
 }) {
   return (
-    <div className="flex flex-wrap items-center gap-3 px-3.5 py-2 text-base">
-      <span className="w-32 shrink-0 text-slate-500">{m.label}</span>
+    <div className={ROW}>
+      <RowLabel>{m.label}</RowLabel>
       {canEdit ? (
         <DatePicker
           ariaLabel={m.label}
@@ -208,16 +210,17 @@ export function DateRow({
         />
       ) : (
         <span
-          className={`w-[150px] font-semibold tabular-nums ${m.value ? 'text-slate-800' : 'text-slate-300'}`}
+          className={`${DATE_CELL} font-semibold tabular-nums ${m.value ? 'text-slate-800' : 'text-slate-300'}`}
           title={lockedForPartner ? '한백이 적는 칸입니다' : undefined}
         >
           {m.value ?? (lockedForPartner ? '한백 입력 대기' : '비어 있음')}
         </span>
       )}
-      <span className="flex-1" />
       {/* 날짜가 들어오면 기성 트리거가 열린다 — 사람이 봐야 하는 것이라 노랑이다 */}
       {m.trigger && (
-        <Badge tone={m.value ? 'warn' : 'mute'}>{m.trigger} 트리거</Badge>
+        <span className="ml-auto">
+          <Badge tone={m.value ? 'warn' : 'mute'}>{m.trigger} 트리거</Badge>
+        </span>
       )}
     </div>
   );
@@ -260,7 +263,7 @@ export function DocRow({
      *          │ ─────  반려 사유
      *
      * 파일 목록이 「제출됨」과 같은 세로선에서 시작한다 — 들여쓰기를 손으로 적지 않고
-     * 이름을 진짜 열로 세워서 얻는다. 숫자로 밀면 이름 폭(w-52)을 고칠 때마다 어긋난다.
+     * 이름을 진짜 열로 세워서 얻는다. 폭·여백은 ./shell 이 정한다(RowLabel·ROW_STACK).
      *
      * 전에는 파일 목록이 이름·단추와 ★같은 flex 줄★에 있었다. DocFileActions 는 파일을
      * 세로로 쌓는 flex-col 이고 미리보기 판이 h-24(96px)라, 한 장만 올라와도 그 줄이
@@ -274,18 +277,8 @@ export function DocRow({
      * 선만 그으면 칸마다 쓸모없는 층이 하나 늘어난다.
      */
     /* relative — 끌어다 놓는 덮개가 이 줄을 덮는다(DocFiles 의 DocUpload) */
-    <div className="relative flex items-start gap-x-3 px-3.5 py-2 text-base">
-      {/*
-        * ★칸 이름은 폭을 못 박는다★ — 줄이 여럿 늘어선 자리라 이름이 제각각 너비면
-        * 상태·날짜가 줄마다 다른 자리에 선다. w-52(208px)는 가장 긴 이름
-        * 「전기안전관리자 선임신고증명서」(13px × 15자)가 한 줄에 들어가는 폭이다 —
-        * w-32 였을 때는 그 이름이 세 줄로 접혔다. 더 긴 이름이 생기면 낱말에서
-        * 접히게 break-keep 을 준다(글자 중간에서 끊지 않는다).
-        *
-        * py-0.5 — 오른쪽 첫 줄은 단추가 높이를 정하고(약 24px) 이름은 글줄(20.8px)이라,
-        * 그만큼 내려 글자 가운데를 「제출됨」에 맞춘다.
-        */}
-      <span className="w-52 shrink-0 break-keep py-0.5 leading-snug text-slate-500">{spec.name}</span>
+    <div className={ROW_STACK}>
+      <RowLabel>{spec.name}</RowLabel>
 
       {/* min-w-0 — 이것이 없으면 긴 파일 이름이 열을 밀어내 truncate 가 안 걸린다 */}
       <div className="flex min-w-0 flex-1 flex-col gap-1.5">

@@ -13,6 +13,8 @@ import type { CheckField, GroupCheck } from './milestones';
 
 import { Btn, Empty, FIELD } from '@/components/ui';
 
+import { ROW, RowLabel } from './shell';
+
 /**
  * 다음 단계로 미는 줄 — 단추는 언제나 있고, 조건이 안 찼으면 흐리다.
  *
@@ -33,7 +35,8 @@ export function AdvanceRow({
   if (!canEdit) return null;
   const ready = blockers.length === 0;
   return (
-    <div className="flex flex-wrap items-center gap-3 px-3.5 py-2.5">
+    /* 이름 열이 없는 줄 — 단추가 왼쪽 끝에서 시작한다. 여백·틈은 다른 줄과 같다 */
+    <div className={ROW}>
       <Btn disabled={!ready} busy={busy} busyLabel="넘기는 중…" onClick={onGo}>
         {ready ? `${label} →` : `${blockers[0]} 필요`}
       </Btn>
@@ -68,8 +71,8 @@ export function NeedRow({
   const at = requiredAt ?? skippedAt;
 
   return (
-    <div className="flex flex-wrap items-center gap-3 px-3.5 py-2 text-base">
-      <span className="w-32 shrink-0 font-bold text-slate-700">{need.label}</span>
+    <div className={ROW}>
+      <RowLabel strong>{need.label}</RowLabel>
       {picked ? (
         <>
           <span className={`font-bold ${requiredAt ? 'text-brand-800' : 'text-slate-500'}`}>
@@ -126,8 +129,8 @@ export function CheckRow({
   const done = Boolean(value);
 
   return (
-    <div className="flex flex-wrap items-center gap-3 px-3.5 py-2 text-base">
-      <span className="w-32 shrink-0 font-bold text-slate-700">{check.label}</span>
+    <div className={ROW}>
+      <RowLabel strong>{check.label}</RowLabel>
       {done ? (
         <>
           <span className="font-bold text-brand-800">완료 · {value}</span>

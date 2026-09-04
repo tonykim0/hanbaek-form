@@ -82,6 +82,19 @@ async function main() {
         const hidden: [string, unknown][] = [
           ['margin', l.rule.margin],
           [role === 'sales' ? 'consUnit' : 'salesUnit', role === 'sales' ? l.rule.consUnit : l.rule.salesUnit],
+          /*
+           * ★부담 주체 둘도 여기서 본다★ (감사 2026-09-04 H5).
+           *
+           * 금액이 아니라 글자라 위 금지 키 목록에 넣고 싶어지는데, 그러면 안 된다 —
+           * 그 검사는 ★키가 있으면★ 실패라서 값을 null 로 가려도 걸린다(케이스는 조건과
+           * 원가를 한 객체에 담으므로 키를 지우는 방식이 아니다). 금액과 같은 자리다.
+           *
+           * 접두사 검사에 기대지 말 것: 목록에 'safetyFee' 가 있는데도 safetyFeeBearer 는
+           * 통과했다 — `"safetyFee"` 로 닫는 따옴표까지 견주기 때문이다. 그렇게 새 나간
+           * 것이 협력사가 볼 수 있는 계약 라인 148개였다(프로덕션 실측).
+           */
+          ['supervisionBearer', l.rule.supervisionBearer],
+          ['safetyFeeBearer', l.rule.safetyFeeBearer],
         ];
         for (const [key, v] of hidden) {
           if (v !== null) {

@@ -520,6 +520,19 @@ export function redactForViewer(detail: ProjectDetail, vis: Visibility): Project
         consUnit: vis.cons ? l.rule.consUnit : null,
         margin: vis.cost ? l.rule.margin : null,
         /*
+         * ★부담 주체도 원가 사정이다★ (한백 지시 2026-09-04, 감사 H5).
+         *
+         * 금액 셋만 지우고 이 둘은 통과시키고 있었다. 값이 「영업비 차감」·「한백
+         * 대납(회수)」·「한백 수령 · 하도급 미지급(턴키금액 포함)」이라 우리가 어떻게
+         * 떠안고 어디서 빼는지가 그대로 적혀 있다 — 협력사가 자기 현장 상세를 열면
+         * 페이지 소스(RSC 페이로드)에 실려 나갔다(실측: 계약 라인 148개).
+         * 화면에는 원래 안 나오는 칸인데(폼이 늘 null 을 보낸다) 데이터만 계속 갔다.
+         *
+         * 원가를 보는 눈(vis.cost)에만 준다 — 마진과 같은 잣대다.
+         */
+        supervisionBearer: vis.cost ? l.rule.supervisionBearer : null,
+        safetyFeeBearer: vis.cost ? l.rule.safetyFeeBearer : null,
+        /*
          * 프로모션 연장 차감은 가리지 않는다(한백 확인 2026-08-22) — 협력사도 봐야 하는
          * 조건이다. 새 금액 칸을 더할 때 가려야 하는 것이면 여기 한 줄이 필요하고,
          * 타입은 그것을 안 잡아준다(number 는 number|null 에 대입된다) —

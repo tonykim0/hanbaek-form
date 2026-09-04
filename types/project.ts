@@ -478,10 +478,27 @@ export interface ContractLine {
  *
  * 타입이 nullable 이므로 새 화면을 만들 때도 「없을 수 있다」를 강제로 다루게 된다.
  */
-export type PricingRuleView = Omit<PricingRule, 'salesUnit' | 'consUnit' | 'margin'> & {
+export type PricingRuleView = Omit<
+  PricingRule,
+  'salesUnit' | 'consUnit' | 'margin' | 'supervisionBearer' | 'safetyFeeBearer'
+> & {
   salesUnit: number | null;
   consUnit: number | null;
   margin: number | null;
+  /**
+   * 부담 주체 둘 — ★협력사에게는 null 이다★ (한백 지시 2026-09-04, 감사 H5).
+   *
+   * 금액 셋만 지우고 이 둘은 통과시키고 있었다. 그런데 값이 「영업비 차감」·「한백 대납
+   * (회수)」·「한백 수령 · 하도급 미지급(턴키금액 포함)」 같은 우리 원가 사정이고,
+   * 협력사가 자기 현장 상세를 열면 페이지 소스(RSC 페이로드)에 그대로 실려 나갔다 —
+   * 프로덕션 실측 2026-09-04: 협력사가 볼 수 있는 계약 라인 148개에 실려 있었다.
+   * 마진이 새 나갔던 것과 같은 경로다.
+   *
+   * 화면에는 원래 안 나온다(폼이 늘 null 을 보낸다 — pricing-policy-nice-h2 주석).
+   * 화면에서 뺀 것을 데이터로 계속 보내고 있었을 뿐이다.
+   */
+  supervisionBearer: string | null;
+  safetyFeeBearer: string | null;
 };
 
 /** 화면이 받는 조립된 라인 — 참조가 풀려 있다 */

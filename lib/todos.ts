@@ -16,7 +16,7 @@ import { bandOfColumn, boardColumnOf, courtOfColumn } from '@/lib/board';
 import { batchesOf, batchKey, batchStateOf } from '@/lib/payout-board';
 import { actorOf, viewerOf } from '@/lib/auth/session';
 import { isHanbaek } from '@/lib/roles';
-import { COURTS_OF_ROLE } from '@/lib/todo-types';
+import { COURTS_OF_ROLE, whatOf } from '@/lib/todo-types';
 import { won } from '@/lib/format';
 import { today } from '@/lib/date';
 import type { SessionPayload } from '@/lib/auth/types';
@@ -176,22 +176,4 @@ function labelUntil(day: string): string {
   if (d < 0) return `지급일 ${-d}일 지남`;
   if (d === 0) return '지급일 오늘';
   return `지급일 ${d}일 남음`;
-}
-
-/** 그 현장에서 지금 할 일 — 보드 칸 판정을 그대로 쓴다(부르는 쪽이 한 번 계산해 넘긴다) */
-function whatOf(column: ReturnType<typeof boardColumnOf>, p: {
-  rejectedDocs: number;
-  docsFilled: boolean;
-}): string {
-  /* 기설치 조사 반려도 이 수에 든다 — 그 문을 걷고 서류 칸 반려로 합쳤다(2026-09-03) */
-  if (column === '계약보완') return `반려 ${p.rejectedDocs}건 보완`;
-  if (column === '계약접수') return '필수 서류 제출';
-  if (column === '계약검토') return '검수 · 계약 확인';
-  /*
-   * 「계약완료」는 상태이지 일이 아니다 — 그 자리에서 할 일은 운영사에 계약서를 내는 것이고
-   * 그것은 한백의 일이다(COURT_AFTER_STATUS). 칸 이름을 그대로 적으면 할 일 목록에
-   * 「계약완료」라는 줄이 서서, 무엇을 하라는 것인지 알 수 없다.
-   */
-  if (column === '계약완료') return '운영사에 계약서 제출';
-  return column; // 그 밖의 공정 칸 이름은 곧 지금 서 있는 일이다
 }

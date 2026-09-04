@@ -1,11 +1,16 @@
 /**
- * 할 일의 모양 — 서버·클라이언트가 같이 보는 타입.
+ * 할 일의 모양 — 서버·클라이언트가 같이 보는 타입과, 칸에서 문구를 뽑는 순수 함수.
  *
  * ★lib/todos 와 갈라 둔 이유★ 조립(todosOf)은 저장소·세션을 끌어오고, 세션은
  * next/headers 를 쓴다 — 서버에서만 도는 것이다. 칸반은 'use client' 라, 거기서
  * lib/todos 를 타입 때문에 부르는 것만으로 그 사슬이 클라이언트 번들로 끌려 들어와
  * 빌드가 깨졌다(2026-08-24). 타입은 아무것도 끌어오지 않는 이 파일에 둔다.
+ *
+ * ★여기 있는 것은 아무것도 끌어오지 않는다★ — import 는 전부 `import type` 이다.
+ * whatOf 도 그래서 여기 산다(2026-09-04): lib/todos 에 두면 시험이 그 파일을 못 읽어
+ * (vitest 가 저장소·세션 사슬에서 막힌다) 문구 규칙이 그물 밖에 남는다.
  */
+import type { BoardColumn } from '@/lib/board';
 import type { Court } from '@/types/project';
 import type { Role } from '@/lib/roles';
 
@@ -81,4 +86,36 @@ export interface TodoItem {
   urgency: number;
   /** 급함을 사람 말로 — 카드에 그대로 적는다. 없으면 적을 것이 없다는 뜻이다 */
   urgencyLabel: string | null;
+}
+
+/** 그 현장에서 지금 할 일 — 보드 칸 판정을 그대로 쓴다(부르는 쪽이 한 번 계산해 넘긴다) */
+export function whatOf(column: BoardColumn, p: {
+  rejectedDocs: number;
+  rejectedEmptyDocs: number;
+  docsFilled: boolean;
+}): string {
+  /*
+   * 「계약보완」은 두 가지를 담는다 — 낸 것을 돌려받은 칸과, 아직 안 낸 칸(「누락 서류
+   * 보완요청」이 파일 없이 반려로 세운 자리). 협력사가 할 일이 다르므로 말을 가른다
+   * (한백 승인 2026-09-04). 실측: 68건 중 46건이 「안 낸 것」이었는데 전부 「반려 N건
+   * 보완」이라 적혀 있었다 — 낸 적 없는 협력사가 「내가 낸 걸 왜 반려했지」로 읽는다.
+   * 기설치 조사 반려도 이 수에 든다(그 문을 걷고 서류 칸 반려로 합쳤다, 2026-09-03).
+   */
+  if (column === '계약보완') {
+    const back = p.rejectedDocs - p.rejectedEmptyDocs; // 낸 것을 돌려받은 칸
+    if (back === 0) return `미제출 ${p.rejectedEmptyDocs}건 제출`;
+    if (p.rejectedEmptyDocs === 0) return `반려 ${back}건 보완`;
+    return `반려 ${back}건 보완 · 미제출 ${p.rejectedEmptyDocs}건 제출`;
+  }
+  if (column === '계약접수') return '필수 서류 제출';
+  if (column === '계약검토') return '검수 · 계약 확인';
+  /*
+   * ★칸 이름이 상태인 자리는 할 일로 바꿔 적는다.★ 「계약완료」·「설치완료」가 그렇다 —
+   * 목록에 「설치완료」라는 줄이 서면 무엇을 하라는 것인지 알 수 없다. 나머지 공정 칸
+   * (행위신고·충전기 발주·충전기 수령·착공·준공보완)은 칸 이름이 곧 시킬 일이라 그대로 쓴다.
+   */
+  if (column === '계약완료') return '운영사에 계약서 제출'; // 한백의 일(COURT_AFTER_STATUS)
+  if (column === '설치완료') return '개통 및 통신확인'; // 한백 지시 2026-09-04
+  if (column === '준공서류 접수/검토') return '준공서류 검수'; // 「접수/검토」는 칸 이름이지 일이 아니다
+  return column;
 }

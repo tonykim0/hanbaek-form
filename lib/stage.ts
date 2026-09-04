@@ -80,6 +80,16 @@ export function contractStateOf(input: {
    * 이제 전부 documents 에 있어서 한 줄로 센다.
    */
   const rejected = input.documents.filter((d) => d.status === 'rejected').length;
+  /*
+   * 그중 ★파일이 한 장도 없는 칸★ — 「누락 서류 보완요청」이 세운 자리다(한백 지시 2026-08-25).
+   *
+   * 협력사가 할 일이 다르다: 낸 것을 돌려받았으면 고쳐서 다시 내고, 안 낸 것이면 그냥 낸다.
+   * 한 말로 부르면(「반려 N건 보완」) 아무것도 낸 적 없는 협력사가 「내가 낸 걸 왜 반려했지」로
+   * 읽는다. 실측 2026-09-04: 계약보완 68건 중 46건이 이쪽이었다.
+   */
+  const rejectedEmpty = input.documents.filter(
+    (d) => d.status === 'rejected' && !d.blobUrl
+  ).length;
 
   return {
     requiredTotal: required.length,
@@ -87,6 +97,7 @@ export function contractStateOf(input: {
     filesMissing,
     docsFilled,
     rejected,
+    rejectedEmpty,
     allPriced,
     docsExempt,
     ready: rejected === 0 && (docsExempt || satisfied === required.length) && allPriced,

@@ -1,7 +1,12 @@
 /**
  * 플러그링크 하반기(2026년 7월 1일 접수분) 기성 단계의 마이그레이션 SQL 을 찍는다 (0053 생성기).
  *
- *   npx tsx scripts/print-pl-h2-settlement-sql.ts > migrations/0053_pl-h2-settlement-steps.sql
+ *   npx tsx scripts/print-pl-h2-settlement-sql.ts > migrations/0053_pl-h2-settlement-terms.sql
+ *
+ * ★출력 파일명을 여기서 함부로 바꾸지 않는다★ — 이름이 어긋나면 다시 돌린 사람이 0053 을
+ * 두 개로 만들고, 러너의 번호 겹침 가드가 DB 에 붙기도 전에 ★프로덕션 빌드를 통째로 죽인다★
+ * (0011 두 개 실사고의 그 가드다). 처음 판은 -steps 였고, 검산을 고치면서 -terms 로 바꿨다 —
+ * 원장의 키가 파일명이라 이름을 그대로 두면 개발 DB 가 옛 판에 머문 채 「적용됨」으로 남는다.
  *
  * 값·근거는 lib/pricing-policy-plhec-h2.ts(보조 3단계 plSubSteps · 자투 PL_INV_STEPS)와
  * lib/pricing-policy-link-h2.ts(연동) 두 곳이다. 여기서는 SQL 모양만 만든다.

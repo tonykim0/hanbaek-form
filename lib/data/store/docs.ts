@@ -15,7 +15,7 @@ import { auditLog, documents, processDocuments, processes, projects } from '@/li
 import { today } from '@/lib/date';
 import { canAccessProject, canWrite, isHanbaek } from '@/lib/roles';
 import {
-  asProcessStatus, canChangeContractDocs, CONTRACT_DOCS_LOCKED_WHY, COURT_AFTER_STATUS,
+  asProcessStatus, canChangeContractDocs, contractDocsLockedWhy, COURT_AFTER_STATUS,
   statusIndex,
 } from '@/lib/process';
 import { isProcessDocKind } from '../assemble';
@@ -325,8 +325,7 @@ export const docStore: Pick<
       if (!canAccessProject(actor.role, actor.org, project)) {
         throw new Error('이 현장에 서류를 올릴 권한이 없습니다.');
       }
-      // 올리는 길이다 — 반려된 칸은 잠긴 뒤에도 다시 올릴 수 있다(착공 뒤 반려 교착, 감사 M9)
-      await assertContractDocsOpen(tx, input.projectId, input.kind, actor, { reuploadRejected: true });
+      await assertContractDocsOpen(tx, input.projectId, input.kind, actor);
 
       /*
        * 계약 서류와 공정 서류는 다른 표에 산다.
@@ -351,13 +350,7 @@ async function assertContractDocsOpen(
   tx: TxLike,
   projectId: string,
   kind: string,
-  actor: Actor,
-  /**
-   * 올리는 길인가 — 그때만 「반려된 칸은 열린다」 예외를 탄다 (한백 지시 2026-09-04, 감사 M9).
-   * 빼는 길(deleteDocumentFile)은 이것을 안 주므로 반려 칸이라도 그대로 잠긴다 —
-   * 다시 올리면 반려가 풀리는 규칙으로 충분하고, 마지막 장을 빼면 「파일 없는 반려」가 늘어난다.
-   */
-  opts: { reuploadRejected?: boolean } = {}
+  actor: Actor
 ): Promise<void> {
   if (isProcessDocKind(kind)) return;
   if (isHanbaek(actor.role)) return;
@@ -366,6 +359,8 @@ async function assertContractDocsOpen(
     .from(processes)
     .where(eq(processes.projectId, projectId))
     .limit(1);
+  // 공정 행이 아직 없으면 계약완료 자리다 — asProcessStatus 가 그 기본값을 안다
+  const status = asProcessStatus(proc?.status);
   // 반려·보완요청이 걸리면 계약 확인이 풀린다 — 그때는 고칠 수 있어야 한다(canChangeContractDocs)
   const [proj] = await tx
     .select({ confirmedAt: projects.contractConfirmedAt })
@@ -378,22 +373,18 @@ async function assertContractDocsOpen(
    * 이 예외를 못 탄다 — 낸 서류는 그대로 잠긴다.
    */
   const [slot] = await tx
-    .select({ files: documents.files, status: documents.status })
+    .select({ files: documents.files })
     .from(documents)
     .where(and(eq(documents.projectId, projectId), eq(documents.kind, kind)))
     .limit(1);
   const slotEmpty = !slot || (slot.files as unknown[]).length === 0;
   /*
-   * 반려된 칸인가 — 착공 뒤에는 반려해도 계약 확인이 안 지워져서(applyReviewSideEffects 의
-   * started) 「확인이 풀렸는가」로는 열리지 않았다. 칸의 상태를 직접 본다(canChangeContractDocs
-   * 의 slotRejected 주석). 올리는 길에서만 켠다.
+   * 「반려된 칸」 예외는 걷었다(2026-09-05) — 착공 뒤에는 협력사 손이 완전히 닫히고
+   * (PARTNER_DOCS_CLOSED_AT), 그 전에는 반려가 확인을 지우므로 따로 볼 것이 없다.
    */
-  const slotRejected = opts.reuploadRejected === true && slot?.status === 'rejected';
-  // 공정 행이 아직 없으면 계약완료 자리다 — asProcessStatus 가 그 기본값을 안다
-  if (!canChangeContractDocs(
-    actor.role, asProcessStatus(proc?.status), proj?.confirmedAt !== null, slotEmpty, slotRejected
-  )) {
-    throw new Error(CONTRACT_DOCS_LOCKED_WHY);
+  if (!canChangeContractDocs(actor.role, status, proj?.confirmedAt !== null, slotEmpty)) {
+    // 구간에 맞는 말 — 착공 뒤에는 「한백에 보내라」, 그 전에는 「빈 칸에는 올릴 수 있다」
+    throw new Error(contractDocsLockedWhy(status));
   }
 }
 
@@ -685,7 +676,19 @@ async function applyReviewSideEffects(
         ? {
             ...(started ? {} : { contractConfirmedAt: null }),
             contractFixAskedAt: sql`coalesce(${projects.contractFixAskedAt}, ${day})`,
-            court: '영업사' as const,
+            /*
+             * ★착공 뒤 반려는 협력사에게 공을 넘기지 않는다★ (한백 지시 2026-09-05).
+             * 그 구간에서 협력사는 계약 서류를 못 바꾼다(PARTNER_DOCS_CLOSED_AT) — 고칠 서류는
+             * 한백이 받아서 올린다. 반려 기록과 사유는 그대로 남는다 — 한백이 무엇을 갈아
+             * 넣을지 보는 자리다.
+             *
+             * 이 값은 ★기록★이다 — 할 일·보드는 저장된 court 를 읽지 않고 칸에서 차례를
+             * 유도한다(lib/board courtOfColumn, 2026-09-04). 착공 뒤 반려된 현장은 그대로
+             * 「착공」 칸의 시공사 차례로 보이고 한백 할 일에는 서지 않는다 — 한백에게 남는
+             * 신호는 카드·머리말의 「반려 N」 태그다. 그래도 사실과 다른 값(영업사 차례)을
+             * 적어 두지는 않는다.
+             */
+            court: started ? ('한백' as const) : ('영업사' as const),
           }
         : {}),
     })

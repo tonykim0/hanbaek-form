@@ -9,7 +9,7 @@
 import { useState } from 'react';
 import type { ContractState, ProcessStatus, ProjectDetail, ProjectDocument } from '@/types/project';
 import { PROCESS_STATUSES, replLabel } from '@/types/project';
-import { CONTRACT_DOCS_LOCKED_WHY, statusIndex } from '@/lib/process';
+import { contractDocsLockedWhy, statusIndex } from '@/lib/process';
 import { HANDOFF_STATUS } from '@/lib/board';
 import { evaluateDocs, needsPreInstallCheck, type DocReq } from '@/lib/doc-rules';
 import { DocDelete, DocFileActions, DocUpload, DownloadAll } from '@/components/DocFiles';
@@ -126,7 +126,7 @@ function FactGroup({ title, rows }: { title: string; rows: Array<[string, string
 
 export function IntakeTab({
   project, evaluated, byKind, contract, projectId, siteName, canReview, canSubmit, canEditDocs,
-  canFillEmpty = false, canRefill = false, knownOrgs, status, lines,
+  canFillEmpty = false, knownOrgs, status, lines,
 }: {
   knownOrgs: string[];
   project: ProjectDetail['project'];
@@ -151,13 +151,6 @@ export function IntakeTab({
    * 판정은 canChangeContractDocs(slotEmpty=true) — 저장소도 같은 것을 본다.
    */
   canFillEmpty?: boolean;
-  /**
-   * 반려된 칸에는 다시 올릴 수 있는가 — 잠긴 뒤의 두 번째 예외 (한백 지시 2026-09-04).
-   * 착공 뒤에는 반려해도 계약 확인이 안 지워져(applyReviewSideEffects) 「확인이 풀렸는가」
-   * 로는 열리지 않았다 — 반려는 걸렸는데 올릴 단추가 없었다(감사 M9).
-   * 판정은 canChangeContractDocs(slotRejected=true) — 저장소도 같은 것을 본다.
-   */
-  canRefill?: boolean;
   /** 지금 서 있는 진행 단계 — 계약완료면 여기서 다음 걸음을 민다 */
   status: ProcessStatus;
   /** 설치 기수를 센다 — 나이스 제출 정보(NiceSubmitInfo)가 쓴다 */
@@ -283,6 +276,12 @@ export function IntakeTab({
         siteName={siteName}
         canReview={canReview}
         canRemove={canEditDocs}
+        /*
+         * 올리기 단추도 같은 판정을 따른다 — 서류 구역과 같은 잠금이다(반박 검토 2026-09-05,
+         * 감사 M15). 안 넘기면 착공 뒤 협력사에게 눌리지 않는 「다시 업로드」가 서 있다.
+         */
+        canEditDocs={canEditDocs}
+        canFillEmpty={canFillEmpty}
         surveyText={surveyText}
       />
 
@@ -323,7 +322,7 @@ export function IntakeTab({
           */}
         {canSubmit && !canEditDocs && (
           <Note tone="mute" className="mb-3">
-            {CONTRACT_DOCS_LOCKED_WHY}
+            {contractDocsLockedWhy(status)}
           </Note>
         )}
 
@@ -341,7 +340,19 @@ export function IntakeTab({
           <Note tone="warn" className="mb-3">
             <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
               <p className="font-black">
-                반려 {rejected.length}건{canReview ? '' : ' — 사유를 보고 다시 올려주세요'}
+                {/*
+                  * 협력사에게 할 일을 말한다 — ★실제로 올릴 수 있는가★(canEditDocs)로 가른다,
+                  * 단계로 가르지 않는다(한백 지시 2026-09-05 + 반박 검토). 단계로 갈랐더니
+                  * 착공 뒤 반려된 채 단계를 되돌린 현장에서 「다시 올려주세요」가 뜨는데 단추가
+                  * 없었다. 올릴 수 있으면 올리라고, 없으면 한백에 보내라고 — 판정과 말이 하나다.
+                  * 한백(관리자·열람 전용)에게는 아무 지시도 안 적는다 — 협력사의 할 일이다.
+                  */}
+                반려 {rejected.length}건
+                {!canSubmit || canReview
+                  ? ''
+                  : canEditDocs
+                    ? ' — 사유를 보고 다시 올려주세요'
+                    : ' — 고친 서류는 한백에 보내주세요. 한백이 올립니다'}
               </p>
               <p className="text-small text-amber-800">{rejected.map((d) => d.label).join(' · ')}</p>
               {/*
@@ -478,14 +489,15 @@ export function IntakeTab({
                           * 없었다). 필수 판정은 req 가 하므로 여기에 올려도 접수 게이트는
                           * 그대로다 — 올릴 수 있는 것과 내야 하는 것은 다른 말이다.
                           */}
-                        {(canEditDocs || (canFillEmpty && slotEmpty) || (canRefill && rejected) || canReview) && (
+                        {(canEditDocs || (canFillEmpty && slotEmpty) || canReview) && (
                         <div className="mt-auto flex flex-wrap items-center gap-x-2 gap-y-1 border-t border-slate-900/[0.07] pt-2">
                           {/*
-                            * 잠긴 뒤에도 열리는 칸 둘 — 빈 칸(canFillEmpty)과 ★반려된 칸★(canRefill).
-                            * 반려된 칸이 없으면 「다시 올려주세요」만 뜨고 올릴 단추가 없어
-                            * 협력사가 할 수 있는 것이 0개였다(착공 뒤, 감사 M9). 찬 칸은 그대로 잠긴다.
+                            * 잠긴 뒤에도 열리는 칸은 빈 칸 하나다(canFillEmpty) — 그것도 착공 전까지.
+                            * 「반려된 칸」 예외를 하루 두었다가 걷었다(2026-09-05): 첫 장을 넣는 순간
+                            * 예외가 사라져 두 장짜리 스캔이 반쪽으로 잠겼고(감사 M12), 한백이 착공
+                            * 뒤에는 협력사 손을 아예 닫기로 했다. 그때 협력사의 할 일은 위 띠가 말한다.
                             */}
-                          {(canEditDocs || (canFillEmpty && slotEmpty) || (canRefill && rejected)) && (
+                          {(canEditDocs || (canFillEmpty && slotEmpty)) && (
                             <DocUpload
                               projectId={projectId}
                               kind={d.key}

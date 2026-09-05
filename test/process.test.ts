@@ -9,7 +9,7 @@ import { describe, expect, it } from 'vitest';
 import {
   advanceBlockers, asProcessStatus, assertProcessWrite, canEnter, CHECK_ADVANCES,
   COURT_AFTER_STATUS, declarationBlockers, isHanbaekOnlyProcessField, statusIndex,
-  canChangeContractDocs, CONTRACT_DOCS_LOCK_AT,
+  canChangeContractDocs, CONTRACT_DOCS_LOCK_AT, contractDocsLockedWhy, PARTNER_DOCS_CLOSED_AT,
 } from '@/lib/process';
 import type { GateContext } from '@/lib/process';
 import type { ProcessInfo, ProcessStatus } from '@/types/project';
@@ -334,7 +334,8 @@ describe('canChangeContractDocs — 운영사에 낸 뒤로 계약 서류는 잠
    */
   it('★반려로 계약 확인이 풀리면 협력사가 다시 올릴 수 있다★', () => {
     expect(canChangeContractDocs('sales', CONTRACT_DOCS_LOCK_AT, false)).toBe(true);
-    expect(canChangeContractDocs('cons', '착공', false)).toBe(true);
+    /* 착공 전 마지막 칸으로 본다 — 착공부터는 협력사 손이 닫혀 이 규칙보다 앞선다(아래 묶음) */
+    expect(canChangeContractDocs('cons', '충전기 수령', false)).toBe(true);
   });
 
   it('확인이 살아 있으면 그대로 잠긴다 — 낸 서류가 정본이다', () => {
@@ -353,9 +354,10 @@ describe('canChangeContractDocs — 운영사에 낸 뒤로 계약 서류는 잠
    * 뒤늦게 오는 자리다. 채우면 그 칸도 잠긴다.
    */
   it('★빈 칸은 잠긴 뒤에도 협력사가 채울 수 있다★', () => {
-    for (const status of ['행위신고', '착공', '준공완료'] as const) {
-      expect(canChangeContractDocs('sales', status, true, true)).toBe(true);
-      expect(canChangeContractDocs('cons', status, true, true)).toBe(true);
+    /* 착공 전 잠금 구간 셋 — 착공부터는 빈 칸도 닫힌다(아래 묶음) */
+    for (const status of ['행위신고', '충전기 발주', '충전기 수령'] as const) {
+      expect(canChangeContractDocs('sales', status, true, true), status).toBe(true);
+      expect(canChangeContractDocs('cons', status, true, true), status).toBe(true);
     }
   });
 
@@ -372,30 +374,51 @@ describe('canChangeContractDocs — 운영사에 낸 뒤로 계약 서류는 잠
   });
 
   /*
-   * ★반려된 칸은 착공 뒤에도 다시 올린다★ (한백 지시 2026-09-04 「착공 이후 계약서류를
-   * 반려해서 서류 고치게 해줘」, 감사 M9).
+   * ★착공 뒤에는 협력사가 계약 서류를 못 바꾼다 — 예외 없이★ (한백 지시 2026-09-05
+   * 「착공 뒤에는 협력사 수정 없이 우리만 수정할 수 있고, 필요하면 서류만 따로 받아서
+   * 올리는 방식으로」).
    *
-   * 「반려되면 열린다」를 !contractConfirmed 가 대리하고 있었는데, 착공 뒤에는 반려해도
-   * 확인이 안 지워진다(2026-08-26 규칙 — 공사 중 현장을 계약 보드로 떨어뜨리지 않는다).
-   * 그 구간에서 반려는 걸리고 담당은 영업사로 넘어갔는데 문은 잠겨 있었다 — 조작 0개.
+   * 그 전날(09-04) 착공 뒤 반려된 칸을 협력사가 다시 올릴 수 있게 「반려된 칸」 예외를
+   * 넣었다가 걷었다 — 첫 장을 넣는 순간 예외가 사라져 두 장짜리 스캔이 반쪽으로 잠겼다
+   * (감사 M12). 예외를 정교하게 만드는 대신 문을 닫았다: 공사 중 현장의 서류는 한백이
+   * 받아서 올린다. 그래서 착공부터는 「확인이 풀렸다」도 「빈 칸이다」도 열쇠가 아니다.
    */
-  it('★착공 뒤 반려된 칸(확인 유지·파일 있음)은 협력사가 다시 올릴 수 있다★', () => {
-    for (const status of ['착공', '개통 및 통신확인', '준공서류 접수/검토', '준공보완'] as const) {
-      expect(canChangeContractDocs('sales', status, true, false, true), status).toBe(true);
-      expect(canChangeContractDocs('cons', status, true, false, true), status).toBe(true);
+  it('★착공부터는 확인이 살아 있으면 빈 칸이어도 협력사는 못 올린다★', () => {
+    for (const status of ['착공', '개통 및 통신확인', '준공서류 접수/검토', '준공보완', '준공완료'] as const) {
+      expect(canChangeContractDocs('sales', status, true, true), status).toBe(false);
+      expect(canChangeContractDocs('cons', status, true, false), status).toBe(false);
+      expect(canChangeContractDocs('salesCons', status, true, true), status).toBe(false);
     }
   });
 
-  it('반려 아닌 찬 칸은 그대로 잠긴다 — 예외는 반려된 칸 하나다', () => {
-    expect(canChangeContractDocs('sales', '착공', true, false, false)).toBe(false);
+  /*
+   * ★확인이 없으면 착공 뒤라도 연다★ (반박 검토 2026-09-05). 착공 뒤 반려는 확인을 지우지
+   * 않으니 보통은 안 생기는 상태인데, 한백이 「확인 취소」를 누르면 생긴다 — 그러면
+   * deriveStage 가 intake 로 유도해 현장이 계약보완/계약접수 칸에 서고 협력사 차례가 된다.
+   * 그 자리에서 협력사가 못 올리면 새 교착이다. 확인이 없다 = 계약을 다시 열었다.
+   */
+  it('착공 뒤라도 한백이 확인을 취소해 계약을 다시 열면 협력사가 고친다', () => {
+    for (const status of ['착공', '준공서류 접수/검토'] as const) {
+      expect(canChangeContractDocs('sales', status, false, false), status).toBe(true);
+      expect(canChangeContractDocs('cons', status, false, true), status).toBe(true);
+    }
   });
 
-  it('반려 여부를 안 주면 반려 아닌 것으로 본다 — 빠뜨렸을 때 잠기는 쪽', () => {
-    expect(canChangeContractDocs('sales', '착공', true, false)).toBe(false);
+  it('닫히는 자리는 착공이다 — 그 바로 앞 칸까지는 빈 칸 예외가 산다', () => {
+    expect(PARTNER_DOCS_CLOSED_AT).toBe('착공');
+    expect(canChangeContractDocs('sales', '충전기 수령', true, true)).toBe(true);
+    expect(canChangeContractDocs('sales', '착공', true, true)).toBe(false);
   });
 
-  it('반려 칸 예외도 열람 전용은 못 탄다', () => {
-    expect(canChangeContractDocs('viewer', '착공', true, false, true)).toBe(false);
+  it('★한백은 착공 뒤에도 바꾼다★ — 고칠 서류는 한백이 받아서 올린다', () => {
+    expect(canChangeContractDocs('admin', '착공')).toBe(true);
+    expect(canChangeContractDocs('admin', '준공완료', true, false)).toBe(true);
+  });
+
+  it('막는 이유가 구간에 맞게 갈린다 — 착공 뒤에는 「한백에 보내라」, 그 전에는 「빈 칸에는 올릴 수 있다」', () => {
+    expect(contractDocsLockedWhy('착공')).toMatch(/한백/);
+    expect(contractDocsLockedWhy('착공')).not.toMatch(/빈 칸에는 올릴 수/);
+    expect(contractDocsLockedWhy('행위신고')).toMatch(/빈 칸에는 올릴 수/);
   });
 });
 

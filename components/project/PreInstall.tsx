@@ -29,7 +29,8 @@ import chargerMeta from '@/public/data/charger-history/meta.json';
 import subsidyMeta from '@/public/data/subsidy-history/meta.json';
 
 export function PreInstall({
-  project, docs, byKind, siteName, canReview, canRemove = false, surveyText,
+  project, docs, byKind, siteName, canReview, canRemove = false,
+  canEditDocs = false, canFillEmpty = false, surveyText,
 }: {
   project: ProjectDetail['project'];
   docs: ReturnType<typeof evaluateDocs>;
@@ -38,6 +39,16 @@ export function PreInstall({
   canReview: boolean;
   /** 파일 한 장을 뺄 수 있는가 — 내는 쪽(협력사)과 한백 (열람 전용은 아니다) */
   canRemove?: boolean;
+  /**
+   * 올릴 수 있는가 — ★서류 구역과 같은 잠금★ (반박 검토 2026-09-05, 감사 M15).
+   * 기설치 두 칸도 documents 표의 계약 서류라 저장소는 같은 판정(assertContractDocsOpen)으로
+   * 막는데, 화면은 단추를 무조건 그리고 있었다 — 착공 뒤 협력사에게 눌리지 않는
+   * 「다시 업로드」가 서 있고 바로 위 안내는 「바꿀 수 없다」고 말했다(두 벌).
+   * 판정은 canChangeContractDocs 한 곳, 값은 IntakeTab 이 내려준다.
+   */
+  canEditDocs?: boolean;
+  /** 빈 칸에는 올릴 수 있는가 — 잠긴 뒤의 예외, 착공 전까지(IntakeTab 의 같은 이름 주석) */
+  canFillEmpty?: boolean;
   /**
    * 조사 내역을 글자로 — 묶음에 .txt 로 같이 들어간다.
    *
@@ -146,13 +157,21 @@ export function PreInstall({
                 </div>
               )}
 
+              {/*
+                * 조작 줄은 담을 것이 있을 때만 — 서류 구역(IntakeTab)과 같은 조건이다.
+                * 올리기는 잠금 판정을 따른다(canEditDocs, 빈 칸이면 canFillEmpty) — 서버가
+                * 거절할 단추를 세우지 않는다(화면 규칙 3).
+                */}
+              {(canEditDocs || (canFillEmpty && (!doc || doc.files.length === 0)) || canReview) && (
               <div className="mt-auto flex flex-wrap items-center gap-x-2 gap-y-1 border-t border-slate-900/[0.07] pt-2">
-                <DocUpload
-                  projectId={project.id}
-                  kind={d.key}
-                  rejected={doc?.status === 'rejected'}
-                  fileCount={doc?.files.length ?? 0}
-                />
+                {(canEditDocs || (canFillEmpty && (!doc || doc.files.length === 0))) && (
+                  <DocUpload
+                    projectId={project.id}
+                    kind={d.key}
+                    rejected={doc?.status === 'rejected'}
+                    fileCount={doc?.files.length ?? 0}
+                  />
+                )}
                 <span className="flex-1" />
                 {canReview && doc && doc.status !== 'none' && (
                   <DocReview
@@ -172,6 +191,7 @@ export function PreInstall({
                   />
                 )}
               </div>
+              )}
             </div>
           );
         })}

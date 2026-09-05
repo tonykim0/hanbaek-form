@@ -133,19 +133,15 @@ export default async function ProjectPage({
         detail.process.status,
         detail.project.contractConfirmedAt !== null
       )}
-      /* 빈 칸 예외 — 잠긴 뒤에도 파일 0장인 칸은 채운다(canChangeContractDocs slotEmpty 주석) */
+      /*
+       * 빈 칸 예외 — 잠긴 뒤에도 파일 0장인 칸은 채운다(canChangeContractDocs slotEmpty 주석).
+       * ★착공 전까지만이다★ — 착공 뒤에는 협력사 손이 완전히 닫힌다(PARTNER_DOCS_CLOSED_AT,
+       * 한백 지시 2026-09-05). 판정 함수가 그 구간을 안다.
+       */
       canFillEmpty={canChangeContractDocs(
         session.role,
         detail.process.status,
         detail.project.contractConfirmedAt !== null,
-        true
-      )}
-      /* 반려 칸 예외 — 착공 뒤 반려도 다시 올린다(canChangeContractDocs slotRejected 주석, 감사 M9) */
-      canRefill={canChangeContractDocs(
-        session.role,
-        detail.process.status,
-        detail.project.contractConfirmedAt !== null,
-        false,
         true
       )}
     />

@@ -54,7 +54,14 @@ for (const r of linkRules()) {
   targets.push({ id, steps: r.settlementSteps, label: `연동 턴키 ${(r.salesUnit + r.consUnit + r.margin) / 10_000}만` });
 }
 
-/* ── 검사: 프로덕션에서 읽은 케이스 id 열 개와 정확히 같아야 한다 (2026-09-04) ── */
+/*
+ * ── 검사: 프로덕션에서 읽은 케이스 id 열 개와 정확히 같아야 한다 (2026-09-04) ──
+ *
+ * ★2026-09-05 이후로 이 검사는 일부러 걸린다★ — 0055 가 자투 상업(pl-y10-mother-inplace-biz-2026)을
+ * 걷어서 정의 파일이 아홉을 내놓기 때문이다. 0053 은 이미 적용된 파일이라 다시 찍을 일이 없고,
+ * 다시 찍으면 안 된다(적용된 파일은 고치지 않는다). 여기서 멈추는 것이 맞는 동작이다 —
+ * 새 조항은 새 번호의 새 생성기로 만든다.
+ */
 const EXPECTED = [
   'pl-h2-y7-mother-new-apt', 'pl-h2-y10-mother-new-apt', 'pl-y10-mother-new-biz-2026',
   'pl-h2-y7-kepco-new-apt', 'pl-h2-y10-kepco-new-apt',

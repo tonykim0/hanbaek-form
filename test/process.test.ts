@@ -370,6 +370,33 @@ describe('canChangeContractDocs — 운영사에 낸 뒤로 계약 서류는 잠
   it('빈 칸 예외도 열람 전용은 못 탄다', () => {
     expect(canChangeContractDocs('viewer', '행위신고', true, true)).toBe(false);
   });
+
+  /*
+   * ★반려된 칸은 착공 뒤에도 다시 올린다★ (한백 지시 2026-09-04 「착공 이후 계약서류를
+   * 반려해서 서류 고치게 해줘」, 감사 M9).
+   *
+   * 「반려되면 열린다」를 !contractConfirmed 가 대리하고 있었는데, 착공 뒤에는 반려해도
+   * 확인이 안 지워진다(2026-08-26 규칙 — 공사 중 현장을 계약 보드로 떨어뜨리지 않는다).
+   * 그 구간에서 반려는 걸리고 담당은 영업사로 넘어갔는데 문은 잠겨 있었다 — 조작 0개.
+   */
+  it('★착공 뒤 반려된 칸(확인 유지·파일 있음)은 협력사가 다시 올릴 수 있다★', () => {
+    for (const status of ['착공', '개통 및 통신확인', '준공서류 접수/검토', '준공보완'] as const) {
+      expect(canChangeContractDocs('sales', status, true, false, true), status).toBe(true);
+      expect(canChangeContractDocs('cons', status, true, false, true), status).toBe(true);
+    }
+  });
+
+  it('반려 아닌 찬 칸은 그대로 잠긴다 — 예외는 반려된 칸 하나다', () => {
+    expect(canChangeContractDocs('sales', '착공', true, false, false)).toBe(false);
+  });
+
+  it('반려 여부를 안 주면 반려 아닌 것으로 본다 — 빠뜨렸을 때 잠기는 쪽', () => {
+    expect(canChangeContractDocs('sales', '착공', true, false)).toBe(false);
+  });
+
+  it('반려 칸 예외도 열람 전용은 못 탄다', () => {
+    expect(canChangeContractDocs('viewer', '착공', true, false, true)).toBe(false);
+  });
 });
 
 /*

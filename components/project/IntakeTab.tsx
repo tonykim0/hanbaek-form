@@ -126,7 +126,7 @@ function FactGroup({ title, rows }: { title: string; rows: Array<[string, string
 
 export function IntakeTab({
   project, evaluated, byKind, contract, projectId, siteName, canReview, canSubmit, canEditDocs,
-  canFillEmpty = false, knownOrgs, status, lines,
+  canFillEmpty = false, canRefill = false, knownOrgs, status, lines,
 }: {
   knownOrgs: string[];
   project: ProjectDetail['project'];
@@ -151,6 +151,13 @@ export function IntakeTab({
    * 판정은 canChangeContractDocs(slotEmpty=true) — 저장소도 같은 것을 본다.
    */
   canFillEmpty?: boolean;
+  /**
+   * 반려된 칸에는 다시 올릴 수 있는가 — 잠긴 뒤의 두 번째 예외 (한백 지시 2026-09-04).
+   * 착공 뒤에는 반려해도 계약 확인이 안 지워져(applyReviewSideEffects) 「확인이 풀렸는가」
+   * 로는 열리지 않았다 — 반려는 걸렸는데 올릴 단추가 없었다(감사 M9).
+   * 판정은 canChangeContractDocs(slotRejected=true) — 저장소도 같은 것을 본다.
+   */
+  canRefill?: boolean;
   /** 지금 서 있는 진행 단계 — 계약완료면 여기서 다음 걸음을 민다 */
   status: ProcessStatus;
   /** 설치 기수를 센다 — 나이스 제출 정보(NiceSubmitInfo)가 쓴다 */
@@ -471,10 +478,14 @@ export function IntakeTab({
                           * 없었다). 필수 판정은 req 가 하므로 여기에 올려도 접수 게이트는
                           * 그대로다 — 올릴 수 있는 것과 내야 하는 것은 다른 말이다.
                           */}
-                        {(canEditDocs || (canFillEmpty && slotEmpty) || canReview) && (
+                        {(canEditDocs || (canFillEmpty && slotEmpty) || (canRefill && rejected) || canReview) && (
                         <div className="mt-auto flex flex-wrap items-center gap-x-2 gap-y-1 border-t border-slate-900/[0.07] pt-2">
-                          {/* 잠긴 뒤에도 빈 칸은 채운다 — canFillEmpty 주석 참조. 찬 칸은 그대로 잠긴다 */}
-                          {(canEditDocs || (canFillEmpty && slotEmpty)) && (
+                          {/*
+                            * 잠긴 뒤에도 열리는 칸 둘 — 빈 칸(canFillEmpty)과 ★반려된 칸★(canRefill).
+                            * 반려된 칸이 없으면 「다시 올려주세요」만 뜨고 올릴 단추가 없어
+                            * 협력사가 할 수 있는 것이 0개였다(착공 뒤, 감사 M9). 찬 칸은 그대로 잠긴다.
+                            */}
+                          {(canEditDocs || (canFillEmpty && slotEmpty) || (canRefill && rejected)) && (
                             <DocUpload
                               projectId={projectId}
                               kind={d.key}

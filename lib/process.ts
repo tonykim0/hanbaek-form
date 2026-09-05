@@ -259,7 +259,22 @@ export function canChangeContractDocs(
    *
    * 안 주면 차 있는 것으로 본다 — 빠뜨렸을 때 잠기는 쪽이어야 한다(위와 같은 이유).
    */
-  slotEmpty = false
+  slotEmpty = false,
+  /**
+   * 그 칸이 반려 상태인가. ★반려된 칸은 잠근 뒤에도 다시 올릴 수 있다★ (한백 지시
+   * 2026-09-04 「착공 이후 계약서류를 반려해서 서류 고치게 해줘」, 감사 M9).
+   *
+   * 아래 `!contractConfirmed` 가 「반려됐으면 열린다」를 대리하고 있었다 — 반려가 확인을
+   * 지우니까. 그런데 ★착공 뒤에는 확인을 지우지 않는다★(한백 지시 2026-08-26, 지우면
+   * 공사 중인 현장이 계약 보드로 떨어진다). 그 구간에서 대리 신호가 안 켜져, 반려는
+   * 걸렸는데 문은 잠긴 채 담당만 영업사로 넘어갔다 — 협력사가 할 수 있는 조작이 0개였다.
+   * 우리가 반려한 서류는 정본이 아니다 — 그 사실을 우회하지 않고 칸에서 직접 본다.
+   *
+   * 올리기에만 쓴다. 빼기는 그대로 잠긴다 — 다시 올리면 반려가 풀리는 규칙으로 충분하고,
+   * 반려된 칸의 마지막 장을 빼면 「파일 없는 반려」가 하나 더 생긴다(감사 M11).
+   * 안 주면 반려 아닌 것으로 본다 — 빠뜨렸을 때 잠기는 쪽이어야 한다.
+   */
+  slotRejected = false
 ): boolean {
   if (!canWrite(role)) return false;
   if (isHanbaek(role)) return true;
@@ -274,12 +289,13 @@ export function canChangeContractDocs(
    */
   if (!contractConfirmed) return true;
   if (slotEmpty) return true;
+  if (slotRejected) return true;
   return statusIndex(status) < statusIndex(CONTRACT_DOCS_LOCK_AT);
 }
 
 /** 못 바꾸는 이유 — 저장소와 화면이 같은 문장을 쓴다 */
 export const CONTRACT_DOCS_LOCKED_WHY =
-  '운영사에 계약서를 낸 뒤로는 이미 낸 서류를 바꿀 수 없습니다 — 빈 칸에는 올릴 수 있고, 고칠 것이 있으면 진행현황에 남겨주세요.';
+  '운영사에 계약서를 낸 뒤로는 이미 낸 서류를 바꿀 수 없습니다 — 빈 칸과 반려된 칸에는 올릴 수 있고, 그 밖에 고칠 것이 있으면 진행현황에 남겨주세요.';
 
 /**
  * 지금 넘어갈 수 있는 상태들.

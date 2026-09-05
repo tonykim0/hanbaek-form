@@ -140,6 +140,14 @@ export default async function ProjectPage({
         detail.project.contractConfirmedAt !== null,
         true
       )}
+      /* 반려 칸 예외 — 착공 뒤 반려도 다시 올린다(canChangeContractDocs slotRejected 주석, 감사 M9) */
+      canRefill={canChangeContractDocs(
+        session.role,
+        detail.process.status,
+        detail.project.contractConfirmedAt !== null,
+        false,
+        true
+      )}
     />
   );
 }

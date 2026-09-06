@@ -237,7 +237,12 @@ export function Grid({
           끝에 떨어져 섰다 — 줄 이름과 값 사이가 멀어 눈이 한 줄을 못 좇는다. 값 열은 금액
           하나가 서는 폭(7rem)으로 못 박고, 표는 그 합만큼만 차지한다. 좁은 화면은 옆으로 흐른다.
         */}
-        <table className="text-center w-max table-fixed text-small">
+        {/*
+            text-center 는 ★값 칸의 기본★ 이다(화면 규칙 13 — 금액만 오른쪽, 현장만 왼쪽).
+            ★여러 줄 글·불릿은 여기서 빠진다★ (한백 2026-09-06) — 조건 행은 문단이라
+            가운데 두면 줄마다 시작점이 달라 몇 개인지 세어지지 않는다. 그 칸들은 text-left 다.
+          */}
+          <table className="text-center w-max table-fixed text-small">
           <colgroup>
             <col className="w-52" />
             {gridTerms.flatMap((t) =>
@@ -353,7 +358,7 @@ export function Grid({
               if (row.num) {
                 return (
                   <tr key={row.label} className="align-top">
-                    <td className="bg-slate-50 px-3 py-2 font-bold text-slate-700">{row.label}</td>
+                    <td className="bg-slate-50 px-3 py-2 text-left font-bold text-slate-700">{row.label}</td>
                     {spansOf(row.of).map((c, i) => (
                       <td
                         key={i}
@@ -380,11 +385,11 @@ export function Grid({
                 <Fragment key={row.label}>
                   <tr className="align-top">
                     {/* 행 라벨은 축 라벨(교체유형)과 같은 톤 — 표 안에 글자 크기를 셋 두지 않는다 */}
-                    <td className="bg-slate-50 px-3 py-2 font-bold text-slate-700" rowSpan={common.length > 0 && hasDiff ? 2 : 1}>
+                    <td className="bg-slate-50 px-3 py-2 text-left font-bold text-slate-700" rowSpan={common.length > 0 && hasDiff ? 2 : 1}>
                       {row.label}
                     </td>
                     {common.length > 0 ? (
-                      <td colSpan={cols} className="whitespace-pre-line break-keep px-3 py-2 text-small text-slate-700">
+                      <td colSpan={cols} className="whitespace-pre-line break-keep px-3 py-2 text-left text-small text-slate-700">
                         {common.join('\n')}
                       </td>
                     ) : hasDiff ? (
@@ -392,7 +397,7 @@ export function Grid({
                         <td
                           key={i}
                           colSpan={c.span}
-                          className={`whitespace-pre-line break-keep px-3 py-2 text-small text-slate-700 ${i === 0 ? '' : 'border-l border-slate-200'}`}
+                          className={`whitespace-pre-line break-keep px-3 py-2 text-left text-small text-slate-700 ${i === 0 ? '' : 'border-l border-slate-200'}`}
                         >
                           {c.value === null ? <Empty kind="wait" /> : c.value}
                         </td>
@@ -408,7 +413,7 @@ export function Grid({
                         <td
                           key={i}
                           colSpan={c.span}
-                          className={`whitespace-pre-line break-keep px-3 pb-2 text-small text-slate-700 ${i === 0 ? '' : 'border-l border-slate-200'}`}
+                          className={`whitespace-pre-line break-keep px-3 pb-2 text-left text-small text-slate-700 ${i === 0 ? '' : 'border-l border-slate-200'}`}
                         >
                           {c.value === null ? <span className="text-slate-300">—</span> : c.value}
                         </td>

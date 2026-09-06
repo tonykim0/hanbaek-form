@@ -182,7 +182,11 @@ function Row({
 
   return (
     <tr className={r.active ? '' : 'bg-slate-50/60'}>
-      <Td>
+      {/*
+        케이스 열은 글이다 — 운영사·적용 시작·id 가 줄로 쌓이고 수정 칸까지 들어온다.
+        가운데 두면 줄마다 시작점이 달라 어느 줄이 무엇인지 눈이 못 잡는다(한백 2026-09-06).
+      */}
+      <Td left>
         {/* 이름을 따로 짓지 않는다 — 케이스의 정체는 운영사·시기·축이다. caseName 은 셀렉트용 파생 라벨로만 남는다 */}
         <p className={`break-keep font-bold ${r.active ? 'text-slate-800' : 'text-slate-400'}`}>
           {r.cpo}

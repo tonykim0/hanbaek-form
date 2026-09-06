@@ -152,7 +152,7 @@ function NoticeItem({ notice, canWrite }: { notice: Notice; canWrite: boolean })
       {open && (
         <div className="flex flex-col gap-2.5 pb-3 pl-5">
           <p className="max-w-2xl whitespace-pre-line break-keep text-small leading-relaxed text-slate-700">
-            {notice.body}
+            <Linked>{notice.body}</Linked>
           </p>
           <NoticeFiles notice={notice} canWrite={canWrite} />
         </div>
@@ -179,6 +179,40 @@ function NoticeItem({ notice, canWrite }: { notice: Notice; canWrite: boolean })
         onCancel={() => { setAsking(false); setError(null); }}
       />
     </li>
+  );
+}
+
+/**
+ * 본문의 주소를 누를 수 있게 — 공지에 「자세한 것은 여기」가 들어가는 일이 흔하다.
+ *
+ * ★거는 것은 두 가지뿐이다★ http(s) 주소와, 확장자로 끝나는 우리 사이트 경로
+ * (/notices/legacy-charger-history.html). 「/」로 시작하는 낱말을 다 걸면 「9/1 정책」
+ * 같은 글자가 링크가 된다 — 걸리면 안 되는 것을 거는 쪽이 안 거는 쪽보다 나쁘다.
+ * 본문은 사람이 쓴 평문이라 마크다운을 들이지 않는다(쓰는 사람이 문법을 배워야 한다).
+ */
+const LINK_RE = /(https?:\/\/[^\s<>"']+|\/[\w.-]+(?:\/[\w.-]+)*\.[a-z]{2,5})/gi;
+
+/** 그 조각이 주소인가 — split 이 남긴 조각을 다시 재는 자리라 g 없는 정규식을 쓴다 */
+const isLink = (part: string) => /^https?:\/\//i.test(part) || /^\/[\w.-]+(?:\/[\w.-]+)*\.[a-z]{2,5}$/i.test(part);
+
+function Linked({ children }: { children: string }) {
+  /* split 은 잡은 조각(캡처 그룹)도 배열에 남긴다 — 홀수 자리가 주소다 */
+  return (
+    <>
+      {children.split(LINK_RE).map((part, i) => (isLink(part) ? (
+        <a
+          key={i}
+          href={part}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="font-bold text-brand-800 underline decoration-brand-200 transition hover:decoration-brand-500"
+        >
+          {part}
+        </a>
+      ) : (
+        <span key={i}>{part}</span>
+      )))}
+    </>
   );
 }
 

@@ -5,7 +5,7 @@
  * 치울 길이 없다. 그래서 저장 전 검증이 유일한 방어다.
  */
 import { describe, expect, it } from 'vitest';
-import { checkPricingRule, matchingRules, pricingRuleId } from '@/lib/pricing-match';
+import { checkPricingRule, halfKeyOf, matchingRules, pricingRuleId, startKey } from '@/lib/pricing-match';
 import { powerTypesOfRepl, replLabel, SPLITS_SELF_REPL } from '@/types/project';
 import type { NewPricingRule, PricingRule } from '@/types/project';
 
@@ -139,5 +139,27 @@ describe('replLabel — 교체유형을 안 가르는 운영사', () => {
 
   it('환경부 신규는 어느 운영사든 그대로다', () => {
     expect(replLabel('나이스인프라', '환경부 신규')).toBe('환경부 신규');
+  });
+});
+
+describe('startKey — 적용 시작을 견줄 수 있는 값으로', () => {
+  /*
+   * 플러그링크 하반기는 「2026년 7월 1일 ~ 8월 31일」처럼 끝까지 적는다(한백 2026-09-06).
+   * 정렬·시기 탭·중복 판정이 전부 이 키를 보므로, 범위 표기가 앞 날짜로 읽히지 않으면
+   * 케이스가 상반기 탭으로 옮겨 가거나 매트릭스에서 사라진다.
+   */
+  it('범위 표기는 앞 날짜로 읽는다 — 하반기에 선다', () => {
+    const r = { startDate: '2026년 7월 1일 ~ 8월 31일', bizYear: 2026 };
+    expect(startKey(r)).toBe('2026-07-01');
+    expect(halfKeyOf(r)).toBe('2026-하');
+  });
+  it('연도가 빠진 표기는 못 읽는다 — 그래서 연도를 뺀 「7월 1일 ~ 8월 31일」로는 저장하지 않는다', () => {
+    expect(startKey({ startDate: '7월 1일 ~ 8월 31일', bizYear: 2026 })).toBe('2026-00-00');
+    expect(halfKeyOf({ startDate: '7월 1일 ~ 8월 31일', bizYear: 2026 })).toBe('2026-상');
+  });
+  it('날짜·반기·ISO 표기가 같은 축에서 견줘진다', () => {
+    expect(startKey({ startDate: '2026년 1월 20일', bizYear: 2026 })).toBe('2026-01-20');
+    expect(startKey({ startDate: '2026년 하반기', bizYear: 2026 })).toBe('2026-07-00');
+    expect(startKey({ startDate: '2026-08-22', bizYear: 2026 })).toBe('2026-08-22');
   });
 });

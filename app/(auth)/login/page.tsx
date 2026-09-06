@@ -31,13 +31,16 @@ export default async function LoginPage() {
           </Suspense>
         </div>
 
-        <p className="mt-5 text-center text-small text-slate-400">
-          계약서 작성 · 접수는 로그인 없이{' '}
-          <a href="/" className="font-semibold text-brand-700 hover:underline">
-            EV 업무 포털
-          </a>
-          에서 이용하세요.
-        </p>
+        {/*
+          * ★포털 안내를 걷었다★ (한백 지시 2026-09-06).
+          *
+          * 「계약서 작성 · 접수는 로그인 없이 EV 업무 포털에서」라고 적혀 있었는데,
+          * 접수는 2026-08-26 에 포털에서 닫았다 — 없는 길을 안내하고 있었다.
+          * 계약서 작성은 아직 포털에 있지만, 로그인하러 온 사람에게 할 말이 아니다:
+          * 콘솔에 들어오면 사이드바의 「계약서 작성」이 그 양식으로 데려간다.
+          *
+          * 설명 문구를 넣지 않는다(화면 규칙 2) — 여기 남은 것은 로그인 하나다.
+          */}
       </div>
     </div>
   );

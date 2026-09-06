@@ -9,7 +9,7 @@ import { desc, eq, gt, sql } from 'drizzle-orm';
 import { getDb } from '@/lib/db/client';
 import { writeAudit } from '@/lib/db/audit';
 import { notices, users } from '@/lib/db/schema';
-import type { Notice } from '@/types/project';
+import type { Notice, NoticeFile } from '@/types/project';
 import type { ProjectRepository } from '../repository';
 import { assertAdmin } from './shared';
 
@@ -19,12 +19,15 @@ const toNotice = (r: typeof notices.$inferSelect): Notice => ({
   body: r.body,
   createdAt: r.createdAt.toISOString(),
   updatedAt: r.updatedAt?.toISOString() ?? null,
+  /* 옛 행은 null 일 수 있다 — 마이그레이션이 기본값을 줬어도 방어한다(세는 자리가 갈린다) */
+  files: r.files ?? [],
 });
 
 /** pgRepository 가 펼쳐 담는 조각 — 이름과 시그니처는 인터페이스가 정한다 */
 export const noticeStore: Pick<
   ProjectRepository,
   'listNotices' | 'countUnreadNotices' | 'markNoticesRead' | 'saveNotice' | 'deleteNotice'
+  | 'attachNoticeFile' | 'removeNoticeFile'
 > = {
   /* 로그인한 누구나 — 라우트·화면이 세션만 본다 */
   async listNotices(): Promise<Notice[]> {
@@ -91,7 +94,7 @@ export const noticeStore: Pick<
     return id;
   },
 
-  async deleteNotice(id, actor): Promise<void> {
+  async deleteNotice(id, actor): Promise<string[]> {
     assertAdmin(actor, '공지 삭제');
     const db = getDb();
     const [before] = await db.select().from(notices).where(eq(notices.id, id)).limit(1);
@@ -103,5 +106,49 @@ export const noticeStore: Pick<
         field: 'notices', oldValue: before.title, newValue: null,
       });
     });
+    /* 붙어 있던 파일 주소 — 부르는 쪽이 Blob 에서 지운다(DB 가 정본이라 여기서 안 막는다) */
+    return (before.files ?? []).map((f) => f.url);
+  },
+
+  /*
+   * ★파일은 쌓인다 — 갈아치우지 않는다★ (서류 칸과 같은 규칙, lib/attach-doc).
+   * 같은 이름이 또 와도 둘 다 남긴다: 무엇이 최신인지는 올린 시각이 말하고,
+   * 무엇을 지울지는 사람이 정한다. 조용히 덮으면 되돌릴 자리가 없다.
+   */
+  async attachNoticeFile(id, file: NoticeFile, actor): Promise<void> {
+    assertAdmin(actor, '공지 첨부');
+    const db = getDb();
+    const [before] = await db.select().from(notices).where(eq(notices.id, id)).limit(1);
+    if (!before) throw new Error('공지를 찾을 수 없습니다.');
+    await db.transaction(async (tx) => {
+      await tx
+        .update(notices)
+        .set({ files: [...(before.files ?? []), file] })
+        .where(eq(notices.id, id));
+      await writeAudit(tx, {
+        projectId: null, actor, action: '공지 첨부 올림',
+        field: 'notices.files', oldValue: before.title, newValue: file.name,
+      });
+    });
+  },
+
+  async removeNoticeFile(id, url, actor): Promise<string> {
+    assertAdmin(actor, '공지 첨부 빼기');
+    const db = getDb();
+    const [before] = await db.select().from(notices).where(eq(notices.id, id)).limit(1);
+    if (!before) throw new Error('공지를 찾을 수 없습니다.');
+    const gone = (before.files ?? []).find((f) => f.url === url);
+    if (!gone) throw new Error('그 첨부를 찾을 수 없습니다.');
+    await db.transaction(async (tx) => {
+      await tx
+        .update(notices)
+        .set({ files: (before.files ?? []).filter((f) => f.url !== url) })
+        .where(eq(notices.id, id));
+      await writeAudit(tx, {
+        projectId: null, actor, action: '공지 첨부 뺌',
+        field: 'notices.files', oldValue: gone.name, newValue: null,
+      });
+    });
+    return gone.url;
   },
 };

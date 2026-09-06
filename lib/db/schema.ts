@@ -12,6 +12,7 @@ import {
   boolean, index, integer, jsonb, pgTable, primaryKey,
   smallint, text, timestamp, uniqueIndex,
 } from 'drizzle-orm/pg-core';
+import type { NoticeFile } from '@/types/project';
 
 // ── 계정 ────────────────────────────────────────────────────────
 export const users = pgTable('users', {
@@ -39,6 +40,8 @@ export const notices = pgTable('notices', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   /** 고친 시각 — 배지는 보지 않는다(오타 수정이 전원을 다시 부르면 안 된다) */
   updatedAt: timestamp('updated_at', { withTimezone: true }),
+  /** 붙은 파일 — NoticeFile[] (양식·서식처럼 협력사가 받아 가는 것) */
+  files: jsonb('files').$type<NoticeFile[]>().notNull().default([]),
 });
 
 /**

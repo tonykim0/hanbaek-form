@@ -20,15 +20,17 @@ const TOOLS: { href: string; label: string; adminOnly?: boolean; blank?: boolean
   { href: '/admin/materials', label: '자료실 관리', adminOnly: true },
   { href: '/lookup', label: '기설치 이력조회' },
   /*
-   * 기설치 안내문 (한백 지시 2026-09-02) — 조회 바로 옆이다: 같은 일의 두 쪽이라
-   * (무엇을 내야 하는가 · 그 이력을 어떻게 찾는가) 떨어뜨리면 하나를 보고 다른 하나를
-   * 다시 찾는다. 포털 첫 화면에도 같은 글이 서 있다(app/(portal)/page.tsx 의 notices).
+   * ★기설치 제출 안내를 여기서 걷었다★ (한백 지시 2026-09-06 「이거 공지에 넣어줘」).
    *
-   * ★새 탭이다★ — public/notices/ 의 정적 HTML 이라 콘솔 껍데기(사이드바·상단바) 밖이다.
-   * 같은 탭에서 열면 돌아오는 길이 브라우저 뒤로가기뿐이다. 콘솔·포털 두 주소가 한
-   * 배포라 이 경로는 양쪽에서 다 열린다(둘 다 200 확인, 2026-09-02).
+   * 2026-09-02 에 이 자리에 걸었던 정적 HTML 링크다. 공지가 표로 옮겨오고 첨부까지
+   * 붙게 되면서(migrations/0051·0056) 안내문이 살 자리가 생겼다 — 상단바에 링크를
+   * 하나씩 늘리는 대신 공지 한 곳에서 날짜순으로 쌓인다.
+   *
+   * ★포털의 SiteHeader 에는 그대로 둔다★ — 공지는 로그인해야 보이는데(/notices 는
+   * (console) 안이다) 포털은 로그인 없는 입구다. 걷으면 그쪽 사람에게 길이 없어진다.
+   * 안내문 자체(public/notices/legacy-charger-history.html)도 그대로 산다 — 공지 본문이
+   * 그리로 보낸다(결정 나무가 표라, 글로 펴면 못 읽는다).
    */
-  { href: '/notices/legacy-charger-history.html', label: '기설치 제출 안내', blank: true },
   { href: '/apartments', label: 'K-APT 정보' },
 ];
 

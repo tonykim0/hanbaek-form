@@ -2,6 +2,7 @@
  * PATCH  /api/notices/[id] — 공지 수정 [한백 전용] (작성 시각은 그대로 — 배지가 다시 안 켜진다)
  * DELETE /api/notices/[id] — 공지 삭제 [한백 전용]
  */
+import { del } from '@vercel/blob';
 import { getRepository } from '@/lib/data';
 import { adminWrite, BadRequest } from '@/lib/api/write-route';
 
@@ -17,6 +18,8 @@ export const PATCH = adminWrite<
 export const DELETE = adminWrite<{ id: string }, undefined>(
   '한백 관리자만 공지를 지울 수 있습니다.',
   async ({ params, actor }) => {
-    await getRepository().deleteNotice(params.id, actor);
+    const files = await getRepository().deleteNotice(params.id, actor);
+    /* 공지가 사라지면 붙어 있던 파일도 갈 곳이 없다 — DB 가 정본이라 실패로 막지 않는다 */
+    await Promise.all(files.map((url) => del(url).catch(() => undefined)));
   }
 );

@@ -15,7 +15,7 @@ import type {
   Court, DocStatus, HoldState, IntakeDraft, LineAxes, NewPayoutEntry, NewPricingRule, PayoutKind, PayoutRow, PreInstall, PricingRule,
   ChargerModel,
   PayoutPlanRow, ProcessInfo, ProcessStatus, ProjectDetail, ProjectSummary, Settlement, SettlementRule, SettlementSummary, BatchFinal, TaxInvoice,
-  Notice, ReviewEvent,
+  Notice, NoticeFile, ReviewEvent,
 } from '@/types/project';
 import type { Actor, Viewer } from '@/lib/auth/types';
 
@@ -382,8 +382,17 @@ export interface ProjectRepository {
   /** 공지 작성·수정 [한백 전용] — id 가 있으면 수정(작성 시각은 그대로) */
   saveNotice(input: { id?: string; title: string; body: string }, actor: Actor): Promise<string>;
 
-  /** 공지 삭제 [한백 전용] */
-  deleteNotice(id: string, actor: Actor): Promise<void>;
+  /** 공지 삭제 [한백 전용] — 붙은 파일 주소를 돌려준다(부르는 쪽이 Blob 을 지운다) */
+  deleteNotice(id: string, actor: Actor): Promise<string[]>;
+
+  /**
+   * 공지에 파일을 붙인다 [한백 전용] — 쌓인다(갈아치우지 않는다).
+   * 같은 이름이 또 오면 그대로 둘 다 남긴다 — 무엇을 지울지는 사람이 정한다.
+   */
+  attachNoticeFile(id: string, file: NoticeFile, actor: Actor): Promise<void>;
+
+  /** 공지에서 파일 한 장을 뺀다 [한백 전용] — 뺀 주소를 돌려준다(부르는 쪽이 Blob 을 지운다) */
+  removeNoticeFile(id: string, url: string, actor: Actor): Promise<string>;
 
   /**
    * 케이스의 적용 시작·비고를 고친다. [한백 전용]

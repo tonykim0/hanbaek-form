@@ -1059,6 +1059,22 @@ export interface ProjectSummary {
  * 읽음 여부는 여기 없다 — 그것은 공지의 것이 아니라 사람의 것이다
  * (users.notices_read_at, 상단바 배지가 센다).
  */
+/**
+ * 공지에 붙는 파일 — 양식·서식처럼 협력사가 받아 가는 것 (한백 지시 2026-09-06).
+ *
+ * 서류(DocFile)와 갈라 둔다: 저기는 검수 대상이라 판독 제목·반려·사진 판정이 붙지만
+ * 여기는 받아 가는 것뿐이다. 같은 타입을 쓰면 쓰지도 않는 칸이 따라온다.
+ */
+export interface NoticeFile {
+  name: string;
+  /** 실제 파일 주소 (Vercel Blob) */
+  url: string;
+  /** 바이트 — 목록에 크기를 적는다(받기 전에 얼마인지 보여야 한다) */
+  size: number;
+  /** ISO 문자열 */
+  uploadedAt: string;
+}
+
 export interface Notice {
   id: string;
   title: string;
@@ -1067,6 +1083,8 @@ export interface Notice {
   createdAt: string;
   /** 고친 적 있으면 그 시각 — 배지는 보지 않는다 */
   updatedAt: string | null;
+  /** 붙은 파일 — 없으면 빈 배열이다(null 을 두지 않는다: 세는 자리가 갈린다) */
+  files: NoticeFile[];
 }
 
 export interface ReviewEvent {

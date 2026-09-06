@@ -16,7 +16,7 @@
  * 글은 평소엔 글자, 고칠 때만 입력칸이다(화면 규칙 4). 삭제는 수정의 반대쪽 끝(규칙 8),
  * Confirm 으로 한 번 묻는다 — 지운 공지는 되살릴 수 없다.
  */
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import type { Notice, NoticeFile } from '@/types/project';
 import { useAction } from '@/lib/use-action';
 import { formatSize } from '@/lib/materials-meta';
@@ -151,9 +151,7 @@ function NoticeItem({ notice, canWrite }: { notice: Notice; canWrite: boolean })
 
       {open && (
         <div className="flex flex-col gap-2.5 pb-3 pl-5">
-          <p className="max-w-2xl whitespace-pre-line break-keep text-small leading-relaxed text-slate-700">
-            <Linked>{notice.body}</Linked>
-          </p>
+          <NoticeBody text={notice.body} />
           <NoticeFiles notice={notice} canWrite={canWrite} />
         </div>
       )}
@@ -214,6 +212,79 @@ function Linked({ children }: { children: string }) {
       )))}
     </>
   );
+}
+
+/**
+ * 공지 본문 — 사람이 쓴 평문에 활자 위계를 준다 (한백 지적 2026-09-06 「되게 밋밋해 보이네」).
+ *
+ * 전에는 whitespace-pre-line 한 덩어리였다. 머리말도 항목도 본문과 같은 크기·같은 색이라
+ * 눈이 걸릴 자리가 없었다 — 긴 안내문일수록 어디서부터 읽어야 할지 모른다.
+ *
+ * ★새 문법을 만들지 않는다★ — 우리말 안내문이 이미 쓰는 표시를 읽을 뿐이다:
+ *
+ *   ■ 로 시작하면   구역 머리
+ *   · 로 시작하면   글머리 항목
+ *   1. 로 시작하면  번호 항목
+ *   그 밖             문단
+ *
+ * 마크다운을 들이면 쓰는 사람이 문법을 배워야 한다. 여기 셋은 배울 것이 없다 —
+ * 안 쓰면 그냥 문단이고, 쓰던 대로 써도 그대로 나온다.
+ *
+ * 항목은 매달린 들여쓰기다(글머리표 자리를 비워 두고 pl 로 민다) — 접혀 내려온 둘째 줄이
+ * 글머리표 아래로 들어가면 어디까지가 한 항목인지 안 보인다.
+ */
+function NoticeBody({ text }: { text: string }) {
+  const lines = text.split('\n');
+  const out: ReactNode[] = [];
+  let list: Array<{ mark: string; text: string }> = [];
+
+  const flush = (key: string) => {
+    if (list.length === 0) return;
+    out.push(
+      <ul key={key} className="flex flex-col gap-1">
+        {list.map((it, i) => (
+          <li key={i} className="relative pl-[1.9em] text-base leading-relaxed text-slate-700">
+            {/* 배수구를 고정폭으로 잡고 오른쪽에 붙인다 — 「10.」처럼 두 자리가 와도 글이 안 밀린다 */}
+            <span className="absolute left-0 top-0 w-[1.5em] text-right tabular-nums text-slate-400">
+              {it.mark}
+            </span>
+            <Linked>{it.text}</Linked>
+          </li>
+        ))}
+      </ul>
+    );
+    list = [];
+  };
+
+  lines.forEach((raw, i) => {
+    const line = raw.trimEnd();
+    const head = /^■\s*(.+)$/.exec(line);
+    const bullet = /^[·•]\s*(.+)$/.exec(line);
+    const num = /^(\d+)\.\s+(.+)$/.exec(line);
+
+    if (bullet) { list.push({ mark: '·', text: bullet[1] }); return; }
+    if (num) { list.push({ mark: `${num[1]}.`, text: num[2] }); return; }
+    flush(`l${i}`);
+
+    if (head) {
+      /* 구역 머리 — 위에 숨을 두고 굵게. 첫 줄이면 위 여백을 주지 않는다 */
+      out.push(
+        <h3 key={i} className={`text-base font-black text-slate-900 ${out.length > 0 ? 'mt-2' : ''}`}>
+          {head[1]}
+        </h3>
+      );
+      return;
+    }
+    if (!line) return; // 빈 줄은 자리를 만들지 않는다 — 묶음 사이 간격(gap)이 그 일을 한다
+    out.push(
+      <p key={i} className="text-base leading-relaxed text-slate-700">
+        <Linked>{line}</Linked>
+      </p>
+    );
+  });
+  flush('last');
+
+  return <div className="flex max-w-2xl flex-col gap-1.5 break-keep">{out}</div>;
 }
 
 /**

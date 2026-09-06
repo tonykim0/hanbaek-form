@@ -5,7 +5,7 @@
  * 치울 길이 없다. 그래서 저장 전 검증이 유일한 방어다.
  */
 import { describe, expect, it } from 'vitest';
-import { checkPricingRule, halfKeyOf, matchingRules, pricingRuleId, startKey } from '@/lib/pricing-match';
+import { checkPricingRule, matchingRules, pricingRuleId, startKey } from '@/lib/pricing-match';
 import { powerTypesOfRepl, replLabel, SPLITS_SELF_REPL } from '@/types/project';
 import type { NewPricingRule, PricingRule } from '@/types/project';
 
@@ -148,14 +148,17 @@ describe('startKey — 적용 시작을 견줄 수 있는 값으로', () => {
    * 정렬·시기 탭·중복 판정이 전부 이 키를 보므로, 범위 표기가 앞 날짜로 읽히지 않으면
    * 케이스가 상반기 탭으로 옮겨 가거나 매트릭스에서 사라진다.
    */
-  it('범위 표기는 앞 날짜로 읽는다 — 하반기에 선다', () => {
-    const r = { startDate: '2026년 7월 1일 ~ 8월 31일', bizYear: 2026 };
-    expect(startKey(r)).toBe('2026-07-01');
-    expect(halfKeyOf(r)).toBe('2026-하');
+  it('범위 표기는 앞 날짜로 읽는다 — 시기 목록·정렬이 그 값으로 선다', () => {
+    expect(startKey({ startDate: '2026년 7월 1일 ~ 8월 31일', bizYear: 2026 })).toBe('2026-07-01');
   });
   it('연도가 빠진 표기는 못 읽는다 — 그래서 연도를 뺀 「7월 1일 ~ 8월 31일」로는 저장하지 않는다', () => {
     expect(startKey({ startDate: '7월 1일 ~ 8월 31일', bizYear: 2026 })).toBe('2026-00-00');
-    expect(halfKeyOf({ startDate: '7월 1일 ~ 8월 31일', bizYear: 2026 })).toBe('2026-상');
+  });
+  it('시기 목록은 이 키로 정렬된다 — 상반기가 위, 하반기가 아래', () => {
+    const dates = ['2026년 7월 1일 ~ 8월 31일', '2026년 1월 20일'];
+    const sorted = [...dates].sort((a, b) =>
+      startKey({ startDate: a, bizYear: 0 }).localeCompare(startKey({ startDate: b, bizYear: 0 })));
+    expect(sorted).toEqual(['2026년 1월 20일', '2026년 7월 1일 ~ 8월 31일']);
   });
   it('날짜·반기·ISO 표기가 같은 축에서 견줘진다', () => {
     expect(startKey({ startDate: '2026년 1월 20일', bizYear: 2026 })).toBe('2026-01-20');

@@ -253,29 +253,12 @@ export function startKey(r: Pick<NewPricingRule, 'startDate' | 'bizYear'>): stri
 }
 
 /*
- * ── 반기 — 매트릭스의 시간축 ──────────────────────────────────────────────
- * 운영사 단가는 반년마다 갱신되는 것이 관행이라(원본 CSV 도 상·하반기 행이었다)
- * 매트릭스를 반기 단위로 편다. 케이스의 반기는 적용 시작에서 유도한다 —
- * 월을 모르는 값(「2026년」)은 연초 적용으로 보고 상반기에 둔다.
+ * ── 반기 ────────────────────────────────────────────────────────────────
+ * ★걷어냈다 (한백 2026-09-06).★ 매트릭스의 시간축이 반년 묶음(halfKeyOf·halfEndKey·
+ * halfLabel)이었는데, 정책은 반년에 맞춰 오지 않는다 — 운영사마다 시작일이 다르고
+ * 한 반기에 두 정책이 들어오면 뒤엣것에 앞엣것이 숨었다. 이제 시간축은 케이스가 적은
+ * 적용 시작 그대로다(components/pricing/Grid). 견주는 값은 startKey 하나로 충분하다.
  */
-
-/** 케이스가 속하는 반기 — 「2026-상」 꼴. 시기 탭을 가르는 키다 */
-export function halfKeyOf(r: Pick<NewPricingRule, 'startDate' | 'bizYear'>): string {
-  const [y, m] = startKey(r).split('-');
-  return `${y}-${Number(m) >= 7 ? '하' : '상'}`;
-}
-
-/** 반기의 끝 — 이 값보다 startKey 가 작거나 같으면 그 시기에 적용 중인 케이스다 */
-export function halfEndKey(halfKey: string): string {
-  const [y, h] = halfKey.split('-');
-  return `${y}-${h === '상' ? '06' : '12'}-99`;
-}
-
-/** 반기 키를 사람이 읽는 이름으로 — 「2026 상반기」 */
-export function halfLabel(halfKey: string): string {
-  const [y, h] = halfKey.split('-');
-  return `${y} ${h}반기`;
-}
 
 /**
  * 이 케이스와 겹치는 활성 케이스 — 있으면 중복이라 넣을 수 없다.

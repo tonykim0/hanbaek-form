@@ -9,7 +9,7 @@ import {
 import { replLabel } from '@/types/project';
 import { won } from '@/lib/format';
 
-import { halfEndKey, halfKeyOf, halfLabel, startKey } from '@/lib/pricing-match';
+import { startKey } from '@/lib/pricing-match';
 
 import {
   Empty, FIELD, PANEL,
@@ -27,7 +27,7 @@ export function Grid({
 }) {
   const canEdit = useContext(CanEdit);
   const [cpo, setCpo] = useState<CpoName>(CPO_NAMES[0]);
-  const [halfPick, setHalfPick] = useState<string | null>(null);
+  const [periodPick, setPeriodPick] = useState<string | null>(null);
 
   /* 턴키 채널만 격자에 편다 — 영업·시공 채널은 드물어 목록에서 본다. 있으면 아래에 개수로 보인다 */
   const mine = rules.filter((r) => r.cpo === cpo && r.channel === '턴키');
@@ -44,14 +44,22 @@ export function Grid({
   })();
   const sideCount = rules.filter((r) => r.cpo === cpo && r.channel !== '턴키').length;
 
-  /* 시기 탭은 전 운영사의 케이스에서 뽑는다 — 운영사를 바꿔도 탭이 그대로라 길을 잃지 않는다 */
-  const halves = [...new Set(rules.filter((r) => r.channel === '턴키').map(halfKeyOf))].sort();
-  const half = halfPick && halves.includes(halfPick) ? halfPick : halves[halves.length - 1] ?? null;
+  /*
+   * ★시기는 고른 운영사의 정책 기간이다★ (한백 2026-09-06). 그전에는 반년 묶음(「2026 하반기」)
+   * 이었는데, 정책은 반년에 맞춰 오지 않는다 — 플러그링크 7월 1일·현대엔지니어링 7월 21일·
+   * 나이스 8월 1일이 한 칸에 섞여 「지금 무엇을 보고 있나」가 케이스 표와 다른 말을 했다.
+   * 케이스가 적은 그대로(「2026년 7월 1일 ~ 8월 31일」)를 고르게 하면 두 자리가 같은 말을 한다.
+   *
+   * 운영사마다 목록이 다르므로 운영사를 바꾸면 고른 것이 없어질 수 있다 — 그때는 최신으로.
+   */
+  const periods = [...new Set(mine.map((r) => r.startDate))]
+    .sort((a, b) => startKey({ startDate: a, bizYear: 0 }).localeCompare(startKey({ startDate: b, bizYear: 0 })));
+  const period = periodPick && periods.includes(periodPick) ? periodPick : periods[periods.length - 1] ?? null;
 
-  /** 칸에서 이 시기에 적용 중인 케이스 — 그 반기까지 시작된 것 중 최신. 이전 반기 것이면 이월이다 */
+  /** 칸에서 이 시기에 적용 중인 케이스 — 그 시기까지 시작된 것 중 최신. 이전 시기 것이면 이월이다 */
   const at = (repl: ReplType, power: (typeof POWER_TYPES)[number], term: number, bldg: BuildingType) => {
-    if (!half) return { now: null, carried: false };
-    const end = halfEndKey(half);
+    if (!period) return { now: null, carried: false };
+    const end = startKey({ startDate: period, bizYear: 0 });
     const hits = mine
       .filter((r) =>
         r.replType === repl && r.powerType === power &&
@@ -60,7 +68,7 @@ export function Grid({
       )
       .sort((a, b) => startKey(b).localeCompare(startKey(a)));
     const now = hits[0] ?? null;
-    return { now, carried: now !== null && halfKeyOf(now) !== half };
+    return { now, carried: now !== null && now.startDate !== period };
   };
 
   /*
@@ -204,11 +212,11 @@ export function Grid({
           <select
             aria-label="시기"
             className={FIELD}
-            value={half ?? ''}
-            onChange={(e) => setHalfPick(e.target.value)}
+            value={period ?? ''}
+            onChange={(e) => setPeriodPick(e.target.value)}
           >
-            {halves.map((h) => (
-              <option key={h} value={h}>{halfLabel(h)}</option>
+            {periods.map((p) => (
+              <option key={p} value={p}>{p}</option>
             ))}
           </select>
         </div>
